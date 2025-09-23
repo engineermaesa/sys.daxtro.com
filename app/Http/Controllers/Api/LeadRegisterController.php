@@ -70,7 +70,7 @@ class LeadRegisterController extends Controller
         return response()->json([
             'response_id' => (string) Str::uuid(),
             'message'     => 'Success to get Source',
-            'data'        => LeadSource::whereNotIn('name', ['Canvas', 'Visit', 'Expo'])->get(['id', 'name'])
+            'data'        => LeadSource::whereNotIn('name', ['Canvas', 'Visit', 'Expo RHVAC Jakarta 2025'])->get(['id', 'name'])
         ]);
     }
 

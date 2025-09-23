@@ -99,8 +99,10 @@ class LeadController extends Controller
                 'quotation.order.orderItems',
                 'quotation.reviews.reviewer',
                 'picExtensions',
+                'factoryCity',
             ])->findOrFail($id)
             : new Lead();
+
 
         $sources  = LeadSource::all();
         $segments = LeadSegment::all();
@@ -121,57 +123,17 @@ class LeadController extends Controller
 
     public function save(Request $request, $id = null)
     {
-        $user    = auth()->user();
-        $isSales = $user->role->code === 'sales';
+        try{
+            $user    = auth()->user();
+            $isSales = $user->role->code === 'sales';
 
-        // 1. Build validation rules
-        $segmentRule = $isSales ? 'required' : 'nullable';
-        $rules = [
-            'source_id'   => 'required',
-            'segment_id'  => $segmentRule,
-            'province'    => "nullable",
-            // allow NULL, "ALL", or a real region ID
-            'region_id'   => [
-                'nullable',
-                function($attribute, $value, $fail) {
-                    if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
-                        $fail("$attribute is invalid");
-                    }
-                },
-            ],
-            'title'       => 'required|in:Mr,Mrs',
-            'name'        => 'required',
-            'company'     => 'nullable|string|max:150',
-            'customer_type' => 'nullable|exists:ref_customer_types,name',
-            'phone'       => 'required',
-            'email'       => 'required|email',
-            'industry_id' => [
-                'nullable',
-                function($attribute, $value, $fail) {
-                    if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
-                        $fail("$attribute is invalid");
-                    }
-                },
-            ],
-            'other_industry' => 'required_if:industry_id,other|nullable|string|max:150',
-            'jabatan_id'  => 'nullable|exists:ref_jabatans,id',
-            'product_id'  => 'nullable|exists:ref_products,id',
-            'needs'       => 'required',
-            'tonase'      => 'nullable|numeric',
-            'pic_extensions.*.title.*' => 'nullable|in:Mr,Mrs',
-            'pic_extensions.*.nama.*'  => 'nullable|string',
-            'pic_extensions.*.jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
-            'pic_extensions.*.email.*' => 'nullable|email',
-            'pic_extensions.*.phone.*' => 'nullable|string',
-        ];
-
-        // If submitting multiple leads at once, validate the arrays
-        if (is_array($request->input('source_id'))) {
+            // 1. Build validation rules
+            $segmentRule = $isSales && !$id ? 'required' : 'nullable';
             $rules = [
-                'source_id.*'  => 'required',
-                'segment_id.*' => $segmentRule,
-                'province.*'   => "nullable",
-                'region_id.*'  => [
+                'source_id'   => 'required',
+                'segment_id'  => $segmentRule,
+                'province'    => "nullable",
+                'region_id'   => [
                     'nullable',
                     function($attribute, $value, $fail) {
                         if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
@@ -179,13 +141,28 @@ class LeadController extends Controller
                         }
                     },
                 ],
-                'title.*'      => 'required|in:Mr,Mrs',
-                'name.*'       => 'required',
-                'company.*'    => 'nullable|string|max:150',
-                'customer_type.*' => 'nullable|exists:ref_customer_types,name',
-                'phone.*'      => 'required',
-                'email.*'      => 'required|email',
-                'industry_id.*' => [
+                'factory_city_id' => [
+                    'nullable',
+                    function($attribute, $value, $fail) {
+                        if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
+                            $fail("$attribute is invalid");
+                        }
+                    },
+                ],
+                'factory_province' => 'nullable|string',
+                'factory_industry_id' => 'nullable|exists:ref_industries,id',
+                'industry_remark' => 'nullable|string',
+
+                'title'       => 'required|in:Mr,Mrs',
+                'name'        => 'required',
+                'company'     => 'nullable|string|max:150',
+                'customer_type' => 'nullable|exists:ref_customer_types,name',
+                'contact_reason' => 'nullable|string',
+                'business_reason' => 'nullable|string',
+                'competitor_offer' => 'nullable|string',
+                'phone'       => 'required',
+                'email'       => 'required|email',
+                'industry_id' => [
                     'nullable',
                     function($attribute, $value, $fail) {
                         if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
@@ -193,170 +170,272 @@ class LeadController extends Controller
                         }
                     },
                 ],
-                'other_industry.*' => 'required_if:industry_id.*,other|nullable|string|max:150',
-                'jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
-                'product_id.*' => 'nullable|exists:ref_products,id',
-                'needs.*'      => 'required',
-                'tonase.*'     => 'nullable|numeric',
+                'other_industry' => 'required_if:industry_id,other|nullable|string|max:150',
+                'jabatan_id'  => 'nullable|exists:ref_jabatans,id',
+                'product_id'  => 'nullable|exists:ref_products,id',
+                'needs'       => 'required',
+                'tonase'      => 'nullable|numeric',
+                'tonage_remark' => 'nullable|string',
+                'pic_extensions.*.title.*' => 'nullable|in:Mr,Mrs',
+                'pic_extensions.*.nama.*'  => 'nullable|string',
+                'pic_extensions.*.jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
+                'pic_extensions.*.email.*' => 'nullable|email',
+                'pic_extensions.*.phone.*' => 'nullable|string',
             ];
-        }
 
-        $request->validate($rules);
+            // If submitting multiple leads at once, validate the arrays
+            if (is_array($request->input('source_id'))) {
+                $rules = [
+                    'source_id.*'  => 'required',
+                    'segment_id.*' => $segmentRule,
+                    'province.*'   => "nullable",
+                    'region_id.*'  => [
+                        'nullable',
+                        function($attribute, $value, $fail) {
+                            if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
+                                $fail("$attribute is invalid");
+                            }
+                        },
+                    ],
+                    'factory_city_id.*' => [
+                        'nullable',
+                        function($attribute, $value, $fail) {
+                            if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
+                                $fail("$attribute is invalid");
+                            }
+                        },
+                    ],
+                    'factory_province.*' => 'nullable|string',
+                    'factory_industry_id.*' => 'nullable|exists:ref_industries,id',
+                    'industry_remark.*' => 'nullable|string|max:500',
+                    'title.*'      => 'required|in:Mr,Mrs',
+                    'name.*'       => 'required',
+                    'company.*'    => 'nullable|string|max:150',
+                    'customer_type.*' => 'nullable|exists:ref_customer_types,name',
+                    'contact_reason.*' => 'nullable|string',
+                    'business_reason.*' => 'nullable|string',
+                    'competitor_offer.*' => 'nullable|string',
+                    'phone.*'      => 'required',
+                    'email.*'      => 'required|email',
+                    'industry_id.*' => [
+                        'nullable',
+                        function($attribute, $value, $fail) {
+                            if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
+                                $fail("$attribute is invalid");
+                            }
+                        },
+                    ],
+                    'other_industry.*' => 'required_if:industry_id.*,other|nullable|string|max:150',
+                    'jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
+                    'product_id.*' => 'nullable|exists:ref_products,id',
+                    'needs.*'      => 'required',
+                    'tonase.*'     => 'nullable|numeric',
+                    'tonage_remark.*' => 'nullable|string',
+                ];
+            }
 
-        // 2. Handle multiple leads
-        if (is_array($request->input('source_id')) && ! $id) {
-            $ids = [];
+            $request->validate($rules);
 
-            foreach ($request->source_id as $i => $srcId) {
-                // Map "ALL" → null
-                $rawRegion = $request->region_id[$i] === 'ALL'
-                    ? null
-                    : $request->region_id[$i];
+            // 2. Handle multiple leads
+            if (is_array($request->input('source_id')) && !$id) {
+                $ids = [];
 
-                $region = $rawRegion ? Region::with('province')->find($rawRegion) : null;
-                $branchId = $region?->branch_id;
-                $provinceName = $region?->province?->name;
+                foreach ($request->source_id as $i => $srcId) {
+                    $lead = new Lead();
 
-                $lead = new Lead();
-                $lead->source_id    = $srcId;
-                $lead->segment_id   = $request->segment_id[$i];
-                $lead->region_id    = $rawRegion;
-                $lead->branch_id    = $branchId;
-                $lead->province     = $rawRegion ? $provinceName : null;
-                $lead->status_id    = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
-                $lead->company      = $request->company[$i] ?? null;
-                $lead->customer_type = $request->customer_type[$i] ?? null;
-                $lead->name         = trim(($request->title[$i] ?? '') . ' ' . $request->name[$i]);
-                $lead->phone        = $request->phone[$i];
-                $lead->email        = $request->email[$i];
-                if (($request->industry_id[$i] ?? null) === 'other') {
-                    $lead->industry_id   = null;
-                    $lead->other_industry = $request->other_industry[$i] ?? null;
-                } else {
-                    $lead->industry_id   = $request->industry_id[$i] ?? null;
-                    $lead->other_industry = null;
-                }
-                $lead->jabatan_id   = $request->jabatan_id[$i] ?? null;
-                $lead->product_id   = $request->product_id[$i] ?? null;
-                $lead->needs        = $request->needs[$i];
-                $lead->tonase       = $request->tonase[$i] ?? null;
-                $lead->published_at = now();
-                $lead->save();
+                    // Add null checks for each array access
+                    $rawRegion = isset($request->region_id[$i]) && $request->region_id[$i] === 'ALL' 
+                        ? null 
+                        : ($request->region_id[$i] ?? null);
 
-                $extras = $request->input('pic_extensions.' . $i, []);
-                if ($extras) {
-                    $count = count($extras['nama'] ?? []);
-                    for ($x = 0; $x < $count; $x++) {
-                        if (($extras['nama'][$x] ?? '') === '' && ($extras['email'][$x] ?? '') === '' && ($extras['phone'][$x] ?? '') === '') {
-                            continue;
+                    $region = $rawRegion ? Region::with('province')->find($rawRegion) : null;
+                    $branchId = $region?->branch_id;
+                    $provinceName = $region?->province?->name;
+
+                    // Add null checks for factory fields
+                    $rawFactoryCity = isset($request->factory_city_id[$i]) && $request->factory_city_id[$i] === 'ALL'
+                        ? null
+                        : ($request->factory_city_id[$i] ?? null);
+                    $factoryCity = $rawFactoryCity ? Region::with('province')->find($rawFactoryCity) : null;
+
+                    // Now set the properties with null coalescing
+                    $lead->source_id = $srcId;
+                    $lead->segment_id = $request->segment_id[$i] ?? null;
+                    $lead->region_id = $rawRegion;
+                    $lead->branch_id = $branchId;
+                    $lead->province = $rawRegion ? $provinceName : null;
+                    $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
+                    $lead->factory_city_id = $rawFactoryCity;
+                    $lead->factory_province = $factoryCity ? $factoryCity->province->name : ($request->factory_province[$i] ?? null);
+                    $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
+                    $lead->industry_remark = $request->industry_remark[$i] ?? null;
+                    $lead->company = $request->company[$i] ?? null;
+                    $lead->customer_type = $request->customer_type[$i] ?? null;
+                    $lead->contact_reason = $request->contact_reason[$i] ?? null;
+                    $lead->business_reason = $request->business_reason[$i] ?? null;
+                    $lead->competitor_offer = $request->competitor_offer[$i] ?? null;
+                    $lead->name = trim(($request->title[$i] ?? '') . ' ' . ($request->name[$i] ?? ''));
+                    $lead->phone = $request->phone[$i] ?? null;
+                    $lead->email = $request->email[$i] ?? null;
+
+                    // Handle industry with null checks
+                    if (isset($request->industry_id[$i]) && $request->industry_id[$i] === 'other') {
+                        $lead->industry_id = null;
+                        $lead->other_industry = $request->other_industry[$i] ?? null;
+                    } else {
+                        $lead->industry_id = $request->industry_id[$i] ?? null;
+                        $lead->other_industry = null;
+                    }
+                    $lead->jabatan_id = $request->jabatan_id[$i] ?? null;
+                    $lead->product_id = $request->product_id[$i] ?? null;
+                    $lead->needs = $request->needs[$i] ?? null;
+                    $lead->tonase = $request->tonase[$i] ?? null;
+                    $lead->tonage_remark = $request->tonage_remark[$i] ?? null;
+                    $lead->published_at = now();
+
+                    $lead->save();
+
+                    $extras = $request->input('pic_extensions.' . $i, []);
+                    if ($extras) {
+                        $count = count($extras['nama'] ?? []);
+                        for ($x = 0; $x < $count; $x++) {
+                            if (($extras['nama'][$x] ?? '') === '' && ($extras['email'][$x] ?? '') === '' && ($extras['phone'][$x] ?? '') === '') {
+                                continue;
+                            }
+                            $lead->picExtensions()->create([
+                                'nama'  => $extras['nama'][$x] ?? null,
+                                'jabatan_id' => $extras['jabatan_id'][$x] ?? null,
+                                'email' => $extras['email'][$x] ?? null,
+                                'phone' => $extras['phone'][$x] ?? null,
+                                'title' => $extras['title'][$x] ?? null,
+                            ]);
                         }
-                        $lead->picExtensions()->create([
-                            'nama'  => $extras['nama'][$x] ?? null,
-                            'jabatan_id' => $extras['jabatan_id'][$x] ?? null,
-                            'email' => $extras['email'][$x] ?? null,
-                            'phone' => $extras['phone'][$x] ?? null,
-                            'title' => $extras['title'][$x] ?? null,
+                    }
+
+                    if ($isSales) {
+                        LeadClaim::create([
+                            'lead_id'    => $lead->id,
+                            'sales_id'   => $user->id,
+                            'claimed_at' => now(),
                         ]);
                     }
+
+                    ActivityLogger::writeLog(
+                        'create_lead',
+                        'Created new lead',
+                        $lead,
+                        ['after' => $lead->fresh()->toArray()],
+                        $user
+                    );
+
+                    $ids[] = $lead->id;
                 }
+                \Log::info('Request data:', $request->all());
 
-                if ($isSales) {
-                    LeadClaim::create([
-                        'lead_id'    => $lead->id,
-                        'sales_id'   => $user->id,
-                        'claimed_at' => now(),
-                    ]);
-                }
-
-                ActivityLogger::writeLog(
-                    'create_lead',
-                    'Created new lead',
-                    $lead,
-                    ['after' => $lead->fresh()->toArray()],
-                    $user
-                );
-
-                $ids[] = $lead->id;
+                return $this->setJsonResponse('Leads saved successfully', ['ids' => $ids]);
             }
 
-            return $this->setJsonResponse('Leads saved successfully', ['ids' => $ids]);
-        }
+            // 3. Single-lead create or update
+            $lead   = $id ? Lead::findOrFail($id) : new Lead();
+            $before = $id ? $lead->toArray() : null;
 
-        // 3. Single-lead create or update
-        $lead   = $id ? Lead::findOrFail($id) : new Lead();
-        $before = $id ? $lead->toArray() : null;
+            $rawRegion = $request->region_id === 'ALL'
+                ? null
+                : $request->region_id;
+            $region = $rawRegion ? Region::with('province')->find($rawRegion) : null;
+            $branchId = $region?->branch_id;
+            $provinceName = $region?->province?->name;
 
-        $rawRegion = $request->region_id === 'ALL'
-            ? null
-            : $request->region_id;
-        $region = $rawRegion ? Region::with('province')->find($rawRegion) : null;
-        $branchId = $region?->branch_id;
-        $provinceName = $region?->province?->name;
+            $lead->source_id    = $request->source_id;
+            $lead->segment_id   = $request->segment_id;
+            $lead->region_id    = $rawRegion;
+            $lead->branch_id    = $branchId;
+            $lead->province     = $rawRegion ? $provinceName : null;
+            if (! $id) {
+                $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
+            }
+            $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL' 
+                ? null 
+                : ($request->factory_city_id ?? null);
+            $factoryRegion = $rawFactoryRegion ? Region::with('province')->find($rawFactoryRegion) : null;
+            $lead->factory_city_id = $rawFactoryRegion;
+            $lead->factory_province = $factoryRegion ? $factoryRegion->province->name : $request->factory_province;
+            $lead->factory_industry_id = $request->factory_industry_id;
+            $lead->industry_remark = $request->industry_remark;
+            $lead->company      = $request->company;
+            $lead->customer_type = $request->customer_type;
+            $lead->contact_reason = $request->contact_reason;
+            $lead->business_reason = $request->business_reason;
+            $lead->competitor_offer = $request->competitor_offer;
+            $lead->name         = trim($request->title . ' ' . $request->name);
+            $lead->phone        = $request->phone;
+            $lead->email        = $request->email;
+            if ($request->industry_id === 'other') {
+                $lead->industry_id   = null;
+                $lead->other_industry = $request->other_industry;
+            } else {
+                $lead->industry_id   = $request->industry_id;
+                $lead->other_industry = null;
+            }
+            $lead->jabatan_id   = $request->jabatan_id;
+            $lead->product_id   = $request->product_id;
+            $lead->needs        = $request->needs;
+            $lead->tonase       = $request->tonase;
+            $lead->tonage_remark = $request->tonage_remark;
+            $lead->published_at = $id ? $lead->published_at : now();
+            $lead->save();
 
-        $lead->source_id    = $request->source_id;
-        $lead->segment_id   = $request->segment_id;
-        $lead->region_id    = $rawRegion;
-        $lead->branch_id    = $branchId;
-        $lead->province     = $rawRegion ? $provinceName : null;
-        if (! $id) {
-            $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
-        }
-        $lead->company      = $request->company;
-        $lead->customer_type = $request->customer_type;
-        $lead->name         = trim($request->title . ' ' . $request->name);
-        $lead->phone        = $request->phone;
-        $lead->email        = $request->email;
-        if ($request->industry_id === 'other') {
-            $lead->industry_id   = null;
-            $lead->other_industry = $request->other_industry;
-        } else {
-            $lead->industry_id   = $request->industry_id;
-            $lead->other_industry = null;
-        }
-        $lead->jabatan_id   = $request->jabatan_id;
-        $lead->product_id   = $request->product_id;
-        $lead->needs        = $request->needs;
-        $lead->tonase       = $request->tonase;
-        $lead->published_at = $id ? $lead->published_at : now();
-        $lead->save();
-
-        if (! $id && $isSales) {
-            LeadClaim::create([
-                'lead_id'    => $lead->id,
-                'sales_id'   => $user->id,
-                'claimed_at' => now(),
-            ]);
-        }
-
-        $lead->picExtensions()->delete();
-        $extras = $request->input('pic_extensions.0', []);
-        if ($extras) {
-            $count = count($extras['nama'] ?? []);
-            for ($x = 0; $x < $count; $x++) {
-                if (($extras['nama'][$x] ?? '') === '' && ($extras['email'][$x] ?? '') === '' && ($extras['phone'][$x] ?? '') === '') {
-                    continue;
-                }
-                $lead->picExtensions()->create([
-                    'nama'  => $extras['nama'][$x] ?? null,
-                    'jabatan_id' => $extras['jabatan_id'][$x] ?? null,
-                    'email' => $extras['email'][$x] ?? null,
-                    'phone' => $extras['phone'][$x] ?? null,
-                    'title' => $extras['title'][$x] ?? null,
+            if (! $id && $isSales) {
+                LeadClaim::create([
+                    'lead_id'    => $lead->id,
+                    'sales_id'   => $user->id,
+                    'claimed_at' => now(),
                 ]);
             }
-        }
 
-        $after = $lead->fresh()->toArray();
-        ActivityLogger::writeLog(
-            $id ? 'update_lead' : 'create_lead',
-            $id ? 'Updated lead' : 'Created new lead',
-            $lead,
-            ['before' => $before, 'after' => $after],
-            $user
-        );
+            $lead->picExtensions()->delete();
+            $extras = $request->input('pic_extensions.0', []);
+            if ($extras) {
+                $count = count($extras['nama'] ?? []);
+                for ($x = 0; $x < $count; $x++) {
+                    if (($extras['nama'][$x] ?? '') === '' && ($extras['email'][$x] ?? '') === '' && ($extras['phone'][$x] ?? '') === '') {
+                        continue;
+                    }
+                    $lead->picExtensions()->create([
+                        'nama'  => $extras['nama'][$x] ?? null,
+                        'jabatan_id' => $extras['jabatan_id'][$x] ?? null,
+                        'email' => $extras['email'][$x] ?? null,
+                        'phone' => $extras['phone'][$x] ?? null,
+                        'title' => $extras['title'][$x] ?? null,
+                    ]);
+                }
+            }
 
-        return $this->setJsonResponse('Lead saved successfully');
+            $after = $lead->fresh()->toArray();
+            ActivityLogger::writeLog(
+                $id ? 'update_lead' : 'create_lead',
+                $id ? 'Updated lead' : 'Created new lead',
+                $lead,
+                ['before' => $before, 'after' => $after],
+                $user
+            );
+            
+            return $this->setJsonResponse('Lead saved successfully');
+    } catch (\Exception $e) {
+        \Log::error('Lead Save Error:', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(), 
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all() // Log the request data
+        ]);
+        
+        return response()->json([
+            'error' => true,
+            'message' => 'Error saving lead: ' . $e->getMessage()
+        ], 500);
     }
+}
 
 
     public function claim($id)

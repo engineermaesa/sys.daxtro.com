@@ -19,7 +19,7 @@ class LeadSeeder extends Seeder
             'Friends Recommendation',
             'Canvas',
             'Visit',
-            'Expo',
+            'Expo RHVAC Jakarta 2025',
             'Association',
             'Business Association',
             'Repeat Order',
