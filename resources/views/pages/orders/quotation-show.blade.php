@@ -17,19 +17,21 @@
 
                     @php
                         $bmReview = $quotation->reviews->where('role', 'BM')->sortByDesc('decided_at')->first();
-                        $dirReview = $quotation->reviews
-                            ->where('role', 'SD')
-                            ->sortByDesc('decided_at')
-                            ->first();
+                        // $dirReview = $quotation->reviews
+                        //     ->where('role', 'SD')
+                        //     ->sortByDesc('decided_at')
+                        //     ->first();
                     @endphp
                     <div class="alert alert-warning">
                         This quotation is currently under review.<br>
                         Branch Manager: <strong>{{ $bmReview ? ucfirst($bmReview->decision) : 'Pending' }}</strong><br>
-                        Sales Director: <strong>{{ $dirReview ? ucfirst($dirReview->decision) : 'Pending' }}</strong><br>
-                        @if (in_array($roleCode, ['branch_manager', 'sales_director']) &&
+                        {{-- Sales Director: <strong>{{ $dirReview ? ucfirst($dirReview->decision) : 'Pending' }}</strong><br> --}}
+                        {{-- @if (in_array($roleCode, ['branch_manager', 'sales_director']) &&
                                 !(($roleCode === 'branch_manager' && $bmReview) ||
                                   ($roleCode === 'sales_director' && $dirReview)) &&
-                                !($roleCode === 'sales_director' && !$bmReview))
+                                !($roleCode === 'sales_director' && !$bmReview)) --}}
+                        @if (in_array($roleCode, ['branch_manager']) &&
+                                !(($roleCode === 'branch_manager' && $bmReview)))
                             You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons in
                             the bottom of the page.
                         @else
@@ -365,8 +367,8 @@
                         @php
                             $userRole   = auth()->user()->role?->code;
                             $bmApproved = $quotation->reviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
-                            $dirApproved = $quotation->reviews->where('role', 'SD')->where('decision', 'approve')->isNotEmpty();
-                            $allApproved = $bmApproved && $dirApproved;
+                            // $dirApproved = $quotation->reviews->where('role', 'SD')->where('decision', 'approve')->isNotEmpty();
+                            $allApproved = $bmApproved;
                             $hasPayment = $quotation->proformas->contains(function ($p) {
                                 return $p->paymentConfirmation !== null;
                             });
@@ -374,7 +376,7 @@
                             if (! $allApproved) {
                                 $canEdit = $userRole === 'sales' && isset($claim);
                             } else {
-                                $canEdit = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                                $canEdit = in_array($userRole, ['branch_manager']) && ! $hasPayment;
                             }
                         @endphp
                         @if ($canEdit && $claim)
@@ -382,6 +384,16 @@
                         @endif
                     </div>
                     @php
+                        // $userRole   = auth()->user()->role?->code;
+                        // $bmApproved = $quotation->reviews
+                        //     ->where('role', 'BM')
+                        //     ->where('decision', 'approve')
+                        //     ->isNotEmpty();
+                        // $reviewed = $userRole === 'branch_manager'
+                        //     ? $quotation->reviews->where('role', 'BM')->isNotEmpty()
+                        //     : ($userRole === 'sales_director' ? $quotation->reviews->where('role', 'SD')->isNotEmpty() : false);
+                        // $canReview = ($userRole === 'branch_manager' && !$reviewed) ||
+                        //     ($userRole === 'sales_director' && $bmApproved && !$reviewed);
                         $userRole   = auth()->user()->role?->code;
                         $bmApproved = $quotation->reviews
                             ->where('role', 'BM')
@@ -389,9 +401,8 @@
                             ->isNotEmpty();
                         $reviewed = $userRole === 'branch_manager'
                             ? $quotation->reviews->where('role', 'BM')->isNotEmpty()
-                            : ($userRole === 'sales_director' ? $quotation->reviews->where('role', 'SD')->isNotEmpty() : false);
-                        $canReview = ($userRole === 'branch_manager' && !$reviewed) ||
-                            ($userRole === 'sales_director' && $bmApproved && !$reviewed);
+                            : false;
+                        $canReview = ($userRole === 'branch_manager' && !$reviewed);
                     @endphp
                     @if($quotation->status === 'review' && $canReview)
                         <div class="d-flex flex-column align-items-end" style="gap: 0.5rem;">

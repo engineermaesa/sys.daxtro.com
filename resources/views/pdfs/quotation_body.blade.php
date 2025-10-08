@@ -104,7 +104,7 @@
       font-weight: bold;
     }
     .spec-red {
-      color: #d52b1e;
+      color: #000;
     }
 
     table.totals {
@@ -221,11 +221,11 @@
           <tr>
             <td class="text-center">{{ $i + 1 }}</td>
             <td>{{ $item->product->name ?? '—' }}</td>
-            <td>
-              @foreach($specs as $label => $value)
+            <td> {{ $item->product->sku ?? '—' }}
+              {{-- @foreach($specs as $label => $value)
                 <span class="spec-label">{{ $label }}</span> :
-                <span class="spec-red">{{ $value }}</span><br>
-              @endforeach
+                <span class="spec-label">{{ $value }}</span><br>
+              @endforeach --}}
             </td>
             <td class="text-center">{{ $item->qty }}</td>
             <td class="text-right">Rp {{ number_format($item->unit_price * $item->qty, 0, ',', '.') }}</td>
@@ -243,19 +243,19 @@
 
       <table class="totals">
         <tr>
-          <td class="label">Total Price</td>
+          <td class="label"><b>Total Price</b></td>
           <td class="label" style="width: 2%;">:</td>
-          <td class="value" style="width: 15%;">Rp {{ number_format($subtotal, 0, ',', '.') }}</td>
+          <td class="value" style="width: 15%;"><b>Rp {{ number_format($subtotal, 0, ',', '.') }}</b></td>
         </tr>
         <tr>
-          <td class="label">Discount (%)</td>
+          <td class="label"><b>Discount (%)</b></td>
           <td class="label" style="width: 2%;">:</td>
-          <td class="value" style="width: 15%;">{{ $discountPct ?: '0' }}%</td>
+          <td class="value" style="width: 15%;"><b>{{ $discountPct ?: '0' }}%</b></td>
         </tr>
         <tr>
-          <td class="label">Discount (Rp)</td>
+          <td class="label"><b>Discount (Rp)</b></td>
           <td class="label" style="width: 2%;">:</td>
-          <td class="value" style="width: 15%;">Rp {{ number_format($discountAmt, 0, ',', '.') }}</td>
+          <td class="value" style="width: 15%;"><b>Rp {{ number_format($discountAmt, 0, ',', '.') }}</b></td>
         </tr>
         <tr>
           <td class="label"><b>Grand Total</b></td>
@@ -264,11 +264,4 @@
         </tr>
         <tr>
           <td colspan="3" style="border-bottom: 1pt solid #000; padding-top: 6pt;"></td>
-        </tr>
-      </table>
-
-    </div>
-    <img src="{{ public_path('assets/images/quotation/footer-slice.png') }}" class="footer-slice" />
-  </div>
-</body>
-</html>
+        </tr>1

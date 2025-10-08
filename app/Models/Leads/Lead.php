@@ -26,6 +26,7 @@ class Lead extends Model
         'factory_city_id',
         'factory_province',
         'factory_industry_id',
+        'other_factory_industry',
         'other_industry',
         'jabatan_id',
         'province',

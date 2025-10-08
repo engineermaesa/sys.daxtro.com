@@ -86,11 +86,18 @@
                   <tr>
                     <th style="display:none;">ID</th>
                     <th>Nama</th>
+                    <th>Sales Name</th>
                     <th>Telephone</th>
                     <th>Needs</th>
                     <th>Segment</th>
                     <th>City</th>
                     <th>Regional</th>
+                    <th>Customer Type</th>
+                    <th>Product Description</th>
+                    <th>Quotation Number</th>
+                    <th>Quotation Price</th>
+                    <th>Invoice</th>
+                    <th>Invoice Price</th>
                     <th class="text-center">Actions</th>
                   </tr>
                 </thead>
@@ -281,11 +288,18 @@ $(function () {
       columns: [
         { data: 'id', visible: false },
         { data: 'name' },
+        { data: 'sales_name' },
         { data: 'phone' },
         { data: 'needs' },
         { data: 'segment_name' },
         { data: 'city_name' },
         { data: 'regional_name' },
+        { data: 'customer_type' },
+        { data: 'product_description' },
+        { data: 'quotation_number' },
+        { data: 'quotation_price' },
+        { data: 'invoice_number' },
+        { data: 'invoice_price' },
         { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
       ],
       order: [[0, 'desc']]

@@ -320,6 +320,23 @@
 </section>
 @endsection
 
+@section('styles')
+<style>
+    .expo-auto-filled {
+        background-color: #f8f9fa;
+        border-color: #6c757d;
+        color: #6c757d;
+    }
+    .expo-info {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+</style>
+@endsection
+
 @section('scripts')
 <script>
   $(function () {
@@ -327,73 +344,175 @@
 
     const onlineNames = ['Zoom / Google Meet', 'Video Call'];
     const zoomName = 'Zoom / Google Meet';
+    const expoName = 'EXPO';
 
     function toggleMeetingTypeSections() {
-      const selectedName = $('#meeting_type_id option:selected').data('name');
-      const isOnline = onlineNames.includes(selectedName);
-      const requiresUrl = selectedName === zoomName;
+        const selectedName = $('#meeting_type_id option:selected').data('name');
+        const isOnline = onlineNames.includes(selectedName);
+        const requiresUrl = selectedName === zoomName;
+        const isExpo = selectedName === expoName;
 
-      if (isOnline) {
-        $('#offline-section').hide();
-        $('#offline-section input, #offline-section textarea, #offline-section select').val('');
-        $('#offline-section .select2').val(null).trigger('change');
-      } else {
-        $('#offline-section').show();
-      }
+        // Remove EXPO styling if switching away from EXPO
+        if (!isExpo) {
+            $('#city, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
+                .removeClass('expo-auto-filled');
+            $('#expo-info-alert').remove();
+        }
 
-      if (requiresUrl) {
-        $('#online-url-section').show();
-      } else {
+        // Handle EXPO type - auto-fill fields
+        if (isExpo) {
+            autoFillExpoFields();
+        }
+
+        if (isOnline) {
+            $('#offline-section').hide();
+            $('#offline-section input, #offline-section textarea, #offline-section select').val('');
+            $('#offline-section .select2').val(null).trigger('change');
+        } else {
+            $('#offline-section').show();
+        }
+
+        if (requiresUrl) {
+            $('#online-url-section').show();
+        } else {
+            $('#online-url-section').hide();
+            $('#meeting_url').val('');
+        }
+    }
+
+    function autoFillExpoFields() {
+        // Show EXPO info message
+        if (!$('#expo-info-alert').length) {
+            $('#meeting_type_id').closest('.mb-3').after(
+                '<div id="expo-info-alert" class="expo-info">' +
+                '<strong>EXPO Meeting Detected:</strong> Fields will be auto-filled for quick setup.' +
+                '</div>'
+            );
+        }
+
+        // Set city to Jakarta Pusat
+        $('#city').val('Kota Administrasi Jakarta Pusat').trigger('change');
+        
+        // Clear address
+        $('#address').val('Jiexpo Kemayoran Jakarta Indonesia Jakarta, Pademangan Tim., Kec. Pademangan, Jkt Utara, Daerah Khusus Ibukota Jakarta 10620');
+        
+        // Set expenses to 0 for all rows
+        $('#expense-table tbody tr').each(function() {
+            $(this).find('input[name="expense_amount[]"]').val('0');
+            $(this).find('input[name="expense_notes[]"]').val('EXPO Meeting');
+        });
+        
+        // Set start time to now
+        const now = new Date();
+        const startTime = formatDateTimeLocal(now);
+        $('#scheduled_start_at').val(startTime);
+        
+        // Set end time to now + 1 minute
+        const endTime = new Date(now.getTime() + 60000); // 1 minute in milliseconds
+        $('#scheduled_end_at').val(formatDateTimeLocal(endTime));
+        
+        // Hide online URL section
         $('#online-url-section').hide();
         $('#meeting_url').val('');
-      }
+        
+        // Add visual styling to auto-filled fields
+        $('#city, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
+            .addClass('expo-auto-filled');
+    }
+
+    function formatDateTimeLocal(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     $('#meeting_type_id').on('change', toggleMeetingTypeSections);
-    toggleMeetingTypeSections(); // run on page load
+    
+    // Run on page load if EXPO is already selected
+    toggleMeetingTypeSections();
 
     $('#add-expense').on('click', function () {
-      const row = $('#expense-table tbody tr:first').clone();
-      row.find('input').val('');
-      $('#expense-table tbody').append(row);
+        const row = $('#expense-table tbody tr:first').clone();
+        row.find('input').val('');
+        row.find('select').val($('#expense-table tbody tr:first select').val());
+        
+        // If EXPO is selected, set default values for new expense row
+        const selectedName = $('#meeting_type_id option:selected').data('name');
+        if (selectedName === expoName) {
+            row.find('input[name="expense_amount[]"]').val('0');
+            row.find('input[name="expense_notes[]"]').val('EXPO Meeting');
+            row.find('input, select').addClass('expo-auto-filled');
+        }
+        
+        $('#expense-table tbody').append(row);
     });
 
     $(document).on('click', '.remove-expense', function () {
-      if ($('#expense-table tbody tr').length > 1) {
-        $(this).closest('tr').remove();
-      }
+        if ($('#expense-table tbody tr').length > 1) {
+            $(this).closest('tr').remove();
+        }
     });
 
     // Cancel meeting
     $('#btnCancelMeeting').on('click', function () {
-      const url = $(this).data('url');      
-      const isOnline = $(this).data('online') === 1 || $(this).data('online') === '1';
-      const status_rejected = $(this).data('status') === 'rejected';
-      const text = isOnline || status_rejected ? 'Are you sure you want to cancel this meeting?' : 'Please return the expense to finance before cancelling. Have you returned it?';
+        const url = $(this).data('url');      
+        const isOnline = $(this).data('online') === 1 || $(this).data('online') === '1';
+        const status_rejected = $(this).data('status') === 'rejected';
+        const text = isOnline || status_rejected ? 'Are you sure you want to cancel this meeting?' : 'Please return the expense to finance before cancelling. Have you returned it?';
 
-      Swal.fire({
-        title: 'Cancel Meeting',
-        text: text,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Yes',
-        cancelButtonText: 'No',
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#aaa'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          $.post(url, {_token: '{{ csrf_token() }}'}, function (res) {
-            notif(res.message || 'Meeting canceled');
-            window.location.href = '{{ route('leads.my') }}';
-          }).fail(function (xhr) {
-            let err = 'Failed to cancel meeting';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-              err = xhr.responseJSON.message;
+        Swal.fire({
+            title: 'Cancel Meeting',
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes',
+            cancelButtonText: 'No',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#aaa'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post(url, {_token: '{{ csrf_token() }}'}, function (res) {
+                    notif(res.message || 'Meeting canceled');
+                    window.location.href = '{{ route('leads.my') }}';
+                }).fail(function (xhr) {
+                    let err = 'Failed to cancel meeting';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        err = xhr.responseJSON.message;
+                    }
+                    notif(err, 'error');
+                });
             }
-            notif(err, 'error');
-          });
+        });
+    });
+
+    // Prevent manual editing of EXPO fields (optional)
+    $(document).on('input change', '.expo-auto-filled', function() {
+        const selectedName = $('#meeting_type_id option:selected').data('name');
+        if (selectedName === expoName) {
+            // Re-apply EXPO values if user tries to change them
+            setTimeout(() => {
+                if ($(this).is('#city')) {
+                    $(this).val('Jakarta Pusat').trigger('change');
+                } else if ($(this).is('#address')) {
+                    $(this).val('');
+                } else if ($(this).is('[name="expense_amount[]"]')) {
+                    $(this).val('0');
+                } else if ($(this).is('[name="expense_notes[]"]')) {
+                    $(this).val('EXPO Meeting');
+                } else if ($(this).is('#scheduled_start_at') || $(this).is('#scheduled_end_at')) {
+                    const now = new Date();
+                    if ($(this).is('#scheduled_start_at')) {
+                        $(this).val(formatDateTimeLocal(now));
+                    } else {
+                        $(this).val(formatDateTimeLocal(new Date(now.getTime() + 60000)));
+                    }
+                }
+            }, 100);
         }
-      });
     });
   });
 </script>

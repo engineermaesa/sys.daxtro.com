@@ -28,6 +28,98 @@
 
                                     <div class="card-body">
                                         <div class="row">
+                                        @php
+                                            $defaultName = old('name', $form_data->name);
+                                            $defaultTitle = old('title');
+                                            if (! $isCreate && empty($defaultTitle)) {
+                                                if (str_starts_with($defaultName, 'Mr ')) {
+                                                    $defaultTitle = 'Mr';
+                                                    $defaultName = substr($defaultName, 3);
+                                                } elseif (str_starts_with($defaultName, 'Mrs ')) {
+                                                    $defaultTitle = 'Mrs';
+                                                    $defaultName = substr($defaultName, 4);
+                                                }
+                                            }
+                                        @endphp
+                                        <div class="col-md-1 mb-3">
+                                            <label class="form-label">Title <i class="required">*</i></label>
+                                            <br>
+                                            <select name="{{ $isCreate ? 'title[]' : 'title' }}" class="form-select" required>
+                                                <option value="Mr" {{ $defaultTitle === 'Mr' ? 'selected' : '' }}>Mr</option>
+                                                <option value="Mrs" {{ $defaultTitle === 'Mrs' ? 'selected' : '' }}>Mrs</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Name <i class="required">*</i></label>
+                                            <input type="text" name="{{ $isCreate ? 'name[]' : 'name' }}" placeholder="Nama Lengkap" class="form-control"
+                                                value="{{ $defaultName }}" required>
+                                        </div>
+
+                                        <div class="col-md-2 mb-3">
+                                            <label class="form-label">Jabatan <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'jabatan_id[]' : 'jabatan_id' }}" class="form-select select2" required>
+                                                <option value="" disabled selected>Pilih</option>
+                                                @foreach($jabatans as $jabatan)
+                                                    <option value="{{ $jabatan->id }}" {{ old('jabatan_id', $form_data->jabatan_id) == $jabatan->id ? 'selected' : '' }}>{{ $jabatan->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-2 mb-3">
+                                            <label class="form-label">Phone <i class="required">*</i></label>
+                                            <input type="text" name="{{ $isCreate ? 'phone[]' : 'phone' }}" placeholder="0812xxxxxxx" class="form-control"
+                                                value="{{ old('phone', $form_data->phone) }}" required>
+                                        </div>                                                                                
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" name="{{ $isCreate ? 'email[]' : 'email' }}" placeholder="email@domain.com" class="form-control"
+                                                value="{{ old('email', $form_data->email) }}">
+                                        </div>
+
+                                        <div class="pic-extensions col-12">
+                                            @foreach ($form_data->picExtensions ?? [] as $pic)
+                                                <div class="row pic-entry">
+                                                    <div class="col-md-1 mb-3">
+                                                        <select class="form-select" data-field="title" required>
+                                                            <option value="Mr" {{ $pic->title === 'Mr' ? 'selected' : '' }}>Mr</option>
+                                                            <option value="Mrs" {{ $pic->title === 'Mrs' ? 'selected' : '' }}>Mrs</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3 mb-3">
+                                                        <input type="text" class="form-control" data-field="nama" value="{{ $pic->nama }}" placeholder="Nama Lengkap" required>
+                                                    </div>
+                                                    <div class="col-md-2 mb-3">
+                                                        <select class="form-select select2" data-field="jabatan_id" required>
+                                                            <option value="" disabled {{ empty($pic->jabatan_id) ? 'selected' : '' }}>Pilih</option>
+                                                            @foreach($jabatans as $jabatan)
+                                                                <option value="{{ $jabatan->id }}" {{ $pic->jabatan_id == $jabatan->id ? 'selected' : '' }}>{{ $jabatan->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2 mb-3">
+                                                        <input type="text" class="form-control" data-field="phone" value="{{ $pic->phone }}" placeholder="0812xxxxxxx" required>
+                                                    </div>
+                                                    <div class="col-md-3 mb-3">
+                                                        <input type="email" class="form-control" data-field="email" value="{{ $pic->email }}" placeholder="email@domain.com" required>
+                                                    </div>
+                                                    <div class="col-md-1 mb-3 d-flex align-items-end">
+                                                        <button type="button" class="btn btn-outline-danger remove-pic">&times;</button>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        <div class="col-12 mb-3">
+                                            <button type="button" class="btn btn-sm btn-outline-primary add-pic">
+                                                <i class="bi bi-person-plus me-1"></i> Add PIC
+                                            </button>
+                                        </div>
+
+                                        <div class="col-12 mb-4"> 
+                                            <hr class="text-muted" />
+                                        </div>
+
+
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">Source <i class="required">*</i></label>
                                             <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2" required>
@@ -187,101 +279,19 @@
 
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">Industry To Be</label>
-                                            <select name="{{ $isCreate ? 'factory_industry_id[]' : 'factory_industry_id' }}" class="form-select select2">
+                                            <select name="{{ $isCreate ? 'factory_industry_id[]' : 'factory_industry_id' }}" class="form-select select2 factory-industry-select">
                                                 <option value="" disabled selected>Pilih</option>
                                                 @foreach($industries as $industry)
                                                     <option value="{{ $industry->id }}" {{ old('factory_industry_id', $form_data->factory_industry_id) == $industry->id ? 'selected' : '' }}>
                                                         {{ $industry->name }}
                                                     </option>
                                                 @endforeach
+                                                <option value="other" {{ old('factory_industry_id', $form_data->factory_industry_id ?? ($form_data->factory_other_industry ? 'other' : null)) === 'other' ? 'selected' : '' }}>Lainnya</option>
                                             </select>
-                                        </div>
-
-                                        @php
-                                            $defaultName = old('name', $form_data->name);
-                                            $defaultTitle = old('title');
-                                            if (! $isCreate && empty($defaultTitle)) {
-                                                if (str_starts_with($defaultName, 'Mr ')) {
-                                                    $defaultTitle = 'Mr';
-                                                    $defaultName = substr($defaultName, 3);
-                                                } elseif (str_starts_with($defaultName, 'Mrs ')) {
-                                                    $defaultTitle = 'Mrs';
-                                                    $defaultName = substr($defaultName, 4);
-                                                }
-                                            }
-                                        @endphp
-                                        <div class="col-md-1 mb-3">
-                                            <label class="form-label">Title <i class="required">*</i></label>
-                                            <br>
-                                            <select name="{{ $isCreate ? 'title[]' : 'title' }}" class="form-select" required>
-                                                <option value="Mr" {{ $defaultTitle === 'Mr' ? 'selected' : '' }}>Mr</option>
-                                                <option value="Mrs" {{ $defaultTitle === 'Mrs' ? 'selected' : '' }}>Mrs</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3 mb-3">
-                                            <label class="form-label">Name <i class="required">*</i></label>
-                                            <input type="text" name="{{ $isCreate ? 'name[]' : 'name' }}" placeholder="Nama Lengkap" class="form-control"
-                                                value="{{ $defaultName }}" required>
-                                        </div>
-
-                                        <div class="col-md-2 mb-3">
-                                            <label class="form-label">Jabatan <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'jabatan_id[]' : 'jabatan_id' }}" class="form-select select2" required>
-                                                <option value="" disabled selected>Pilih</option>
-                                                @foreach($jabatans as $jabatan)
-                                                    <option value="{{ $jabatan->id }}" {{ old('jabatan_id', $form_data->jabatan_id) == $jabatan->id ? 'selected' : '' }}>{{ $jabatan->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-2 mb-3">
-                                            <label class="form-label">Phone <i class="required">*</i></label>
-                                            <input type="text" name="{{ $isCreate ? 'phone[]' : 'phone' }}" placeholder="0812xxxxxxx" class="form-control"
-                                                value="{{ old('phone', $form_data->phone) }}" required>
-                                        </div>                                                                                
-
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Email <i class="required">*</i></label>
-                                            <input type="email" name="{{ $isCreate ? 'email[]' : 'email' }}" placeholder="email@domain.com" class="form-control"
-                                                value="{{ old('email', $form_data->email) }}" required>
-                                        </div>
-
-                                        <div class="pic-extensions col-12">
-                                            @foreach ($form_data->picExtensions ?? [] as $pic)
-                                                <div class="row pic-entry">
-                                                    <div class="col-md-1 mb-3">
-                                                        <select class="form-select" data-field="title" required>
-                                                            <option value="Mr" {{ $pic->title === 'Mr' ? 'selected' : '' }}>Mr</option>
-                                                            <option value="Mrs" {{ $pic->title === 'Mrs' ? 'selected' : '' }}>Mrs</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-3 mb-3">
-                                                        <input type="text" class="form-control" data-field="nama" value="{{ $pic->nama }}" placeholder="Nama Lengkap" required>
-                                                    </div>
-                                                    <div class="col-md-2 mb-3">
-                                                        <select class="form-select select2" data-field="jabatan_id" required>
-                                                            <option value="" disabled {{ empty($pic->jabatan_id) ? 'selected' : '' }}>Pilih</option>
-                                                            @foreach($jabatans as $jabatan)
-                                                                <option value="{{ $jabatan->id }}" {{ $pic->jabatan_id == $jabatan->id ? 'selected' : '' }}>{{ $jabatan->name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-2 mb-3">
-                                                        <input type="text" class="form-control" data-field="phone" value="{{ $pic->phone }}" placeholder="0812xxxxxxx" required>
-                                                    </div>
-                                                    <div class="col-md-3 mb-3">
-                                                        <input type="email" class="form-control" data-field="email" value="{{ $pic->email }}" placeholder="email@domain.com" required>
-                                                    </div>
-                                                    <div class="col-md-1 mb-3 d-flex align-items-end">
-                                                        <button type="button" class="btn btn-outline-danger remove-pic">&times;</button>
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                        <div class="col-12 mb-3">
-                                            <button type="button" class="btn btn-sm btn-outline-primary add-pic">
-                                                <i class="bi bi-person-plus me-1"></i> Add PIC
-                                            </button>
+                                            <input type="text" name="{{ $isCreate ? 'factory_other_industry[]' : 'factory_other_industry' }}" 
+                                                class="form-control mt-2 factory-industry-other d-none" 
+                                                placeholder="Isi industri" 
+                                                value="{{ old('factory_other_industry', $form_data->factory_other_industry) }}" />
                                         </div>
                                 
                                         {{-- <div class="col-md-4 mb-3">
@@ -551,7 +561,7 @@
                                                 @if ($pf->attachment_id)
                                                     <a href="{{ route('attachments.download', $pf->attachment_id) }}"
                                                         class="btn btn-sm btn-outline-secondary">
-                                                        <i class="bi bi-download"></i> Proforma
+                                                        <i class="bi bi-download"></i> Download Proforma
                                                     </a>
                                                 @endif
 
@@ -831,6 +841,9 @@
             .removeAttr('selected');
         });
 
+        toggleIndustryOther($clone.find('.industry-select'));
+        toggleFactoryIndustryOther($clone.find('.factory-industry-select'));
+
         /* ---- clear field values ---- */
         $clone.find('input').val('');
         // ensure select boxes start on their placeholder
@@ -885,6 +898,35 @@
             $provinceSelect.prop('required', true);
         }
     }
+
+    function toggleFactoryIndustryOther($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $other = $entry.find('.factory-industry-other');
+        if ($select.val() === 'other') {
+            $other.removeClass('d-none').prop('required', true);
+        } else {
+            $other.addClass('d-none').prop('required', false).val('');
+        }
+    }
+
+        // Initialize both industry selects
+    $('#lead-entries .industry-select').each(function(){
+        toggleIndustryOther($(this));
+    });
+
+    $('#lead-entries .factory-industry-select').each(function(){
+        toggleFactoryIndustryOther($(this));
+    });
+
+    // Add event handlers for both industry selects
+    $(document).on('change', '.industry-select', function() {
+        toggleIndustryOther($(this));
+    });
+
+    $(document).on('change', '.factory-industry-select', function() {
+        toggleFactoryIndustryOther($(this));
+    });
+
 
     $(document).on('select2:opening', '.province-select', function (e) {
         e.preventDefault();

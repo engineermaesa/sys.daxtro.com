@@ -31,6 +31,7 @@ class ColdLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('name', fn ($row) => $row->lead->name)
             ->addColumn('phone', fn ($row) => $row->lead->phone)
+            ->addColumn('source', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('needs', fn ($row) => $row->lead->needs)
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '')
             ->addColumn('city_name', fn ($row) => $row->lead->region->name ?? 'All Regions')

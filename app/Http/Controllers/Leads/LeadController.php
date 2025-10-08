@@ -150,9 +150,17 @@ class LeadController extends Controller
                     },
                 ],
                 'factory_province' => 'nullable|string',
-                'factory_industry_id' => 'nullable|exists:ref_industries,id',
+                // 'factory_industry_id' => 'nullable|exists:ref_industries,id',
+                'factory_industry_id' => [
+                    'nullable',
+                    function($attribute, $value, $fail) {
+                        if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
+                            $fail("$attribute is invalid");
+                        }
+                    },
+                ],
+                'factory_other_industry' => 'required_if:factory_industry_id,other|nullable|string|max:150',
                 'industry_remark' => 'nullable|string',
-
                 'title'       => 'required|in:Mr,Mrs',
                 'name'        => 'required',
                 'company'     => 'nullable|string|max:150',
@@ -161,7 +169,7 @@ class LeadController extends Controller
                 'business_reason' => 'nullable|string',
                 'competitor_offer' => 'nullable|string',
                 'phone'       => 'required',
-                'email'       => 'required|email',
+                'email'       => 'nullable|email',
                 'industry_id' => [
                     'nullable',
                     function($attribute, $value, $fail) {
@@ -206,7 +214,15 @@ class LeadController extends Controller
                         },
                     ],
                     'factory_province.*' => 'nullable|string',
-                    'factory_industry_id.*' => 'nullable|exists:ref_industries,id',
+                    'factory_industry_id.*' => [
+                        'nullable',
+                        function($attribute, $value, $fail) {
+                            if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
+                                $fail("$attribute is invalid");
+                            }
+                        },
+                    ],
+                    'factory_other_industry.*' => 'required_if:factory_industry_id.*,other|nullable|string|max:150',
                     'industry_remark.*' => 'nullable|string|max:500',
                     'title.*'      => 'required|in:Mr,Mrs',
                     'name.*'       => 'required',
@@ -216,7 +232,7 @@ class LeadController extends Controller
                     'business_reason.*' => 'nullable|string',
                     'competitor_offer.*' => 'nullable|string',
                     'phone.*'      => 'required',
-                    'email.*'      => 'required|email',
+                    'email.*'      => 'nullable|email',
                     'industry_id.*' => [
                         'nullable',
                         function($attribute, $value, $fail) {
@@ -278,13 +294,19 @@ class LeadController extends Controller
                     $lead->phone = $request->phone[$i] ?? null;
                     $lead->email = $request->email[$i] ?? null;
 
-                    // Handle industry with null checks
                     if (isset($request->industry_id[$i]) && $request->industry_id[$i] === 'other') {
                         $lead->industry_id = null;
                         $lead->other_industry = $request->other_industry[$i] ?? null;
                     } else {
                         $lead->industry_id = $request->industry_id[$i] ?? null;
                         $lead->other_industry = null;
+                    }
+                    if (isset($request->factory_industry_id[$i]) && $request->factory_industry_id[$i] === 'other') {
+                        $lead->factory_industry_id = null; // Not an array
+                        $lead->factory_other_industry = $request->factory_other_industry[$i] ?? null;
+                    } else {
+                        $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
+                        $lead->factory_other_industry = null;
                     }
                     $lead->jabatan_id = $request->jabatan_id[$i] ?? null;
                     $lead->product_id = $request->product_id[$i] ?? null;
@@ -376,6 +398,13 @@ class LeadController extends Controller
             } else {
                 $lead->industry_id   = $request->industry_id;
                 $lead->other_industry = null;
+            }
+            if ($request->factory_industry_id === 'other') {
+                $lead->factory_industry_id = null;
+                $lead->factory_other_industry = $request->factory_other_industry;
+            } else {
+                $lead->factory_industry_id = $request->factory_industry_id;
+                $lead->factory_other_industry = null;
             }
             $lead->jabatan_id   = $request->jabatan_id;
             $lead->product_id   = $request->product_id;
@@ -638,7 +667,19 @@ class LeadController extends Controller
             abort(403);
         }
 
-        $leads = Lead::with(['region.branch', 'region.regional', 'source', 'segment', 'status', 'quotation']);
+        $leads = Lead::with([
+            'region.branch',
+            'region.regional',
+            'source',
+            'segment',
+            'status',
+            'quotation',
+            'claims' => function($query) {
+                    $query->whereNull('released_at')
+                        ->latest('claimed_at')
+                        ->with('sales');
+                }
+            ]);
 
         if ($request->filled('branch_id')) {
             $leads->whereHas('region.branch', function ($q) use ($request) {
@@ -677,11 +718,34 @@ class LeadController extends Controller
         $role = $request->user()->role?->code;
 
         return DataTables::of($leads)
+            ->addColumn('sales_name', function($lead) {
+                return $lead->claims->first()?->sales?->name ?? '-';
+            })
             ->addColumn('phone', fn ($row) => $row->phone)
             ->addColumn('needs', fn ($row) => $row->needs)
+            ->addColumn('source_name', fn ($row) => $row->source->name ?? '')
             ->addColumn('segment_name', fn ($row) => $row->segment->name ?? '')
             ->addColumn('city_name', fn ($row) => $row->region->name ?? 'All Regions')
             ->addColumn('regional_name', fn ($row) => $row->region->regional->name ?? '-')
+            ->addColumn('customer_type', function($lead) {
+                return $lead->customer_type ?? '-';
+            })
+            ->addColumn('product_description', function($lead) {
+                return $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? '');
+            })
+            ->addColumn('quotation_number', function($lead) {
+                return $lead->quotation->quotation_no ?? '-';
+            })
+            ->addColumn('quotation_price', function($lead) {
+                return $lead->quotation ? number_format($lead->quotation->grand_total ?? 0, 2) : '-';
+            })
+            ->addColumn('invoice_number', function($lead) {
+                return $lead->quotation?->proformas->first()?->invoice?->invoice_no ?? '-';
+            })
+            ->addColumn('invoice_price', function($lead) {
+                return $lead->quotation?->proformas->first()?->invoice ? 
+                    number_format($lead->quotation->proformas->first()->invoice->amount ?? 0, 2) : '-';
+            })
             ->addColumn('actions', function ($row) use ($role) {
                 $editUrl   = route('leads.manage.form', $row->id);
                 // $deleteUrl = route('leads.manage.delete', $row->id);
@@ -787,16 +851,23 @@ class LeadController extends Controller
         }
 
         $rows   = [];
-        $rows[] = ['Published At', 'Name', 'Branch', 'Region', 'Source', 'Segment'];
+        $rows[] = ['Published At', 'Sales Name', 'Name', 'Branch', 'Region', 'Source', 'Segment', 'Customer Type', 'Product Description', 'Quotation Number', 'Quotation Price', 'Invoice', 'Invoice Price'];
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $rows[] = [
                 $lead->published_at,
+                $claim?->sales?->name ?? '-', // sales name
                 $lead->name,
                 $lead->region->branch->name ?? '',
                 $lead->region->name ?? '',
                 $lead->source->name ?? '',
                 $lead->segment->name ?? '',
+                $lead->customer_type ?? '',
+                $lead->product_id ? ($lead->product->name ?? '') : ($lead->needs ?? ''),
+                $lead->quotation ? ($lead->quotation->number ?? '-') : '-',
+                $lead->quotation ? ($lead->quotation->total_price ? number_format($lead->quotation->total_price, 2) : '-') : '-',
+                $lead->invoice ? ($lead->invoice->number ?? '-') : '-',
+                $lead->invoice ? ($lead->invoice->total_price ? number_format($lead->invoice->total_price, 2) : '-') : '-',
             ];
         }
 
@@ -811,8 +882,20 @@ class LeadController extends Controller
             abort(403);
         }
 
-        $leads = Lead::with(['region.branch', 'source', 'segment', 'claims.sales'])
-            ->when($request->filled('status_id'), fn ($q) => $q->where('status_id', $request->status_id));
+        $leads = Lead::with([
+            'region.branch', 
+            'source', 
+            'segment', 
+            'claims.sales',
+            'quotation',
+            'quotation.proformas' => function($query) {
+                $query->orderBy('created_at', 'desc');
+            },
+            'quotation.proformas.invoice'
+        ])
+        ->when($request->filled('status_id'), fn ($q) => 
+            $q->where('status_id', $request->status_id)
+        );
 
         if ($request->filled('branch_id')) {
             $leads->whereHas('region.branch', fn ($q) => $q->where('id', $request->branch_id));
@@ -830,19 +913,45 @@ class LeadController extends Controller
         }
 
         $rows   = [];
-        $rows[] = ['Published At', 'Sales', 'Name', 'Branch', 'Region', 'Source', 'Segment'];
+        $rows[] = [
+            'Published At',
+            'Sales Name',
+            'Customer Name',
+            'Branch',
+            'Region',
+            'Source',
+            'Segment',
+            'Customer Type',
+            'Product Description',
+            'Quotation Number',
+            'Quotation Price',
+            'Invoice',
+            'Invoice Price'
+        ];
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $claim = $lead->claims()->latest()->first();
+            
+            $quotation = $lead->quotation;
+            
+            // Get latest proforma and its invoice
+            $latestProforma = $quotation?->proformas->first();
+            $invoice = $latestProforma?->invoice;
 
             $rows[] = [
-                $lead->published_at,
-                $claim?->sales?->name ?? '-',
-                $lead->name,
-                $lead->region->branch->name ?? '',
-                $lead->region->name ?? '',
-                $lead->source->name ?? '',
-                $lead->segment->name ?? '',
+                $lead->published_at, // published at
+                $claim?->sales?->name ?? '-', // sales name
+                $lead->name, // customer name
+                $lead->region->branch->name ?? '', // branch region
+                $lead->region->name ?? '', // region name
+                $lead->source->name ?? '', // source name
+                $lead->segment->name ?? '', // segment name
+                $lead->customer_type ?? '', // customer type
+                $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? ''), // product description
+                $quotation ? $quotation->quotation_no : '-',
+                $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
+                $invoice ? $invoice->invoice_no : '-',
+                $invoice ? number_format($invoice->amount ?? 0, 2) : '-'
             ];
         }
 

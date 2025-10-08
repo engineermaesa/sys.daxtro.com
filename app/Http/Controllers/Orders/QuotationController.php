@@ -18,7 +18,7 @@ class QuotationController extends Controller
         public function download(Request $request, $id)
     {
         // 1. Authorize
-        $allowed = ['branch_manager','super_admin','sales_director','sales'];
+        $allowed = ['branch_manager','super_admin','sales'];
         abort_if(! in_array($request->user()->role?->code, $allowed), 403);
 
         // 2. Load the quotation with its relations
@@ -57,20 +57,20 @@ class QuotationController extends Controller
 
         // 6. Paths for the static pages
         $coverPath      = resource_path('pdf/quotation/cover.pdf');
-        $componentsPath = resource_path('pdf/quotation/components.pdf');
+        // $componentsPath = resource_path('pdf/quotation/components.pdf');
 
-        foreach ([$coverPath, $componentsPath] as $static) {
-            if (! File::exists($static)) {
-                throw new \RuntimeException("Static PDF missing at {$static}");
-            }
-        }
+        // foreach ([$coverPath, $componentsPath] as $static) {
+        //     if (! File::exists($static)) {
+        //         throw new \RuntimeException("Static PDF missing at {$static}");
+        //     }
+        // }
 
         // 7. Merge: cover → body → terms → components
         $merger = PDFMerger::init();
         $merger->addPDF($coverPath,       'all');
         $merger->addPDF($bodyPath,        'all');
         $merger->addPDF($termsPath,       'all');
-        $merger->addPDF($componentsPath,  'all');
+        // $merger->addPDF($componentsPath,  'all');
 
         // 8. Save merged file
         $fileName  = $quotation->quotation_no
@@ -98,7 +98,7 @@ class QuotationController extends Controller
 
     public function downloadOld(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'super_admin', 'sales_director', 'sales'];
+        $allowed = ['branch_manager', 'super_admin', 'sales'];
 
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
@@ -117,7 +117,7 @@ class QuotationController extends Controller
     
     public function show(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'sales_director', 'sales'];
+        $allowed = ['branch_manager', 'sales'];
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
         }
@@ -166,21 +166,21 @@ class QuotationController extends Controller
 
         $userRole = $request->user()->role?->code;
         $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-        $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+        // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
 
-        if ($userRole === 'sales_director' && ! $bmApproved) {
-            abort(403, 'Branch Manager approval is required before Sales Director.');
-        }
+        // if ($userRole === 'sales_director' && ! $bmApproved) {
+        //     abort(403, 'Branch Manager approval is required before Sales Director.');
+        // }
 
         if ($userRole === 'branch_manager' && $bmApproved) {
             abort(403, 'Branch Manager has already approved this quotation.');
         }
 
-        if ($userRole === 'sales_director' && $dirApproved) {
-            abort(403, 'Sales Director has already approved this quotation.');
-        }
+        // if ($userRole === 'sales_director' && $dirApproved) {
+        //     abort(403, 'Sales Director has already approved this quotation.');
+        // }
         DB::transaction(function () use ($quotation, $request, $incentive, $userRole) {            
-            $role = $userRole === 'branch_manager' ? 'BM' : 'SD';            
+            $role = $userRole === 'branch_manager' ? 'BM' : $userRole;            
             
             QuotationReview::create([
                 'quotation_id'      => $quotation->id,
@@ -200,9 +200,9 @@ class QuotationController extends Controller
             ]);
 
             $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+            // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
 
-            if ($bmApproved && $dirApproved && $quotation->status !== 'published') {
+            if ($bmApproved && $quotation->status !== 'published') {
                 $quotation->update([
                     'status' => 'published',
                     'expiry_date' => now()->addDays(30),
@@ -225,14 +225,21 @@ class QuotationController extends Controller
                     $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
                     $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
                     $fileName = $proforma->proforma_no.'.pdf';
+
+                    $storagePath = storage_path('app/public/proformas');
+                    if (!File::exists($storagePath)) {
+                        File::makeDirectory($storagePath, 0755, true);
+                    }
+
                     $filePath = 'proformas/'.$fileName;
-                    Storage::put($filePath, $pdf->output());
+                    Storage::disk('public')->put($filePath, $pdf->output());
 
                     $attachment = Attachment::create([
                         'type'        => 'proforma_pdf',
-                        'file_path'   => $filePath,
+                        // Use consistent path in database
+                        'file_path'   => 'proformas/'.$fileName,  
                         'mime_type'   => 'application/pdf',
-                        'size'        => strlen($pdf->output()),
+                        'size'        => Storage::disk('public')->size($filePath),
                         'uploaded_by' => $request->user()->id,
                     ]);
 
@@ -255,21 +262,27 @@ class QuotationController extends Controller
                         'issued_at'   => now(),
                     ])->save();
 
+                    $storagePath = storage_path('app/public/proformas');
+                    if (!File::exists($storagePath)) {
+                        File::makeDirectory($storagePath, 0755, true);
+                    }
+
                     $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
                     $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
                     $fileName = $proforma->proforma_no.'.pdf';
+
                     $filePath = 'proformas/'.$fileName;
-                    Storage::put($filePath, $pdf->output());
+                    Storage::disk('public')->put($filePath, $pdf->output());
 
                     $attachment = Attachment::create([
                         'type'        => 'proforma_pdf',
-                        'file_path'   => $filePath,
+                        'file_path'   => 'storage/proformas/'.$fileName,
                         'mime_type'   => 'application/pdf',
-                        'size'        => strlen($pdf->output()),
+                        'size'        => Storage::disk('public')->size($filePath),
                         'uploaded_by' => $request->user()->id,
                     ]);
 
-                    $proforma->update(['attachment_id' => $attachment->id]);                
+                    $proforma->update(['attachment_id' => $attachment->id]);             
                 }
 
                 \App\Models\UserBalanceLog::create([
@@ -292,7 +305,7 @@ class QuotationController extends Controller
         $quotation = Quotation::findOrFail($id);
 
         DB::transaction(function () use ($quotation, $request) {
-            $role = $request->user()->role?->code === 'branch_manager' ? 'BM' : 'SD';            
+            $role = $request->user()->role?->code === 'branch_manager' ? 'BM' : $request->user()->role?->code;            
 
             $quotation->update(['status' => 'rejected']);
 

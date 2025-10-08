@@ -119,8 +119,12 @@
                                                         </div>
                                                         @endif
                                                     </td>
-                                                    <td><input type="number" name="discount_pct[]"
+                                                    <td><input type="number" 
+                                                        name="discount_pct[]"
                                                             class="form-control item-disc"
+                                                            step='0.01'
+                                                            min="0"
+                                                            max="100"
                                                             value="{{ $item->discount_pct }}" {{ $disabled }}></td>
                                                     <td><input type="text" class="form-control item-total number-input"
                                                             value="{{ number_format($item->line_total, 0, ',', '.') }}"
@@ -169,7 +173,12 @@
                                                         required>
                                                     <div class="form-text segment-price-info"></div>
                                                 </td>
-                                                <td><input type="number" name="discount_pct[]"
+                                                <td><input type="number" 
+                                                        name="discount_pct[]"
+                                                        class="form-control item-disc"
+                                                        step='0.01'
+                                                        min="0"
+                                                        max="100"
                                                         class="form-control item-disc" {{ $disabled }}></td>
                                                 <td><input type="text" class="form-control item-total number-input"
                                                         readonly></td>
@@ -204,6 +213,7 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Tax Amount</label>
+                             
                                 <input type="text" id="tax_total_display" class="form-control"
                                     value="{{ 'Rp' . number_format($quotation->tax_total ?? 0, 0, ',', '.') }}" readonly>
                                 <input type="hidden" name="tax_total" id="tax_total"
@@ -235,6 +245,19 @@
                                         Direct Down Payment</option>
                                 </select>
                             </div>
+
+                            @if ($isEditable)
+                            <div class="mb-3">
+                                <label class="form-label">Quick Fill Payment Terms</label>
+                                <div>
+                                    <button type="button" id="autofill-downpayment" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-magic"></i> Autofill Down Payment Terms
+                                    </button>
+                                    <small class="text-muted ms-2">Will populate standard down payment terms</small>
+                                </div>
+                            </div>
+                            @endif
+
                             <div class="mb-3" id="booking_fee_field" style="display:none;">
                                 <label class="form-label">Booking Fee Value</label>
                                 <input type="text" name="booking_fee" id="booking_fee"
@@ -427,7 +450,47 @@
                     row.find('.item-total').val(formatNumber(parseNumber(row.find('.item-total').val())));
                 });
 
-                // — When product changes
+                    $('#autofill-downpayment').on('click', function() {
+                    $('#terms-container').empty();
+                    
+                    const terms = [
+                        { percentage: 50, description: 'Down Payment' },
+                        { percentage: 50, description: 'Before Shipment' },
+                        // { percentage: 50, description: 'AFTER RUNNING TEST OR BEFORE DELIVERY TO INDONESIA' }
+                    ];
+                    
+                    terms.forEach((term, index) => {
+                        let html = `
+                            <div class="input-group mb-2 term-row">
+                                <span class="input-group-text">Term ${index + 1}</span>
+                                <input type="number" step="0.01" name="term_percentage[]" class="form-control" 
+                                    value="${term.percentage}" required>
+                                <input type="text" name="term_description[]" class="form-control ms-2" 
+                                    value="${term.description}" placeholder="Description (optional)">
+                                <button type="button" class="btn btn-outline-danger remove-term">&times;</button>
+                            </div>
+                        `;
+                        $('#terms-container').append(html);
+                    });
+                });
+
+                $('#payment_type').on('change', function() {
+                    if ($(this).val() === 'down_payment' && $('#terms-container .term-row').length <= 1) {
+                        // Only autofill if terms are empty or only have one term
+                        $('#autofill-downpayment').trigger('click');
+                    }
+                });
+
+                $(function() {
+                    // Check if this is a new quotation (not editing existing) and payment type is down_payment
+                    const isNewQuotation = {{ $quotation ? 'false' : 'true' }};
+                    const paymentType = $('#payment_type').val();
+                    
+                    if (isNewQuotation && paymentType === 'down_payment' && $('#terms-container .term-row').length <= 1) {
+                        $('#autofill-downpayment').trigger('click');
+                    }
+                });
+
                 $(document).on('change', '.item-product', function() {
                     let row       = $(this).closest('tr');
                     let descInput = row.find('.item-desc');

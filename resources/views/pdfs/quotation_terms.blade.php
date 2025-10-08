@@ -148,21 +148,21 @@
 
             {{-- Label --}}
             <p style="margin:0 0 1.5rem 0; font-size:12pt; color:#000;">
-              Your Sincerely,
+              Yours Sincerely,
             </p>
 
             {{-- Company line --}}
-            <p style="margin:0 0 2rem 0; font-size:8pt; color:#dc3545;">
+            <p style="margin:0 0 2rem 0; font-size:8pt; color:#000;">
               PT. Pandu Naradipta Danendra
             </p>
 
             {{-- Sales name --}}
-            <p style="margin:0 0 0.5rem 0; font-size:10pt; color:#dc3545; font-weight:bold;">
+            <p style="margin:0 0 0.5rem 0; font-size:10pt; color:#000; font-weight:bold;">
               {{ optional($claim->sales)->name }}
             </p>
 
             {{-- Sales role --}}
-            <p style="margin:0 0 0; font-size:10pt; color:#dc3545;">
+            <p style="margin:0 0 0; font-size:10pt; color:#000;">
               {{ optional($claim->sales->role)->name }}
             </p>
           </td>
@@ -181,12 +181,12 @@
             </p>
 
             {{-- Customer name --}}
-            <p style="margin:0 0 0.5rem 0; font-size:10pt; color:#dc3545; font-weight:bold;">
+            <p style="margin:0 0 0.5rem 0; font-size:10pt; color:#000;; font-weight:bold;">
               {{ $quotation->lead->name }}
             </p>
 
             {{-- Customer status --}}
-            <p style="margin:0 0 0; font-size:10pt; color:#dc3545;">
+            <p style="margin:0 0 0; font-size:10pt; color:#000;">
               Customer
             </p>
           </td>

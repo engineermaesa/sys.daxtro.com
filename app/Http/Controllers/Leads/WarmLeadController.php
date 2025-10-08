@@ -162,8 +162,8 @@ class WarmLeadController extends Controller
         $isEditable = true;
         if ($quotation) {
             $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-            $allApproved = $bmApproved && $dirApproved;
+            // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+            $allApproved = $bmApproved;
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                 $q->where('quotation_id', $quotation->id);
@@ -172,7 +172,7 @@ class WarmLeadController extends Controller
             if (! $allApproved) {
                 $isEditable = $userRole === 'sales';
             } else {
-                $isEditable = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                $isEditable = in_array($userRole, ['branch_manager']) && ! $hasPayment;
             }
         }
 
@@ -215,8 +215,8 @@ class WarmLeadController extends Controller
 
             if ($quotation) {
                 $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-                $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-                $allApproved = $bmApproved && $dirApproved;
+                // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+                $allApproved = $bmApproved;
 
                 $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                     $q->where('quotation_id', $quotation->id);
@@ -225,7 +225,7 @@ class WarmLeadController extends Controller
                 if (! $allApproved) {
                     $canEdit = $userRole === 'sales';
                 } else {
-                    $canEdit = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                    $canEdit = in_array($userRole, ['branch_manager']) && ! $hasPayment;
                 }
             } else {
                 $canEdit = $userRole === 'sales';
