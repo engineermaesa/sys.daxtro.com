@@ -147,6 +147,10 @@
                             <th colspan="4" class="text-end">Sub Total</th>
                             <th class="text-end">Rp{{ number_format($quotation->subtotal, 0, ',', '.') }}</th>
                         </tr>
+                        {{-- <tr>
+                            <th colspan="4" class="text-end">Discount</th>
+                            <th class="text-end">{{ number_format($quotation->discount, 0, ',', '.') }}</th>
+                        </tr> --}}
                         <tr>
                             <th colspan="4" class="text-end">Tax ({{ $quotation->tax_pct }}%)</th>
                             <th class="text-end">Rp{{ number_format($quotation->tax_total, 0, ',', '.') }}</th>
@@ -180,9 +184,22 @@
                             <tr>
                                 <td>{{ $term->term_no }}</td>
                                 <td>{{ $term->percentage }}%</td>
-                                <td>
-                                    Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
-                                </td>
+                                @if($quotation->booking_fee)
+                                    @if( $term->term_no === 1 )
+                                        <td>
+                                            Rp{{ number_format(((($quotation->grand_total * $term->percentage)  / 100) - $quotation->booking_fee), 0, ',', '.') }}
+                                        </td>
+                                    @else
+                                        <td>
+                                            Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
+                                        </td>
+                                    @endif
+                                @else
+                                    <td>
+                                        Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
+                                        el nyamnyam
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
