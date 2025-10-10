@@ -197,7 +197,6 @@
                                 @else
                                     <td>
                                         Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
-                                        el nyamnyam
                                     </td>
                                 @endif
                             </tr>
