@@ -67,6 +67,7 @@
                     <th>ID (hidden)</th>
                     @if($tab === 'cold')
                       <th>Nama</th>
+                      <th>Sales Name</th>
                       <th>Telephone</th>
                       <th>Source</th>
                       <th>Needs</th>
@@ -187,6 +188,7 @@ function initLeadTable(selector, route, type = 'default') {
     columns = [
       { data: 'id', visible: false },
       { data: 'name' },
+      { data: 'sales_name' },
       { data: 'phone' },
       { data: 'source', name: 'source' },
       { data: 'needs' },

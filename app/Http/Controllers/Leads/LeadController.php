@@ -184,6 +184,9 @@ class LeadController extends Controller
                 'needs'       => 'required',
                 'tonase'      => 'nullable|numeric',
                 'tonage_remark' => 'nullable|string',
+                'agent_title' => 'nullable|in:Mr,Mrs,Ms,Dr',
+                'agent_name' => 'nullable|string|max:150',
+                'spk_canvassing' => 'nullable|string|max:255',
                 'pic_extensions.*.title.*' => 'nullable|in:Mr,Mrs',
                 'pic_extensions.*.nama.*'  => 'nullable|string',
                 'pic_extensions.*.jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
@@ -247,6 +250,9 @@ class LeadController extends Controller
                     'needs.*'      => 'required',
                     'tonase.*'     => 'nullable|numeric',
                     'tonage_remark.*' => 'nullable|string',
+                    'agent_title.*' => 'nullable|in:Mr,Mrs,Ms,Dr',
+                    'agent_name.*' => 'nullable|string|max:150',
+                    'spk_canvassing.*' => 'nullable|string|max:255',
                 ];
             }
 
@@ -313,6 +319,9 @@ class LeadController extends Controller
                     $lead->needs = $request->needs[$i] ?? null;
                     $lead->tonase = $request->tonase[$i] ?? null;
                     $lead->tonage_remark = $request->tonage_remark[$i] ?? null;
+                    $lead->agent_title = $request->agent_title[$i] ?? null;
+                    $lead->agent_name = $request->agent_name[$i] ?? null;
+                    $lead->spk_canvassing = $request->spk_canvassing[$i] ?? null;
                     $lead->published_at = now();
 
                     $lead->save();
@@ -411,6 +420,9 @@ class LeadController extends Controller
             $lead->needs        = $request->needs;
             $lead->tonase       = $request->tonase;
             $lead->tonage_remark = $request->tonage_remark;
+            $lead->agent_title = $request->agent_title;
+            $lead->agent_name = $request->agent_name;
+            $lead->spk_canvassing = $request->spk_canvassing;
             $lead->published_at = $id ? $lead->published_at : now();
             $lead->save();
 
@@ -1036,4 +1048,258 @@ class LeadController extends Controller
 
         return $tempFile;
     }
+
+    public function myColdList(Request $request)
+    {
+        $user = $request->user();
+        
+        $claims = LeadClaim::whereNull('released_at')
+            ->with(['lead.region.regional', 'lead.source', 'lead.segment', 'lead.meetings', 'sales']);
+
+        if ($user->role?->code === 'sales') {
+            $claims->where('sales_id', $user->id);
+        }
+
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD));
+
+        return DataTables::of($claims)
+            ->addColumn('name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '')
+            ->addColumn('phone', fn($row) => $row->lead->phone ?? '')
+            ->addColumn('source', fn($row) => $row->lead->source->name ?? '')
+            ->addColumn('needs', fn($row) => $row->lead->needs ?? '')
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
+            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
+            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? '')
+            ->addColumn('meeting_status', function($row) {
+                $meeting = $row->lead->meetings()->latest()->first();
+                if (!$meeting) {
+                    return '<span class="badge badge-secondary">No Meeting</span>';
+                }
+                
+                $status = $meeting->status ?? 'pending';
+                $badgeClass = [
+                    'pending' => 'badge-warning',
+                    'approved' => 'badge-success', 
+                    'rejected' => 'badge-danger',
+                    'cancelled' => 'badge-secondary'
+                ][$status] ?? 'badge-secondary';
+                
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($status) . '</span>';
+            })
+            ->addColumn('actions', function ($row) {
+                $lead = $row->lead;
+                $editUrl = route('leads.form', $lead->id);
+                $btnId = 'coldActionsDropdown' . $lead->id;
+
+                $html = '<div class="dropdown">';
+                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown">';
+                $html .= '    <i class="bi bi-three-dots-vertical"></i>';
+                $html .= '  </button>';
+                $html .= '  <div class="dropdown-menu dropdown-menu-right">';
+                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                
+                $activityUrl = route('leads.activity.logs', $lead->id);
+                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
+                
+                $meeting = $lead->meetings()->latest()->first();
+                if (!$meeting) {
+                    $coldTrashUrl = route('leads.my.cold.trash', $row->id);
+                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($coldTrashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
+                } else {
+                    $cancelUrl = route('leads.meeting.cancel', $meeting->id);
+                    $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . ($meeting->status ?? 'pending') . '"><i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
+                }
+                
+                $html .= '  </div>';
+                $html .= '</div>';
+
+                return $html;
+            })
+            ->rawColumns(['meeting_status', 'actions'])
+            ->make(true);
+    }
+
+    public function myWarmList(Request $request)
+    {
+        $user = $request->user();
+        
+        $claims = LeadClaim::whereNull('released_at')
+            ->with(['lead.segment', 'lead.quotation', 'sales']);
+
+        if ($user->role?->code === 'sales') {
+            $claims->where('sales_id', $user->id);
+        }
+
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM));
+
+        // Apply date filtering if provided
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $claims->whereHas('lead.quotation', function($q) use ($request) {
+                $q->firstApprovalBetween($request->start_date, $request->end_date);
+            });
+        }
+
+        return DataTables::of($claims)
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
+            ->addColumn('meeting_status', function($row) {
+                return '<span class="badge badge-warning">Warm</span>';
+            })
+            ->addColumn('actions', function ($row) {
+                $lead = $row->lead;
+                $editUrl = route('leads.form', $lead->id);
+                $btnId = 'warmActionsDropdown' . $lead->id;
+
+                $html = '<div class="dropdown">';
+                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown">';
+                $html .= '    <i class="bi bi-three-dots-vertical"></i>';
+                $html .= '  </button>';
+                $html .= '  <div class="dropdown-menu dropdown-menu-right">';
+                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                
+                $activityUrl = route('leads.activity.logs', $lead->id);
+                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
+                
+                if ($lead->quotation) {
+                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
+                    
+                    $logUrl = route('quotations.logs', $lead->quotation->id);
+                    $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
+                }
+                
+                if (!$lead->quotation || $lead->quotation->status !== 'published') {
+                    $warmTrashUrl = route('leads.my.warm.trash', $row->id);
+                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($warmTrashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
+                }
+                
+                $html .= '  </div>';
+                $html .= '</div>';
+
+                return $html;
+            })
+            ->rawColumns(['meeting_status', 'actions'])
+            ->make(true);
+    }
+
+    public function myHotList(Request $request)
+    {
+        $user = $request->user();
+        
+        $claims = LeadClaim::whereNull('released_at')
+            ->with(['lead.segment', 'lead.quotation', 'sales']);
+
+        if ($user->role?->code === 'sales') {
+            $claims->where('sales_id', $user->id);
+        }
+
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT));
+
+        // Apply date filtering if provided
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $claims->whereHas('lead.quotation', function($q) use ($request) {
+                $q->bookingFeeBetween($request->start_date, $request->end_date);
+            });
+        }
+
+        return DataTables::of($claims)
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
+            ->addColumn('meeting_status', function($row) {
+                return '<span class="badge badge-danger">Hot</span>';
+            })
+            ->addColumn('actions', function ($row) {
+                $lead = $row->lead;
+                $editUrl = route('leads.form', $lead->id);
+                $btnId = 'hotActionsDropdown' . $lead->id;
+
+                $html = '<div class="dropdown">';
+                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown">';
+                $html .= '    <i class="bi bi-three-dots-vertical"></i>';
+                $html .= '  </button>';
+                $html .= '  <div class="dropdown-menu dropdown-right">';
+                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                
+                $activityUrl = route('leads.activity.logs', $lead->id);
+                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
+                
+                if ($lead->quotation) {
+                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
+                    
+                    $logUrl = route('quotations.logs', $lead->quotation->id);
+                    $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
+                }
+                
+                $html .= '  </div>';
+                $html .= '</div>';
+
+                return $html;
+            })
+            ->rawColumns(['meeting_status', 'actions'])
+            ->make(true);
+    }
+
+    public function myDealList(Request $request)
+    {
+        $user = $request->user();
+        
+        $claims = LeadClaim::whereNull('released_at')
+            ->with(['lead.segment', 'lead.quotation', 'sales']);
+
+        if ($user->role?->code === 'sales') {
+            $claims->where('sales_id', $user->id);
+        }
+
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL));
+
+        // Apply date filtering if provided
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $claims->whereHas('lead.quotation', function($q) use ($request) {
+                $q->firstTermPaidBetween($request->start_date, $request->end_date);
+            });
+        }
+
+        return DataTables::of($claims)
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
+            ->addColumn('meeting_status', function($row) {
+                return '<span class="badge badge-success">Deal</span>';
+            })
+            ->addColumn('actions', function ($row) {
+                $lead = $row->lead;
+                $editUrl = route('leads.form', $lead->id);
+                $btnId = 'dealActionsDropdown' . $lead->id;
+
+                $html = '<div class="dropdown">';
+                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown">';
+                $html .= '    <i class="bi bi-three-dots-vertical"></i>';
+                $html .= '  </button>';
+                $html .= '  <div class="dropdown-menu dropdown-menu-right">';
+                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                
+                $activityUrl = route('leads.activity.logs', $lead->id);
+                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
+                
+                if ($lead->quotation) {
+                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
+                    
+                    $logUrl = route('quotations.logs', $lead->quotation->id);
+                    $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
+                }
+                
+                $html .= '  </div>';
+                $html .= '</div>';
+
+                return $html;
+            })
+            ->rawColumns(['meeting_status', 'actions'])
+            ->make(true);
+    }
+
 }

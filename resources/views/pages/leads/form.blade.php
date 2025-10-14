@@ -120,26 +120,75 @@
                                         </div>
 
 
+
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">Source <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2" required>
+                                            <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2 source-select" required>
                                             <option value="" disabled selected>Pilih</option>
                                             @php
-                                                $filter = ['Canvas', 'Visit', 'Expo RHVAC Jakarta 2025'];
+                                                $filter = [
+                                                    'Ads Google',
+                                                    'Website',
+                                                    'Instagram',
+                                                    'Facebook',
+                                                    'Linked In',
+                                                    'Tik Tok',
+                                                    'Friends Recommendation',
+                                                    'Canvas', 
+                                                    'Visit', 
+                                                    'Expo RHVAC Jakarta 2025',
+                                                    'Association',
+                                                    'Business Association',
+                                                    'Repeat Order',
+                                                    'Sales Independen',
+                                                    'Aftersales',
+                                                    'Office Walk In',
+                                                    'Media with QR/Referral',
+                                                    'Agent / Reseller',
+                                                    'Youtube',
+                                                    'Google Search',
+                                                    'Telemarketing',
+                                                ];
                                                 $isNew = empty($form_data->source_id);
                                             @endphp
 
-                                        @foreach ($sources as $source)
-                                            @if ($isNew ? in_array($source->name, $filter) : true)
-                                                <option value="{{ $source->id }}"
-                                                    {{ old('source_id', $form_data->source_id) == $source->id ? 'selected' : '' }}>
-                                                    {{ $source->name }}
-                                                </option>
-                                            @endif
-                                        @endforeach
-
+                                            @foreach ($sources as $source)
+                                                @if ($isNew ? in_array($source->name, $filter) : true)
+                                                    <option value="{{ $source->id }}"
+                                                        {{ old('source_id', $form_data->source_id) == $source->id ? 'selected' : '' }}>
+                                                        {{ $source->name }}
+                                                    </option>
+                                                @endif
+                                            @endforeach
                                             </select>
                                         </div>
+
+                                    <div class="col-md-2 mb-3 agent-fields d-none">
+                                        <label class="form-label">Agent Title</label>
+                                        <select name="{{ $isCreate ? 'agent_title[]' : 'agent_title' }}" class="form-select">
+                                            <option value="">Select Title</option>
+                                            <option value="Mr" {{ old('agent_title', $form_data->agent_title) === 'Mr' ? 'selected' : '' }}>Mr</option>
+                                            <option value="Mrs" {{ old('agent_title', $form_data->agent_title) === 'Mrs' ? 'selected' : '' }}>Mrs</option>
+                                            <option value="Ms" {{ old('agent_title', $form_data->agent_title) === 'Ms' ? 'selected' : '' }}>Ms</option>
+                                            <option value="Dr" {{ old('agent_title', $form_data->agent_title) === 'Dr' ? 'selected' : '' }}>Dr</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3 agent-fields d-none">
+                                        <label class="form-label">Agent Name</label>
+                                        <input type="text" name="{{ $isCreate ? 'agent_name[]' : 'agent_name' }}" 
+                                            class="form-control" 
+                                            placeholder="Enter agent name" 
+                                            value="{{ old('agent_name', $form_data->agent_name) }}">
+                                    </div>
+
+                                    <div class="col-md-8 mb-3 canvas-fields d-none">
+                                        <label class="form-label">SPK Canvassing</label>
+                                        <input type="text" name="{{ $isCreate ? 'spk_canvassing[]' : 'spk_canvassing' }}" 
+                                            class="form-control" 
+                                            placeholder="Enter SPK Canvassing details" 
+                                            value="{{ old('spk_canvassing', $form_data->spk_canvassing) }}">
+                                    </div>
 
                                         <div class="col-md-4 mb-3">
                                             <label class="form-label">Company <i class="required">*</i></label>
@@ -685,6 +734,47 @@
         });
     }
 
+function toggleAgentFields($select) {
+    const $entry = $select.closest('.lead-entry');
+    const $agentFields = $entry.find('.agent-fields');
+    const $agentTitle = $entry.find('select[name*="agent_title"]');
+    const $agentName = $entry.find('input[name*="agent_name"]');
+    const $canvasFields = $entry.find('.canvas-fields');
+    const $spkCanvassing = $entry.find('input[name*="spk_canvassing"]');
+    
+    // Get the selected source name
+    const selectedText = $select.find('option:selected').text().trim();
+    
+    // Handle Agent / Reseller
+    if (selectedText === 'Agent / Reseller') {
+        $agentFields.removeClass('d-none');
+        $agentTitle.prop('required', true);
+        $agentName.prop('required', true);
+    } else {
+        $agentFields.addClass('d-none');
+        $agentTitle.prop('required', false).val('');
+        $agentName.prop('required', false).val('');
+    }
+    
+    // Handle Canvas
+    if (selectedText === 'Canvas') {
+        $canvasFields.removeClass('d-none');
+        $spkCanvassing.prop('required', true);
+    } else {
+        $canvasFields.addClass('d-none');
+        $spkCanvassing.prop('required', false).val('');
+    }
+}
+
+    $('#lead-entries .source-select').each(function(){
+        toggleAgentFields($(this));
+    });
+
+    // Add event handler for source changes
+    $(document).on('change', '.source-select', function() {
+        toggleAgentFields($(this));
+    });
+
     /* -----------------------------------------------------------
     * helper: renumber the “Lead n” labels
     * --------------------------------------------------------- */
@@ -843,6 +933,7 @@
 
         toggleIndustryOther($clone.find('.industry-select'));
         toggleFactoryIndustryOther($clone.find('.factory-industry-select'));
+        toggleAgentFields($clone.find('.source-select'));
 
         /* ---- clear field values ---- */
         $clone.find('input').val('');

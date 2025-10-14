@@ -20,6 +20,7 @@ class ColdLeadController extends Controller
                 'lead.source',
                 'lead.region.regional',
                 'lead.meetings.expense',
+                'sales'
             ])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
@@ -30,6 +31,7 @@ class ColdLeadController extends Controller
 
         return DataTables::of($claims)
             ->addColumn('name', fn ($row) => $row->lead->name)
+            ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
             ->addColumn('phone', fn ($row) => $row->lead->phone)
             ->addColumn('source', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('needs', fn ($row) => $row->lead->needs)
