@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('lead_id')->constrained('leads')->restrictOnUpdate()->restrictOnDelete();                        
             $table->string('quotation_no', 255)->nullable();
-            $table->enum('status', ['draft', 'review', 'published', 'rejected', 'expired'])->nullable();
+            $table->enum('status', ['draft', 'review', 'published',` 'rejected', 'expired'])->nullable();
             $table->double('subtotal')->nullable();
             $table->double('tax_pct')->default(11);
             $table->double('tax_total')->nullable();

@@ -45,6 +45,7 @@ class WarmLeadController extends Controller
                 $badgeClass = match ($status) {
                     'draft'     => 'bg-secondary',
                     'review'    => 'bg-warning',
+                    'pending_finance' => 'bg-warning',
                     'published' => 'bg-success',
                     'rejected'  => 'bg-danger',
                     default     => 'bg-light text-dark',
@@ -160,19 +161,24 @@ class WarmLeadController extends Controller
 
         $userRole = $request->user()->role?->code;
         $isEditable = true;
+
         if ($quotation) {
-            $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-            $allApproved = $bmApproved;
+            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $allApproved = $bmApproved && $financeApproved; // Both must approve
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                 $q->where('quotation_id', $quotation->id);
             })->exists();
 
-            if (! $allApproved) {
-                $isEditable = $userRole === 'sales';
+            // Updated editability logic for BM → Finance workflow
+            if ($quotation->status === 'published') {
+                // Published quotations can only be edited by BM if no payments exist
+                $isEditable = in_array($userRole, ['branch_manager']) && !$hasPayment;
             } else {
-                $isEditable = in_array($userRole, ['branch_manager']) && ! $hasPayment;
+                // Draft, review, or pending_finance can be edited by sales
+                $editableStatuses = ['draft', 'review', 'pending_finance'];
+                $isEditable = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
             }
         }
 
@@ -212,23 +218,26 @@ class WarmLeadController extends Controller
             $quotation = $claim->lead->quotation;
             $userRole   = $request->user()->role?->code;
             $canEdit    = true;
-
+            // In WarmLeadController.php - storeQuotation method
             if ($quotation) {
-                $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-                // $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-                $allApproved = $bmApproved;
+                $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+                $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+                $allApproved = $bmApproved && $financeApproved; // Both must approve
 
                 $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                     $q->where('quotation_id', $quotation->id);
                 })->exists();
 
-                if (! $allApproved) {
-                    $canEdit = $userRole === 'sales';
+                // UPDATED: Allow both sales and BM to edit before finance approval
+                if ($quotation->status === 'published') {
+                    $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
                 } else {
-                    $canEdit = in_array($userRole, ['branch_manager']) && ! $hasPayment;
+                    // Allow editing for sales OR BM when status is draft, review, or pending_finance
+                    $editableStatuses = ['draft', 'review', 'pending_finance'];
+                    $canEdit = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
                 }
             } else {
-                $canEdit = $userRole === 'sales';
+                $canEdit = in_array($userRole, ['sales', 'branch_manager']); // Allow both to create new quotations
             }
 
             abort_unless($canEdit, 403);
