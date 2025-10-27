@@ -73,8 +73,7 @@ class LeadRegisterController extends Controller
             'data'        => LeadSource::whereNotIn('name', [
                 'Ads Google',
                 'Website',
-                'Instagram',
-                'Facebook',
+                'Meta',
                 'Linked In',
                 'Tik Tok',
                 'Friends Recommendation',

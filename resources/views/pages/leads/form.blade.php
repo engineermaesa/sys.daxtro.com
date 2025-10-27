@@ -129,8 +129,7 @@
                                                 $filter = [
                                                     'Ads Google',
                                                     'Website',
-                                                    'Instagram',
-                                                    'Facebook',
+                                                    'Meta',
                                                     'Linked In',
                                                     'Tik Tok',
                                                     'Friends Recommendation',
@@ -207,7 +206,7 @@
                                         </div>      
                                         
                                         <div class="col-md-12 mb-3">
-                                            <label class="form-label">Reason of Contacting Us</label>
+                                            <label class="form-label contact-reason-label">Reason of Contacting Us</label>
                                             <textarea name="{{ $isCreate ? 'contact_reason[]' : 'contact_reason' }}" class="form-control" rows="2">{{ old('contact_reason', $form_data->contact_reason) }}</textarea>
                                         </div>
 
@@ -734,37 +733,52 @@
         });
     }
 
-function toggleAgentFields($select) {
-    const $entry = $select.closest('.lead-entry');
-    const $agentFields = $entry.find('.agent-fields');
-    const $agentTitle = $entry.find('select[name*="agent_title"]');
-    const $agentName = $entry.find('input[name*="agent_name"]');
-    const $canvasFields = $entry.find('.canvas-fields');
-    const $spkCanvassing = $entry.find('input[name*="spk_canvassing"]');
-    
-    // Get the selected source name
-    const selectedText = $select.find('option:selected').text().trim();
-    
-    // Handle Agent / Reseller
-    if (selectedText === 'Agent / Reseller') {
-        $agentFields.removeClass('d-none');
-        $agentTitle.prop('required', true);
-        $agentName.prop('required', true);
-    } else {
-        $agentFields.addClass('d-none');
-        $agentTitle.prop('required', false).val('');
-        $agentName.prop('required', false).val('');
+    function updateContactReasonLabel($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $contactReasonLabel = $entry.find('.contact-reason-label');
+        const selectedText = $select.find('option:selected').text().trim();
+
+        const labelMappings = {
+            'Canvas': 'Reason of Contacting Them (via Canvas)',
+        }
+
+        const newLabel = labelMappings[selectedText] || 'Reason of Contacting Us';
+        $contactReasonLabel.text(newLabel);
     }
-    
-    // Handle Canvas
-    if (selectedText === 'Canvas') {
-        $canvasFields.removeClass('d-none');
-        $spkCanvassing.prop('required', true);
-    } else {
-        $canvasFields.addClass('d-none');
-        $spkCanvassing.prop('required', false).val('');
+
+    function toggleAgentFields($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $agentFields = $entry.find('.agent-fields');
+        const $agentTitle = $entry.find('select[name*="agent_title"]');
+        const $agentName = $entry.find('input[name*="agent_name"]');
+        const $canvasFields = $entry.find('.canvas-fields');
+        const $spkCanvassing = $entry.find('input[name*="spk_canvassing"]');
+        // const $contactReasonLabel = $entry.find('.contact-reason-label');
+        
+        const selectedText = $select.find('option:selected').text().trim();
+
+        if (selectedText === 'Agent / Reseller') {
+            $agentFields.removeClass('d-none');
+            $agentTitle.prop('required', true);
+            $agentName.prop('required', true);
+        } else {
+            $agentFields.addClass('d-none');
+            $agentTitle.prop('required', false).val('');
+            $agentName.prop('required', false).val('');
+        }
+        
+        if (selectedText === 'Canvas') {
+            $canvasFields.removeClass('d-none');
+            $spkCanvassing.prop('required', true);
+            // $contactReasonLabel.text('Reason of Contacting Them (via Canvas)');
+        } else {
+            $canvasFields.addClass('d-none');
+            $spkCanvassing.prop('required', false).val('');
+            // $contactReasonLabel.text('Reason of Contacting Us');
+        }
+
+        updateContactReasonLabel($select);
     }
-}
 
     $('#lead-entries .source-select').each(function(){
         toggleAgentFields($(this));

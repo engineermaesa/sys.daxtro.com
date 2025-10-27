@@ -190,48 +190,48 @@
 
       {{-- Items Table --}}
       <table class="items">
-        <thead>
-          <tr>
-            <th width="5%">No</th>
-            <th width="25%">Machine</th>
-            <th width="40%">Specification</th>
-            <th width="8%">Qty</th>
-            <th width="22%">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach($quotation->items as $i => $item)
-          
-          @php
-            $specs = [
-              'Brand' => $item->product->brand ?? 'Daxtro',
-              'Daily Capacity' => '3ton/24h',
-              'Size Ice' => '2.8cm/3.4cm',
-              'Compressor' => 'Refcomp - Italy',
-              'Supply Power' => '380V 50Hz 3P',
-              'Installation Power' => '15 KW',
-              'Maximum Ampere' => '40 A',
-              'Cooling Way' => 'Water Cooling System',
-              'Machine Weight(kg)' => '1400 (estimate)',
-              'Dimension (mm)' => '1680*950*2200',
-              'Freon Type' => 'R507 Chemours',
-              'Machine Status' => 'Pre Order'
-            ];
-          @endphp
-          <tr>
-            <td class="text-center">{{ $i + 1 }}</td>
-            <td>{{ $item->product->name ?? '—' }}</td>
-            <td> {{ $item->product->sku ?? '—' }}
-              {{-- @foreach($specs as $label => $value)
-                <span class="spec-label">{{ $label }}</span> :
-                <span class="spec-label">{{ $value }}</span><br>
-              @endforeach --}}
-            </td>
-            <td class="text-center">{{ $item->qty }}</td>
-            <td class="text-right">Rp {{ number_format($item->unit_price * $item->qty, 0, ',', '.') }}</td>
-          </tr>
-          @endforeach
-        </tbody>
+          <thead>
+              <tr>
+                  <th width="5%">No</th>
+                  <th width="25%">Machine</th>
+                  <th width="40%">Specification</th>
+                  <th width="8%">Qty</th>
+                  <th width="22%">Amount</th>
+              </tr>
+          </thead>
+          <tbody>
+              @php
+                  $pdfItems = [];
+                  $itemCounter = 1;
+                  
+                  foreach($quotation->items->where('is_visible_pdf', true) as $item) {
+                      $pdfItem = [
+                          'description' => $item->description,
+                          'product' => $item->product,
+                          'qty' => $item->qty,
+                          'amount' => $item->line_total,
+                      ];
+
+                      $mergedAmount = 0;
+                      foreach($quotation->items->where('merge_into_item_id', $item->id) as $mergedItem) {
+                          $mergedAmount += $mergedItem->line_total;
+                      }
+                      
+                      $pdfItem['amount'] += $mergedAmount;
+                      $pdfItems[] = $pdfItem;
+                  }
+              @endphp
+              
+              @foreach($pdfItems as $i => $item)
+                  <tr>
+                      <td class="text-center">{{ $i + 1 }}</td>
+                      <td>{{ $item['product']->name ?? $item['description'] }}</td>
+                      <td>{{ $item['product']->sku ?? '—' }}</td>
+                      <td class="text-center">{{ $item['qty'] }}</td>
+                      <td class="text-right">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
+                  </tr>
+              @endforeach
+          </tbody>
       </table>
 
       {{-- Totals --}}

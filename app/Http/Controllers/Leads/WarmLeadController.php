@@ -218,7 +218,6 @@ class WarmLeadController extends Controller
             $quotation = $claim->lead->quotation;
             $userRole   = $request->user()->role?->code;
             $canEdit    = true;
-            // In WarmLeadController.php - storeQuotation method
             if ($quotation) {
                 $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
                 $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
@@ -228,16 +227,14 @@ class WarmLeadController extends Controller
                     $q->where('quotation_id', $quotation->id);
                 })->exists();
 
-                // UPDATED: Allow both sales and BM to edit before finance approval
                 if ($quotation->status === 'published') {
                     $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
                 } else {
-                    // Allow editing for sales OR BM when status is draft, review, or pending_finance
                     $editableStatuses = ['draft', 'review', 'pending_finance'];
                     $canEdit = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
                 }
             } else {
-                $canEdit = in_array($userRole, ['sales', 'branch_manager']); // Allow both to create new quotations
+                $canEdit = in_array($userRole, ['sales', 'branch_manager']);
             }
 
             abort_unless($canEdit, 403);
@@ -254,6 +251,8 @@ class WarmLeadController extends Controller
                 'term_description.*' => 'nullable|string',
                 'payment_type'      => 'required|in:booking_fee,down_payment',
                 'booking_fee'       => 'nullable|numeric|min:0',
+                'is_visible_pdf.*'  => 'nullable|boolean',
+                'merge_into_item_id.*' => 'nullable',
             ];
 
             // 2. Custom messages
@@ -272,15 +271,15 @@ class WarmLeadController extends Controller
                 'payment_type.required'    => 'Please choose a payment type.',
                 'payment_type.in'          => 'Invalid payment type selected.',
                 'booking_fee.min'          => 'Booking fee cannot be negative.',
+                'is_visible_pdf.*.boolean' => 'is_visible_pdf must be true or false.',
+                'merge_into_item_id.*.exists' => 'Selected merge item does not exist.',
             ];
             
             // 3. Run validator
             $validator = Validator::make($request->all(), $rules, $messages);
 
             if ($validator->fails()) {
-                // grab the first error message
                 $firstError = $validator->errors()->first();
-                // include all errors in the payload if you want
                 return $this->setJsonResponse(
                     $firstError,
                     ['errors' => $validator->errors()->toArray()],
@@ -308,6 +307,12 @@ class WarmLeadController extends Controller
                 $line = ($price - ($price * $discount / 100)) * $qty;
                 $subtotal += $line;
 
+                $isVisible = isset($request->is_visible_pdf[$idx]) ? 
+                    (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
+                
+                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ? 
+                    (int)$request->merge_into_item_id[$idx] : null;
+
                 $items[] = [
                     'product_id' => $pid,
                     'qty' => $qty,
@@ -315,6 +320,8 @@ class WarmLeadController extends Controller
                     'unit_price' => $price,
                     'discount_pct' => $discount,
                     'line_total' => $line,
+                    'is_visible_pdf' => $isVisible,
+                    'merge_into_index' => $mergeIntoIndex,
                 ];
             }
 
@@ -385,9 +392,21 @@ class WarmLeadController extends Controller
                 ]);
             }
 
-            // Save items
-            foreach ($items as $item) {
-                QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $item));
+            $savedItems = [];
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                unset($itemData['merge_into_index']);
+                
+                $savedItem = QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $itemData));
+                $savedItems[$index] = $savedItem;
+            }
+
+            // Second pass: update merge relationships
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                if ($mergeIndex !== null && isset($savedItems[$mergeIndex]) && isset($savedItems[$index])) {
+                    $savedItems[$index]->update(['merge_into_item_id' => $savedItems[$mergeIndex]->id]);
+                }
             }
 
             // Save payment terms

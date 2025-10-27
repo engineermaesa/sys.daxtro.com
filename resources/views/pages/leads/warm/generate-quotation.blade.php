@@ -40,6 +40,7 @@
                             @csrf
 
                             {{-- Items Table --}}
+                            {{--  --}}
                             <div class="mb-3">
                                 <label class="form-label">Items <i class="required">*</i></label>
                                 <table class="table table-bordered" id="items-table">
@@ -51,13 +52,16 @@
                                             <th style="width:190px;">Unit Price</th>
                                             <th style="width:100px;">Disc %</th>
                                             <th style="width:150px;">Line Total</th>
-                                            <th style="width:20px;"></th>
+                                            @if ($isEditable)
+                                                <th style="width:80px;">PDF Visibility</th>
+                                                <th style="width:20px;">Action</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @if ($quotation)
                                             @foreach ($quotation->items as $item)
-                                                <tr>
+                                                <tr data-item-id="{{ $item->id }}">
                                                     <td style="max-width: 100px;">
                                                         <select name="product_id[]" class="form-select item-product select2" {{ $disabled }} required>
                                                             <option value="">Select Product</option>
@@ -75,10 +79,9 @@
                                                                     {{ $p->name }} ({{ $p->sku }})
                                                                 </option>
                                                             @endforeach
-
                                                         </select>
                                                     </td>
-                                                    <td style="max-width: 50px;"> 
+                                                    <td style="max-width: 50px;">
                                                         <input type="text" name="description[]"
                                                             class="form-control item-desc text-start" value="{{ $item->description }}"
                                                             {{ $item->product_id ? 'readonly' : '' }} {{ $disabled }}
@@ -129,16 +132,39 @@
                                                     <td><input type="text" class="form-control item-total number-input"
                                                             value="{{ number_format($item->line_total, 0, ',', '.') }}"
                                                             readonly></td>
-                                                    <td class="text-center">
-                                                        @if ($isEditable)
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-danger remove-item">&times;</button>
-                                                        @endif
-                                                    </td>
+                                                    @if ($isEditable)
+                                                        <td class="text-center">
+                                                            {{-- Visibility Toggle Button --}}
+                                                            <button type="button" class="btn btn-sm visibility-toggle"
+                                                                    data-visible="{{ $item->is_visible_pdf ? 'true' : 'false' }}">
+                                                                <i class="bi {{ $item->is_visible_pdf ? 'bi-eye' : 'bi-eye-slash' }}"></i>
+                                                            </button>
+                                                            <input type="hidden" name="is_visible_pdf[]" 
+                                                                value="{{ $item->is_visible_pdf ? '1' : '0' }}"
+                                                                class="visibility-input">
+
+                                                            {{-- Merge Into Dropdown --}}
+                                                            <select name="merge_into_item_id[]"
+                                                                class="form-select form-select-sm mt-1 merge-dropdown {{ $item->is_visible_pdf ? 'd-none' : '' }}"
+                                                                {{ $disabled }}>
+                                                                <option value="">Select visible item...</option>
+                                                                @foreach ($quotation->items->where('is_visible_pdf', true) as $visibleItem)
+                                                                    <option value="{{ $loop->index }}"
+                                                                        {{ $item->merge_into_item_id == $visibleItem->id ? 'selected' : '' }}>
+                                                                        {{ $visibleItem->description }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <button type="button" class="btn btn-sm btn-danger remove-item">&times;</button>
+                                                        </td>
+                                                    @endif
                                                 </tr>
                                             @endforeach
                                         @else
-                                            <tr>
+                                            {{-- New quotation - single empty row --}}
+                                            <tr data-item-id="new">
                                                 <td style="max-width: 100px;">
                                                     <select name="product_id[]" class="form-select item-product select2"
                                                         {{ $disabled }} required>
@@ -158,8 +184,10 @@
                                                         @endforeach
                                                     </select>
                                                 </td>
-                                                <td style="max-width: 50px;"><input type="text" name="description[]"
-                                                        class="form-control item-desc text-start" readonly {{ $disabled }}></td>
+                                                <td style="max-width: 50px;">
+                                                    <input type="text" name="description[]"
+                                                        class="form-control item-desc text-start" readonly {{ $disabled }}>
+                                                </td>
                                                 <td><input type="number" name="qty[]" class="form-control item-qty"
                                                         value="1" {{ $disabled }} required></td>
                                                 <td>
@@ -178,23 +206,29 @@
                                                         class="form-control item-disc"
                                                         step='0.01'
                                                         min="0"
-                                                        max="100"
-                                                        class="form-control item-disc" {{ $disabled }}></td>
+                                                        max="100" {{ $disabled }}></td>
                                                 <td><input type="text" class="form-control item-total number-input"
                                                         readonly></td>
-                                                <td class="text-center">
-                                                    @if ($isEditable)
-                                                        <button type="button"
-                                                            class="btn btn-sm btn-danger remove-item">&times;</button>
-                                                    @endif
-                                                </td>
+                                                @if ($isEditable)
+                                                    <td class="text-center">
+                                                        <button type="button" class="btn btn-sm visibility-toggle" data-visible="true">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <input type="hidden" name="is_visible_pdf[]" value="1" class="visibility-input">
+                                                        <select name="merge_into_item_id[]" class="form-select form-select-sm mt-1 merge-dropdown d-none">
+                                                            <option value="">Select visible item...</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-danger remove-item">&times;</button>
+                                                    </td>
+                                                @endif
                                             </tr>
                                         @endif
                                     </tbody>
                                 </table>
                                 @if ($isEditable)
-                                    <button type="button" id="add-item" class="btn btn-sm btn-outline-primary">Add
-                                        Item</button>
+                                    <button type="button" id="add-item" class="btn btn-sm btn-outline-primary">Add Item</button>
                                 @endif
                             </div>
 
@@ -427,6 +461,75 @@
                 $('#grand_total').val(grand.toFixed(2));
             }
 
+            // Add this after the calcTotal() function in your existing JavaScript
+
+            // Visibility toggle functionality
+            $(document).on('click', '.visibility-toggle', function() {
+                const $btn = $(this);
+                const $row = $btn.closest('tr');
+                const $icon = $btn.find('i');
+                const $input = $row.find('.visibility-input');
+                const $dropdown = $row.find('.merge-dropdown');
+                const isVisible = $btn.data('visible') === true || $btn.data('visible') === 'true';
+                
+                if (isVisible) {
+                    // Make invisible - show crossed eye
+                    $icon.removeClass('bi-eye').addClass('bi-eye-slash');
+                    $input.val('0');
+                    $btn.data('visible', false);
+                    $dropdown.removeClass('d-none');
+                    updateMergeDropdowns();
+                } else {
+                    // Make visible - show normal eye
+                    $icon.removeClass('bi-eye-slash').addClass('bi-eye');
+                    $input.val('1');
+                    $btn.data('visible', true);
+                    $dropdown.addClass('d-none').val('');
+                    updateMergeDropdowns();
+                }
+            });
+
+            // Update merge dropdowns when visibility changes
+            function updateMergeDropdowns() {
+                const visibleItems = [];
+                
+                // Collect all visible items
+                $('#items-table tbody tr').each(function(index) {
+                    const $row = $(this);
+                    const $toggle = $row.find('.visibility-toggle');
+                    const isVisible = $toggle.data('visible') === true || $toggle.data('visible') === 'true';
+                    
+                    if (isVisible) {
+                        const description = $row.find('.item-desc').val();
+                        if (description) {
+                            visibleItems.push({ id: index, description: description }); // Use index as ID
+                        }
+                    }
+                });
+                
+                // Update all merge dropdowns
+                $('.merge-dropdown').each(function() {
+                    const $dropdown = $(this);
+                    const currentValue = $dropdown.val();
+                    
+                    $dropdown.empty().append('<option value="">Select visible item...</option>');
+                    
+                    visibleItems.forEach(item => {
+                        $dropdown.append(`<option value="${item.id}">${item.description}</option>`);
+                    });
+                    
+                    // Restore selected value if it still exists
+                    if (currentValue && visibleItems.find(item => item.id == currentValue)) {
+                        $dropdown.val(currentValue);
+                    }
+                });
+            }
+
+            // Update merge dropdowns when item descriptions change
+            $(document).on('input', '.item-desc', function() {
+                updateMergeDropdowns();
+            });
+
             $(function() {
                 // — Initialize existing rows
                 $('#items-table tbody tr').each(function() {
@@ -549,6 +652,7 @@
                     $('select.select2').select2('destroy');
                     let newRow = $('#items-table tbody tr:first').clone();
 
+                    // Clear all inputs
                     newRow.find('input').val('');
                     newRow.find('select').val('').trigger('change');
                     newRow.find('.item-desc').prop('readonly', true);
@@ -557,9 +661,19 @@
                     newRow.find('.segment-price-info').html('');
                     newRow.find('.item-segment').val(defaultSegment).addClass('d-none');
                     newRow.find('.item-total').val('');
-                    $('#items-table tbody').append(newRow);
 
+                    // Reset visibility controls
+                    newRow.find('.visibility-toggle').data('visible', true).find('i')
+                        .removeClass('bi-eye-slash').addClass('bi-eye');
+                    newRow.find('.visibility-input').val('1');
+                    newRow.find('.merge-dropdown').addClass('d-none').val('');
+                    
+                    // Update data-item-id for new row
+                    newRow.attr('data-item-id', 'new-' + Date.now());
+                    
+                    $('#items-table tbody').append(newRow);
                     $('.select2').select2({ width: '100%' });
+                    updateMergeDropdowns();
                 });
 
                 // — Remove item row

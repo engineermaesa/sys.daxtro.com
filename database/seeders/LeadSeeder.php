@@ -12,8 +12,7 @@ class LeadSeeder extends Seeder
         $sources = [
                 'Ads Google',
                 'Website',
-                'Instagram',
-                'Facebook',
+                'Meta',
                 'Linked In',
                 'Tik Tok',
                 'Friends Recommendation',

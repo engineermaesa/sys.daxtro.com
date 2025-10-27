@@ -151,7 +151,7 @@
                 <option value="" disabled selected>Pilih</option>
                 @php
                   $filter = [
-                      'Ads Google', 'Website', 'Instagram', 'Facebook', 'Linked In', 'Tik Tok',
+                      'Ads Google', 'Website', 'Meta', 'Linked In', 'Tik Tok',
                       'Friends Recommendation', 'Canvas', 'Visit', 'Expo RHVAC Jakarta 2025',
                       'Association', 'Business Association', 'Repeat Order', 'Sales Independen',
                       'Aftersales', 'Office Walk In', 'Media with QR/Referral', 'Agent / Reseller',
