@@ -868,7 +868,7 @@ class LeadController extends Controller
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $rows[] = [
                 $lead->published_at,
-                $claim?->sales?->name ?? '-', // sales name
+                $claim?->sales?->name ?? '-',
                 $lead->name,
                 $lead->region->branch->name ?? '',
                 $lead->region->name ?? '',
