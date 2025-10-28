@@ -13,6 +13,7 @@ class MeetingTypeSeeder extends Seeder
             'Offline - Office',
             'Offline - Canvass',
             'Video Call',
+            'EXPO'
         ];
 
         foreach ($types as $name) {

@@ -67,7 +67,9 @@
                     <th>ID (hidden)</th>
                     @if($tab === 'cold')
                       <th>Nama</th>
+                      <th>Sales Name</th>
                       <th>Telephone</th>
+                      <th>Source</th>
                       <th>Needs</th>
                       <th>Segment</th>
                       <th>City</th>
@@ -77,7 +79,6 @@
                       <th>Claimed At</th>
                       <th>Lead Name</th>
                       <th>Segment</th>
-                      <th>Source</th>
                       <th class="text-center">Status</th>
                     @endif
                     <th class="text-center">Action</th>
@@ -187,7 +188,9 @@ function initLeadTable(selector, route, type = 'default') {
     columns = [
       { data: 'id', visible: false },
       { data: 'name' },
+      { data: 'sales_name' },
       { data: 'phone' },
+      { data: 'source', name: 'source' },
       { data: 'needs' },
       { data: 'segment_name' },
       { data: 'city_name' },
@@ -201,7 +204,6 @@ function initLeadTable(selector, route, type = 'default') {
       { data: 'claimed_at', name: 'claimed_at', render: function (data) { if(!data) return ''; return new Date(data).toLocaleString('en-GB', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}); } },
       { data: 'lead_name', name: 'lead_name' },
       { data: 'segment_name', name: 'segment_name' },
-      { data: 'source_name', name: 'source_name' },
       { data: 'meeting_status', orderable: false, searchable: false, className: 'text-center' },
       { data: 'actions', orderable: false, searchable: false, className: 'text-center' }
     ];

@@ -45,6 +45,7 @@ class WarmLeadController extends Controller
                 $badgeClass = match ($status) {
                     'draft'     => 'bg-secondary',
                     'review'    => 'bg-warning',
+                    'pending_finance' => 'bg-warning',
                     'published' => 'bg-success',
                     'rejected'  => 'bg-danger',
                     default     => 'bg-light text-dark',
@@ -160,19 +161,24 @@ class WarmLeadController extends Controller
 
         $userRole = $request->user()->role?->code;
         $isEditable = true;
+
         if ($quotation) {
-            $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-            $allApproved = $bmApproved && $dirApproved;
+            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $allApproved = $bmApproved && $financeApproved; // Both must approve
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                 $q->where('quotation_id', $quotation->id);
             })->exists();
 
-            if (! $allApproved) {
-                $isEditable = $userRole === 'sales';
+            // Updated editability logic for BM → Finance workflow
+            if ($quotation->status === 'published') {
+                // Published quotations can only be edited by BM if no payments exist
+                $isEditable = in_array($userRole, ['branch_manager']) && !$hasPayment;
             } else {
-                $isEditable = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                // Draft, review, or pending_finance can be edited by sales
+                $editableStatuses = ['draft', 'review', 'pending_finance'];
+                $isEditable = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
             }
         }
 
@@ -212,23 +218,23 @@ class WarmLeadController extends Controller
             $quotation = $claim->lead->quotation;
             $userRole   = $request->user()->role?->code;
             $canEdit    = true;
-
             if ($quotation) {
-                $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-                $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-                $allApproved = $bmApproved && $dirApproved;
+                $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+                $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+                $allApproved = $bmApproved && $financeApproved; // Both must approve
 
                 $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                     $q->where('quotation_id', $quotation->id);
                 })->exists();
 
-                if (! $allApproved) {
-                    $canEdit = $userRole === 'sales';
+                if ($quotation->status === 'published') {
+                    $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
                 } else {
-                    $canEdit = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                    $editableStatuses = ['draft', 'review', 'pending_finance'];
+                    $canEdit = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
                 }
             } else {
-                $canEdit = $userRole === 'sales';
+                $canEdit = in_array($userRole, ['sales', 'branch_manager']);
             }
 
             abort_unless($canEdit, 403);
@@ -245,6 +251,8 @@ class WarmLeadController extends Controller
                 'term_description.*' => 'nullable|string',
                 'payment_type'      => 'required|in:booking_fee,down_payment',
                 'booking_fee'       => 'nullable|numeric|min:0',
+                'is_visible_pdf.*'  => 'nullable|boolean',
+                'merge_into_item_id.*' => 'nullable',
             ];
 
             // 2. Custom messages
@@ -263,15 +271,15 @@ class WarmLeadController extends Controller
                 'payment_type.required'    => 'Please choose a payment type.',
                 'payment_type.in'          => 'Invalid payment type selected.',
                 'booking_fee.min'          => 'Booking fee cannot be negative.',
+                'is_visible_pdf.*.boolean' => 'is_visible_pdf must be true or false.',
+                'merge_into_item_id.*.exists' => 'Selected merge item does not exist.',
             ];
             
             // 3. Run validator
             $validator = Validator::make($request->all(), $rules, $messages);
 
             if ($validator->fails()) {
-                // grab the first error message
                 $firstError = $validator->errors()->first();
-                // include all errors in the payload if you want
                 return $this->setJsonResponse(
                     $firstError,
                     ['errors' => $validator->errors()->toArray()],
@@ -299,6 +307,12 @@ class WarmLeadController extends Controller
                 $line = ($price - ($price * $discount / 100)) * $qty;
                 $subtotal += $line;
 
+                $isVisible = isset($request->is_visible_pdf[$idx]) ? 
+                    (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
+                
+                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ? 
+                    (int)$request->merge_into_item_id[$idx] : null;
+
                 $items[] = [
                     'product_id' => $pid,
                     'qty' => $qty,
@@ -306,6 +320,8 @@ class WarmLeadController extends Controller
                     'unit_price' => $price,
                     'discount_pct' => $discount,
                     'line_total' => $line,
+                    'is_visible_pdf' => $isVisible,
+                    'merge_into_index' => $mergeIntoIndex,
                 ];
             }
 
@@ -376,9 +392,21 @@ class WarmLeadController extends Controller
                 ]);
             }
 
-            // Save items
-            foreach ($items as $item) {
-                QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $item));
+            $savedItems = [];
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                unset($itemData['merge_into_index']);
+                
+                $savedItem = QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $itemData));
+                $savedItems[$index] = $savedItem;
+            }
+
+            // Second pass: update merge relationships
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                if ($mergeIndex !== null && isset($savedItems[$mergeIndex]) && isset($savedItems[$index])) {
+                    $savedItems[$index]->update(['merge_into_item_id' => $savedItems[$mergeIndex]->id]);
+                }
             }
 
             // Save payment terms

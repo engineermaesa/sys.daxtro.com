@@ -76,29 +76,34 @@
                     @endforeach
                 </ul>
 
-                <div class="tab-content" id="leadTabsContent">
-                    @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
-                        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $tab }}"
-                            role="tabpanel" aria-labelledby="{{ $tab }}-tab">
-                            <div class="table-responsive">
-                                <table id="{{ $tab }}LeadsTable" class="table table-bordered table-sm w-100">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="display:none;">ID</th>
-                                            <th>Nama</th>
-                                            <th>Telephone</th>
-                                            <th>Needs</th>
-                                            <th>Segment</th>
-                                            <th>City</th>
-                                            <th>Regional</th>
-                                            <th class="text-center">Actions</th>
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+      <div class="tab-content" id="leadTabsContent">
+        @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
+          <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
+               id="{{ $tab }}"
+               role="tabpanel"
+               aria-labelledby="{{ $tab }}-tab">
+            <div class="table-responsive">
+              <table id="{{ $tab }}LeadsTable" class="table table-bordered table-sm w-100">
+                <thead class="table-light">
+                  <tr>
+                    <th style="display:none;">ID</th>
+                    <th>Nama</th>
+                    <th>Sales Name</th>
+                    <th>Telephone</th>
+                    <th>Needs</th>
+                    <th>Segment</th>
+                    <th>City</th>
+                    <th>Regional</th>
+                    <th>Customer Type</th>
+                    <th>Product Description</th>
+                    <th>Quotation Number</th>
+                    <th>Quotation Price</th>
+                    <th>Invoice</th>
+                    <th>Invoice Price</th>
+                    <th class="text-center">Actions</th>
+                  </tr>
+                </thead>
+              </table>
             </div>
         </div>
     </section>
@@ -252,6 +257,7 @@
                 });
             }
 
+<<<<<<< HEAD
             function updateFilterVisibility() {
                 const activeId = $('#leadTabs .nav-link.active').attr('id');
                 if (activeId === 'cold-tab') {
@@ -264,6 +270,45 @@
                     if (activeId === 'deal-tab') $('#filterNote').text(notes.deal);
                 }
             }
+=======
+  function initTable(selector, statusId) {
+    return $(selector).DataTable({
+      processing: true,
+      serverSide: true,
+      ajax: {
+        url: '{{ route("leads.manage.list") }}',
+        type: 'POST',
+        data: function(d){
+          d.branch_id  = $('#filter_branch').val();
+          d.region_id  = $('#filter_region').val();
+          d.sales_id   = $('#filter_sales').val();
+          d.start_date = $('#filter_start').val();
+          d.end_date   = $('#filter_end').val();
+          d.status_id  = statusId;
+          d._token     = '{{ csrf_token() }}';
+        }
+      },
+      columns: [
+        { data: 'id', visible: false },
+        { data: 'name' },
+        { data: 'sales_name' },
+        { data: 'phone' },
+        { data: 'needs' },
+        { data: 'segment_name' },
+        { data: 'city_name' },
+        { data: 'regional_name' },
+        { data: 'customer_type' },
+        { data: 'product_description' },
+        { data: 'quotation_number' },
+        { data: 'quotation_price' },
+        { data: 'invoice_number' },
+        { data: 'invoice_price' },
+        { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
+      ],
+      order: [[0, 'desc']]
+    });
+  }
+>>>>>>> 3fc079b6904fe0b3af5a8443b570bed01223a000
 
             function initTable(selector, statusId) {
                 return $(selector).DataTable({

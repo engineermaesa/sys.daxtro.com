@@ -23,6 +23,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 
 class FinanceRequestController extends Controller
@@ -247,12 +248,19 @@ class FinanceRequestController extends Controller
         ])->render();
 
         $pdf = PDF::loadHTML($html)->setPaper('A4', 'portrait');
-        $filePath = 'invoices/' . $invoice->invoice_no . '.pdf';
-        Storage::put($filePath, $pdf->output());
+        $fileName = $invoice->invoice_no . '.pdf';
+
+        $storagePath = storage_path('app/public/invoices');
+        if (!File::exists($storagePath)) {
+            File::makeDirectory($storagePath, 0755, true);
+        }
+
+        $filePath = 'invoices/' . $fileName;
+        $pdf->save(storage_path('app/public/' . $filePath));
 
         $attachment = Attachment::create([
             'type'        => 'invoice_pdf',
-            'file_path'   => $filePath,
+            'file_path'   => 'storage/' . $filePath,
             'mime_type'   => 'application/pdf',
             'size'        => strlen($pdf->output()),
             'uploaded_by' => auth()->id(),

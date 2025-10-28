@@ -21,11 +21,27 @@ class QuotationItems extends Model
         'unit_price',
         'discount_pct',
         'line_total',
+        'is_visible_pdf',
+        'merge_into_item_id',
+    ];
+
+    protected $casts = [
+        'is_visible_pdf' => 'boolean',
     ];
 
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function mergeIntoItem()
+    {
+        return $this->belongsTo(QuotationItems::class, 'merge_into_item_id');
+    }
+
+    public function mergedItems()
+    {
+        return $this->hasMany(QuotationItems::class, 'merge_into_item_id');
     }
 
 }
