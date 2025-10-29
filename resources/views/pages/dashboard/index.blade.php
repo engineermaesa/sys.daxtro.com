@@ -15,12 +15,12 @@
         }
 
 
-        #process-flow-container {
+        #process-flow-container, #process-flow-row2 {
             margin-left: -8px;
             margin-right: -8px;
         }
         
-        #process-flow-container > div {
+        #process-flow-container > div, #process-flow-row2 > div {
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -173,6 +173,33 @@
                 font-size: 11px;
             }
         }
+        
+        /* Custom 5-column grid for 20% width each */
+        .col-xl-2-4 {
+            flex: 0 0 20%;
+            max-width: 20%;
+        }
+        
+        @media (max-width: 1199px) {
+            .col-xl-2-4 {
+                flex: 0 0 25%;
+                max-width: 25%;
+            }
+        }
+        
+        @media (max-width: 991px) {
+            .col-xl-2-4 {
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+        }
+        
+        @media (max-width: 575px) {
+            .col-xl-2-4 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+        }
     </style>
 @endsection
 
@@ -182,55 +209,147 @@
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
         
+        {{-- Row 1 - Qty & ATR Time (5 Cards) --}}
         <div class="row" id="process-flow-container">
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+            {{-- All Leads In --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
-                        <i class="fas fa-bullseye"></i>
+                        <i class="fas fa-clipboard-list"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">AWARE</div>
-                        <div class="process-flow-count" id="aware-qty">-</div>
-                        <div class="process-flow-atr" id="aware-time">Loading...</div>
+                        <div class="process-flow-title">All Leads In</div>
+                        <div class="process-flow-count" id="all-leads-qty">-</div>
+                        {{-- <div class="process-flow-atr" id="all-leads-time">Loading...</div> --}}
                     </div>
                 </div>
             </div>
             
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+            {{-- Acquisition --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">Acquisition</div>
+                        <div class="process-flow-count" id="acquisition-qty">-</div>
+                        <div class="process-flow-atr" id="acquisition-time">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Meeting --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
                         <i class="fas fa-calendar-check"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">APPEAL</div>
-                        <div class="process-flow-count" id="appeal-qty">-</div>
-                        <div class="process-flow-atr" id="appeal-time">Loading...</div>
+                        <div class="process-flow-title">Meeting</div>
+                        <div class="process-flow-count" id="meeting-qty">-</div>
+                        <div class="process-flow-atr" id="meeting-time">Loading...</div>
                     </div>
                 </div>
             </div>
-
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+            
+            {{-- Quotation --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
                         <i class="fas fa-file-invoice-dollar"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">ASK</div>
-                        <div class="process-flow-count" id="ask-qty">-</div>
-                        <div class="process-flow-atr" id="ask-time">Loading...</div>
+                        <div class="process-flow-title">Quotation</div>
+                        <div class="process-flow-count" id="quotation-qty">-</div>
+                        <div class="process-flow-atr" id="quotation-time">Loading...</div>
                     </div>
                 </div>
             </div>
-
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
+            
+            {{-- Invoice --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
                         <i class="fas fa-receipt"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">ACT</div>
-                        <div class="process-flow-count" id="act-qty">-</div>
-                        <div class="process-flow-atr" id="act-time">Loading...</div>
+                        <div class="process-flow-title">Invoice</div>
+                        <div class="process-flow-count" id="invoice-qty">-</div>
+                        <div class="process-flow-atr" id="invoice-time">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {{-- Row 2 - Percentage & Amount Data (5 Cards) --}}
+        <div class="row" id="process-flow-row2">
+            {{-- All Leads In - Percentage --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">All Leads In %</div>
+                        <div class="process-flow-count" id="all-leads-pct">-</div>
+                        {{-- <div class="process-flow-atr" id="all-leads-acq-pct">Loading...</div> --}}
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Acquisition - Percentage --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">Acquisition %</div>
+                        <div class="process-flow-count" id="acquisition-pct">-</div>
+                        {{-- <div class="process-flow-atr" id="acquisition-cvr">Loading...</div> --}}
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Meeting - Percentage --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">Meeting %</div>
+                        <div class="process-flow-count" id="meeting-pct">-</div>
+                        {{-- <div class="process-flow-atr" id="meeting-my">Loading...</div> --}}
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Quotation - Percentage & Amount --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">Quotation %</div>
+                        <div class="process-flow-count" id="quotation-pct">-</div>
+                        <div class="process-flow-atr" id="quotation-amount">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            
+            {{-- Invoice - Percentage & Amount --}}
+            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+                <div class="process-flow-card">
+                    <div class="process-flow-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="process-flow-content">
+                        <div class="process-flow-title">Invoice %</div>
+                        <div class="process-flow-count" id="invoice-pct">-</div>
+                        <div class="process-flow-atr" id="invoice-amount">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -1816,25 +1935,53 @@ function loadOrdersMonthly() {
                 
                 $.get('/api/dashboard/mkt5a', params)
                     .done(function(response) {
-                       
-                        $('#aware-qty').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
-                        $('#aware-time').text('ATR ' + formatTime(response.aware.acquisition_time_avg_hours));
-                         
-                        $('#appeal-qty').text(number_format(response.appeal.meeting_in_qty, 0, ',', '.'));
-                        $('#appeal-time').text('ATR ' + formatTime(response.appeal.meeting_time_avg_hours));
+                        // ROW 1 - Qty & ATR Time (5 Cards)
+                        $('#all-leads-qty').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
+                        $('#all-leads-time').text('ATR ' + formatTime(response.aware.all_leads_time_avg_hours || 0));
                         
-                        $('#ask-qty').text(number_format(response.quotation.quotation_in_qty, 0, ',', '.'));
-                        $('#ask-time').text('ATR ' + formatTime(response.quotation.quotation_time_avg_hours));
+                        $('#acquisition-qty').text(number_format(response.aware.acquisition_in_qty, 0, ',', '.'));
+                        $('#acquisition-time').text('ATR ' + formatTime(response.aware.acquisition_time_avg_hours));
+                         
+                        $('#meeting-qty').text(number_format(response.appeal.meeting_in_qty, 0, ',', '.'));
+                        $('#meeting-time').text('ATR ' + formatTime(response.appeal.meeting_time_avg_hours));
+                        
+                        $('#quotation-qty').text(number_format(response.quotation.quotation_in_qty, 0, ',', '.'));
+                        $('#quotation-time').text('ATR ' + formatTime(response.quotation.quotation_time_avg_hours));
 
-                        $('#act-qty').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
-                        $('#act-time').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
+                        $('#invoice-qty').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
+                        $('#invoice-time').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
+                        
+                        // ROW 2 - Percentage & Amount (5 Cards)
+                        $('#all-leads-pct').text(response.aware.all_leads_percentage + '%');
+                        $('#all-leads-acq-pct').text('Total: ' + number_format(response.aware.all_leads_qty, 0, ',', '.'));
+                        
+                        $('#acquisition-pct').text(response.aware.acquisition_in_percentage + '%');
+                        $('#acquisition-cvr').text('Cvr: ' + response.aware.acquisition_conversion_rate + '%');
+                        
+                        $('#meeting-pct').text(response.appeal.meeting_in_percentage + '%');
+                        $('#meeting-my').text('My Leads: ' + number_format(response.appeal.my_leads, 0, ',', '.'));
+                        
+                        $('#quotation-pct').text(response.quotation.quotation_in_percentage + '%');
+                        $('#quotation-amount').text('Rp ' + formatAmount(response.quotation.quotation_in_amount));
+                        
+                        $('#invoice-pct').text(response.act.invoice_in_percentage + '%');
+                        $('#invoice-amount').text('Rp ' + formatAmount(response.act.invoice_in_amount));
                     })
                     .fail(function() {
-                        $('#aware-qty, #appeal-qty, #ask-qty, #act-qty').text('0');
-                        $('#aware-time, #appeal-time, #ask-time, #act-time').text('ATR 00:00:00');
+                        // Row 1 error handling (5 Cards)
+                        $('#all-leads-qty, #acquisition-qty, #meeting-qty, #quotation-qty, #invoice-qty').text('0');
+                        $('#all-leads-time, #acquisition-time, #meeting-time, #quotation-time, #invoice-time').text('ATR 00:00:00');
+                        
+                        // Row 2 error handling (5 Cards)
+                        $('#all-leads-pct, #acquisition-pct, #meeting-pct, #quotation-pct, #invoice-pct').text('0%');
+                        $('#all-leads-acq-pct').text('Total: 0');
+                        $('#acquisition-cvr').text('Cvr: 0%');
+                        $('#meeting-my').text('My Leads: 0');
+                        $('#quotation-amount, #invoice-amount').text('Rp 0');
                     });
             }
 
+            // Format hours to HH:MM:SS
             function formatTime(hours) {
                 if (!hours || hours === 0) return '00:00:00';
                 
@@ -1846,6 +1993,22 @@ function loadOrdersMonthly() {
                 return String(h).padStart(2, '0') + ':' + 
                        String(m).padStart(2, '0') + ':' + 
                        String(s).padStart(2, '0');
+            }
+            
+            // Format amount to readable format (Milyar/Juta)
+            function formatAmount(amount) {
+                if (!amount || amount === 0) return '0';
+                
+                const num = parseFloat(amount);
+                if (num >= 1000000000) {
+                    return (num / 1000000000).toFixed(1) + 'M'; // Milyar
+                } else if (num >= 1000000) {
+                    return (num / 1000000).toFixed(1) + 'Jt'; // Juta
+                } else if (num >= 1000) {
+                    return (num / 1000).toFixed(1) + 'Rb'; // Ribu
+                } else {
+                    return number_format(num, 0, ',', '.');
+                }
             }
 
             $(function() {
