@@ -30,7 +30,7 @@
             <select id="filter_branch" class="form-select form-select-sm select2">
               <option value="">-- Branch --</option>
               @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                <option value="{{ $branch->id }}" {{ (isset($userBranchId) && $userBranchId == $branch->id) ? 'selected' : '' }}>{{ $branch->name }}</option>
               @endforeach
             </select>
           </div>
@@ -235,7 +235,7 @@ $(function () {
   function updateBadgeCounts() {
     $.post('{{ route('leads.manage.counts') }}', {
       _token: '{{ csrf_token() }}',
-      branch_id: $('#filter_branch').val(),
+      branch_id: $('#filter_branch').val() || '{{ $userBranchId ?? '' }}',
       region_id: $('#filter_region').val(),
       sales_id: $('#filter_sales').val(),
       start_date: $('#filter_start').val(),
@@ -269,7 +269,7 @@ $(function () {
         url: '{{ route("leads.manage.list") }}',
         type: 'POST',
         data: function(d){
-          d.branch_id  = $('#filter_branch').val();
+          d.branch_id  = $('#filter_branch').val() || '{{ $userBranchId ?? '' }}';
           d.region_id  = $('#filter_region').val();
           d.sales_id   = $('#filter_sales').val();
           d.start_date = $('#filter_start').val();
