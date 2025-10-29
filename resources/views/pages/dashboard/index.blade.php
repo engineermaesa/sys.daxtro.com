@@ -14,16 +14,15 @@
             display: none !important;
         }
 
-        /* Process Flow Styles */
+
+        #process-flow-container {
+            margin-left: -8px;
+            margin-right: -8px;
+        }
         
-        /* Custom 5 columns equal width layout */
-        .col-xl-2-4 {
-            flex: 0 0 20%;
-            max-width: 20%;
-            position: relative;
-            width: 100%;
-            padding-right: 8px;
+        #process-flow-container > div {
             padding-left: 8px;
+            padding-right: 8px;
         }
         
         .process-flow-card {
@@ -94,22 +93,6 @@
             line-height: 1;
         }
 
-        /* Responsive Design */
-        /* XL and above - 5 columns (20% each) */
-        @media (min-width: 1400px) {
-            .col-xl-2-4 {
-                flex: 0 0 20%;
-                max-width: 20%;
-            }
-        }
-        
-        /* Large screens - 4 columns (25% each) */
-        @media (max-width: 1399px) and (min-width: 1200px) {
-            .col-xl-2-4 {
-                flex: 0 0 25%;
-                max-width: 25%;
-            }
-        }
         
         @media (max-width: 1199px) {
             .process-flow-card {
@@ -196,148 +179,63 @@
 @section('content')
     <h1 class="h3 mb-4 text-gray-800">Dashboard</h1>
 
-    {{-- PROCESS FLOW SECTION --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
         
-        {{-- First Row - Count Data --}}
-        <div class="row mb-3">
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+        <div class="row" id="process-flow-container">
+            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
-                        <i class="fas fa-clipboard-list"></i>
+                        <i class="fas fa-bullseye"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">Data Cold</div>
-                        <div class="process-flow-count">140</div>
-                        <div class="process-flow-atr">ATR 00:00:10</div>
+                        <div class="process-flow-title">AWARE</div>
+                        <div class="process-flow-count" id="aware-qty">-</div>
+                        <div class="process-flow-atr" id="aware-time">Loading...</div>
                     </div>
                 </div>
             </div>
             
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
-                        <i class="fas fa-calendar-alt"></i>
+                        <i class="fas fa-calendar-check"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting Sch.</div>
-                        <div class="process-flow-count">20</div>
-                        <div class="process-flow-atr">ATR 00:12:10</div>
+                        <div class="process-flow-title">APPEAL</div>
+                        <div class="process-flow-count" id="appeal-qty">-</div>
+                        <div class="process-flow-atr" id="appeal-time">Loading...</div>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+
+            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
-                        <i class="fas fa-file-invoice"></i>
+                        <i class="fas fa-file-invoice-dollar"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation</div>
-                        <div class="process-flow-count">3</div>
-                        <div class="process-flow-atr">ATR 01:02:10</div>
+                        <div class="process-flow-title">ASK</div>
+                        <div class="process-flow-count" id="ask-qty">-</div>
+                        <div class="process-flow-atr" id="ask-time">Loading...</div>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+
+            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
-                        <i class="fas fa-fire"></i>
+                        <i class="fas fa-receipt"></i>
                     </div>
                     <div class="process-flow-content">
-                        <div class="process-flow-title">HOT</div>
-                        <div class="process-flow-count">2</div>
-                        <div class="process-flow-atr">ATR 13:00:12</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-handshake"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">DEAL</div>
-                        <div class="process-flow-count">1</div>
-                        <div class="process-flow-atr">ATR 14:10:10</div>
-                    </div>
-                </div>
-            </div>
-            </div>
-            
-        {{-- Second Row - Percentage Data --}}
-        <div class="row">
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-clipboard-list"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Data Cold</div>
-                        <div class="process-flow-count">100%</div>
-                        <div class="process-flow-atr">ATR 00:00:10</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-calendar-alt"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting Sch.</div>
-                        <div class="process-flow-count">20%</div>
-                        <div class="process-flow-atr">ATR 00:12:10</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-file-invoice"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation</div>
-                        <div class="process-flow-count">3%</div>
-                        <div class="process-flow-atr">ATR 01:02:10</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-fire"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">HOT</div>
-                        <div class="process-flow-count">2%</div>
-                        <div class="process-flow-atr">ATR 13:00:12</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-handshake"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">DEAL</div>
-                        <div class="process-flow-count">1%</div>
-                        <div class="process-flow-atr">ATR 14:10:10</div>
+                        <div class="process-flow-title">ACT</div>
+                        <div class="process-flow-count" id="act-qty">-</div>
+                        <div class="process-flow-atr" id="act-time">Loading...</div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    {{-- RINGKASAN INFORMASI DASHBOARD --}}
+    </div>    
 <div class="col-md-12 mb-4">
   <div class="card shadow border-left-info">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -450,7 +348,6 @@
     </div>
   </div>
 </div>
-{{-- /RINGKASAN INFORMASI DASHBOARD --}}
 
 
     <div class="col-md-12 mb-2">
@@ -466,7 +363,7 @@
                 $keys = array_keys($quotationStatusStats);
             @endphp
 
-            {{-- Baris pertama: 3 item pertama --}}
+          
             <div class="row justify-content-center">
                 @for ($i = 0; $i < 3; $i++)
                     @php
@@ -488,7 +385,7 @@
                 @endfor
             </div>
 
-            {{-- Baris kedua: 2 item terakhir --}}
+        
             <div class="row justify-content-center">
                 @for ($i = 3; $i < 5; $i++)
                     @php
@@ -1909,6 +1806,48 @@ function loadOrdersMonthly() {
                 return s.join(dec);
             }
 
+          
+            function loadProcessFlowMkt5a() {
+                const params = {
+                    @if(auth()->user()->role?->code === 'branch_manager' || auth()->user()->role?->code === 'sales')
+                        branch_id: {{ auth()->user()->branch_id ?? 'null' }},
+                    @endif
+                };
+                
+                $.get('/api/dashboard/mkt5a', params)
+                    .done(function(response) {
+                       
+                        $('#aware-qty').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
+                        $('#aware-time').text('ATR ' + formatTime(response.aware.acquisition_time_avg_hours));
+                         
+                        $('#appeal-qty').text(number_format(response.appeal.meeting_in_qty, 0, ',', '.'));
+                        $('#appeal-time').text('ATR ' + formatTime(response.appeal.meeting_time_avg_hours));
+                        
+                        $('#ask-qty').text(number_format(response.quotation.quotation_in_qty, 0, ',', '.'));
+                        $('#ask-time').text('ATR ' + formatTime(response.quotation.quotation_time_avg_hours));
+
+                        $('#act-qty').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
+                        $('#act-time').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
+                    })
+                    .fail(function() {
+                        $('#aware-qty, #appeal-qty, #ask-qty, #act-qty').text('0');
+                        $('#aware-time, #appeal-time, #ask-time, #act-time').text('ATR 00:00:00');
+                    });
+            }
+
+            function formatTime(hours) {
+                if (!hours || hours === 0) return '00:00:00';
+                
+                const totalSeconds = Math.round(hours * 3600);
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor((totalSeconds % 3600) / 60);
+                const s = totalSeconds % 60;
+                
+                return String(h).padStart(2, '0') + ':' + 
+                       String(m).padStart(2, '0') + ':' + 
+                       String(s).padStart(2, '0');
+            }
+
             $(function() {
                 const statusMap = {
                     cold: {{ \App\Models\Leads\LeadStatus::COLD }},
@@ -1918,6 +1857,7 @@ function loadOrdersMonthly() {
 
                 const charts = {};
 
+                loadProcessFlowMkt5a();
                 
                 $('#svt_apply').on('click', loadAchievementMonthlyPercent);
 loadAchievementMonthlyPercent();
@@ -2139,7 +2079,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                 $('#quotation_apply').on('click', loadQuotationStatusChart);
                 loadQuotationStatusChart();
 
-                // Load Process Flow
                 function loadProcessFlow() {
                     const branchId = {{ Auth::user()->branch_id ?? 'null' }};
                     const apiUrl = '/api/dashboard/mkt5a' + (branchId ? '?branch_id=' + branchId : '');
@@ -2178,7 +2117,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         firstRow.append(cardCol);
                     });
 
-                    // Second row - Percentage values
                     const secondRow = $('<div class="row"></div>');
                     data.forEach(function(item, index) {
                         const cardCol = $(`
@@ -2214,10 +2152,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     `);
                 }
 
-                // Load process flow on page load
                 loadProcessFlow();
-
-                // Reload process flow every 5 minutes
                 setInterval(loadProcessFlow, 300000);
             });
         </script>
