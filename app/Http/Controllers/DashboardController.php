@@ -1624,7 +1624,7 @@ class DashboardController extends Controller
             ], 500);
         }
     }
-    public function sourceCorversion(Request $request)
+    public function sourceConversion(Request $request)
     {
         $validated = $request->validate([
             'branch_id'  => 'nullable|integer',
@@ -1660,21 +1660,47 @@ class DashboardController extends Controller
 
             $data = $query->get();
 
-            $formattedData = $data->map(function ($item) {
-                $cumulative = $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
+            // Hitung total cumulative untuk semua source
+            $totalCumulative = $data->sum(function ($item) {
+                return $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
+            });
+
+            $formattedData = $data->map(function ($item) use ($totalCumulative) {
+                $cold = (int) $item->cold_count;
+                $warm = (int) $item->warm_count;
+                $hot = (int) $item->hot_count;
+                $deal = (int) $item->deal_count;
+
+                $cumulative = $cold + $warm + $hot + $deal;
+
+                // Hitung persentase terhadap total cumulative semua source
+                $cumulativePercentage = $totalCumulative > 0 ? round(($cumulative / $totalCumulative) * 100, 2) : 0;
+                $coldPercentage = $cumulative > 0 ? round(($cold / $cumulative) * 100, 2) : 0;
+                $warmPercentage = $cumulative > 0 ? round(($warm / $cumulative) * 100, 2) : 0;
+                $hotPercentage = $cumulative > 0 ? round(($hot / $cumulative) * 100, 2) : 0;
+                $dealPercentage = $cumulative > 0 ? round(($deal / $cumulative) * 100, 2) : 0;
 
                 return [
                     'source'      => $item->source,
                     'cumulative'  => $cumulative,
-                    'cold'        => (int) $item->cold_count,
-                    'warm'        => (int) $item->warm_count,
-                    'hot'         => (int) $item->hot_count,
-                    'deal'        => (int) $item->deal_count,
+                    'cumulative_percentage' => $cumulativePercentage,
+                    'cold'        => $cold,
+                    'cold_percentage' => $coldPercentage,
+                    'warm'        => $warm,
+                    'warm_percentage' => $warmPercentage,
+                    'hot'         => $hot,
+                    'hot_percentage' => $hotPercentage,
+                    'deal'        => $deal,
+                    'deal_percentage' => $dealPercentage,
                 ];
             });
 
             return response()->json([
                 'data' => $formattedData,
+                'summary' => [
+                    'total_cumulative' => $totalCumulative,
+                    'total_sources' => $data->count()
+                ],
                 'filters' => [
                     'start_date' => $start,
                     'end_date' => $end,

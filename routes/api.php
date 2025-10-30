@@ -10,5 +10,5 @@ Route::get('leads/segments', [LeadRegisterController::class, 'segments'])->name(
 Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('api.leads.regions');
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
-Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceCorversion']);
+Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceConversion']);
 Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sourceMonthlyStats']);
