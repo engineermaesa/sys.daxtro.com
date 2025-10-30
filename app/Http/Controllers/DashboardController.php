@@ -1681,4 +1681,95 @@ class DashboardController extends Controller
             ], 500);
         }
     }
+    public function sourceMonthlyStats(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'year' => 'nullable|integer|min:2000|max:2100',
+                'branch_id' => 'nullable|integer',
+            ]);
+
+            $year = $validated['year'] ?? now()->year;
+            $branchId = $validated['branch_id'] ?? null;
+
+            $startDate = Carbon::create($year, 1, 1)->startOfDay();
+            $endDate = Carbon::create($year, 12, 31)->endOfDay();
+
+            $query = Lead::query()
+                ->join('lead_sources', 'leads.source_id', '=', 'lead_sources.id')
+                ->select(
+                    'lead_sources.name as source',
+                    DB::raw('MONTH(COALESCE(leads.published_at, leads.created_at)) as month'),
+                    DB::raw('COUNT(leads.id) as lead_count')
+                )
+                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [
+                    $startDate->toDateString(),
+                    $endDate->toDateString()
+                ])
+                ->groupBy('lead_sources.name', 'month')
+                ->orderBy('lead_sources.name')
+                ->orderBy('month');
+
+            if (!empty($branchId)) {
+                $query->where('leads.branch_id', $branchId);
+            }
+
+            $monthlyData = $query->get();
+
+            $sources = \App\Models\Leads\LeadSource::orderBy('name')->pluck('name');
+
+            $result = $sources->map(function ($source) use ($monthlyData) {
+                $monthlyCounts = array_fill(0, 12, 0);
+
+                $sourceData = $monthlyData->where('source', $source);
+
+                foreach ($sourceData as $data) {
+                    $monthIndex = (int)$data->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) {
+                        $monthlyCounts[$monthIndex] = (int)$data->lead_count;
+                    }
+                }
+
+                return [
+                    'source' => $source,
+                    'months' => $monthlyCounts,
+                    'total' => array_sum($monthlyCounts)
+                ];
+            })->filter(fn($item) => $item['total'] > 0)->values();
+
+            $monthLabels = [
+                'Jan',
+                'Feb',
+                'Mar',
+                'Apr',
+                'May',
+                'Jun',
+                'Jul',
+                'Aug',
+                'Sep',
+                'Oct',
+                'Nov',
+                'Dec'
+            ];
+
+            return response()->json([
+                'data' => $result,
+                'month_labels' => $monthLabels,
+                'year' => $year,
+                'filters' => [
+                    'branch_id' => $branchId
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Source Monthly Stats Error: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Terjadi kesalahan server',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
