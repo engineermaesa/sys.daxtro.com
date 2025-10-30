@@ -204,7 +204,7 @@
 @endsection
 
 @section('content')
-    <h1 class="h3 mb-4 text-gray-800">Dashboard</h1>
+    {{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
 
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
