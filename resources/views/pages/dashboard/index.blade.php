@@ -347,6 +347,41 @@
             background-color: #f8f9fa;
         }
 
+        /* Source Link Styling */
+        .source-link {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .source-link:hover {
+            color: #0056b3;
+            text-decoration: none;
+        }
+
+        /* Source Monitoring Table Styling */
+        #source-monitoring-table {
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        #source-monitoring-table thead th {
+            border: none;
+            font-size: 14px;
+        }
+
+        #source-monitoring-table tbody td {
+            border-top: 1px solid #f1f3f4;
+            padding: 16px;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        #source-monitoring-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
         @media (max-width: 768px) {
             #source-conversion-table thead th,
             #source-conversion-table tbody td {
@@ -676,6 +711,142 @@
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
                                         <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOURCE MONITORING LINE CHART -->
+    <div class="col-md-12 mb-4">
+        <!-- Chart Title Outside Card -->
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
+        
+        <div class="card chart-card shadow-sm border-0">
+            <div class="card-body p-4">
+                <!-- Chart Controls -->
+                <div class="source-conversion-section">
+                    <div class="row g-3 align-items-end">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="col-md-4">
+                            <label class="form-label text-muted small mb-1">Branch</label>
+                            <select id="source-monitoring-branch" class="form-select source-conversion-control">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        
+                        <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
+                            <label class="form-label text-muted small mb-1">Year</label>
+                            <input type="number" id="source-monitoring-year" class="form-control source-conversion-control" 
+                                   value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        
+                        <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
+                            <label class="form-label text-muted small mb-1">&nbsp;</label>
+                            <button type="button" class="btn source-conversion-apply-btn w-100" id="source-monitoring-apply">
+                                <i class="fas fa-filter me-2"></i>Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
+                    <canvas id="source-monitoring-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOURCE MONITORING LIST TABLE -->
+    <div class="col-md-12 mb-4">
+        <!-- Table Title Outside Card -->
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING LIST</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <!-- Filter Section -->
+                <div class="p-4 bg-light source-conversion-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Branch</label>
+                            <select id="source-monitoring-table-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="source-monitoring-table-year" class="form-control source-control-input" 
+                                   value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-table-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="source-monitoring-table-year" class="form-control source-control-input" 
+                                   value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-table-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="source-monitoring-table">
+                        <thead style="background-color: #115641;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4" style="border-top-left-radius: 20px; border-bottom-left-radius: 0;">Source</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Jan</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Feb</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Mar</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Apr</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">May</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Jun</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Jul</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Aug</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Sep</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Oct</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Nov</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Dec</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-top-right-radius: 20px; border-bottom-right-radius: 0;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="source-monitoring-tbody">
+                            <tr>
+                                <td colspan="14" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading source monitoring data...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -2857,6 +3028,257 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.append(row);
                     });
                 }
+
+                // SOURCE MONITORING FUNCTIONS
+                let sourceMonitoringChart;
+
+                function loadSourceMonitoringStats() {
+                    const params = {
+                        year: $('#source-monitoring-year').val() || new Date().getFullYear()
+                    };
+
+                    // Add branch_id for branch users or when super admin selects a branch
+                    @if(auth()->user()->role?->code !== 'super_admin')
+                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
+                    @else
+                        const branchId = $('#source-monitoring-branch').val();
+                        if (branchId && branchId !== '') {
+                            params.branch_id = branchId;
+                        }
+                    @endif
+
+                    console.log('Loading source monitoring chart with params: ', params);
+
+                    $.get('/api/dashboard/source-monthly-stats', params)
+                        .done(function(res) {
+                        console.log('Source monitoring chart response: ', res);
+                        
+                        const labels = res.month_labels || [];
+                        const data = res.data || [];
+                        
+                        // Create datasets for each source
+                        const datasets = data.map((source, index) => ({
+                            label: source.source,
+                            data: source.months || [],
+                            borderColor: getChartColor(index),
+                            backgroundColor: getChartColor(index, 0.1),
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: getChartColor(index),
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            borderWidth: 2
+                        }));
+
+                        // Initialize or update chart
+                        const ctx = document.getElementById('source-monitoring-chart').getContext('2d');
+                        
+                        if (sourceMonitoringChart) {
+                            sourceMonitoringChart.destroy();
+                        }
+
+                        sourceMonitoringChart = new Chart(ctx, {
+                            type: 'line',
+                            data: { labels, datasets },
+                            options: {
+                                maintainAspectRatio: false,
+                                responsive: true,
+                                plugins: {
+                                    legend: {
+                                        display: true,
+                                        position: 'bottom',
+                                        labels: {
+                                            usePointStyle: true,
+                                            padding: 15,
+                                            font: {
+                                                size: 11,
+                                                weight: '500'
+                                            },
+                                            color: '#374151'
+                                        }
+                                    },
+                                    tooltip: {
+                                        mode: 'index', 
+                                        intersect: false,
+                                        backgroundColor: 'rgba(17, 86, 65, 0.9)',
+                                        titleColor: '#fff',
+                                        bodyColor: '#fff',
+                                        borderColor: '#115641',
+                                        borderWidth: 1,
+                                        cornerRadius: 8,
+                                        callbacks: {
+                                            label: function(context) {
+                                                const label = context.dataset.label || '';
+                                                const value = context.parsed.y || 0;
+                                                return label + ': ' + value.toLocaleString();
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        grid: {
+                                            display: false
+                                        },
+                                        ticks: {
+                                            color: '#6B7280',
+                                            font: {
+                                                size: 11,
+                                                weight: '500'
+                                            }
+                                        }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: {
+                                            color: '#F3F4F6',
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            color: '#6B7280',
+                                            font: {
+                                                size: 11,
+                                                weight: '500'
+                                            },
+                                            callback: function(value) { 
+                                                return value.toLocaleString(); 
+                                            }
+                                        }
+                                    }
+                                },
+                                elements: {
+                                    point: {
+                                        hoverBorderWidth: 3
+                                    }
+                                }
+                            }
+                        });
+
+                    }).fail(function(xhr, status, error) {
+                        console.error('Error loading source monitoring chart:', error);
+                    });
+                }
+
+                function loadSourceMonitoringTable() {
+                    const params = {
+                        year: $('#source-monitoring-table-year').val() || new Date().getFullYear()
+                    };
+
+                    // Add branch_id for branch users or when super admin selects a branch
+                    @if(auth()->user()->role?->code !== 'super_admin')
+                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
+                    @else
+                        const branchId = $('#source-monitoring-table-branch').val();
+                        if (branchId && branchId !== '') {
+                            params.branch_id = branchId;
+                        }
+                    @endif
+
+                    console.log('Loading source monitoring table with params: ', params);
+
+                    const tbody = $('#source-monitoring-tbody');
+                    tbody.html(`
+                        <tr>
+                            <td colspan="14" class="text-center py-4">
+                                <div class="text-success">
+                                    <div class="spinner-border text-success" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2 mb-0 text-muted">Loading source monitoring data...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `);
+
+                    $.get('/api/dashboard/source-monthly-stats', params)
+                        .done(function(res) {
+                        console.log('Source monitoring table response: ', res);
+                        
+                        tbody.empty();
+                        
+                        if (res.data && res.data.length > 0) {
+                            res.data.forEach(function(item) {
+                                const months = item.months || [];
+                                const row = $(`
+                                    <tr class="source-conversion-row">
+                                        <td class="source-conversion-source">
+                                            <a href="#" class="source-link">${item.source || 'Unknown'}</a>
+                                        </td>
+                                        <td class="text-center">${(months[0] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[1] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[2] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[3] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[4] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[5] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[6] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[7] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[8] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[9] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[10] || 0).toLocaleString()}</td>
+                                        <td class="text-center">${(months[11] || 0).toLocaleString()}</td>
+                                        <td class="text-center conversion-number"><strong>${(item.total || 0).toLocaleString()}</strong></td>
+                                    </tr>
+                                `);
+                                tbody.append(row);
+                            });
+                        } else {
+                            tbody.html(`
+                                <tr>
+                                    <td colspan="14" class="text-center py-4 text-muted">
+                                        <i class="fas fa-info-circle mb-2"></i><br>
+                                        No source monitoring data available for the selected period
+                                    </td>
+                                </tr>
+                            `);
+                        }
+
+                    }).fail(function(xhr, status, error) {
+                        console.error('Error loading source monitoring table:', error);
+                        tbody.html(`
+                            <tr>
+                                <td colspan="14" class="text-center py-4 text-danger">
+                                    <i class="fas fa-exclamation-circle mb-2"></i><br>
+                                    Error loading source monitoring data
+                                </td>
+                            </tr>
+                        `);
+                    });
+                }
+
+                // Helper function to get chart colors
+                function getChartColor(index, alpha = 1) {
+                    const colors = [
+                        '#115641', '#F97316', '#3B82F6', '#EF4444', '#10B981', 
+                        '#8B5CF6', '#F59E0B', '#EC4899', '#6B7280', '#84CC16',
+                        '#06B6D4', '#F43F5E', '#8B5A2B', '#6366F1'
+                    ];
+                    const color = colors[index % colors.length];
+                    
+                    if (alpha < 1) {
+                        // Convert hex to rgba
+                        const r = parseInt(color.slice(1, 3), 16);
+                        const g = parseInt(color.slice(3, 5), 16);
+                        const b = parseInt(color.slice(5, 7), 16);
+                        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    }
+                    
+                    return color;
+                }
+
+                // Event handlers for Source Monitoring
+                $('#source-monitoring-apply').on('click', function() {
+                    loadSourceMonitoringStats();
+                });
+
+                $('#source-monitoring-table-apply').on('click', function() {
+                    loadSourceMonitoringTable();
+                });
+
+                // Load initial data for Source Monitoring
+                loadSourceMonitoringStats();
+                loadSourceMonitoringTable();
 
                 // Event handlers for SOURCE CONVERSION LISTS are already defined above
             });
