@@ -733,8 +733,8 @@
                     <div class="row g-3 align-items-end">
                         @if(auth()->user()->role?->code === 'super_admin')
                         <div class="col-md-4">
-                            <label class="form-label text-muted small mb-1">Branch</label>
-                            <select id="source-monitoring-branch" class="form-select source-conversion-control">
+                            <label class="form-label">Branch</label>
+                            <select id="source-monitoring-branch" class="form-select source-control-input">
                                 <option value="">All Branch</option>
                                 @foreach($branches as $branch)
                                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
@@ -744,15 +744,15 @@
                         @endif
                         
                         <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
-                            <label class="form-label text-muted small mb-1">Year</label>
-                            <input type="number" id="source-monitoring-year" class="form-control source-conversion-control" 
+                            <label class="form-label">Year</label>
+                            <input type="number" id="source-monitoring-year" class="form-control source-control-input" 
                                    value="{{ now()->year }}" min="2000" max="2100">
                         </div>
                         
                         <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
-                            <label class="form-label text-muted small mb-1">&nbsp;</label>
-                            <button type="button" class="btn source-conversion-apply-btn w-100" id="source-monitoring-apply">
-                                <i class="fas fa-filter me-2"></i>Apply Filter
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
                             </button>
                         </div>
                     </div>
@@ -1258,7 +1258,7 @@
   </div>
 </div>
 
-<div class="col-md-12 mb-4">
+{{-- <div class="col-md-12 mb-4">
   <div class="card shadow">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
       <h6 class="m-0 font-weight-bold text-primary">Cold Leads per Branch (Count & Nominal)</h6>
@@ -1299,10 +1299,10 @@
       </div>
     </div>
   </div>
-</div>
+</div> --}}
 
 <!-- WARM Leads per Branch -->
-<div class="col-md-12 mb-4">
+{{-- <div class="col-md-12 mb-4">
   <div class="card shadow">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
       <h6 class="m-0 font-weight-bold text-primary">Warm Leads per Branch (Count & Nominal)</h6>
@@ -1343,10 +1343,10 @@
       </div>
     </div>
   </div>
-</div>
+</div> --}}
 
 <!-- HOT Leads per Branch -->
-<div class="col-md-12 mb-4">
+{{-- <div class="col-md-12 mb-4">
   <div class="card shadow">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
       <h6 class="m-0 font-weight-bold text-primary">Hot Leads per Branch (Count & Nominal)</h6>
@@ -1387,7 +1387,7 @@
       </div>
     </div>
   </div>
-</div>
+</div> --}}
 
 <div class="col-md-12 mb-4">
   <div class="card shadow">
@@ -1493,7 +1493,7 @@
   </div>
 </div>
 
-        <div class="col-md-12 mb-4">
+        {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Lead Overview</h6>
@@ -1535,9 +1535,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> --}}
 
-        <div class="col-md-12 mb-4">
+        {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">Konversi Leads</h6>
@@ -1571,9 +1571,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> --}}
 
-        <div class="col-md-12 mb-4">
+        {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Total</h6>
@@ -1616,9 +1616,9 @@
                     </div> <!-- end card-body -->
                 </div>
             </div>
-        </div>
+        </div> --}}
 
-        <div class="col-md-12 mb-4">
+        {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Jumlah Quotation</h6>
@@ -1660,9 +1660,9 @@
                     </div> <!-- end card-body -->
                 </div>
             </div>
-        </div>
+        </div> --}}
 
-        <div class="col-md-12 mb-4">
+        {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source</h6>
@@ -1798,7 +1798,7 @@
                     </div> <!-- end card-body -->
                 </div>
             </div>
-        </div>
+        </div> --}}
     @endsection
 
     @section('scripts')
