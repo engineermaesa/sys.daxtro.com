@@ -200,6 +200,162 @@
                 max-width: 100%;
             }
         }
+
+        /* Chart Cards Styling - Modern Design */
+        .chart-card {
+            border-radius: 16px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+        
+        .chart-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #115641;
+            margin: 0;
+            line-height: 1.3;
+        }
+
+        .chart-subtitle {
+            font-size: 13px;
+            font-weight: 400;
+            color: #6B7280;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .chart-controls {
+            gap: 12px;
+        }
+
+        .control-item {
+            flex: 0 0 auto;
+        }
+
+        .modern-select,
+        .modern-input {
+            border: 1.5px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            background: #fff;
+            transition: all 0.2s ease;
+            min-width: 120px;
+        }
+
+        .modern-select:focus,
+        .modern-input:focus {
+            border-color: #115641;
+            box-shadow: 0 0 0 3px rgba(17, 86, 65, 0.1);
+            outline: none;
+        }
+
+        .modern-apply-btn {
+            background: #115641;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            min-width: 80px;
+        }
+
+        .modern-apply-btn:hover {
+            background: #0F4A37;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+        }
+
+        .chart-container {
+            background: #FAFBFC;
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid #F1F3F4;
+        }
+
+        @media (max-width: 1199px) {
+            .chart-title {
+                font-size: 17px;
+            }
+            
+            .chart-subtitle {
+                font-size: 12px;
+            }
+            
+            .modern-select,
+            .modern-input {
+                min-width: 110px;
+                padding: 7px 10px;
+                font-size: 12px;
+            }
+            
+            .modern-apply-btn {
+                padding: 7px 16px;
+                font-size: 12px;
+                min-width: 70px;
+            }
+        }
+
+        @media (max-width: 991px) {
+            .chart-title {
+                font-size: 16px;
+            }
+            
+            .chart-subtitle {
+                font-size: 11px;
+            }
+            
+            .chart-controls {
+                gap: 8px;
+            }
+            
+            .modern-select,
+            .modern-input {
+                min-width: 100px;
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+            
+            .modern-apply-btn {
+                padding: 6px 14px;
+                font-size: 11px;
+                min-width: 60px;
+            }
+        }
+
+        @media (max-width: 575px) {
+            .chart-controls {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .control-item {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            
+            .modern-select,
+            .modern-input {
+                width: 100%;
+                min-width: 0;
+            }
+            
+            .modern-apply-btn {
+                width: 100%;
+                min-width: 0;
+            }
+        }
     </style>
 @endsection
 
@@ -602,73 +758,81 @@
   </div>
 </div>
 
-    <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Target vs Sales (Bulanan - 1 Tahun)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#tvsmBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="tvsmBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-3">
-            <select id="tvsm_scope" class="form-select form-select-sm">
-              <option value="global">Global</option>
-              <option value="jakarta">Branch Jakarta</option>
-              <option value="makassar">Branch Makassar</option>
-              <option value="surabaya">Branch Surabaya</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <input type="number" id="tvsm_year" class="form-control form-control-sm" value="{{ now()->year }}" min="2000" max="2100">
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="tvsm_apply">
-              <i class="bi bi-graph-up me-1"></i> Apply
-            </button>
+    <!-- Side-by-side charts row -->
+    <div class="row">
+      <!-- Target vs Sales Chart (Left) -->
+      <div class="col-lg-6 col-md-12 mb-4">
+        <div class="card chart-card shadow-sm border-0">
+          <div class="card-body p-4">
+            <!-- Chart Title -->
+            <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h5 class="chart-title mb-0">Target vs Sales</h5>
+                <p class="chart-subtitle text-muted mb-0">Monthly Performance Tracking</p>
+              </div>
+            </div>
+            
+            <!-- Chart Controls -->
+            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+              <div class="control-item">
+                <select id="tvsm_scope" class="form-select modern-select">
+                  <option value="global">Global</option>
+                  <option value="jakarta">Branch Jakarta</option>
+                  <option value="makassar">Branch Makassar</option>
+                  <option value="surabaya">Branch Surabaya</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <input type="number" id="tvsm_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
+              </div>
+              <div class="control-item">
+                <button type="button" class="btn modern-apply-btn" id="tvsm_apply">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="chart-container" style="height: 300px; position: relative;">
+              <canvas id="tvsm_chart"></canvas>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div style="height: 360px;">
-          <canvas id="tvsm_chart"></canvas>
+      <!-- Achievement vs Target Chart (Right) -->
+      <div class="col-lg-6 col-md-12 mb-4">
+        <div class="card chart-card shadow-sm border-0">
+          <div class="card-body p-4">
+            <!-- Chart Title -->
+            <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h5 class="chart-title mb-0">Achievement vs Target</h5>
+                <p class="chart-subtitle text-muted mb-0">Monthly Branch Performance</p>
+              </div>
+            </div>
+            
+            <!-- Chart Controls -->
+            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+              <div class="control-item">
+                <input type="number" id="svt_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
+              </div>
+              <div class="control-item">
+                <button type="button" class="btn modern-apply-btn" id="svt_apply">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="chart-container" style="height: 300px; position: relative;">
+              <canvas id="svt_percent_chart"></canvas>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
-
-
-
-
-<div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Achievement vs Target per Branch (Monthly %)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#svtPctBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="svtPctBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-3">
-            <input type="number" id="svt_year" class="form-control form-control-sm" value="{{ now()->year }}" min="2000" max="2100">
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="svt_apply">
-              <i class="bi bi-graph-up me-1"></i> Apply
-            </button>
-          </div>
-        </div>
-        <div style="height: 360px;">
-          <canvas id="svt_percent_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+    <!-- End side-by-side charts row -->
 
     {{-- <div class="row"> --}}
         {{-- <div class="col-md-12 mb-4">
@@ -1304,7 +1468,11 @@ function loadAchievementMonthlyPercent() {
     const datasets = (res.datasets || []).map((d,i)=>({
       label: d.label,
       data:  d.data,
-      backgroundColor: d.color || ['#4e73df','#e74a3b','#1cc88a'][i % 3]
+      backgroundColor: d.color || '#115641',
+      borderColor: d.color || '#115641',
+      borderWidth: 0,
+      borderRadius: 6,
+      borderSkipped: false
     }));
 
     const ctx = document.getElementById('svt_percent_chart').getContext('2d');
@@ -1314,9 +1482,31 @@ function loadAchievementMonthlyPercent() {
       data: { labels, datasets },
       options: {
         maintainAspectRatio: false,
-        legend: { position: 'bottom' },
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+              font: {
+                size: 12,
+                weight: '500'
+              },
+              color: '#374151'
+            }
+          }
+        },
         tooltips: {
-          mode: 'index', intersect: false,
+          mode: 'index', 
+          intersect: false,
+          backgroundColor: 'rgba(17, 86, 65, 0.9)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#115641',
+          borderWidth: 1,
+          cornerRadius: 8,
           callbacks: {
             label: (t, data) => {
               const ds = data.datasets[t.datasetIndex];
@@ -1326,13 +1516,39 @@ function loadAchievementMonthlyPercent() {
           }
         },
         scales: {
-          xAxes: [{ gridLines: { display:false } }],
-          yAxes: [{
+          x: {
+            grid: {
+              display: false
+            },
             ticks: {
-              beginAtZero:true,
+              color: '#6B7280',
+              font: {
+                size: 11,
+                weight: '500'
+              }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: '#F3F4F6',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#6B7280',
+              font: {
+                size: 11,
+                weight: '500'
+              },
               callback: v => (v ? v.toFixed(0) : 0) + '%'
             }
-          }]
+          }
+        },
+        elements: {
+          bar: {
+            borderRadius: 6,
+            borderSkipped: false
+          }
         }
       }
     });
@@ -1360,12 +1576,16 @@ function loadTargetVsSalesMonthly() {
       datasets.push({
         label: series[0].label || 'Target',
         data: series[0].data || [],
-        borderColor: '#f6c23e',
-        backgroundColor: 'rgba(0,0,0,0)',
+        borderColor: '#F97316',
+        backgroundColor: 'rgba(249, 115, 22, 0.1)',
         fill: false,
-        lineTension: 0,
-        pointRadius: 3,
-        borderWidth: 2
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#F97316',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        borderWidth: 3
       });
     }
 
@@ -1373,12 +1593,16 @@ function loadTargetVsSalesMonthly() {
       datasets.push({
         label: series[1].label || 'Sales',
         data: series[1].data || [],
-        borderColor: '#4e73df',
-        backgroundColor: 'rgba(0,0,0,0)',
+        borderColor: '#115641',
+        backgroundColor: 'rgba(17, 86, 65, 0.1)',
         fill: false,
-        lineTension: 0,
-        pointRadius: 3,
-        borderWidth: 2
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#115641',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        borderWidth: 3
       });
     }
 
@@ -1387,13 +1611,14 @@ function loadTargetVsSalesMonthly() {
       datasets.push({
         label: series[2].label || 'All Branch Target',
         data: series[2].data || [],
-        borderColor: '#6c757d',
-        backgroundColor: 'rgba(0,0,0,0)',
+        borderColor: '#6B7280',
+        backgroundColor: 'rgba(107, 114, 128, 0.1)',
         fill: false,
-        lineTension: 0,
+        tension: 0.4,
         pointRadius: 0,
+        pointHoverRadius: 5,
         borderWidth: 2,
-        borderDash: [6,4]
+        borderDash: [8, 4]
       });
     }
 
@@ -1402,9 +1627,31 @@ function loadTargetVsSalesMonthly() {
       data: { labels, datasets },
       options: {
         maintainAspectRatio: false,
-        legend: { position: 'bottom' },
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+              font: {
+                size: 12,
+                weight: '500'
+              },
+              color: '#374151'
+            }
+          }
+        },
         tooltips: {
-          mode: 'index', intersect: false,
+          mode: 'index', 
+          intersect: false,
+          backgroundColor: 'rgba(17, 86, 65, 0.9)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#115641',
+          borderWidth: 1,
+          cornerRadius: 8,
           callbacks: {
             label: function(tooltipItem, data) {
               const ds = data.datasets[tooltipItem.datasetIndex];
@@ -1414,13 +1661,38 @@ function loadTargetVsSalesMonthly() {
           }
         },
         scales: {
-          xAxes: [{ gridLines: { display: false } }],
-          yAxes: [{
+          x: {
+            grid: {
+              display: false
+            },
             ticks: {
-              beginAtZero: true,
+              color: '#6B7280',
+              font: {
+                size: 11,
+                weight: '500'
+              }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: '#F3F4F6',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#6B7280',
+              font: {
+                size: 11,
+                weight: '500'
+              },
               callback: function(value){ return 'Rp' + number_format(value, 0, ',', '.'); }
             }
-          }]
+          }
+        },
+        elements: {
+          point: {
+            hoverBorderWidth: 3
+          }
         }
       }
     });
