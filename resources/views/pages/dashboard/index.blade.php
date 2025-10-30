@@ -355,7 +355,7 @@
             </div>
         </div>
     </div>    
-<div class="col-md-12 mb-4">
+{{-- <div class="col-md-12 mb-4">
   <div class="card shadow border-left-info">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
       <h6 class="m-0 font-weight-bold text-primary">
@@ -466,7 +466,7 @@
       </div>
     </div>
   </div>
-</div>
+</div> --}}
 
 
     <div class="col-md-12 mb-2">
