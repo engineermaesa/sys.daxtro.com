@@ -2544,12 +2544,27 @@ function loadOrdersMonthly() {
             }
 
           
-            function loadProcessFlowMkt5a() {
+            function loadProcessFlowMkt5a(startDate = null, endDate = null) {
                 const params = {
                     @if(auth()->user()->role?->code === 'branch_manager' || auth()->user()->role?->code === 'sales')
                         branch_id: {{ auth()->user()->branch_id ?? 'null' }},
                     @endif
                 };
+                
+                // Add date range if provided, otherwise use full year range
+                if (startDate) {
+                    params.start_date = startDate;
+                } else {
+                    params.start_date = '{{ now()->startOfYear()->format('Y-m-d') }}';
+                }
+                
+                if (endDate) {
+                    params.end_date = endDate;
+                } else {
+                    params.end_date = '{{ now()->endOfYear()->format('Y-m-d') }}';
+                }
+                
+                console.log('Loading PROCESS FLOW with params:', params);
                 
                 $.get('/api/dashboard/mkt5a', params)
                     .done(function(response) {
@@ -2638,10 +2653,14 @@ function loadOrdersMonthly() {
 
                 const charts = {};
 
-                loadProcessFlowMkt5a();
+                // Load initial data with default year range
+                const defaultStartDate = '{{ now()->startOfYear()->format('Y-m-d') }}';
+                const defaultEndDate = '{{ now()->endOfYear()->format('Y-m-d') }}';
+                
+                loadProcessFlowMkt5a(defaultStartDate, defaultEndDate);
                 
                 // Source Conversion Lists - load initial data and set event handler
-                loadSourceConversionStats(); // Load all data initially without filter
+                loadSourceConversionStats(); // Load all data initially with default year filter
                 $('#source-apply').on('click', loadSourceConversionStats);
                 
                 $('#svt_apply').on('click', loadAchievementMonthlyPercent);
@@ -2975,6 +2994,12 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     `);
 
                     console.log('Loading source conversion with params:', params);
+                    
+                    // Also reload PROCESS FLOW with same date range
+                    if (startDate || endDate) {
+                        console.log('Also updating PROCESS FLOW with date range:', startDate, 'to', endDate);
+                        loadProcessFlowMkt5a(startDate, endDate);
+                    }
                     
                     $.get('/api/dashboard/source-conversion-stats', params)
                         .done(function(response) {
