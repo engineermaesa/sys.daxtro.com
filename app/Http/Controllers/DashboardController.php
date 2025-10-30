@@ -1268,7 +1268,14 @@ class DashboardController extends Controller
         ]);
 
         try {
-            $baseQuery = Lead::query();
+            $allowedStatuses = [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL
+            ];
+
+            $baseQuery = Lead::query()->whereIn('status_id', $allowedStatuses);
 
             if (!empty($validated['branch_id'])) {
                 $baseQuery->where('branch_id', $validated['branch_id']);
@@ -1282,9 +1289,9 @@ class DashboardController extends Controller
                 $baseQuery->where('source_id', $validated['source_id']);
             }
 
-            if (!empty($validated['status_id'])) {
-                $baseQuery->where('status_id', $validated['status_id']);
-            }
+            // if (!empty($validated['status_id'])) {
+            //     $baseQuery->where('status_id', $validated['status_id']);
+            // }
 
             if (!empty($validated['start_date'])) {
                 $baseQuery->where(function ($q) use ($validated) {
