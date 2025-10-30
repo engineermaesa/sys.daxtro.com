@@ -283,6 +283,97 @@
             border: 1px solid #F1F3F4;
         }
 
+        /* SOURCE CONVERSION LISTS Styling */
+        .source-conversion-section .form-label {
+            height: 20px;
+            line-height: 20px;
+            margin-bottom: 8px !important;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6c757d;
+            display: block;
+        }
+
+        .source-control-input {
+            height: 42px;
+            border: 1px solid #d1d3e2;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .source-control-input:focus {
+            border-color: #115641;
+            box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+        }
+
+        .source-apply-button {
+            height: 42px;
+            background: #115641;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .source-apply-button:hover {
+            background: #0d4133;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+        }
+
+        #source-conversion-table {
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        #source-conversion-table thead th {
+            border: none;
+            font-size: 14px;
+        }
+
+        #source-conversion-table tbody td {
+            border-top: 1px solid #f1f3f4;
+            padding: 16px;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        #source-conversion-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        @media (max-width: 768px) {
+            #source-conversion-table thead th,
+            #source-conversion-table tbody td {
+                padding: 12px 8px;
+                font-size: 13px;
+            }
+            
+            .source-badge {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+        }
+
+        .source-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .conversion-number {
+            font-weight: 600;
+            color: #115641;
+        }
+
         @media (max-width: 1199px) {
             .chart-title {
                 font-size: 17px;
@@ -510,7 +601,91 @@
                 </div>
             </div>
         </div>
-    </div>    
+    </div>
+
+    {{-- SOURCE CONVERSION LISTS Section --}}
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE CONVERSION LISTS</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                {{-- Filter Controls --}}
+                <div class="p-4 bg-light source-conversion-section">
+                    <div class="row g-3 align-items-end">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="col-md-3">
+                            <label class="form-label">Branch</label>
+                            <select id="source-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                        @else
+                        <div class="col-md-4">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Table --}}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="source-conversion-table">
+                        <thead style="background-color: #115641;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0;">Source</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Cum</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Cold</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Warm</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Hot</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center">Deal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="source-conversion-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
 {{-- <div class="col-md-12 mb-4">
   <div class="card shadow border-left-info">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -2294,6 +2469,10 @@ function loadOrdersMonthly() {
 
                 loadProcessFlowMkt5a();
                 
+                // Source Conversion Lists - load initial data and set event handler
+                loadSourceConversionStats(); // Load all data initially without filter
+                $('#source-apply').on('click', loadSourceConversionStats);
+                
                 $('#svt_apply').on('click', loadAchievementMonthlyPercent);
 loadAchievementMonthlyPercent();
 
@@ -2589,6 +2768,97 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
 
                 loadProcessFlow();
                 setInterval(loadProcessFlow, 300000);
+
+                // SOURCE CONVERSION LISTS Functions
+                function loadSourceConversionStats() {
+                    const params = {};
+                    
+                    @if(auth()->user()->role?->code === 'super_admin')
+                        const branchId = $('#source-branch').val();
+                        if (branchId && branchId !== '') {
+                            params.branch_id = branchId;
+                        }
+                    @else
+                        @if(auth()->user()->branch_id)
+                            params.branch_id = {{ auth()->user()->branch_id }};
+                        @endif
+                    @endif
+                    
+                    const startDate = $('#source-start-date').val();
+                    const endDate = $('#source-end-date').val();
+                    
+                    if (startDate) params.start_date = startDate;
+                    if (endDate) params.end_date = endDate;
+
+                    // Show loading state
+                    const tbody = $('#source-conversion-tbody');
+                    tbody.html(`
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                            </td>
+                        </tr>
+                    `);
+
+                    console.log('Loading source conversion with params:', params);
+                    
+                    $.get('/api/dashboard/source-conversion-stats', params)
+                        .done(function(response) {
+                            console.log('Source conversion response:', response);
+                            if (response.data && response.data.length > 0) {
+                                renderSourceConversionTable(response.data);
+                            } else {
+                                tbody.html(`
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <i class="fas fa-info-circle text-muted mb-2" style="font-size: 2rem;"></i>
+                                            <p class="mb-0 text-muted">No data available for the selected period</p>
+                                        </td>
+                                    </tr>
+                                `);
+                            }
+                        })
+                        .fail(function(xhr) {
+                            console.error('Failed to load source conversion data:', xhr);
+                            tbody.html(`
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 text-muted">Failed to load data. Please try again.</p>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadSourceConversionStats()">
+                                            <i class="fas fa-refresh me-1"></i> Retry
+                                        </button>
+                                    </td>
+                                </tr>
+                            `);
+                        });
+                }
+
+                function renderSourceConversionTable(data) {
+                    const tbody = $('#source-conversion-tbody');
+                    tbody.empty();
+
+                    data.forEach(function(item) {
+                        const row = $(`
+                            <tr>
+                                <td>
+                                    <span class="source-badge">${item.source}</span>
+                                </td>
+                                <td class="text-center conversion-number">${(item.cumulative || 0).toLocaleString()}</td>
+                                <td class="text-center">${(item.cold || 0).toLocaleString()}</td>
+                                <td class="text-center">${(item.warm || 0).toLocaleString()}</td>
+                                <td class="text-center">${(item.hot || 0).toLocaleString()}</td>
+                                <td class="text-center conversion-number">${(item.deal || 0).toLocaleString()}</td>
+                            </tr>
+                        `);
+                        tbody.append(row);
+                    });
+                }
+
+                // Event handlers for SOURCE CONVERSION LISTS are already defined above
             });
         </script>
     @endsection
