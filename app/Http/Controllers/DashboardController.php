@@ -1617,4 +1617,68 @@ class DashboardController extends Controller
             ], 500);
         }
     }
+    public function sourceCorversion(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+        ]);
+
+        $start = $validated['start_date'] ?? now()->startOfYear()->toDateString();
+        $end   = $validated['end_date']   ?? now()->endOfMonth()->toDateString();
+
+        try {
+            $coldStatus = LeadStatus::COLD;
+            $warmStatus = LeadStatus::WARM;
+            $hotStatus = LeadStatus::HOT;
+            $dealStatus = LeadStatus::DEAL;
+
+            $query = Lead::query()
+                ->join('lead_sources', 'leads.source_id', '=', 'lead_sources.id')
+                ->select(
+                    'lead_sources.name as source',
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$coldStatus} THEN 1 ELSE 0 END) as cold_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$warmStatus} THEN 1 ELSE 0 END) as warm_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$hotStatus} THEN 1 ELSE 0 END) as hot_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$dealStatus} THEN 1 ELSE 0 END) as deal_count")
+                )
+                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
+                ->groupBy('lead_sources.id', 'lead_sources.name')
+                ->orderBy('lead_sources.name');
+
+            if (!empty($validated['branch_id'])) {
+                $query->where('leads.branch_id', $validated['branch_id']);
+            }
+
+            $data = $query->get();
+
+            $formattedData = $data->map(function ($item) {
+                $cumulative = $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
+
+                return [
+                    'source'      => $item->source,
+                    'cumulative'  => $cumulative,
+                    'cold'        => (int) $item->cold_count,
+                    'warm'        => (int) $item->warm_count,
+                    'hot'         => (int) $item->hot_count,
+                    'deal'        => (int) $item->deal_count,
+                ];
+            });
+
+            return response()->json([
+                'data' => $formattedData,
+                'filters' => [
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Terjadi kesalahan server',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
