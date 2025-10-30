@@ -1327,18 +1327,38 @@ class DashboardController extends Controller
 
             $acquisitionTime = 0;
             try {
-                $acquisitionTimeResult = (clone $baseQuery)
-                    ->join('lead_claims', 'leads.id', '=', 'lead_claims.lead_id')
-                    ->whereNull('lead_claims.deleted_at')
-                    ->selectRaw('
-                    AVG(TIMESTAMPDIFF(HOUR,
-                        COALESCE(leads.published_at, leads.created_at),
-                        lead_claims.created_at
-                    )) as avg_hours
-                ')
-                    ->first();
+                $filteredLeadIds = (clone $baseQuery)
+                    ->whereHas('claims', function ($q) {
+                        $q->whereNull('deleted_at');
+                    })
+                    ->pluck('id');
 
-                $acquisitionTime = $acquisitionTimeResult ? round($acquisitionTimeResult->avg_hours, 2) : 0;
+                if ($filteredLeadIds->isNotEmpty()) {
+                    $acquisitionTimeResult = DB::table('lead_claims')
+                        ->join('leads', 'leads.id', '=', 'lead_claims.lead_id')
+                        ->whereNull('lead_claims.deleted_at')
+                        ->whereIn('lead_claims.lead_id', $filteredLeadIds)
+                        ->selectRaw('
+                            AVG(
+                                CASE
+                                    WHEN TIMESTAMPDIFF(HOUR,
+                                        COALESCE(leads.published_at, leads.created_at),
+                                        lead_claims.created_at
+                                    ) >= 0
+                                    THEN TIMESTAMPDIFF(HOUR,
+                                        COALESCE(leads.published_at, leads.created_at),
+                                        lead_claims.created_at
+                                    )
+                                    ELSE NULL
+                                END
+                            ) as avg_hours
+                        ')
+                        ->first();
+
+                    $acquisitionTime = $acquisitionTimeResult && $acquisitionTimeResult->avg_hours !== null
+                        ? round($acquisitionTimeResult->avg_hours, 2)
+                        : 0;
+                }
             } catch (\Exception $e) {
                 $acquisitionTime = 0;
             }
