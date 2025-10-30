@@ -409,6 +409,12 @@
             color: #115641;
         }
 
+        .cumulative-percentage {
+            color: #6c757d !important;
+            font-weight: 400;
+            font-size: 0.9em;
+        }
+
         @media (max-width: 1199px) {
             .chart-title {
                 font-size: 17px;
@@ -3043,11 +3049,26 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 <td>
                                     <span class="source-badge">${item.source}</span>
                                 </td>
-                                <td class="text-center conversion-number">${(item.cumulative || 0).toLocaleString()}</td>
-                                <td class="text-center">${(item.cold || 0).toLocaleString()}</td>
-                                <td class="text-center">${(item.warm || 0).toLocaleString()}</td>
-                                <td class="text-center">${(item.hot || 0).toLocaleString()}</td>
-                                <td class="text-center conversion-number">${(item.deal || 0).toLocaleString()}</td>
+                                <td class="text-center conversion-number">
+                                    ${(item.cumulative || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cumulative_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.cold || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cold_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.warm || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.warm_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.hot || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.hot_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center conversion-number">
+                                    ${(item.deal || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
+                                </td>
                             </tr>
                         `);
                         tbody.append(row);
