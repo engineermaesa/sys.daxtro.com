@@ -469,7 +469,7 @@
 </div> --}}
 
 
-    <div class="col-md-12 mb-2">
+    {{-- <div class="col-md-12 mb-2">
         @if ($showOrders)
             @php
                 $statusColors = [
@@ -527,7 +527,7 @@
                 @endfor
             </div>
         @endif
-    </div>
+    </div> --}}
 
     <div class="col-md-12 mb-4">
   <div class="card shadow">
