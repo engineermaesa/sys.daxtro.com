@@ -21,6 +21,7 @@
               <th>Name</th>
               <th>Code</th>
               <th>Address</th>
+              <th>Target</th>
               <th class="text-center">Actions</th>
             </tr>
           </thead>
@@ -48,6 +49,7 @@ $(function () {
       { data: 'name' },
       { data: 'code' },
       { data: 'address' },
+      { data: 'target', render: function(data) { return data ? 'Rp' + data : '-'; } },
       { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
     ],
     order: [[0, 'desc']]

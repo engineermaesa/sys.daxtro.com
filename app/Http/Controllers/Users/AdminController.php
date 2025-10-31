@@ -59,6 +59,7 @@ class AdminController extends Controller
             ->addColumn('role_name', fn($row) => $row->role->name ?? '')
             ->addColumn('company_name', fn($row) => $row->branch?->company?->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->branch?->name ?? '')
+            ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
             ->addColumn('created_by_data', fn($row) => $row->created_by?->name ?? '')
             ->addColumn('updated_by_data', fn($row) => $row->updated_by?->name ?? '')
             ->addColumn('actions', function ($row) {
@@ -97,6 +98,7 @@ class AdminController extends Controller
             'nip'       => 'required|string|max:50|unique:users,nip'.($id ? ','.$id : ''),
             'email'     => 'required|email|unique:users,email'.($id ? ','.$id : ''),
             'phone'     => 'nullable|string|max:20',
+            'target'    => 'nullable|numeric|min:0',
         ];
 
         if ($id) {
@@ -127,6 +129,7 @@ class AdminController extends Controller
             $user->email        = $request->email;
             $user->nip          = $request->nip;
             $user->phone        = $request->phone;
+            $user->target       = $request->target ?: null;
             $user->created_by   = $id ? $user->created_by : $authUser->id;
             $user->updated_by   = $authUser->id;
             $user->save();

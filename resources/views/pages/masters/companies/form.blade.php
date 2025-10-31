@@ -27,6 +27,12 @@
               <input type="text" name="phone" class="form-control" value="{{ old('phone', $form_data->phone) }}">
             </div>
 
+            <div class="mb-3">
+              <label class="form-label">Target</label>
+              <input type="number" name="target" class="form-control" value="{{ old('target', $form_data->target) }}" placeholder="Enter target amount" min="0" step="0.01">
+              <small class="form-text text-muted">Enter target amount in Rupiah</small>
+            </div>
+
             @include('partials.common.save-btn-form', ['backUrl' => route('masters.companies.index')])
           </form>
         </div>
