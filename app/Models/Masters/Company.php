@@ -16,6 +16,11 @@ class Company extends Model
         'name',
         'address',
         'phone',
+        'target',
+    ];
+
+    protected $casts = [
+        'target' => 'decimal:2',
     ];
 
     public function branches()
