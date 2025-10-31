@@ -347,6 +347,58 @@
             background-color: #f8f9fa;
         }
 
+        /* Source Conversion Table Container with Max 5 Rows */
+        .source-conversion-table-container {
+            max-height: 350px; /* Height for exactly 5 rows + header */
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 20px;
+            border: 1px solid #e3e6f0;
+            background-color: #fff;
+        }
+
+        /* Ensure table takes full width */
+        .source-conversion-table-container .table {
+            margin-bottom: 0;
+        }
+
+        /* Sticky header styling */
+        .source-conversion-table-container thead th {
+            background-color: #115641 !important;
+            border: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        /* Table row height calculation for exactly 5 visible rows */
+        #source-conversion-table tbody td {
+            padding: 16px;
+            border-top: 1px solid #f1f3f4;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        /* Custom scrollbar for better UX */
+        .source-conversion-table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .source-conversion-table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .source-conversion-table-container::-webkit-scrollbar-thumb {
+            background: #115641;
+            border-radius: 4px;
+        }
+
+        .source-conversion-table-container::-webkit-scrollbar-thumb:hover {
+            background: #0d4133;
+        }
+
         /* Source Link Styling */
         .source-link {
             color: #007bff;
@@ -382,6 +434,7 @@
             background-color: #f8f9fa;
         }
 
+        /* Responsive adjustments for max 5 rows */
         @media (max-width: 768px) {
             #source-conversion-table thead th,
             #source-conversion-table tbody td {
@@ -392,6 +445,29 @@
             .source-badge {
                 font-size: 11px;
                 padding: 3px 8px;
+            }
+            
+            /* Adjust container height for mobile */
+            .source-conversion-table-container {
+                max-height: 300px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            #source-conversion-table thead th,
+            #source-conversion-table tbody td {
+                padding: 10px 6px;
+                font-size: 12px;
+            }
+            
+            .source-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+            
+            /* Further adjust container height for small mobile */
+            .source-conversion-table-container {
+                max-height: 280px;
             }
         }
 
@@ -413,6 +489,197 @@
             color: #6c757d !important;
             font-weight: 400;
             font-size: 0.9em;
+        }
+
+        /* Source Monitoring Compact Table Styling */
+        #source-monitoring-table {
+            font-size: 10px;
+            background-color: transparent;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        #source-monitoring-table th {
+            white-space: nowrap;
+            padding: 8px 4px !important;
+            vertical-align: middle;
+            border: none;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        #source-monitoring-table td {
+            white-space: nowrap;
+            padding: 6px 4px !important;
+            vertical-align: middle;
+            border-top: 1px solid #f1f3f4;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        #source-monitoring-table tbody tr:hover {
+            background-color: rgba(248, 249, 250, 0.5);
+        }
+
+        /* Specific width for Source column */
+        #source-monitoring-table th:first-child,
+        #source-monitoring-table td:first-child {
+            min-width: 120px;
+            max-width: 120px;
+        }
+
+        /* Specific width for month columns */
+        #source-monitoring-table th:not(:first-child):not(:last-child),
+        #source-monitoring-table td:not(:first-child):not(:last-child) {
+            width: 45px;
+            min-width: 45px;
+            max-width: 45px;
+        }
+
+        /* Specific width for Total column */
+        #source-monitoring-table th:last-child,
+        #source-monitoring-table td:last-child {
+            min-width: 60px;
+            max-width: 60px;
+        }
+
+        /* Table container styling - now inside chart-card */
+        .source-monitoring-table-container {
+            background-color: transparent;
+            border: none;
+            border-radius: 12px;
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        /* Responsive Source Monitoring */
+        @media (max-width: 1199px) {
+            #source-monitoring-table {
+                font-size: 9px !important;
+            }
+            
+            #source-monitoring-table th,
+            #source-monitoring-table td {
+                padding: 6px 3px !important;
+            }
+            
+            #source-monitoring-table th:first-child,
+            #source-monitoring-table td:first-child {
+                min-width: 100px;
+                max-width: 100px;
+            }
+            
+            #source-monitoring-table th:not(:first-child):not(:last-child),
+            #source-monitoring-table td:not(:first-child):not(:last-child) {
+                width: 40px;
+                min-width: 40px;
+                max-width: 40px;
+            }
+            
+            .chart-container,
+            .table-responsive {
+                height: 320px !important;
+            }
+            
+            .chart-title {
+                font-size: 16px !important;
+            }
+            
+            .chart-subtitle {
+                font-size: 11px !important;
+            }
+        }
+
+        @media (max-width: 991px) {
+            #source-monitoring-table {
+                font-size: 8px !important;
+            }
+            
+            #source-monitoring-table th,
+            #source-monitoring-table td {
+                padding: 5px 2px !important;
+            }
+            
+            #source-monitoring-table th:first-child,
+            #source-monitoring-table td:first-child {
+                min-width: 80px;
+                max-width: 80px;
+            }
+            
+            #source-monitoring-table th:not(:first-child):not(:last-child),
+            #source-monitoring-table td:not(:first-child):not(:last-child) {
+                width: 35px;
+                min-width: 35px;
+                max-width: 35px;
+            }
+            
+            #source-monitoring-table th:last-child,
+            #source-monitoring-table td:last-child {
+                min-width: 50px;
+                max-width: 50px;
+            }
+            
+            .chart-container,
+            .table-responsive {
+                height: 280px !important;
+            }
+            
+            .chart-title {
+                font-size: 15px !important;
+            }
+            
+            .chart-subtitle {
+                font-size: 10px !important;
+            }
+        }
+
+        @media (max-width: 767px) {
+            /* Stack Source Monitoring components vertically on mobile */
+            .source-monitoring-mobile-stack .col-lg-6 {
+                margin-bottom: 1rem !important;
+            }
+            
+            #source-monitoring-table {
+                font-size: 7px !important;
+                min-width: 600px !important;
+            }
+            
+            #source-monitoring-table th,
+            #source-monitoring-table td {
+                padding: 4px 1px !important;
+            }
+            
+            #source-monitoring-table th:first-child,
+            #source-monitoring-table td:first-child {
+                min-width: 70px;
+                max-width: 70px;
+            }
+            
+            #source-monitoring-table th:not(:first-child):not(:last-child),
+            #source-monitoring-table td:not(:first-child):not(:last-child) {
+                width: 30px;
+                min-width: 30px;
+                max-width: 30px;
+            }
+            
+            #source-monitoring-table th:last-child,
+            #source-monitoring-table td:last-child {
+                min-width: 40px;
+                max-width: 40px;
+            }
+            
+            .chart-container,
+            .table-responsive {
+                height: 250px !important;
+            }
+            
+            .chart-title {
+                font-size: 14px !important;
+            }
+            
+            .chart-subtitle {
+                font-size: 9px !important;
+            }
         }
 
         @media (max-width: 1199px) {
@@ -488,11 +755,408 @@
                 min-width: 0;
             }
         }
+
+        /* Dashboard Section Headers Styling */
+        .dashboard-section-header {
+            background: #115641 !important;
+            color: white !important;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px !important;
+            box-shadow: 0 4px 8px rgba(17, 86, 65, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-section-header:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(17, 86, 65, 0.3);
+        }
+
+        .dashboard-section-header h2 {
+            margin: 0 !important;
+            font-size: 28px !important;
+            font-weight: bold !important;
+            color: white !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Responsive Dashboard Headers */
+        @media (max-width: 768px) {
+            .dashboard-section-header {
+                padding: 12px 20px;
+                margin-bottom: 15px !important;
+            }
+            
+            .dashboard-section-header h2 {
+                font-size: 24px !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .dashboard-section-header {
+                padding: 10px 15px;
+                margin-bottom: 15px !important;
+            }
+            
+            .dashboard-section-header h2 {
+                font-size: 20px !important;
+            }
+        }
+
+        /* Achievement Cards Styling */
+        .achievement-card {
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #e3e6f0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            height: 380px;
+            overflow: hidden;
+        }
+
+        .achievement-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .achievement-header {
+            background: #f8f9fa;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e3e6f0;
+        }
+
+        .achievement-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #115641;
+            margin: 0;
+            text-align: center;
+        }
+
+        .achievement-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: calc(100% - 70px);
+        }
+
+        .donut-container {
+            width: 200px;
+            height: 200px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .achievement-stats {
+            text-align: center;
+            width: 100%;
+        }
+
+        .stat-item {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #115641;
+        }
+
+        .stat-separator {
+            font-size: 14px;
+            color: #6c757d;
+            margin: 0 4px;
+        }
+
+        .stat-target {
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        /* Branch List Container for Super Admin */
+        .branch-list-container {
+            width: 100%;
+            max-height: 290px;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .branch-item {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background-color 0.2s ease;
+        }
+
+        .branch-item:last-child {
+            border-bottom: none;
+        }
+
+        .branch-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .branch-info {
+            width: 100%;
+        }
+
+        .branch-name {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #115641;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .branch-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .branch-target {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .branch-achievement {
+            font-size: 12px;
+            color: #115641;
+            font-weight: 600;
+        }
+
+        /* Progress Bar Styling */
+        .branch-progress {
+            margin-top: 8px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #115641;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-percentage {
+            font-size: 11px;
+            color: #115641;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        /* Custom scrollbar for branch list */
+        .branch-list-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .branch-list-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        .branch-list-container::-webkit-scrollbar-thumb {
+            background: #115641;
+            border-radius: 2px;
+        }
+
+        .branch-list-container::-webkit-scrollbar-thumb:hover {
+            background: #0d4133;
+        }
+
+        /* Responsive Achievement Cards */
+        @media (max-width: 1199px) {
+            .achievement-card {
+                height: 350px;
+            }
+            
+            .donut-container {
+                width: 180px;
+                height: 180px;
+            }
+            
+            .achievement-title {
+                font-size: 16px;
+            }
+            
+            .stat-value {
+                font-size: 15px;
+            }
+        }
+
+        @media (max-width: 991px) {
+            .achievement-card {
+                height: 320px;
+                margin-bottom: 20px;
+            }
+            
+            .donut-container {
+                width: 160px;
+                height: 160px;
+                margin-bottom: 15px;
+            }
+            
+            .achievement-header {
+                padding: 16px 20px;
+            }
+            
+            .achievement-body {
+                padding: 20px;
+            }
+            
+            .achievement-title {
+                font-size: 15px;
+            }
+            
+            .stat-value {
+                font-size: 14px;
+            }
+            
+            .branch-item {
+                padding: 12px 16px;
+            }
+            
+            .branch-name {
+                font-size: 13px;
+            }
+            
+            .branch-target,
+            .branch-achievement {
+                font-size: 11px;
+            }
+            
+            .branch-list-container {
+                max-height: 240px;
+            }
+            
+            .progress-bar-container {
+                height: 6px;
+            }
+            
+            .progress-percentage {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .achievement-card {
+                height: auto;
+                min-height: 300px;
+            }
+            
+            .donut-container {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .achievement-body {
+                height: auto;
+                min-height: 220px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .achievement-card {
+                margin-bottom: 15px;
+            }
+            
+            .donut-container {
+                width: 140px;
+                height: 140px;
+            }
+            
+            .achievement-header {
+                padding: 12px 16px;
+            }
+            
+            .achievement-body {
+                padding: 16px;
+                min-height: 200px;
+            }
+            
+            .achievement-title {
+                font-size: 14px;
+            }
+            
+            .stat-value {
+                font-size: 13px;
+            }
+            
+            .stat-label,
+            .stat-target {
+                font-size: 12px;
+            }
+            
+            /* Mobile specific adjustments */
+            .d-flex.flex-column.flex-sm-row {
+                flex-direction: column !important;
+            }
+            
+            .d-flex.flex-column.flex-lg-row {
+                align-items: stretch !important;
+            }
+            
+            .modern-input {
+                min-width: 100% !important;
+                width: 100% !important;
+            }
+            
+            .modern-apply-btn {
+                width: 100%;
+            }
+        }
+
+        /* Additional responsive adjustments for title and controls */
+        @media (max-width: 991px) {
+            .d-flex.flex-column.flex-lg-row h4 {
+                font-size: 20px !important;
+                margin-bottom: 0;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .d-flex.flex-column.flex-lg-row h4 {
+                font-size: 18px !important;
+                text-align: center;
+            }
+            
+            .d-flex.flex-column.flex-lg-row {
+                text-align: center;
+            }
+        }
     </style>
 @endsection
 
 @section('content')
     {{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
+
+    {{-- MARKETING DASHBOARD HEADER --}}
+    <div class="col-md-12 mb-4">
+        <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">MARKETING DASHBOARD</h2>
+        </div>
+    </div>
 
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
@@ -696,10 +1360,10 @@
                     </div>
                 </div>
 
-                {{-- Table --}}
-                <div class="table-responsive">
+                {{-- Table with Maximum 5 Rows Visible --}}
+                <div class="source-conversion-table-container">
                     <table class="table table-hover mb-0" id="source-conversion-table">
-                        <thead style="background-color: #115641;">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
                             <tr>
                                 <th class="text-white fw-bold py-3 px-4" style="border-radius: 0;">Source</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center">Cum</th>
@@ -727,140 +1391,130 @@
         </div>
     </div>
 
-    <!-- SOURCE MONITORING LINE CHART -->
+    <!-- SOURCE MONITORING Section -->
     <div class="col-md-12 mb-4">
-        <!-- Chart Title Outside Card -->
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
         
-        <div class="card chart-card shadow-sm border-0">
-            <div class="card-body p-4">
-                <!-- Chart Controls -->
-                <div class="source-conversion-section">
-                    <div class="row g-3 align-items-end">
-                        @if(auth()->user()->role?->code === 'super_admin')
-                        <div class="col-md-4">
-                            <label class="form-label">Branch</label>
-                            <select id="source-monitoring-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @endif
-                        
-                        <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="source-monitoring-year" class="form-control source-control-input" 
-                                   value="{{ now()->year }}" min="2000" max="2100">
+        <!-- Side-by-side Source Monitoring row -->
+        <div class="row source-monitoring-mobile-stack">
+            <!-- Source Monitoring Chart (Left) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <!-- Chart Title -->
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Source Monitoring Chart</h5>
+                                {{-- <p class="chart-subtitle text-muted mb-0">Monthly Lead Source Tracking</p> --}}
+                            </div>
                         </div>
                         
-                        <div class="col-md-{{ auth()->user()->role?->code === 'super_admin' ? '4' : '6' }}">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
+                        <!-- Chart Controls -->
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="source-monitoring-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="number" id="source-monitoring-year" class="form-control modern-input" 
+                                       value="{{ now()->year }}" min="2000" max="2100">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="source-monitoring-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Chart Container -->
+                        <div class="chart-container" style="height: 350px; position: relative;">
+                            <canvas id="source-monitoring-chart"></canvas>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Chart Container -->
-                <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
-                    <canvas id="source-monitoring-chart"></canvas>
+            <!-- Source Monitoring Table (Right) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <!-- Table Title -->
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Source Monitoring List</h5>
+                                {{-- <p class="chart-subtitle text-muted mb-0">Monthly Data Summary</p> --}}
+                            </div>
+                        </div>
+                        
+                        <!-- Table Controls -->
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="source-monitoring-table-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="number" id="source-monitoring-table-year" class="form-control modern-input" 
+                                       value="{{ now()->year }}" min="2000" max="2100">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="source-monitoring-table-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table Container (direct inside card-body) -->
+                        <div class="table-responsive" style="height: 350px; overflow-y: auto; overflow-x: auto; border-radius: 12px;">
+                            <table class="table table-hover table-sm mb-0" id="source-monitoring-table" style="min-width: 800px;">
+                                <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th class="text-white fw-bold py-3 px-2" style="font-size: 11px; min-width: 120px;">Source</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jan</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Feb</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Mar</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Apr</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">May</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jun</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jul</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Aug</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Sep</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Oct</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Nov</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Dec</th>
+                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; min-width: 60px;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="source-monitoring-tbody">
+                                    <tr>
+                                        <td colspan="14" class="text-center py-5">
+                                            <div class="text-success">
+                                                <div class="spinner-border text-success" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mt-3 mb-0 text-muted">Loading source monitoring data...</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- SOURCE MONITORING LIST TABLE -->
-    <div class="col-md-12 mb-4">
-        <!-- Table Title Outside Card -->
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING LIST</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <!-- Filter Section -->
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label">Branch</label>
-                            <select id="source-monitoring-table-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="source-monitoring-table-year" class="form-control source-control-input" 
-                                   value="{{ now()->year }}" min="2000" max="2100">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-table-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-6">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="source-monitoring-table-year" class="form-control source-control-input" 
-                                   value="{{ now()->year }}" min="2000" max="2100">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-monitoring-table-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-
-                <!-- Table -->
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="source-monitoring-table">
-                        <thead style="background-color: #115641;">
-                            <tr>
-                                <th class="text-white fw-bold py-3 px-4" style="border-top-left-radius: 20px; border-bottom-left-radius: 0;">Source</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Jan</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Feb</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Mar</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Apr</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">May</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Jun</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Jul</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Aug</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Sep</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Oct</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Nov</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Dec</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-top-right-radius: 20px; border-bottom-right-radius: 0;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="source-monitoring-tbody">
-                            <tr>
-                                <td colspan="14" class="text-center py-5">
-                                    <div class="text-success">
-                                        <div class="spinner-border text-success" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p class="mt-2 mb-0 text-muted">Loading source monitoring data...</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <!-- End side-by-side Source Monitoring row -->
     </div>
     
 {{-- <div class="col-md-12 mb-4">
@@ -1037,92 +1691,247 @@
         @endif
     </div> --}}
 
+    {{-- SALES DASHBOARD HEADER --}}
     <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Sales Achievement vs Target (Donut)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#donutBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="donutBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-3">
-            <input type="date" id="donut_start" class="form-control form-control-sm"
-                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="donut_end" class="form-control form-control-sm"
-                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="donut_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
+        <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+            <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">SALES DASHBOARD</h2>
         </div>
+    </div>
 
-        <div class="row">
-          <!-- GLOBAL -->
-          <div class="col-lg-3 mb-4">
-            <div class="card h-100">
-              <div class="card-header py-2">
-                <strong>Global Achievement</strong>
-              </div>
-              <div class="card-body d-flex flex-column align-items-center justify-content-center">
-                <div style="width: 220px; height: 220px;">
-                  <canvas id="donut_global"></canvas>
+    <!-- Sales Achievement vs Target Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                {{-- Filter Controls --}}
+                <div class="p-4 bg-light">
+                    <div class="row g-3 align-items-end justify-content-start">
+                        <div class="col-md-3 ms-auto">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="donut_start" class="form-control source-control-input"
+                                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="donut_end" class="form-control source-control-input"
+                                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="donut_apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="mt-2 small text-muted" id="donut_global_caption"></div>
-              </div>
-            </div>
-          </div>
+                
+                {{-- Main Content --}}
+                <div class="p-4">                @if(auth()->user()->role?->code === 'super_admin')
+                <!-- Super Admin Layout -->
+                <div class="row g-4">
+                    <!-- Global Achievement -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">Global Achievement</h5>
+                            </div>
+                            <div class="achievement-body">
+                                <div class="donut-container">
+                                    <canvas id="donut_global"></canvas>
+                                </div>
+                                <div class="achievement-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Achievement:</span>
+                                        <span class="stat-value" id="global_achievement_pct">17%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value" id="global_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-separator">/</span>
+                                        <span class="stat-target" id="global_target_amount">Rp18.150.000.000</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="col-lg-3 mb-4">
-          <div class="card h-100">
-  <div class="card-header py-2">
-    <strong>All Branch Target (Plan)</strong>
-  </div>
-  <div class="card-body d-flex flex-column align-items-center justify-content-center">
-    <div style="width: 220px; height: 220px;">
-      <canvas id="donut_all"></canvas>
+                    <!-- All Branch Target -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">All Branch Target</h5>
+                            </div>
+                            <div class="achievement-body">
+                                <div class="donut-container">
+                                    <canvas id="donut_all"></canvas>
+                                </div>
+                                <div class="achievement-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Achievement:</span>
+                                        <span class="stat-value" id="all_achievement_pct">17%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value" id="all_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-separator">/</span>
+                                        <span class="stat-target" id="all_target_amount">Rp18.150.000.000</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Achievement per Branch Container -->
+                    <div class="col-lg-4 col-md-12">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">Achievement per Branch</h5>
+                            </div>
+                            <div class="achievement-body" style="height: calc(100% - 70px); padding: 16px;">
+                                <div id="branch_achievements_container" class="branch-list-container">
+                                    <!-- Branch items will be populated by JavaScript -->
+                                    <div class="branch-item">
+                                        <div class="branch-info">
+                                            <span class="branch-name">BRANCH JAKARTA</span>
+                                            <div class="branch-stats">
+                                                <span class="branch-target">Target: Rp. 61.813.125.000</span>
+                                                <span class="branch-achievement">Achievement: 5% - Rp2.925.728.437</span>
+                                            </div>
+                                            <div class="branch-progress">
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar-fill" style="width: 5%;"></div>
+                                                </div>
+                                                <div class="progress-percentage">5%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="branch-item">
+                                        <div class="branch-info">
+                                            <span class="branch-name">BRANCH SURABAYA</span>
+                                            <div class="branch-stats">
+                                                <span class="branch-target">Target: Rp. 48.317.850.000</span>
+                                                <span class="branch-achievement">Achievement: 1% - Rp265.031.852</span>
+                                            </div>
+                                            <div class="branch-progress">
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar-fill" style="width: 1%;"></div>
+                                                </div>
+                                                <div class="progress-percentage">1%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="branch-item">
+                                        <div class="branch-info">
+                                            <span class="branch-name">BRANCH MAKASSAR</span>
+                                            <div class="branch-stats">
+                                                <span class="branch-target">Target: Rp. 27.610.200.000</span>
+                                                <span class="branch-achievement">Achievement: 0% - Rp739.538</span>
+                                            </div>
+                                            <div class="branch-progress">
+                                                <div class="progress-bar-container">
+                                                    <div class="progress-bar-fill" style="width: 0%;"></div>
+                                                </div>
+                                                <div class="progress-percentage">0%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @else
+                <!-- Branch User Layout -->
+                <div class="row g-4">
+                    <!-- Global Achievement -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">Global Achievement</h5>
+                            </div>
+                            <div class="achievement-body">
+                                <div class="donut-container">
+                                    <canvas id="donut_global_branch"></canvas>
+                                </div>
+                                <div class="achievement-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Achievement:</span>
+                                        <span class="stat-value" id="global_branch_achievement_pct">17%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value" id="global_branch_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-separator">/</span>
+                                        <span class="stat-target" id="global_branch_target_amount">Rp18.150.000.000</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- All Branch Target (Plan) -->
+                    <div class="col-lg-4 col-md-6">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">All Branch Target (Plan)</h5>
+                            </div>
+                            <div class="achievement-body">
+                                <div class="donut-container">
+                                    <canvas id="donut_all_branch"></canvas>
+                                </div>
+                                <div class="achievement-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Achievement:</span>
+                                        <span class="stat-value" id="all_branch_achievement_pct">17%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value" id="all_branch_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-separator">/</span>
+                                        <span class="stat-target" id="all_branch_target_amount">Rp18.150.000.000</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Achievement per Branch -->
+                    <div class="col-lg-4 col-md-12">
+                        <div class="achievement-card">
+                            <div class="achievement-header">
+                                <h5 class="achievement-title">Achievement per Branch</h5>
+                            </div>
+                            <div class="achievement-body">
+                                <div class="donut-container">
+                                    <canvas id="donut_branch_single"></canvas>
+                                </div>
+                                <div class="achievement-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Achievement:</span>
+                                        <span class="stat-value" id="branch_single_achievement_pct">17%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-value" id="branch_single_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-separator">/</span>
+                                        <span class="stat-target" id="branch_single_target_amount">Rp18.150.000.000</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="mt-2 small text-muted" id="donut_all_caption"></div>
-  </div>
-</div>
-</div>
 
-          <!-- PER BRANCH -->
-          <div class="col-lg-6 mb-4">
-            <div class="card h-100">
-              <div class="card-header py-2">
-                <strong>Achievement per Branch</strong>
-              </div>
-              <div class="card-body">
-                <div id="donut_branch_container" class="row g-3"></div>
-              </div>
-            </div>
-          </div>
-        </div> <!-- /row -->
-      </div>
-    </div>
-  </div>
-</div>
-
-    <!-- Side-by-side charts row -->
-    <div class="row">
-      <!-- Target vs Sales Chart (Left) -->
-      <div class="col-lg-6 col-md-12 mb-4">
-        <div class="card chart-card shadow-sm border-0">
-          <div class="card-body p-4">
-            <!-- Chart Title -->
-            <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-              <div>
-                <h5 class="chart-title mb-0">Target vs Sales</h5>
-                <p class="chart-subtitle text-muted mb-0">Monthly Performance Tracking</p>
-              </div>
-            </div>
+    <!-- Side-by-side charts section -->
+    <div class="col-md-12 mb-4">
+        <!-- Side-by-side charts row -->
+        <div class="row">
+          <!-- Target vs Sales Chart (Left) -->
+          <div class="col-lg-6 col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">TARGET VS SALES</h2>
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+              <div class="card-body p-4">
             
             <!-- Chart Controls -->
             <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
@@ -1152,17 +1961,11 @@
         </div>
       </div>
 
-      <!-- Achievement vs Target Chart (Right) -->
-      <div class="col-lg-6 col-md-12 mb-4">
-        <div class="card chart-card shadow-sm border-0">
-          <div class="card-body p-4">
-            <!-- Chart Title -->
-            <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-              <div>
-                <h5 class="chart-title mb-0">Achievement vs Target</h5>
-                <p class="chart-subtitle text-muted mb-0">Monthly Branch Performance</p>
-              </div>
-            </div>
+          <!-- Achievement vs Target Chart (Right) -->
+          <div class="col-lg-6 col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">ACHIEVEMENT VS TARGET</h2>
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+              <div class="card-body p-4">
             
             <!-- Chart Controls -->
             <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
@@ -1180,11 +1983,12 @@
             <div class="chart-container" style="height: 300px; position: relative;">
               <canvas id="svt_percent_chart"></canvas>
             </div>
+            </div>
           </div>
         </div>
+        <!-- End side-by-side charts row -->
       </div>
     </div>
-    <!-- End side-by-side charts row -->
 
     {{-- <div class="row"> --}}
         {{-- <div class="col-md-12 mb-4">
@@ -1915,8 +2719,10 @@ function loadTargetVsSalesMonthly() {
   };
 
   $.post('{{ route('dashboard.target-vs-sales-monthly') }}', params, function(res){
+    console.log('Target vs Sales Monthly Response:', res);
     const labels = res.labels || [];
     const series = res.series || [];
+    console.log('Series data:', series);
     const ctx = document.getElementById('tvsm_chart').getContext('2d');
 
     if (tvsmChart) tvsmChart.destroy();
@@ -1959,7 +2765,8 @@ function loadTargetVsSalesMonthly() {
     }
 
     // ⬇️ seri baru: All Branch Target (jika ada)
-    if (series[2]) {
+    if (series[2] && series[2].data && series[2].data.length > 0) {
+      console.log('Adding All Branch Target series:', series[2]);
       datasets.push({
         label: series[2].label || 'All Branch Target',
         data: series[2].data || [],
@@ -1967,11 +2774,16 @@ function loadTargetVsSalesMonthly() {
         backgroundColor: 'rgba(107, 114, 128, 0.1)',
         fill: false,
         tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 5,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         borderWidth: 2,
-        borderDash: [8, 4]
+        borderDash: [8, 4],
+        pointBackgroundColor: '#6B7280',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1
       });
+    } else {
+      console.log('All Branch Target series not found or empty:', series[2]);
     }
 
     tvsmChart = new Chart(ctx, {
@@ -2051,8 +2863,7 @@ function loadTargetVsSalesMonthly() {
   });
 }
 
-            let donutGlobalChart;
-            let donutAllChart;
+            let donutGlobalChart, donutAllChart, donutGlobalBranchChart, donutAllBranchChart, donutBranchSingleChart;
 const donutBranchCharts = {};
 
 function renderDonut(ctx, achieved, target) {
@@ -2066,22 +2877,35 @@ function renderDonut(ctx, achieved, target) {
       labels: ['Achieved', 'Remaining'],
       datasets: [{
         data: [inTarget, remaining],
-        backgroundColor: ['#1cc88a', '#e0e0e0'],
-        borderWidth: 0
+        backgroundColor: ['#115641', '#e9ecef'],
+        borderWidth: 0,
+        borderRadius: 8
       }]
     },
     options: {
       maintainAspectRatio: false,
-      cutoutPercentage: 65,
+      cutoutPercentage: 70,
       legend: { display: false },
       tooltips: {
+        enabled: true,
+        backgroundColor: '#115641',
+        titleFontColor: '#fff',
+        bodyFontColor: '#fff',
+        borderColor: '#115641',
+        borderWidth: 1,
         callbacks: {
           label: function(t, d) {
             const label = d.labels[t.index] || '';
             const val = d.datasets[0].data[t.index] || 0;
-            return label + ': Rp' + number_format(val, 0, ',', '.');
+            const percent = target > 0 ? ((val / target) * 100).toFixed(1) : '0.0';
+            return label + ': ' + percent + '% (Rp' + number_format(val, 0, ',', '.') + ')';
           }
         }
+      },
+      animation: {
+        animateRotate: true,
+        duration: 1000,
+        easing: 'easeOutQuart'
       }
     }
   });
@@ -2094,58 +2918,113 @@ function loadSalesAchievementDonuts() {
   };
 
   $.post('{{ route('dashboard.sales-achievement-donut') }}', params, function(res){
-    // ALL BRANCH (PLAN)
-const a = res.all_branch || { achieved:0, target:10000000, percent:0 };
-const actx = document.getElementById('donut_all').getContext('2d');
-if (donutAllChart) donutAllChart.destroy();
-donutAllChart = renderDonut(actx, a.achieved, a.target);
-$('#donut_all_caption').text(
-  'Achievement: ' + (a.percent ? a.percent.toFixed(2) : '0.00') + '% — ' +
-  'Rp' + number_format(a.achieved,0,',','.') + ' / Rp' + number_format(a.target,0,',','.')
-);
+    // Check if user is super admin or branch user
+    const isSuperAdmin = {{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }};
+    
+    if (isSuperAdmin) {
+        // SUPER ADMIN LAYOUT
+        
+        // Global Achievement
+        const g = res.global || { achieved:0, target:10000000, percent:0 };
+        const gctx = document.getElementById('donut_global');
+        if (gctx) {
+            if (donutGlobalChart) donutGlobalChart.destroy();
+            donutGlobalChart = renderDonut(gctx.getContext('2d'), g.achieved, g.target);
+            
+            // Update stats
+            $('#global_achievement_pct').text((g.percent ? g.percent.toFixed(0) : '0') + '%');
+            $('#global_achievement_amount').text('Rp' + number_format(g.achieved,0,',','.'));
+            $('#global_target_amount').text('Rp' + number_format(g.target,0,',','.'));
+        }
 
-    // GLOBAL
-    const g = res.global || { achieved:0, target:10000000, percent:0 };
-    const gctx = document.getElementById('donut_global').getContext('2d');
-    if (donutGlobalChart) donutGlobalChart.destroy();
-    donutGlobalChart = renderDonut(gctx, g.achieved, g.target);
-    $('#donut_global_caption').text(
-      'Achievement: ' + (g.percent ? g.percent.toFixed(2) : '0.00') + '% — ' +
-      'Rp' + number_format(g.achieved,0,',','.') + ' / Rp' + number_format(g.target,0,',','.')
-    );
+        // All Branch Target
+        const all = res.all_branch || { achieved:0, target:10000000, percent:0 };
+        const allCtx = document.getElementById('donut_all');
+        if (allCtx) {
+            if (donutAllChart) donutAllChart.destroy();
+            donutAllChart = renderDonut(allCtx.getContext('2d'), all.achieved, all.target);
+            
+            // Update stats
+            $('#all_achievement_pct').text((all.percent ? all.percent.toFixed(0) : '0') + '%');
+            $('#all_achievement_amount').text('Rp' + number_format(all.achieved,0,',','.'));
+            $('#all_target_amount').text('Rp' + number_format(all.target,0,',','.'));
+        }
 
-    // PER BRANCH
-    const container = $('#donut_branch_container');
-    container.empty();
-    // Hapus chart lama
-    Object.values(donutBranchCharts).forEach(ch => { try { ch.destroy(); } catch(e){} });
-    for (const key in donutBranchCharts) delete donutBranchCharts[key];
+        // Branch Achievements List
+        const container = $('#branch_achievements_container');
+        container.empty();
+        
+        const branches = res.branches || [];
+        if (!branches.length) {
+            container.append('<div class="text-center text-muted py-4">Tidak ada data branch</div>');
+            return;
+        }
 
-    const branches = res.branches || [];
-    if (!branches.length) {
-      container.append('<div class="col-12 text-muted">Tidak ada data</div>');
-      return;
+        branches.forEach((b, idx) => {
+            const percentage = b.percent ? b.percent.toFixed(0) : '0';
+            const branchItem = $(`
+                <div class="branch-item">
+                    <div class="branch-info">
+                        <span class="branch-name">BRANCH ${b.label.toUpperCase()}</span>
+                        <div class="branch-stats">
+                            <span class="branch-target">Target: Rp. ${number_format(b.target,0,',','.')}</span>
+                            <span class="branch-achievement">Achievement: ${percentage}% - Rp${number_format(b.achieved,0,',','.')}</span>
+                        </div>
+                        <div class="branch-progress">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: ${percentage}%;"></div>
+                            </div>
+                            <div class="progress-percentage">${percentage}%</div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            container.append(branchItem);
+        });
+        
+    } else {
+        // BRANCH USER LAYOUT
+        
+        // Global Achievement for Branch User
+        const g = res.global || { achieved:0, target:10000000, percent:0 };
+        const gBranchCtx = document.getElementById('donut_global_branch');
+        if (gBranchCtx) {
+            if (donutGlobalBranchChart) donutGlobalBranchChart.destroy();
+            donutGlobalBranchChart = renderDonut(gBranchCtx.getContext('2d'), g.achieved, g.target);
+            
+            // Update stats
+            $('#global_branch_achievement_pct').text((g.percent ? g.percent.toFixed(0) : '0') + '%');
+            $('#global_branch_achievement_amount').text('Rp' + number_format(g.achieved,0,',','.'));
+            $('#global_branch_target_amount').text('Rp' + number_format(g.target,0,',','.'));
+        }
+
+        // All Branch Target (Plan) for Branch User
+        const all = res.all_branch || { achieved:0, target:10000000, percent:0 };
+        const allBranchCtx = document.getElementById('donut_all_branch');
+        if (allBranchCtx) {
+            if (donutAllBranchChart) donutAllBranchChart.destroy();
+            donutAllBranchChart = renderDonut(allBranchCtx.getContext('2d'), all.achieved, all.target);
+            
+            // Update stats
+            $('#all_branch_achievement_pct').text((all.percent ? all.percent.toFixed(0) : '0') + '%');
+            $('#all_branch_achievement_amount').text('Rp' + number_format(all.achieved,0,',','.'));
+            $('#all_branch_target_amount').text('Rp' + number_format(all.target,0,',','.'));
+        }
+
+        // Single Branch Achievement for Branch User
+        const branches = res.branches || [];
+        const currentBranch = branches.length > 0 ? branches[0] : { achieved:0, target:10000000, percent:0 };
+        const branchSingleCtx = document.getElementById('donut_branch_single');
+        if (branchSingleCtx) {
+            if (donutBranchSingleChart) donutBranchSingleChart.destroy();
+            donutBranchSingleChart = renderDonut(branchSingleCtx.getContext('2d'), currentBranch.achieved, currentBranch.target);
+            
+            // Update stats
+            $('#branch_single_achievement_pct').text((currentBranch.percent ? currentBranch.percent.toFixed(0) : '0') + '%');
+            $('#branch_single_achievement_amount').text('Rp' + number_format(currentBranch.achieved,0,',','.'));
+            $('#branch_single_target_amount').text('Rp' + number_format(currentBranch.target,0,',','.'));
+        }
     }
-
-    branches.forEach((b, idx) => {
-      const cid = 'donut_branch_' + b.id;
-      const col = $(`
-        <div class="col-md-4 col-sm-6">
-          <div class="d-flex flex-column align-items-center">
-            <div style="width:180px;height:180px"><canvas id="${cid}"></canvas></div>
-            <div class="mt-2 text-center small">
-              <strong>${b.label}</strong><br>
-              <span>${(b.percent ? b.percent.toFixed(2) : '0.00')}%</span><br>
-              <span>Rp${number_format(b.achieved,0,',','.')} / Rp${number_format(b.target,0,',','.')}</span>
-            </div>
-          </div>
-        </div>
-      `);
-      container.append(col);
-
-      const ctx = document.getElementById(cid).getContext('2d');
-      donutBranchCharts[cid] = renderDonut(ctx, b.achieved, b.target);
-    });
   });
 }
 
@@ -2252,6 +3131,8 @@ function loadSalesAchievementTrend() {
 
         const lbCharts = {}; // simpan instance chart per prefix
 
+// Function commented out because HTML elements are commented
+/*
 function loadLeadsBranchTrend(prefix, status) {
   const params = {
     status: status, // 'cold' | 'warm' | 'hot'
@@ -2368,8 +3249,7 @@ function loadLeadsBranchTrend(prefix, status) {
     });
   });
 }
-
-
+*/
 
             // === Trend Total Penjualan per Branch ===
 let branchSalesChart;
@@ -2692,14 +3572,15 @@ loadSalesPerformanceBar();
 loadSalesAchievementTrend();
 
 // === Binding tombol Apply & initial load ===
-$('#cl_apply').on('click', function(){ loadLeadsBranchTrend('cl','cold'); });
-$('#wl_apply').on('click', function(){ loadLeadsBranchTrend('wl','warm'); });
-$('#hl_apply').on('click', function(){ loadLeadsBranchTrend('hl','hot'); });
+// Commented out because leads branch trend HTML elements are commented
+// $('#cl_apply').on('click', function(){ loadLeadsBranchTrend('cl','cold'); });
+// $('#wl_apply').on('click', function(){ loadLeadsBranchTrend('wl','warm'); });
+// $('#hl_apply').on('click', function(){ loadLeadsBranchTrend('hl','hot'); });
 
-// initial load
-loadLeadsBranchTrend('cl','cold');
-loadLeadsBranchTrend('wl','warm');
-loadLeadsBranchTrend('hl','hot');
+// initial load - commented out to prevent errors
+// loadLeadsBranchTrend('cl','cold');
+// loadLeadsBranchTrend('wl','warm');
+// loadLeadsBranchTrend('hl','hot');
 
                 $('#branch_sales_apply').on('click', loadBranchSalesTrend);
 loadBranchSalesTrend(); // initial (YTD / Top 3)
@@ -2817,12 +3698,13 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                ['cold', 'warm', 'hot'].forEach(function(prefix) {
-                    $('#' + prefix + '_apply').on('click', function() {
-                        loadChart(prefix);
-                    });
-                    loadChart(prefix);
-                });
+                // Commented out - HTML elements not available
+                // ['cold', 'warm', 'hot'].forEach(function(prefix) {
+                //     $('#' + prefix + '_apply').on('click', function() {
+                //         loadChart(prefix);
+                //     });
+                //     loadChart(prefix);
+                // });
 
                 function loadColdWarmChart() {
                     $.post('{{ route('dashboard.group4.cold-warm') }}', function(data) {
@@ -2844,14 +3726,15 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                loadColdWarmChart();
-                loadWarmHotChart();
+                // Commented out - HTML elements not available
+                // loadColdWarmChart();
+                // loadWarmHotChart();
 
-                $('#overview_apply').on('click', loadOverviewChart);
-                loadOverviewChart();
+                // $('#overview_apply').on('click', loadOverviewChart);
+                // loadOverviewChart();
 
-                $('#lead_total_apply').on('click', loadLeadTotals);
-                loadLeadTotals();
+                // $('#lead_total_apply').on('click', loadLeadTotals);
+                // loadLeadTotals();
                 const quotationStatuses = ['review', 'published', 'rejected'];
                 let quotationChart;
 
@@ -2886,8 +3769,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                $('#quotation_apply').on('click', loadQuotationStatusChart);
-                loadQuotationStatusChart();
+                // Commented out - HTML elements not available
+                // $('#quotation_apply').on('click', loadQuotationStatusChart);
+                // loadQuotationStatusChart();
 
                 function loadProcessFlow() {
                     const branchId = {{ Auth::user()->branch_id ?? 'null' }};
@@ -3095,6 +3979,20 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
 
                     console.log('Loading source monitoring chart with params: ', params);
 
+                    // Show loading state for chart
+                    const chartContainer = $('#source-monitoring-chart').parent();
+                    if (sourceMonitoringChart) {
+                        sourceMonitoringChart.destroy();
+                        sourceMonitoringChart = null;
+                    }
+                    
+                    const ctx = document.getElementById('source-monitoring-chart').getContext('2d');
+                    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                    ctx.fillStyle = '#6c757d';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Loading chart data...', ctx.canvas.width / 2, ctx.canvas.height / 2);
+
                     $.get('/api/dashboard/source-monthly-stats', params)
                         .done(function(res) {
                         console.log('Source monitoring chart response: ', res);
@@ -3148,17 +4046,28 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     tooltip: {
                                         mode: 'index', 
                                         intersect: false,
-                                        backgroundColor: 'rgba(17, 86, 65, 0.9)',
+                                        backgroundColor: 'rgba(17, 86, 65, 0.95)',
                                         titleColor: '#fff',
                                         bodyColor: '#fff',
                                         borderColor: '#115641',
                                         borderWidth: 1,
                                         cornerRadius: 8,
+                                        padding: 10,
+                                        titleFont: {
+                                            size: 13,
+                                            weight: 'bold'
+                                        },
+                                        bodyFont: {
+                                            size: 12
+                                        },
                                         callbacks: {
+                                            title: function(context) {
+                                                return 'Month: ' + context[0].label;
+                                            },
                                             label: function(context) {
                                                 const label = context.dataset.label || '';
                                                 const value = context.parsed.y || 0;
-                                                return label + ': ' + value.toLocaleString();
+                                                return '  ' + label + ': ' + value.toLocaleString() + ' leads';
                                             }
                                         }
                                     }
@@ -3232,7 +4141,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     <div class="spinner-border text-success" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
-                                    <p class="mt-2 mb-0 text-muted">Loading source monitoring data...</p>
+                                    <p class="mt-3 mb-0 text-muted">Loading source monitoring data...</p>
                                 </div>
                             </td>
                         </tr>
@@ -3249,22 +4158,22 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 const months = item.months || [];
                                 const row = $(`
                                     <tr class="source-conversion-row">
-                                        <td class="source-conversion-source">
+                                        <td class="py-2 px-2" style="font-size: 11px;">
                                             <a href="#" class="source-link">${item.source || 'Unknown'}</a>
                                         </td>
-                                        <td class="text-center">${(months[0] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[1] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[2] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[3] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[4] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[5] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[6] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[7] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[8] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[9] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[10] || 0).toLocaleString()}</td>
-                                        <td class="text-center">${(months[11] || 0).toLocaleString()}</td>
-                                        <td class="text-center conversion-number"><strong>${(item.total || 0).toLocaleString()}</strong></td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[0] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[1] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[2] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[3] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[4] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[5] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[6] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[7] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[8] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[9] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[10] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[11] || 0).toLocaleString()}</td>
+                                        <td class="text-center py-2 px-1 conversion-number" style="font-size: 10px;"><strong>${(item.total || 0).toLocaleString()}</strong></td>
                                     </tr>
                                 `);
                                 tbody.append(row);
@@ -3273,8 +4182,8 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             tbody.html(`
                                 <tr>
                                     <td colspan="14" class="text-center py-4 text-muted">
-                                        <i class="fas fa-info-circle mb-2"></i><br>
-                                        No source monitoring data available for the selected period
+                                        <i class="fas fa-info-circle mb-2" style="font-size: 1.5rem;"></i><br>
+                                        <span>No source monitoring data available for the selected period</span>
                                     </td>
                                 </tr>
                             `);
@@ -3285,8 +4194,11 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.html(`
                             <tr>
                                 <td colspan="14" class="text-center py-4 text-danger">
-                                    <i class="fas fa-exclamation-circle mb-2"></i><br>
-                                    Error loading source monitoring data
+                                    <i class="fas fa-exclamation-circle mb-2" style="font-size: 1.5rem;"></i><br>
+                                    <span>Error loading source monitoring data</span>
+                                    <br><button class="btn btn-sm btn-outline-primary mt-3" onclick="loadSourceMonitoringTable()">
+                                        <i class="fas fa-refresh me-1"></i> Retry
+                                    </button>
                                 </td>
                             </tr>
                         `);
@@ -3313,12 +4225,26 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     return color;
                 }
 
-                // Event handlers for Source Monitoring
+                // Event handlers for Source Monitoring - Synchronized loading
                 $('#source-monitoring-apply').on('click', function() {
+                    // Sync table filters with chart filters
+                    @if(auth()->user()->role?->code === 'super_admin')
+                        $('#source-monitoring-table-branch').val($('#source-monitoring-branch').val());
+                    @endif
+                    $('#source-monitoring-table-year').val($('#source-monitoring-year').val());
+                    
                     loadSourceMonitoringStats();
+                    loadSourceMonitoringTable();
                 });
 
                 $('#source-monitoring-table-apply').on('click', function() {
+                    // Sync chart filters with table filters
+                    @if(auth()->user()->role?->code === 'super_admin')
+                        $('#source-monitoring-branch').val($('#source-monitoring-table-branch').val());
+                    @endif
+                    $('#source-monitoring-year').val($('#source-monitoring-table-year').val());
+                    
+                    loadSourceMonitoringStats();
                     loadSourceMonitoringTable();
                 });
 
