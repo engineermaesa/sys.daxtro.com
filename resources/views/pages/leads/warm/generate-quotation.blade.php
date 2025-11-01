@@ -239,6 +239,13 @@
                                     value="{{ old('tax_pct', $quotation->tax_pct ?? 11) }}" {{ $disabled }} required>
                             </div>
                             <div class="mb-3">
+                                <label class="form-label">Total Discount</label>
+                                <input type="text" id="total_discount_display" class="form-control"
+                                    value="{{ 'Rp' . number_format(($quotation && $quotation->total_discount) ? $quotation->total_discount : 0, 0, ',', '.') }}" readonly>
+                                <input type="hidden" name="total_discount" id="total_discount"
+                                    value="{{ optional($quotation)->total_discount ?? 0 }}">
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label">Subtotal</label>
                                 <input type="text" id="subtotal_display" class="form-control"
                                     value="{{ 'Rp' . number_format($quotation->subtotal ?? 0, 0, ',', '.') }}" readonly>
@@ -437,20 +444,27 @@
                 let qty   = parseFloat(row.find('.item-qty').val()) || 0;
                 let disc  = parseFloat(row.find('.item-disc').val()) || 0;
                 let line  = (price - (price * disc / 100)) * qty;
+                let discountAmount = (price * disc / 100) * qty;
                 row.find('.item-total').val(formatNumber(line));
-                return line;
+                return {lineTotal: line, discountAmount: discountAmount};
             }
 
             //— Sum up all rows, compute tax & grand total
             function calcTotal() {
                 let subtotal = 0;
+                let totalDiscount = 0;
                 $('#items-table tbody tr').each(function() {
-                    subtotal += calcRow($(this));
+                    let result = calcRow($(this));
+                    subtotal += result.lineTotal;
+                    totalDiscount += result.discountAmount;
                 });
 
                 let pct   = parseFloat($('#tax_pct').val()) || 0;
                 let tax   = subtotal * pct / 100;
                 let grand = subtotal + tax;
+
+                $('#total_discount_display').val(formatCurrency(totalDiscount));
+                $('#total_discount').val(totalDiscount.toFixed(2));
 
                 $('#subtotal_display').val(formatCurrency(subtotal));
                 $('#tax_total_display').val(formatCurrency(tax));
@@ -461,9 +475,6 @@
                 $('#grand_total').val(grand.toFixed(2));
             }
 
-            // Add this after the calcTotal() function in your existing JavaScript
-
-            // Visibility toggle functionality
             $(document).on('click', '.visibility-toggle', function() {
                 const $btn = $(this);
                 const $row = $btn.closest('tr');
@@ -473,14 +484,12 @@
                 const isVisible = $btn.data('visible') === true || $btn.data('visible') === 'true';
                 
                 if (isVisible) {
-                    // Make invisible - show crossed eye
                     $icon.removeClass('bi-eye').addClass('bi-eye-slash');
                     $input.val('0');
                     $btn.data('visible', false);
                     $dropdown.removeClass('d-none');
                     updateMergeDropdowns();
                 } else {
-                    // Make visible - show normal eye
                     $icon.removeClass('bi-eye-slash').addClass('bi-eye');
                     $input.val('1');
                     $btn.data('visible', true);
@@ -489,11 +498,9 @@
                 }
             });
 
-            // Update merge dropdowns when visibility changes
             function updateMergeDropdowns() {
                 const visibleItems = [];
-                
-                // Collect all visible items
+
                 $('#items-table tbody tr').each(function(index) {
                     const $row = $(this);
                     const $toggle = $row.find('.visibility-toggle');
@@ -506,8 +513,7 @@
                         }
                     }
                 });
-                
-                // Update all merge dropdowns
+
                 $('.merge-dropdown').each(function() {
                     const $dropdown = $(this);
                     const currentValue = $dropdown.val();
@@ -517,15 +523,13 @@
                     visibleItems.forEach(item => {
                         $dropdown.append(`<option value="${item.id}">${item.description}</option>`);
                     });
-                    
-                    // Restore selected value if it still exists
+
                     if (currentValue && visibleItems.find(item => item.id == currentValue)) {
                         $dropdown.val(currentValue);
                     }
                 });
             }
 
-            // Update merge dropdowns when item descriptions change
             $(document).on('input', '.item-desc', function() {
                 updateMergeDropdowns();
             });

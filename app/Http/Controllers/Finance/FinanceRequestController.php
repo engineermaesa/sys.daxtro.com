@@ -328,6 +328,7 @@ class FinanceRequestController extends Controller
                 'unit_price'   => $item->unit_price,
                 'discount_pct' => $item->discount_pct,
                 'tax_pct'      => $quotation->tax_pct,
+                'total_discount'=> $item->total_discount,
                 'line_total'   => $item->line_total,
             ]);
         }

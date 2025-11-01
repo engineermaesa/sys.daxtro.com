@@ -121,7 +121,7 @@
 
 
 
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-2 mb-3">
                                             <label class="form-label">Source <i class="required">*</i></label>
                                             <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2 source-select" required>
                                             <option value="" disabled selected>Pilih</option>
@@ -173,7 +173,7 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-6 mb-3 agent-fields d-none">
+                                    <div class="col-md-8 mb-3 agent-fields d-none">
                                         <label class="form-label">Agent Name</label>
                                         <input type="text" name="{{ $isCreate ? 'agent_name[]' : 'agent_name' }}" 
                                             class="form-control" 
@@ -181,7 +181,7 @@
                                             value="{{ old('agent_name', $form_data->agent_name) }}">
                                     </div>
 
-                                    <div class="col-md-8 mb-3 canvas-fields d-none">
+                                    <div class="col-md-10 mb-3 canvas-fields d-none">
                                         <label class="form-label">SPK Canvassing</label>
                                         <input type="text" name="{{ $isCreate ? 'spk_canvassing[]' : 'spk_canvassing' }}" 
                                             class="form-control" 
@@ -193,6 +193,12 @@
                                             <label class="form-label">Company <i class="required">*</i></label>
                                             <input type="text" name="{{ $isCreate ? 'company[]' : 'company' }}" placeholder="Nama Perusahaan" class="form-control"
                                                 value="{{ old('company', $form_data->company) }}" required>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Company Address</label>
+                                            <input type="text" name="{{ $isCreate ? 'company_address[]' : 'company_address' }}" placeholder="Alamat Perusahaan" class="form-control"
+                                                value="{{ old('company_address', $form_data->company_address) }}" required>
                                         </div>
 
                                         <div class="col-md-4 mb-3">

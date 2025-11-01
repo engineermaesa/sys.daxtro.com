@@ -136,67 +136,81 @@
 
     <div class="content">
 
-      {{-- Info Section --}}
-      <table class="info-table" style="width: 100%; margin-bottom: 16px;">
-        <tr>
-          <td style="width: 45%; vertical-align: top;">
-            <div class="section-title" style="margin-bottom: 2px">Electronics Quotation</div>
-              <table style="width: 100%; border-spacing: 0; font-size: 8pt; line-height: 1.2;">
-                <tr>
-                  <td style="width: 35%; padding: 0 2pt;">Quotation Number</td>
-                  <td style="padding: 0 2pt; width: 2%;">:</td>
-                  <td style="padding: 0 2pt;">{{ $quotation->quotation_no }}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 0 2pt;">Quotation Date</td>
-                  <td style="padding: 0 2pt; width: 2%;">:</td>
-                  <td style="padding: 0 2pt;">{{ $quotation->created_at->format('d M Y') }}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 0 2pt;">Quotation Due</td>
-                  <td style="padding: 0 2pt; width: 2%;">:</td>
-                  <td style="padding: 0 2pt;">
-                    {{ $quotation->expiry_date->format('d M Y') }}
-                    ({{ round($quotation->created_at->diffInDays($quotation->expiry_date)) }} Days)
-                  </td>
-                </tr>
-              </table>
-          </td>
-          <td style="width: 5%;"></td> <!-- spacing between columns -->
-          <td style="width: 45%; vertical-align: top;">
-            <div class="section-title" style="margin-bottom: 2px">Office</div>
-            Komplek Harmoni Plaza<br>
-            Blok A No.16-17, Jl. Suryopranoto<br>
-            Jakarta (10130)
-          </td>
-        </tr>
-        <tr>
-          <td style="vertical-align: top;">
-            <div class="section-title">Customer Identity</div>
-            <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 2pt;">
-              {{ $quotation->lead->name }}
-            </div>
-          </td>
-          <td></td>
-          <td style="vertical-align: top;">
-            <div class="section-title">No Telephone</div>
-            <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 2pt;">
-              {{ $quotation->lead->phone ?? '0821115236938' }}<br>
-              {{ $quotation->lead->address ?? 'Jalan Bangka, Banjarmasin Kota no 14 b, Banjarmasin' }}
-            </div>
-          </td>
-        </tr>
-      </table>
+  <table class="info-table" style="width: 100%; margin-bottom: 16px;">
+    <tr>
+      <td style="width: 45%; vertical-align: top;">
+        <div class="section-title" style="margin-bottom: 6px">Electronics Quotation</div>
+        <table style="width: 100%; border-spacing: 0; font-size: 8pt; line-height: 1.3;">
+          <tr>
+            <td style="width: 40%; padding: 1pt 2pt;">Quotation Number</td>
+            <td style="padding: 1pt 2pt; width: 2%;">:</td>
+            <td style="padding: 1pt 2pt;">{{ $quotation->quotation_no }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 1pt 2pt;">Quotation Date</td>
+            <td style="padding: 1pt 2pt; width: 2%;">:</td>
+            <td style="padding: 1pt 2pt;">{{ $quotation->created_at->format('d M Y') }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 1pt 2pt;">Quotation Due</td>
+            <td style="padding: 1pt 2pt; width: 2%;">:</td>
+            <td style="padding: 1pt 2pt;">
+              {{ $quotation->expiry_date->format('d M Y') }}
+              ({{ round($quotation->created_at->diffInDays($quotation->expiry_date)) }} Days)
+            </td>
+          </tr>
+        </table>
+
+        <div style="margin-top: 12pt;">
+          <div class="section-title" style="margin-bottom: 4px;">Customer Company</div>
+          <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 4pt; line-height: 1.3;">
+            <div style="font-weight: bold; margin-bottom: 2pt;">{{ $quotation->lead->company }}</div>
+            <div style="margin-bottom: 1pt;">{{ $quotation->lead->name }}</div>
+            <div style="margin-bottom: 1pt;">{{ $quotation->lead->phone }}</div>
+            <div>{{ $quotation->lead->company_address ?? 'Jalan Bangka, Banjarmasin Kota no 14 b, Banjarmasin' }}</div>
+          </div>
+        </div>
+      </td>
+
+      <td style="width: 5%;"></td>
+
+      <td style="width: 45%; vertical-align: top;">
+        <div class="section-title" style="margin-bottom: 4px;">Sales Representative</div>
+        <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 4pt; margin-bottom: 12pt;">
+          <div style="font-weight: bold;">{{ optional($claim->sales)->name ?? 'Hizkia Rudi' }}</div>
+          <div style="font-weight: bold;">{{ optional($claim->sales)->number ?? 'Hizkia Rudi' }}</div>
+        </div>
+
+        <div class="section-title" style="margin-bottom: 4px;">Office</div>
+        <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 4pt; line-height: 1.3;">
+          <div style="font-weight: bold; margin-bottom: 2pt;">
+            {{ optional($quotation)->lead->company_name ?? 'PT Pandu Mahardika Perdana' }}
+          </div>
+          @if($quotation && $quotation->lead->company_name && $quotation->lead->company_address)
+            <div>{{ $quotation->lead->company_address }}</div>
+            <div>{{ $quotation->lead->company_city }} {{ $quotation->lead->company_postal }}</div>
+          @else
+            <div>Komplek Harmoni Plaza</div>
+            <div>Blok A No.16-17, Jl. Suryopranoto</div>
+            <div>Jakarta (10130)</div>
+          @endif
+        </div>
+      </td>
+    </tr>
+  </table>
 
       {{-- Items Table --}}
       <table class="items">
           <thead>
               <tr>
                   <th width="5%">No</th>
-                  <th width="25%">Machine</th>
-                  <th width="40%">Specification</th>
+                  <th width="20%">Machine</th>
+                  <th width="20%">Specification</th>
+                  <th width="20%">Unit Price</th>
                   <th width="8%">Qty</th>
-                  <th width="22%">Amount</th>
+                  <th width="20%">Price</th>
+                  <th width="10%">Disc</th>
+                  <th width="22%">Final Price</th>
               </tr>
           </thead>
           <tbody>
@@ -208,7 +222,10 @@
                       $pdfItem = [
                           'description' => $item->description,
                           'product' => $item->product,
+                          'unit_price' => $item->unit_price,
                           'qty' => $item->qty,
+                          'price' => $item->unit_price * $item->qty,
+                          'discount_pct' => $item->discount_pct,
                           'amount' => $item->line_total,
                       ];
 
@@ -227,7 +244,10 @@
                       <td class="text-center">{{ $i + 1 }}</td>
                       <td>{{ $item['product']->name ?? $item['description'] }}</td>
                       <td>{{ $item['product']->sku ?? '—' }}</td>
+                      <td class="text-right">Rp {{ number_format($item['unit_price'], 0, ',', '.') }}</td>
                       <td class="text-center">{{ $item['qty'] }}</td>
+                      <td class="text-right">Rp {{ number_format($item['price'], 0, ',', '.') }}</td>
+                      <td class="text-center">{{ $item['discount_pct'] }}%</td>
                       <td class="text-right">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
                   </tr>
               @endforeach

@@ -247,6 +247,7 @@ class WarmLeadController extends Controller
                 'unit_price.*'      => 'required|numeric',
                 'discount_pct.*'    => 'nullable|numeric|min:0|max:100',
                 'tax_pct'           => 'required|numeric',
+                'total_discount'    => 'nullable|numeric|min:0',
                 'term_percentage.*' => 'required|numeric|min:0|max:100',
                 'term_description.*' => 'nullable|string',
                 'payment_type'      => 'required|in:booking_fee,down_payment',
@@ -265,6 +266,7 @@ class WarmLeadController extends Controller
                 'discount_pct.*.max'       => 'Discount cannot exceed 100%.',
                 'tax_pct.required'         => 'Tax percentage is required.',
                 'tax_pct.numeric'          => 'Tax percentage must be a number.',
+                'total_discount.min'      => 'Total discount cannot be negative.',
                 'term_percentage.*.required'=> 'Each payment term needs a percentage.',
                 'term_percentage.*.min'    => 'Term percentage cannot be negative.',
                 'term_percentage.*.max'    => 'Term percentage cannot exceed 100%.',
@@ -297,6 +299,7 @@ class WarmLeadController extends Controller
 
             $items = [];
             $subtotal = 0;
+            $totalDiscount = 0;
 
             foreach ($request->qty as $idx => $qty) {
                 $pidRaw = $request->product_id[$idx] ?? null;
@@ -306,6 +309,7 @@ class WarmLeadController extends Controller
                 $description = $request->description[$idx] ?? '';
                 $line = ($price - ($price * $discount / 100)) * $qty;
                 $subtotal += $line;
+                $totalDiscount += ($price * $discount / 100) * $qty;
 
                 $isVisible = isset($request->is_visible_pdf[$idx]) ? 
                     (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
@@ -359,6 +363,7 @@ class WarmLeadController extends Controller
                     'subtotal'    => $subtotal,
                     'tax_pct'     => $request->tax_pct,
                     'tax_total'   => $taxTotal,
+                    'total_discount' => $totalDiscount,
                     'grand_total' => $grandTotal,
                     'booking_fee' => $bookingFee,
                     'expiry_date' => now()->addDays(15),
@@ -385,6 +390,7 @@ class WarmLeadController extends Controller
                     'subtotal' => $subtotal,
                     'tax_pct' => $request->tax_pct,
                     'tax_total' => $taxTotal,
+                    'total_discount' => $totalDiscount,
                     'grand_total' => $grandTotal,
                     'booking_fee' => $bookingFee,
                     'created_by' => $request->user()->id,

@@ -64,7 +64,7 @@ class DashboardController extends Controller
                 ->get()
                 ->keyBy('status');
 
-            $statuses = ['draft', 'review', 'pending_finance', 'published', 'rejected', 'expired'];
+            $statuses = ['draft', 'review', 'published', 'rejected', 'expired'];
             foreach ($statuses as $status) {
                 $quotationStatusStats[$status] = [
                     'total'  => $counts[$status]->total ?? 0,

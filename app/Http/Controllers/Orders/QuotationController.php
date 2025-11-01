@@ -24,19 +24,12 @@ class QuotationController extends Controller
         // 2. Load the quotation with its relations
         $quotation = Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
 
+        // Get the user who created the quotation or current user
+        $user = $quotation->createdBy ?? auth()->user();
+
         // 3. Ensure temp dir exists
         $tempDir = storage_path('app/temp');
         File::ensureDirectoryExists($tempDir);
-
-        // 4. Render page-2 (body)
-        $bodyPath = "{$tempDir}/body_{$quotation->id}.pdf";
-        Pdf::loadView('pdfs.quotation_body', compact('quotation'))
-            ->setPaper('A4','portrait')
-            ->save($bodyPath);
-
-        if (! File::exists($bodyPath)) {
-            throw new \RuntimeException("Body PDF not found at {$bodyPath}");
-        }
 
         // 4.1 Load the active LeadClaim to get Sales info
         $claim = LeadClaim::where('lead_id', $quotation->lead_id)
@@ -45,9 +38,19 @@ class QuotationController extends Controller
                     ->latest('claimed_at')
                     ->first();
 
-        // 5. Render page-3 (terms & conditions)
+        // 4. Render page-2 (body) - ADD $user and $claim variables
+        $bodyPath = "{$tempDir}/body_{$quotation->id}.pdf";
+        Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
+            ->setPaper('A4','portrait')
+            ->save($bodyPath);
+
+        if (! File::exists($bodyPath)) {
+            throw new \RuntimeException("Body PDF not found at {$bodyPath}");
+        }
+
+        // 5. Render page-3 (terms & conditions) - ADD $user variable
         $termsPath = "{$tempDir}/terms_{$quotation->id}.pdf";
-        Pdf::loadView('pdfs.quotation_terms', compact('quotation','claim'))
+        Pdf::loadView('pdfs.quotation_terms', compact('quotation','claim', 'user'))
             ->setPaper('A4','portrait')
             ->save($termsPath);
 

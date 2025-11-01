@@ -83,10 +83,14 @@
                         <th>Tax ({{ $quotation->tax_pct }}%)</th>
                         <td>Rp{{ number_format($quotation->tax_total, 0, ',', '.') }}</td>
                     </tr>
-                    @if (!empty($quotation->discount))
-                        <tr>
+                    @if (!empty($quotation->total_discount))
+                        {{-- <tr>
                             <th>Discount</th>
                             <td class="text-danger">- Rp{{ number_format($quotation->discount, 0, ',', '.') }}</td>
+                        </tr> --}}
+                        <tr>
+                            <th>Total Discount</th>
+                            <td class="text-danger">Rp{{ number_format($quotation->total_discount, 0, ',', '.') }}</td>
                         </tr>
                     @endif
                     <tr>

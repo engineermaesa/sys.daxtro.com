@@ -33,6 +33,7 @@ class Lead extends Model
         'status_id',
         'product_id',
         'company',
+        'company_address',
         'customer_type',
         'contact_reason',
         'business_reason',

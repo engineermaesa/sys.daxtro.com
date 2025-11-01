@@ -164,6 +164,7 @@ class LeadController extends Controller
                 'title'       => 'required|in:Mr,Mrs',
                 'name'        => 'required',
                 'company'     => 'nullable|string|max:150',
+                'company_address' => 'required|string',
                 'customer_type' => 'nullable|exists:ref_customer_types,name',
                 'contact_reason' => 'nullable|string',
                 'business_reason' => 'nullable|string',
@@ -230,6 +231,7 @@ class LeadController extends Controller
                     'title.*'      => 'required|in:Mr,Mrs',
                     'name.*'       => 'required',
                     'company.*'    => 'nullable|string|max:150',
+                    'company_address.*'    => 'nullable|string',
                     'customer_type.*' => 'nullable|exists:ref_customer_types,name',
                     'contact_reason.*' => 'nullable|string',
                     'business_reason.*' => 'nullable|string',
@@ -292,6 +294,7 @@ class LeadController extends Controller
                     $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
                     $lead->industry_remark = $request->industry_remark[$i] ?? null;
                     $lead->company = $request->company[$i] ?? null;
+                    $lead->company_address = $request->company_address[$i] ?? null;
                     $lead->customer_type = $request->customer_type[$i] ?? null;
                     $lead->contact_reason = $request->contact_reason[$i] ?? null;
                     $lead->business_reason = $request->business_reason[$i] ?? null;
@@ -394,6 +397,7 @@ class LeadController extends Controller
             $lead->factory_industry_id = $request->factory_industry_id;
             $lead->industry_remark = $request->industry_remark;
             $lead->company      = $request->company;
+            $lead->company_address = $request->company_address;
             $lead->customer_type = $request->customer_type;
             $lead->contact_reason = $request->contact_reason;
             $lead->business_reason = $request->business_reason;
