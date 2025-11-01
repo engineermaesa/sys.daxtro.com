@@ -29,6 +29,7 @@ class User extends Authenticatable
         'nip',
         'phone',
         'password',
+        'target',
         'created_by',
         'updated_by',
     ];
@@ -53,6 +54,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'target' => 'decimal:2'
         ];
     }
 

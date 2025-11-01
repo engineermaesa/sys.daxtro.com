@@ -19,6 +19,7 @@
               <th>ID</th>
               <th>Name</th>
               <th>Phone</th>
+              <th>Target</th>
               <th class="text-center">Actions</th>
             </tr>
           </thead>
@@ -44,6 +45,7 @@ $(function () {
       { data: 'id', visible: false },
       { data: 'name' },
       { data: 'phone' },
+      { data: 'target', render: function(data) { return data ? 'Rp' + data : '-'; } },
       { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
     ],
     order: [[0, 'desc']]

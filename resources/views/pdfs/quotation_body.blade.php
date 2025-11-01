@@ -177,8 +177,8 @@
       <td style="width: 45%; vertical-align: top;">
         <div class="section-title" style="margin-bottom: 4px;">Sales Representative</div>
         <div style="border-top: 1px solid #000; margin-top: 2pt; padding-top: 4pt; margin-bottom: 12pt;">
-          <div style="font-weight: bold;">{{ optional($claim->sales)->name ?? 'Hizkia Rudi' }}</div>
-          <div style="font-weight: bold;">{{ optional($claim->sales)->number ?? 'Hizkia Rudi' }}</div>
+          <div>{{ optional($claim->sales)->name ?? 'Hizkia Rudi' }}</div>
+          <div>{{ optional($claim->sales)->phone ?? '08111111111111' }}</div>
         </div>
 
         <div class="section-title" style="margin-bottom: 4px;">Office</div>

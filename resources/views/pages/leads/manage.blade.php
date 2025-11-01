@@ -76,34 +76,36 @@
                     @endforeach
                 </ul>
 
-      <div class="tab-content" id="leadTabsContent">
-        @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
-          <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
-               id="{{ $tab }}"
-               role="tabpanel"
-               aria-labelledby="{{ $tab }}-tab">
-            <div class="table-responsive">
-              <table id="{{ $tab }}LeadsTable" class="table table-bordered table-sm w-100">
-                <thead class="table-light">
-                  <tr>
-                    <th style="display:none;">ID</th>
-                    <th>Nama</th>
-                    <th>Sales Name</th>
-                    <th>Telephone</th>
-                    <th>Needs</th>
-                    <th>Segment</th>
-                    <th>City</th>
-                    <th>Regional</th>
-                    <th>Customer Type</th>
-                    <th>Product Description</th>
-                    <th>Quotation Number</th>
-                    <th>Quotation Price</th>
-                    <th>Invoice</th>
-                    <th>Invoice Price</th>
-                    <th class="text-center">Actions</th>
-                  </tr>
-                </thead>
-              </table>
+                <div class="tab-content" id="leadTabsContent">
+                    @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
+                        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $tab }}"
+                            role="tabpanel" aria-labelledby="{{ $tab }}-tab">
+                            <div class="table-responsive">
+                                <table id="{{ $tab }}LeadsTable" class="table table-bordered table-sm w-100">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="display:none;">ID</th>
+                                            <th>Nama</th>
+                                            <th>Sales Name</th>
+                                            <th>Telephone</th>
+                                            <th>Needs</th>
+                                            <th>Segment</th>
+                                            <th>City</th>
+                                            <th>Regional</th>
+                                            <th>Customer Type</th>
+                                            <th>Product Description</th>
+                                            <th>Quotation Number</th>
+                                            <th>Quotation Price</th>
+                                            <th>Invoice</th>
+                                            <th>Invoice Price</th>
+                                            <th class="text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     </section>
@@ -333,6 +335,9 @@
                             data: 'name'
                         },
                         {
+                            data: 'sales_name'
+                        },
+                        {
                             data: 'phone'
                         },
                         {
@@ -341,9 +346,11 @@
                         {
                             data: 'factory_other_industry',
                             render: function(data, type, row) {
-                                if (row.industry_remark && row.industry_remark.trim() !== '') {
+                                if (row.industry_remark && row.industry_remark.trim() !==
+                                    '') {
                                     return row.industry_remark;
-                                } else if (row.other_industry && row.other_industry.trim() !== '') {
+                                } else if (row.other_industry && row.other_industry
+                                    .trim() !== '') {
                                     return row.other_industry;
                                 } else {
                                     return row.factory_other_industry || '';
@@ -355,6 +362,24 @@
                         },
                         {
                             data: 'regional_name'
+                        },
+                        {
+                            data: 'customer_type'
+                        },
+                        {
+                            data: 'product_description'
+                        },
+                        {
+                            data: 'quotation_number'
+                        },
+                        {
+                            data: 'quotation_price'
+                        },
+                        {
+                            data: 'invoice_number'
+                        },
+                        {
+                            data: 'invoice_price'
                         },
                         {
                             data: 'actions',
@@ -473,7 +498,7 @@
                             });
                             $('#activityLogModal tbody').html(rows ||
                                 '<tr><td colspan="5" class="text-center">No logs</td></tr>'
-                                );
+                            );
                         });
                     },
                     error: function(xhr) {

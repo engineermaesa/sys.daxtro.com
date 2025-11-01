@@ -96,16 +96,12 @@ class DashboardController extends Controller
     public function targetVsSalesMonthly(Request $request)
     {
         $validated = $request->validate([
-            'year'      => 'nullable|integer|min:2000|max:2100',
-            'scope'     => 'nullable|string|in:global,jakarta,makassar,surabaya',
-            'startDate' => 'nullable|date', // PERBAIKAN: 'nullabe' -> 'nullable'
-            'endDate'   => 'nullable|date|after_or_equal:startDate'
+            'year'  => 'nullable|integer|min:2000|max:2100',
+            'scope' => 'nullable|string|in:global,jakarta,makassar,surabaya',
         ]);
 
-        $year      = $validated['year']      ?? now()->year;
-        $scope     = $validated['scope']     ?? 'global';
-        $startDate = $validated['startDate'] ?? null;
-        $endDate   = $validated['endDate']   ?? null;
+        $year  = $validated['year']  ?? now()->year;
+        $scope = $validated['scope'] ?? 'global';
 
         // === PETA NAMA BRANCH YANG DIPAKAI DI DB ===
         $BR_JKT = 'Branch Jakarta';
@@ -113,6 +109,8 @@ class DashboardController extends Controller
         $BR_SBY = 'Branch Surabaya';
 
         // === TARGET BULANAN PER BRANCH (DUMMY, 12 BULAN, BERBEDA-BEDA) ===
+        // Catatan: total per-branch = penjumlahan 12 bulan
+        // Target bulanan per branch (Jan..Des)
         $globalMonthlyTarget = [
             12_820_500_000,
             10_989_000_000,
@@ -184,73 +182,10 @@ class DashboardController extends Controller
 
         $wantedBranches = $scopeMap[$scope] ?? $scopeMap['global'];
 
-        // === Tentukan rentang tanggal ===
-        if ($startDate && $endDate) {
-            // Jika ada custom date range, gunakan itu
-            $start = \Carbon\Carbon::parse($startDate)->startOfDay()->toDateString();
-            $end   = \Carbon\Carbon::parse($endDate)->endOfDay()->toDateString();
-
-            // Untuk custom range, kita perlu menyesuaikan labels dan target
-            $period = \Carbon\CarbonPeriod::create($start, '1 month', $end);
-            $labels = [];
-            $monthNumbers = [];
-
-            foreach ($period as $date) {
-                $labels[] = $date->format('M Y');
-                $monthNumbers[] = (int)$date->format('n'); // 1-12
-            }
-
-            // Hitung target untuk bulan-bulan yang sesuai dengan range
-            $targetMonthly = array_fill(0, count($labels), 0.0);
-            $allBranchTarget = array_fill(0, count($labels), 0.0);
-
-            foreach ($wantedBranches as $bn) {
-                $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
-                foreach ($monthNumbers as $idx => $month) {
-                    $monthIdx = $month - 1; // Convert to 0-based index
-                    $targetMonthly[$idx] += (float) ($t[$monthIdx] ?? 0);
-                }
-            }
-
-            // All Branch Target (seluruh cabang)
-            foreach ([$BR_JKT, $BR_SBY, $BR_MKS] as $bn) {
-                $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
-                foreach ($monthNumbers as $idx => $month) {
-                    $monthIdx = $month - 1;
-                    $allBranchTarget[$idx] += (float) ($t[$monthIdx] ?? 0); // PERBAIKAN: += bukan =
-                }
-            }
-        } else {
-            // Jika tidak ada custom range, gunakan tahun penuh
-            $start = \Carbon\Carbon::create($year, 1, 1)->toDateString();
-            $end   = \Carbon\Carbon::create($year, 12, 31)->toDateString();
-
-            // Label bulan (Jan..Dec) - PERBAIKAN: $labels bukan $label
-            $labels = [];
-            for ($i = 1; $i <= 12; $i++) {
-                $labels[] = \Carbon\Carbon::create($year, $i, 1)->format('M');
-            }
-
-            // Target untuk tahun penuh
-            $targetMonthly = array_fill(0, 12, 0.0);
-            foreach ($wantedBranches as $bn) {
-                $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
-                for ($i = 0; $i < 12; $i++) {
-                    $targetMonthly[$i] += (float) $t[$i];
-                }
-            }
-
-            // All Branch Target untuk tahun penuh
-            $allBranchTarget = array_fill(0, 12, 0.0);
-            foreach ([$BR_JKT, $BR_SBY, $BR_MKS] as $bn) {
-                $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
-                for ($i = 0; $i < 12; $i++) {
-                    $allBranchTarget[$i] += (float) $t[$i];
-                }
-            }
-        }
-
         // === Query Sales (sum total_billing per bulan) ===
+        $start = \Carbon\Carbon::create($year, 1, 1)->toDateString();
+        $end   = \Carbon\Carbon::create($year, 12, 31)->toDateString();
+
         $base = \App\Models\Orders\Order::query()
             ->join('leads', 'orders.lead_id', '=', 'leads.id')
             ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
@@ -271,24 +206,17 @@ class DashboardController extends Controller
             ->orderBy('y')->orderBy('m')
             ->get();
 
-        // Sales bulanan (isi 0 dulu)
-        $salesMonthly = array_fill(0, count($labels), 0.0);
+        // Label bulan (Jan..Dec)
+        $labels = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $labels[] = \Carbon\Carbon::create($year, $i, 1)->format('M');
+        }
 
-        if ($startDate && $endDate) {
-            // Untuk custom range, mapping berdasarkan bulan-tahun
-            foreach ($rows as $r) {
-                $dateKey = \Carbon\Carbon::create((int)$r->y, (int)$r->m, 1)->format('M Y');
-                $idx = array_search($dateKey, $labels);
-                if ($idx !== false) {
-                    $salesMonthly[$idx] = (float) $r->amt;
-                }
-            }
-        } else {
-            // Untuk tahun penuh
-            foreach ($rows as $r) {
-                $idx = max(0, min(11, (int)$r->m - 1));
-                $salesMonthly[$idx] = (float) $r->amt;
-            }
+        // Sales bulanan (isi 0 dulu)
+        $salesMonthly = array_fill(0, 12, 0.0);
+        foreach ($rows as $r) {
+            $idx = max(0, min(11, (int)$r->m - 1));
+            $salesMonthly[$idx] = (float) $r->amt;
         }
 
         // Jika role guard aktif, pastikan hanya target branch yg memang terlihat oleh user
@@ -299,15 +227,39 @@ class DashboardController extends Controller
                 return response()->json([
                     'labels' => $labels,
                     'series' => [
-                        ['label' => 'Target', 'data' => array_fill(0, count($labels), 0.0)],
+                        ['label' => 'Target', 'data' => array_fill(0, 12, 0.0)],
                         ['label' => 'Sales',  'data' => $salesMonthly],
-                        ['label' => 'All Branch Target', 'data' => array_fill(0, count($labels), 0.0)],
                     ],
-                    'year'      => $year,
-                    'scope'     => $scope,
-                    'startDate' => $startDate,
-                    'endDate'   => $endDate,
+                    'year'  => $year,
+                    'scope' => $scope,
                 ]);
+            }
+        }
+
+        // Target bulanan sesuai scope (global = penjumlahan cabang yang dipilih)
+        $targetMonthly = array_map('floatval', $globalMonthlyTarget);
+        foreach ($wantedBranches as $bn) {
+            $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
+            for ($i = 0; $i < 12; $i++) {
+                $targetMonthly[$i] += (float) $t[$i];
+            }
+        }
+        // === Target bulanan (scope) + All Branch Target ===
+        // (A) hitung All Branch Target = JKT + SBY + MKS (tetap, tidak terpengaruh scope/role)
+        $allBranchTarget = array_fill(0, 12, 0.0);
+        foreach ([$BR_JKT, $BR_SBY, $BR_MKS] as $bn) {
+            $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
+            for ($i = 0; $i < 12; $i++) {
+                $allBranchTarget[$i] += (float) $t[$i];
+            }
+        }
+
+        // (B) targetMonthly sesuai scope = penjumlahan target cabang yang dipilih (TIDAK start dari globalMonthlyTarget)
+        $targetMonthly = array_fill(0, 12, 0.0);
+        foreach ($wantedBranches as $bn) {
+            $t = $monthlyTargets[$bn] ?? array_fill(0, 12, 0.0);
+            for ($i = 0; $i < 12; $i++) {
+                $targetMonthly[$i] += (float) $t[$i];
             }
         }
 
@@ -316,12 +268,10 @@ class DashboardController extends Controller
             'series' => [
                 ['label' => 'Target',             'data' => $targetMonthly],
                 ['label' => 'Sales',              'data' => $salesMonthly],
-                ['label' => 'All Branch Target',  'data' => $allBranchTarget],
+                ['label' => 'All Branch Target',  'data' => $allBranchTarget], // ⬅️ baru
             ],
-            'year'      => $year,
-            'scope'     => $scope,
-            'startDate' => $startDate,
-            'endDate'   => $endDate,
+            'year'  => $year,
+            'scope' => $scope,
         ]);
     }
 
@@ -1305,5 +1255,574 @@ class DashboardController extends Controller
         ];
 
         return response()->json($data);
+    }
+    public function mkt5a(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+            'status_id'  => 'nullable|integer',
+            'region_id'  => 'nullable|integer',
+            'source_id'  => 'nullable|integer',
+        ]);
+
+        try {
+            $allowedStatuses = [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL
+            ];
+
+            $baseQuery = Lead::query()->whereIn('status_id', $allowedStatuses);
+
+            if (!empty($validated['branch_id'])) {
+                $baseQuery->where('branch_id', $validated['branch_id']);
+            }
+
+            if (!empty($validated['region_id'])) {
+                $baseQuery->where('region_id', $validated['region_id']);
+            }
+
+            if (!empty($validated['source_id'])) {
+                $baseQuery->where('source_id', $validated['source_id']);
+            }
+
+            // if (!empty($validated['status_id'])) {
+            //     $baseQuery->where('status_id', $validated['status_id']);
+            // }
+
+            if (!empty($validated['start_date'])) {
+                $baseQuery->where(function ($q) use ($validated) {
+                    $q->whereDate('published_at', '>=', $validated['start_date'])
+                        ->orWhere(function ($q2) use ($validated) {
+                            $q2->whereNull('published_at')
+                                ->whereDate('created_at', '>=', $validated['start_date']);
+                        });
+                });
+            }
+
+            if (!empty($validated['end_date'])) {
+                $baseQuery->where(function ($q) use ($validated) {
+                    $q->whereDate('published_at', '<=', $validated['end_date'])
+                        ->orWhere(function ($q2) use ($validated) {
+                            $q2->whereNull('published_at')
+                                ->whereDate('created_at', '<=', $validated['end_date']);
+                        });
+                });
+            }
+
+            $allLeadsQty = $baseQuery->count();
+
+            $acquisitionQty = (clone $baseQuery)
+                ->whereHas('claims', function ($q) {
+                    $q->whereNull('deleted_at');
+                })
+                ->count();
+
+            $acquisitionPercentage = $allLeadsQty > 0
+                ? round(($acquisitionQty / $allLeadsQty) * 100, 2)
+                : 0;
+
+            $acquisitionTime = 0;
+            try {
+                $filteredLeadIds = (clone $baseQuery)
+                    ->whereHas('claims', function ($q) {
+                        $q->whereNull('deleted_at');
+                    })
+                    ->pluck('id');
+
+                if ($filteredLeadIds->isNotEmpty()) {
+                    $acquisitionTimeResult = DB::table('lead_claims')
+                        ->join('leads', 'leads.id', '=', 'lead_claims.lead_id')
+                        ->whereNull('lead_claims.deleted_at')
+                        ->whereIn('lead_claims.lead_id', $filteredLeadIds)
+                        ->selectRaw('
+                            AVG(
+                                CASE
+                                    WHEN TIMESTAMPDIFF(HOUR,
+                                        COALESCE(leads.published_at, leads.created_at),
+                                        lead_claims.created_at
+                                    ) >= 0
+                                    THEN TIMESTAMPDIFF(HOUR,
+                                        COALESCE(leads.published_at, leads.created_at),
+                                        lead_claims.created_at
+                                    )
+                                    ELSE NULL
+                                END
+                            ) as avg_hours
+                        ')
+                        ->first();
+
+                    $acquisitionTime = $acquisitionTimeResult && $acquisitionTimeResult->avg_hours !== null
+                        ? round($acquisitionTimeResult->avg_hours, 2)
+                        : 0;
+                }
+            } catch (\Exception $e) {
+                $acquisitionTime = 0;
+            }
+
+            $availableLeads = (clone $baseQuery)
+                ->whereDoesntHave('claims', function ($q) {
+                    $q->whereNull('deleted_at');
+                })
+                ->count();
+
+            $meetingQty = 0;
+            $meetingPercentage = 0;
+            $avgMeetingTime = 0;
+
+            try {
+                if (Schema::hasTable('lead_meetings')) {
+                    $meetingQuery = DB::table('lead_meetings')
+                        ->whereNull('deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $meetingQuery->whereDate('created_at', '>=', $validated['start_date']);
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $meetingQuery->whereDate('created_at', '<=', $validated['end_date']);
+                    }
+
+                    $meetingQty = $meetingQuery->count();
+
+                    $meetingPercentage = $allLeadsQty > 0
+                        ? round(($meetingQty / $allLeadsQty) * 100, 2)
+                        : 0;
+
+                    $meetingTimeQuery = DB::table('lead_meetings')
+                        ->join('lead_claims', 'lead_meetings.lead_id', '=', 'lead_claims.lead_id')
+                        ->whereNull('lead_meetings.deleted_at')
+                        ->whereNull('lead_claims.deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $meetingTimeQuery->whereDate('lead_meetings.created_at', '>=', $validated['start_date']);
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $meetingTimeQuery->whereDate('lead_meetings.created_at', '<=', $validated['end_date']);
+                    }
+
+                    $meetingTimeResult = $meetingTimeQuery
+                        ->selectRaw('
+                        AVG(TIMESTAMPDIFF(HOUR,
+                            lead_claims.created_at,
+                            COALESCE(lead_meetings.updated_at, lead_meetings.scheduled_end_at)
+                        )) as avg_hours
+                    ')
+                        ->first();
+
+                    $avgMeetingTime = $meetingTimeResult ? round($meetingTimeResult->avg_hours, 2) : 0;
+                }
+            } catch (\Exception $e) {
+                $meetingQty = 0;
+                $meetingPercentage = 0;
+                $avgMeetingTime = 0;
+            }
+
+            $myLeads = 0;
+            try {
+                $myLeads = (clone $baseQuery)
+                    ->whereHas('claims', function ($q) use ($request) {
+                        $q->whereNull('deleted_at')
+                            ->where('sales_id', $request->user()->id);
+                    })
+                    ->count();
+            } catch (\Exception $e) {
+                $myLeads = 0;
+            }
+
+            $quotationQty = 0;
+            $quotationAmount = 0;
+            $quotationPercentage = 0;
+            $avgQuotationTime = 0;
+
+            try {
+                if (Schema::hasTable('quotations')) {
+                    $quotationQuery = DB::table('quotations')
+                        ->whereNull('deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $quotationQuery->whereDate('created_at', '>=', $validated['start_date']);
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $quotationQuery->whereDate('created_at', '<=', $validated['end_date']);
+                    }
+
+                    $quotationQty = $quotationQuery->count();
+
+                    $quotationAmountResult = $quotationQuery
+                        ->selectRaw('COALESCE(SUM(grand_total), 0) as total_amount')
+                        ->first();
+
+                    $quotationAmount = $quotationAmountResult ? (float) $quotationAmountResult->total_amount : 0;
+
+                    $quotationPercentage = $allLeadsQty > 0
+                        ? round(($quotationQty / $allLeadsQty) * 100, 2)
+                        : 0;
+
+                    $quotationTimeQuery = DB::table('quotations')
+                        ->join('leads', 'quotations.lead_id', '=', 'leads.id')
+                        ->leftJoin('lead_meetings', function ($join) {
+                            $join->on('leads.id', '=', 'lead_meetings.lead_id')
+                                ->where('lead_meetings.result', 'yes')
+                                ->whereNull('lead_meetings.deleted_at');
+                        })
+                        ->whereNull('quotations.deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $quotationTimeQuery->whereDate('quotations.created_at', '>=', $validated['start_date']);
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $quotationTimeQuery->whereDate('quotations.created_at', '<=', $validated['end_date']);
+                    }
+
+                    $quotationTimeResult = $quotationTimeQuery
+                        ->selectRaw('
+                        AVG(TIMESTAMPDIFF(HOUR,
+                            COALESCE(lead_meetings.updated_at, lead_meetings.scheduled_end_at),
+                            quotations.created_at
+                        )) as avg_hours
+                    ')
+                        ->first();
+
+                    $avgQuotationTime = $quotationTimeResult ? round($quotationTimeResult->avg_hours, 2) : 0;
+                }
+            } catch (\Exception $e) {
+                $quotationQty = 0;
+                $quotationAmount = 0;
+                $quotationPercentage = 0;
+                $avgQuotationTime = 0;
+            }
+
+            $invoiceQty = 0;
+            $invoiceAmount = 0;
+            $invoicePercentage = 0;
+            $avgInvoiceTime = 0;
+
+            try {
+                if (Schema::hasTable('invoices')) {
+                    $invoiceQuery = DB::table('invoices')
+                        ->whereNull('deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $invoiceQuery->whereDate('issued_at', '>=', $validated['start_date'])
+                            ->orWhere(function ($q) use ($validated) {
+                                $q->whereNull('issued_at')
+                                    ->whereDate('created_at', '>=', $validated['start_date']);
+                            });
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $invoiceQuery->whereDate('issued_at', '<=', $validated['end_date'])
+                            ->orWhere(function ($q) use ($validated) {
+                                $q->whereNull('issued_at')
+                                    ->whereDate('created_at', '<=', $validated['end_date']);
+                            });
+                    }
+
+                    $invoiceQty = $invoiceQuery->count();
+
+                    $invoiceAmountResult = $invoiceQuery
+                        ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+                        ->first();
+
+                    $invoiceAmount = $invoiceAmountResult ? (float) $invoiceAmountResult->total_amount : 0;
+
+                    $invoicePercentage = $allLeadsQty > 0
+                        ? round(($invoiceQty / $allLeadsQty) * 100, 2)
+                        : 0;
+
+                    $invoiceTimeQuery = DB::table('invoices')
+                        ->join('proformas', 'invoices.proforma_id', '=', 'proformas.id')
+                        ->join('quotations', 'proformas.quotation_id', '=', 'quotations.id')
+                        ->join('leads', 'quotations.lead_id', '=', 'leads.id')
+                        ->leftJoin('lead_meetings', function ($join) {
+                            $join->on('leads.id', '=', 'lead_meetings.lead_id')
+                                ->whereNull('lead_meetings.deleted_at');
+                        })
+                        ->whereNull('invoices.deleted_at')
+                        ->whereNull('proformas.deleted_at')
+                        ->whereNull('quotations.deleted_at');
+
+                    if (!empty($validated['start_date'])) {
+                        $invoiceTimeQuery->whereDate('invoices.issued_at', '>=', $validated['start_date'])
+                            ->orWhere(function ($q) use ($validated) {
+                                $q->whereNull('invoices.issued_at')
+                                    ->whereDate('invoices.created_at', '>=', $validated['start_date']);
+                            });
+                    }
+                    if (!empty($validated['end_date'])) {
+                        $invoiceTimeQuery->whereDate('invoices.issued_at', '<=', $validated['end_date'])
+                            ->orWhere(function ($q) use ($validated) {
+                                $q->whereNull('invoices.issued_at')
+                                    ->whereDate('invoices.created_at', '<=', $validated['end_date']);
+                            });
+                    }
+
+                    $invoiceTimeResult = $invoiceTimeQuery
+                        ->selectRaw('
+                        AVG(TIMESTAMPDIFF(HOUR,
+                            COALESCE(lead_meetings.created_at, quotations.created_at),
+                            COALESCE(invoices.issued_at, invoices.created_at)
+                        )) as avg_hours
+                    ')
+                        ->first();
+
+                    $avgInvoiceTime = $invoiceTimeResult ? round($invoiceTimeResult->avg_hours, 2) : 0;
+                }
+            } catch (\Exception $e) {
+                $invoiceQty = 0;
+                $invoiceAmount = 0;
+                $invoicePercentage = 0;
+                $avgInvoiceTime = 0;
+            }
+
+            return response()->json([
+                'aware' => [
+                    'all_leads_qty' => $allLeadsQty,
+                    'all_leads_percentage' => 100.00,
+                    'acquisition_in_qty' => $acquisitionQty,
+                    'acquisition_in_percentage' => $acquisitionPercentage,
+                    'acquisition_time_avg_hours' => $acquisitionTime,
+                ],
+                'appeal' => [
+                    'meeting_in_qty' => $meetingQty,
+                    'meeting_in_percentage' => $meetingPercentage,
+                    'meeting_time_avg_hours' => $avgMeetingTime,
+                    'my_leads' => $myLeads
+                ],
+                'quotation' => [
+                    'quotation_in_qty' => $quotationQty,
+                    'quotation_in_amount' => $quotationAmount,
+                    'quotation_in_percentage' => $quotationPercentage,
+                    'quotation_time_avg_hours' => $avgQuotationTime
+                ],
+                'act' => [
+                    'invoice_in_qty' => $invoiceQty,
+                    'invoice_in_amount' => $invoiceAmount,
+                    'invoice_in_percentage' => $invoicePercentage,
+                    'invoice_time_avg_hours' => $avgInvoiceTime
+                ],
+                'filters' => [
+                    'branch_id' => $validated['branch_id'] ?? null,
+                    'start_date' => $validated['start_date'] ?? null,
+                    'end_date' => $validated['end_date'] ?? null,
+                    'status_id' => $validated['status_id'] ?? null,
+                    'region_id' => $validated['region_id'] ?? null,
+                    'source_id' => $validated['source_id'] ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'aware' => [
+                    'all_leads_qty' => 0,
+                    'all_leads_percentage' => 0,
+                    'acquisition_in_qty' => 0,
+                    'acquisition_in_percentage' => 0,
+                    'acquisition_time_avg_hours' => 0,
+                ],
+                'appeal' => [
+                    'meeting_in_qty' => 0,
+                    'meeting_in_percentage' => 0,
+                    'meeting_time_avg_hours' => 0,
+                    'my_leads' => 0
+                ],
+                'quotation' => [
+                    'quotation_in_qty' => 0,
+                    'quotation_in_amount' => 0,
+                    'quotation_in_percentage' => 0,
+                    'quotation_time_avg_hours' => 0
+                ],
+                'act' => [
+                    'invoice_in_qty' => 0,
+                    'invoice_in_amount' => 0,
+                    'invoice_in_percentage' => 0,
+                    'invoice_time_avg_hours' => 0
+                ],
+                'filters' => $validated,
+                'error' => 'Terjadi kesalahan dalam memproses data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    public function sourceConversion(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+        ]);
+
+        $start = $validated['start_date'] ?? now()->startOfYear()->toDateString();
+        $end   = $validated['end_date']   ?? now()->endOfMonth()->toDateString();
+
+        try {
+            $coldStatus = LeadStatus::COLD;
+            $warmStatus = LeadStatus::WARM;
+            $hotStatus = LeadStatus::HOT;
+            $dealStatus = LeadStatus::DEAL;
+
+            $query = Lead::query()
+                ->join('lead_sources', 'leads.source_id', '=', 'lead_sources.id')
+                ->select(
+                    'lead_sources.name as source',
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$coldStatus} THEN 1 ELSE 0 END) as cold_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$warmStatus} THEN 1 ELSE 0 END) as warm_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$hotStatus} THEN 1 ELSE 0 END) as hot_count"),
+                    DB::raw("SUM(CASE WHEN leads.status_id = {$dealStatus} THEN 1 ELSE 0 END) as deal_count")
+                )
+                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
+                ->groupBy('lead_sources.id', 'lead_sources.name')
+                ->orderBy('lead_sources.name');
+
+            if (!empty($validated['branch_id'])) {
+                $query->where('leads.branch_id', $validated['branch_id']);
+            }
+
+            $data = $query->get();
+
+            // Hitung total cumulative untuk semua source
+            $totalCumulative = $data->sum(function ($item) {
+                return $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
+            });
+
+            $formattedData = $data->map(function ($item) use ($totalCumulative) {
+                $cold = (int) $item->cold_count;
+                $warm = (int) $item->warm_count;
+                $hot = (int) $item->hot_count;
+                $deal = (int) $item->deal_count;
+
+                $cumulative = $cold + $warm + $hot + $deal;
+
+                // Hitung persentase terhadap total cumulative semua source
+                $cumulativePercentage = $totalCumulative > 0 ? round(($cumulative / $totalCumulative) * 100, 2) : 0;
+                $coldPercentage = $cumulative > 0 ? round(($cold / $cumulative) * 100, 2) : 0;
+                $warmPercentage = $cumulative > 0 ? round(($warm / $cumulative) * 100, 2) : 0;
+                $hotPercentage = $cumulative > 0 ? round(($hot / $cumulative) * 100, 2) : 0;
+                $dealPercentage = $cumulative > 0 ? round(($deal / $cumulative) * 100, 2) : 0;
+
+                return [
+                    'source'      => $item->source,
+                    'cumulative'  => $cumulative,
+                    'cumulative_percentage' => $cumulativePercentage,
+                    'cold'        => $cold,
+                    'cold_percentage' => $coldPercentage,
+                    'warm'        => $warm,
+                    'warm_percentage' => $warmPercentage,
+                    'hot'         => $hot,
+                    'hot_percentage' => $hotPercentage,
+                    'deal'        => $deal,
+                    'deal_percentage' => $dealPercentage,
+                ];
+            });
+
+            return response()->json([
+                'data' => $formattedData,
+                'summary' => [
+                    'total_cumulative' => $totalCumulative,
+                    'total_sources' => $data->count()
+                ],
+                'filters' => [
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Terjadi kesalahan server',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function sourceMonthlyStats(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'year' => 'nullable|integer|min:2000|max:2100',
+                'branch_id' => 'nullable|integer',
+            ]);
+
+            $year = $validated['year'] ?? now()->year;
+            $branchId = $validated['branch_id'] ?? null;
+
+            $startDate = Carbon::create($year, 1, 1)->startOfDay();
+            $endDate = Carbon::create($year, 12, 31)->endOfDay();
+
+            $query = Lead::query()
+                ->join('lead_sources', 'leads.source_id', '=', 'lead_sources.id')
+                ->select(
+                    'lead_sources.name as source',
+                    DB::raw('MONTH(COALESCE(leads.published_at, leads.created_at)) as month'),
+                    DB::raw('COUNT(leads.id) as lead_count')
+                )
+                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [
+                    $startDate->toDateString(),
+                    $endDate->toDateString()
+                ])
+                ->groupBy('lead_sources.name', 'month')
+                ->orderBy('lead_sources.name')
+                ->orderBy('month');
+
+            if (!empty($branchId)) {
+                $query->where('leads.branch_id', $branchId);
+            }
+
+            $monthlyData = $query->get();
+
+            $sources = \App\Models\Leads\LeadSource::orderBy('name')->pluck('name');
+
+            $result = $sources->map(function ($source) use ($monthlyData) {
+                $monthlyCounts = array_fill(0, 12, 0);
+
+                $sourceData = $monthlyData->where('source', $source);
+
+                foreach ($sourceData as $data) {
+                    $monthIndex = (int)$data->month - 1;
+                    if ($monthIndex >= 0 && $monthIndex < 12) {
+                        $monthlyCounts[$monthIndex] = (int)$data->lead_count;
+                    }
+                }
+
+                return [
+                    'source' => $source,
+                    'months' => $monthlyCounts,
+                    'total' => array_sum($monthlyCounts)
+                ];
+            })->filter(fn($item) => $item['total'] > 0)->values();
+
+            $monthLabels = [
+                'Jan',
+                'Feb',
+                'Mar',
+                'Apr',
+                'May',
+                'Jun',
+                'Jul',
+                'Aug',
+                'Sep',
+                'Oct',
+                'Nov',
+                'Dec'
+            ];
+
+            return response()->json([
+                'data' => $result,
+                'month_labels' => $monthLabels,
+                'year' => $year,
+                'filters' => [
+                    'branch_id' => $branchId
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Source Monthly Stats Error: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Terjadi kesalahan server',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }
