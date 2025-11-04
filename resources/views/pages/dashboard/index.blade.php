@@ -248,6 +248,10 @@
             background: #fff;
             transition: all 0.2s ease;
             min-width: 120px;
+            height: 40px; /* Fixed height for consistency */
+            line-height: 1.5;
+            display: inline-flex;
+            align-items: center;
         }
 
         .modern-select:focus,
@@ -264,6 +268,10 @@
             border-radius: 8px;
             padding: 8px 20px;
             font-size: 13px;
+            height: 40px; /* Match input/select height */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             font-weight: 600;
             transition: all 0.2s ease;
             min-width: 80px;
@@ -284,13 +292,18 @@
         }
 
         /* SOURCE CONVERSION LISTS Styling */
+        .source-conversion-section {
+            background: #f8f9fa !important;
+            border-radius: 15px !important;
+        }
+        
         .source-conversion-section .form-label {
-            height: 20px;
-            line-height: 20px;
+            height: auto;
+            line-height: 1.4;
             margin-bottom: 8px !important;
-            font-size: 12px;
-            font-weight: 500;
-            color: #6c757d;
+            font-size: 13px;
+            font-weight: 600;
+            color: #495057;
             display: block;
         }
 
@@ -300,12 +313,38 @@
             border-radius: 8px;
             font-size: 14px;
             background: #fff;
+            padding: 10px 12px;
             transition: all 0.3s ease;
+            width: 100%;
         }
 
         .source-control-input:focus {
             border-color: #115641;
             box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+        }
+
+        /* Source dropdown specific styling */
+        #source-filter {
+            max-width: 160px;
+        }
+
+        #source-filter option {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        /* Source monitoring filter */
+        #source-monitoring-source-filter {
+            max-width: 140px;
+        }
+
+        #source-monitoring-source-filter option {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
         }
 
         .source-apply-button {
@@ -324,6 +363,51 @@
             color: white;
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+        }
+
+        /* Responsive improvements for SOURCE CONVERSION LISTS filters */
+        @media (max-width: 768px) {
+            .source-conversion-section {
+                padding: 20px !important;
+            }
+            
+            .source-conversion-section .row {
+                margin-bottom: 15px !important;
+            }
+            
+            .source-conversion-section .row:last-child {
+                margin-bottom: 0 !important;
+            }
+            
+            .source-conversion-section .col-md-6 {
+                margin-bottom: 15px;
+            }
+            
+            .source-apply-button {
+                margin-top: 10px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .source-conversion-section {
+                padding: 15px !important;
+            }
+            
+            .source-conversion-section .form-label {
+                font-size: 12px;
+                margin-bottom: 6px !important;
+            }
+            
+            .source-control-input {
+                height: 40px;
+                font-size: 13px;
+                padding: 8px 10px;
+            }
+            
+            .source-apply-button {
+                height: 40px;
+                font-size: 13px;
+            }
         }
 
         #source-conversion-table {
@@ -399,6 +483,88 @@
             background: #0d4133;
         }
 
+        /* Sticky Footer for Total Row */
+        .table-with-sticky-footer {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            background: white;
+            border-radius: 20px;
+            border: 1px solid #e3e6f0;
+        }
+
+        .table-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: visible;
+        }
+
+        .table-body-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .table-body-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-body-scroll::-webkit-scrollbar-thumb {
+            background: #115641;
+            border-radius: 4px;
+        }
+
+        .table-body-scroll::-webkit-scrollbar-thumb:hover {
+            background: #0d4133;
+        }
+
+        .table-footer-sticky {
+            background: #115641;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            border-top: 2px solid #0d4133;
+        }
+
+        .table-footer-sticky td {
+            background: #115641 !important;
+            color: white !important;
+            font-weight: bold !important;
+            padding: 12px 16px !important;
+            border: none !important;
+            font-size: 15px !important;
+        }
+
+        /* Specific styling for Source Monitoring List - compact design */
+        .table-footer-sticky.source-monitoring-footer {
+            background: #115641;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .table-footer-sticky.source-monitoring-footer td {
+            background: #115641 !important;
+            color: white !important;
+            font-weight: bold !important;
+            padding: 6px 4px !important;
+            border: none !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            text-align: center !important;
+        }
+
+        .table-footer-sticky.source-monitoring-footer td:first-child {
+            text-align: left !important;
+        }
+
+        .table-body-scroll table {
+            margin-bottom: 0;
+        }
+
+        /* Ensure last row has proper spacing */
+        .table-body-scroll tbody tr:last-child td {
+            border-bottom: 1px solid #f1f3f4;
+        }
+
         /* Source Link Styling */
         .source-link {
             color: #007bff;
@@ -451,6 +617,12 @@
             .source-conversion-table-container {
                 max-height: 300px;
             }
+
+            /* Reset source filter width for mobile */
+            #source-filter,
+            #source-monitoring-source-filter {
+                max-width: 100%;
+            }
         }
         
         @media (max-width: 576px) {
@@ -468,6 +640,18 @@
             /* Further adjust container height for small mobile */
             .source-conversion-table-container {
                 max-height: 280px;
+            }
+
+            /* Stack filters vertically on small screens */
+            .source-conversion-section .row {
+                flex-direction: column;
+            }
+
+            .source-conversion-section .col-lg-2,
+            .source-conversion-section .col-lg-3,
+            .source-conversion-section .col-md-6 {
+                width: 100%;
+                margin-bottom: 8px;
             }
         }
 
@@ -696,12 +880,14 @@
                 min-width: 110px;
                 padding: 7px 10px;
                 font-size: 12px;
+                height: 36px; /* Consistent height for tablet */
             }
             
             .modern-apply-btn {
                 padding: 7px 16px;
                 font-size: 12px;
                 min-width: 70px;
+                height: 36px; /* Match input/select height for tablet */
             }
         }
 
@@ -723,11 +909,13 @@
                 min-width: 100px;
                 padding: 6px 8px;
                 font-size: 11px;
+                height: 32px; /* Consistent height for mobile */
             }
             
             .modern-apply-btn {
                 padding: 6px 14px;
                 font-size: 11px;
+                height: 32px; /* Match input/select height for mobile */
                 min-width: 60px;
             }
         }
@@ -748,11 +936,13 @@
             .modern-input {
                 width: 100%;
                 min-width: 0;
+                height: 32px; /* Consistent height for small screens */
             }
             
             .modern-apply-btn {
                 width: 100%;
                 min-width: 0;
+                height: 32px; /* Match input/select height for small screens */
             }
         }
 
@@ -1316,9 +1506,10 @@
             <div class="card-body p-0">
                 {{-- Filter Controls --}}
                 <div class="p-4 bg-light source-conversion-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    {{-- Super Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
-                        @if(auth()->user()->role?->code === 'super_admin')
-                        <div class="col-md-3">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">Branch</label>
                             <select id="source-branch" class="form-select source-control-input">
                                 <option value="">All Branch</option>
@@ -1327,64 +1518,104 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Source</label>
+                            <select id="source-filter" class="form-select source-control-input">
+                                <option value="">All Source</option>
+                                @foreach($leadSources as $source)
+                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
                             <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">End Date</label>
                             <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">&nbsp;</label>
                             <button type="button" class="btn source-apply-button w-100" id="source-apply">
                                 <i class="fas fa-filter me-1"></i> Apply Filter
                             </button>
                         </div>
-                        @else
-                        <div class="col-md-4">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                        @endif
                     </div>
+                    @else
+                    {{-- Non-Admin Layout - Single row with all filters --}}
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">Source</label>
+                            <select id="source-filter" class="form-select source-control-input">
+                                <option value="">All Source</option>
+                                @foreach($leadSources as $source)
+                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
-                {{-- Table with Maximum 5 Rows Visible --}}
-                <div class="source-conversion-table-container">
-                    <table class="table table-hover mb-0" id="source-conversion-table">
-                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
-                            <tr>
-                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0;">Source</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Cum</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Cold</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Warm</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Hot</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center">Deal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="source-conversion-tbody">
-                            <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <div class="text-success">
-                                        <div class="spinner-border text-success" role="status">
-                                            <span class="visually-hidden">Loading...</span>
+                {{-- Table with Sticky Footer for Total --}}
+                <div class="table-with-sticky-footer">
+                    <!-- Scrollable Table Body -->
+                    <div class="table-body-scroll">
+                        <table class="table table-hover mb-0" id="source-conversion-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0;">Source</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center">Cum</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center">Cold</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center">Warm</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center">Hot</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center">Deal</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="source-conversion-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
                                         </div>
-                                        <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
-                                    </div>
-                                </td>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Sticky Footer for Total Row -->
+                    <table class="table mb-0 table-footer-sticky">
+                        <tfoot>
+                            <tr id="source-conversion-total-row">
+                                <td class="text-white fw-bold " style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold text-center" id="total-cum">0</td>
+                                <td class="text-white fw-bold text-center" id="total-cold">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="total-all">0</td>
                             </tr>
-                        </tbody>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -1465,6 +1696,14 @@
                             </div>
                             @endif
                             <div class="control-item">
+                                <select id="source-monitoring-source-filter" class="form-select modern-select">
+                                    <option value="">All Source</option>
+                                    @foreach($leadSources as $source)
+                                        <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="control-item">
                                 <input type="number" id="source-monitoring-table-year" class="form-control modern-input" 
                                        value="{{ now()->year }}" min="2000" max="2100">
                             </div>
@@ -1475,40 +1714,67 @@
                             </div>
                         </div>
 
-                        <!-- Table Container (direct inside card-body) -->
-                        <div class="table-responsive" style="height: 350px; overflow-y: auto; overflow-x: auto; border-radius: 12px;">
-                            <table class="table table-hover table-sm mb-0" id="source-monitoring-table" style="min-width: 800px;">
-                                <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
-                                    <tr>
-                                        <th class="text-white fw-bold py-3 px-2" style="font-size: 11px; min-width: 120px;">Source</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jan</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Feb</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Mar</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Apr</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">May</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jun</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Jul</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Aug</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Sep</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Oct</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Nov</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; width: 45px;">Dec</th>
-                                        <th class="text-white fw-bold py-3 px-1 text-center" style="font-size: 10px; min-width: 60px;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="source-monitoring-tbody">
-                                    <tr>
-                                        <td colspan="14" class="text-center py-5">
-                                            <div class="text-success">
-                                                <div class="spinner-border text-success" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
-                                                </div>
-                                                <p class="mt-3 mb-0 text-muted">Loading source monitoring data...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        {{-- Table with Sticky Footer for Total --}}
+                        <div class="table-with-sticky-footer" style="height: 350px; overflow-x: auto;">
+                            <div style="min-width: 800px;">
+                                <!-- Scrollable Table Body -->
+                                <div class="table-body-scroll" style="border-radius: 12px 12px 0 0; overflow-x: visible;">
+                                    <table class="table table-hover table-sm mb-0" id="source-monitoring-table">
+                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                            <tr>
+                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px; border-radius: 0;">Source</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jan</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Feb</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Mar</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Apr</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">May</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jun</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jul</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Aug</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Sep</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Oct</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Nov</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Dec</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 60px; background-color: #0d4534;">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="source-monitoring-tbody">
+                                            <tr>
+                                                <td colspan="14" class="text-center py-5">
+                                                    <div class="text-success">
+                                                        <div class="spinner-border text-success" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <p class="mt-3 mb-0 text-muted">Loading source monitoring data...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Sticky Footer for Total Row -->
+                                <table class="table table-sm mb-0 table-footer-sticky source-monitoring-footer">
+                                    <tfoot>
+                                        <tr id="source-monitoring-total-row">
+                                            <td class="text-white fw-bold px-2" style="min-width: 60px;">TOTAL</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-jan">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-feb">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-mar">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-apr">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-may">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-jun">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-jul">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-aug">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-sep">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-oct">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-nov">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="width: 45px;" id="total-dec">0</td>
+                                            <td class="text-white fw-bold px-1 text-center" style="min-width: 60px; background-color: #0d4534;" id="total-year">0</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3539,14 +3805,12 @@ function loadOrdersMonthly() {
 
                 const charts = {};
 
-                // Load initial data with default year range
                 const defaultStartDate = '{{ now()->startOfYear()->format('Y-m-d') }}';
                 const defaultEndDate = '{{ now()->endOfYear()->format('Y-m-d') }}';
                 
                 loadProcessFlowMkt5a(defaultStartDate, defaultEndDate);
-                
-                // Source Conversion Lists - load initial data and set event handler
-                loadSourceConversionStats(); // Load all data initially with default year filter
+
+                loadSourceConversionStats(); 
                 $('#source-apply').on('click', loadSourceConversionStats);
                 
                 $('#svt_apply').on('click', loadAchievementMonthlyPercent);
@@ -3769,9 +4033,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                // Commented out - HTML elements not available
-                // $('#quotation_apply').on('click', loadQuotationStatusChart);
-                // loadQuotationStatusChart();
 
                 function loadProcessFlow() {
                     const branchId = {{ Auth::user()->branch_id ?? 'null' }};
@@ -3791,7 +4052,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     const container = $('#processFlowContainer');
                     container.empty();
 
-                    // First row - Count values
                     const firstRow = $('<div class="row mb-3"></div>');
                     data.forEach(function(item, index) {
                         const cardCol = $(`
@@ -3849,7 +4109,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                 loadProcessFlow();
                 setInterval(loadProcessFlow, 300000);
 
-                // SOURCE CONVERSION LISTS Functions
                 function loadSourceConversionStats() {
                     const params = {};
                     
@@ -3864,17 +4123,18 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         @endif
                     @endif
                     
+                    const sourceFilter = $('#source-filter').val();
                     const startDate = $('#source-start-date').val();
                     const endDate = $('#source-end-date').val();
                     
+                    if (sourceFilter) params.source = sourceFilter;
                     if (startDate) params.start_date = startDate;
                     if (endDate) params.end_date = endDate;
 
-                    // Show loading state
                     const tbody = $('#source-conversion-tbody');
                     tbody.html(`
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                                 <div class="spinner-border text-success" role="status">
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
@@ -3884,8 +4144,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     `);
 
                     console.log('Loading source conversion with params:', params);
-                    
-                    // Also reload PROCESS FLOW with same date range
+
                     if (startDate || endDate) {
                         console.log('Also updating PROCESS FLOW with date range:', startDate, 'to', endDate);
                         loadProcessFlowMkt5a(startDate, endDate);
@@ -3899,7 +4158,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             } else {
                                 tbody.html(`
                                     <tr>
-                                        <td colspan="6" class="text-center py-5">
+                                        <td colspan="7" class="text-center py-5">
                                             <i class="fas fa-info-circle text-muted mb-2" style="font-size: 2rem;"></i>
                                             <p class="mb-0 text-muted">No data available for the selected period</p>
                                         </td>
@@ -3911,7 +4170,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             console.error('Failed to load source conversion data:', xhr);
                             tbody.html(`
                                 <tr>
-                                    <td colspan="6" class="text-center py-5">
+                                    <td colspan="7" class="text-center py-5">
                                         <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
                                         <p class="mb-0 text-muted">Failed to load data. Please try again.</p>
                                         <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadSourceConversionStats()">
@@ -3927,7 +4186,27 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     const tbody = $('#source-conversion-tbody');
                     tbody.empty();
 
+                    // Calculate totals for each column
+                    let totals = {
+                        cumulative: 0,
+                        cold: 0,
+                        warm: 0,
+                        hot: 0,
+                        deal: 0
+                    };
+
                     data.forEach(function(item) {
+                        totals.cumulative += item.cumulative || 0;
+                        totals.cold += item.cold || 0;
+                        totals.warm += item.warm || 0;
+                        totals.hot += item.hot || 0;
+                        totals.deal += item.deal || 0;
+                    });
+
+                    // Render each data row with Total column (horizontal total)
+                    data.forEach(function(item) {
+                        const rowTotal = (item.cumulative || 0) + (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        
                         const row = $(`
                             <tr>
                                 <td>
@@ -3953,13 +4232,24 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     ${(item.deal || 0).toLocaleString()} 
                                     <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
                                 </td>
+                                <td class="text-center" style="background-color: rgba(17, 86, 65, 0.1); font-weight: bold;">
+                                    ${rowTotal.toLocaleString()}
+                                </td>
                             </tr>
                         `);
                         tbody.append(row);
                     });
+
+                    // Update sticky footer totals
+                    const grandTotal = totals.cumulative + totals.cold + totals.warm + totals.hot + totals.deal;
+                    $('#total-cum').text(totals.cumulative.toLocaleString());
+                    $('#total-cold').text(totals.cold.toLocaleString());
+                    $('#total-warm').text(totals.warm.toLocaleString());
+                    $('#total-hot').text(totals.hot.toLocaleString());
+                    $('#total-deal').text(totals.deal.toLocaleString());
+                    $('#total-all').text(grandTotal.toLocaleString());
                 }
 
-                // SOURCE MONITORING FUNCTIONS
                 let sourceMonitoringChart;
 
                 function loadSourceMonitoringStats() {
@@ -3967,7 +4257,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         year: $('#source-monitoring-year').val() || new Date().getFullYear()
                     };
 
-                    // Add branch_id for branch users or when super admin selects a branch
                     @if(auth()->user()->role?->code !== 'super_admin')
                         params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
                     @else
@@ -3979,7 +4268,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
 
                     console.log('Loading source monitoring chart with params: ', params);
 
-                    // Show loading state for chart
                     const chartContainer = $('#source-monitoring-chart').parent();
                     if (sourceMonitoringChart) {
                         sourceMonitoringChart.destroy();
@@ -3999,8 +4287,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         
                         const labels = res.month_labels || [];
                         const data = res.data || [];
-                        
-                        // Create datasets for each source
+
                         const datasets = data.map((source, index) => ({
                             label: source.source,
                             data: source.months || [],
@@ -4131,6 +4418,12 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         }
                     @endif
 
+                    // Add source filter
+                    const sourceFilter = $('#source-monitoring-source-filter').val();
+                    if (sourceFilter && sourceFilter !== '') {
+                        params.source = sourceFilter;
+                    }
+
                     console.log('Loading source monitoring table with params: ', params);
 
                     const tbody = $('#source-monitoring-tbody');
@@ -4154,11 +4447,21 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.empty();
                         
                         if (res.data && res.data.length > 0) {
+                            // Calculate monthly totals
+                            const monthlyTotals = new Array(12).fill(0);
+                            let grandTotal = 0;
+
+                            // First pass: render data rows and calculate totals
                             res.data.forEach(function(item) {
                                 const months = item.months || [];
+                                for (let i = 0; i < 12; i++) {
+                                    monthlyTotals[i] += months[i] || 0;
+                                }
+                                grandTotal += item.total || 0;
+
                                 const row = $(`
                                     <tr class="source-conversion-row">
-                                        <td class="py-2 px-2" style="font-size: 11px;">
+                                        <td class="py-2 px-2" style="font-size: 11px; min-width: 120px;">
                                             <a href="#" class="source-link">${item.source || 'Unknown'}</a>
                                         </td>
                                         <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[0] || 0).toLocaleString()}</td>
@@ -4173,11 +4476,26 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                         <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[9] || 0).toLocaleString()}</td>
                                         <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[10] || 0).toLocaleString()}</td>
                                         <td class="text-center py-2 px-1" style="font-size: 10px;">${(months[11] || 0).toLocaleString()}</td>
-                                        <td class="text-center py-2 px-1 conversion-number" style="font-size: 10px;"><strong>${(item.total || 0).toLocaleString()}</strong></td>
+                                        <td class="text-center py-2 px-1 conversion-number" style="font-size: 10px; min-width: 60px;"><strong>${(item.total || 0).toLocaleString()}</strong></td>
                                     </tr>
                                 `);
                                 tbody.append(row);
                             });
+
+                            // Update sticky footer totals
+                            $('#total-jan').text(monthlyTotals[0].toLocaleString());
+                            $('#total-feb').text(monthlyTotals[1].toLocaleString());
+                            $('#total-mar').text(monthlyTotals[2].toLocaleString());
+                            $('#total-apr').text(monthlyTotals[3].toLocaleString());
+                            $('#total-may').text(monthlyTotals[4].toLocaleString());
+                            $('#total-jun').text(monthlyTotals[5].toLocaleString());
+                            $('#total-jul').text(monthlyTotals[6].toLocaleString());
+                            $('#total-aug').text(monthlyTotals[7].toLocaleString());
+                            $('#total-sep').text(monthlyTotals[8].toLocaleString());
+                            $('#total-oct').text(monthlyTotals[9].toLocaleString());
+                            $('#total-nov').text(monthlyTotals[10].toLocaleString());
+                            $('#total-dec').text(monthlyTotals[11].toLocaleString());
+                            $('#total-year').text(grandTotal.toLocaleString());
                         } else {
                             tbody.html(`
                                 <tr>
@@ -4187,6 +4505,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     </td>
                                 </tr>
                             `);
+                            
+                            // Reset sticky footer totals
+                            $('#total-jan, #total-feb, #total-mar, #total-apr, #total-may, #total-jun, #total-jul, #total-aug, #total-sep, #total-oct, #total-nov, #total-dec, #total-year').text('0');
                         }
 
                     }).fail(function(xhr, status, error) {
