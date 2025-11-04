@@ -12,3 +12,4 @@ Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('a
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
 Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceConversion']);
 Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sourceMonthlyStats']);
+Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList']);

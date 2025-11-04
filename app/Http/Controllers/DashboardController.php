@@ -1814,15 +1814,256 @@ class DashboardController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            \Log::error('Source Monthly Stats Error: ' . $e->getMessage(), [
-                'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
             return response()->json([
                 'error' => 'Terjadi kesalahan server',
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+    public function dealingList(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+            'user_id'    => 'nullable|integer',
+        ]);
+
+        $currentYear = now()->year;
+        $start = $validated['start_date'] ?? Carbon::create($currentYear, 1, 1)->toDateString();
+        $end = $validated['end_date'] ?? Carbon::create($currentYear, 12, 31)->toDateString();
+
+        $statusId = LeadStatus::DEAL;
+
+        try {
+            $users = User::query()
+                ->with(['branch'])
+                ->where('role_id', 2)
+                ->leftJoin('lead_claims as lc', 'lc.sales_id', '=', 'users.id')
+                ->leftJoin('leads', function ($join) use ($statusId, $start, $end) {
+                    $join->on('leads.id', '=', 'lc.lead_id')
+                        ->where('leads.status_id', $statusId)
+                        ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end]);
+                })
+                ->leftJoin('quotations', function ($join) {
+                    $join->on('quotations.lead_id', '=', 'leads.id')
+                        ->whereNull('quotations.deleted_at');
+                })
+                ->leftJoin('quotation_items', function ($join) {
+                    $join->on('quotation_items.quotation_id', '=', 'quotations.id')
+                        ->whereNull('quotation_items.deleted_at');
+                })
+                ->leftJoin('proformas', function ($join) {
+                    $join->on('proformas.quotation_id', '=', 'quotations.id')
+                        ->whereNull('proformas.deleted_at');
+                })
+                ->leftJoin('invoices', function ($join) {
+                    $join->on('invoices.proforma_id', '=', 'proformas.id')
+                        ->whereNull('invoices.deleted_at');
+                })
+                ->when(!empty($validated['branch_id']), function ($q) use ($validated) {
+                    $q->where('users.branch_id', $validated['branch_id']);
+                })
+                ->when(!empty($validated['user_id']), function ($q) use ($validated) {
+                    $q->where('users.id', $validated['user_id']);
+                })
+                ->select([
+                    'users.id',
+                    'users.name',
+                    'users.target',
+                    'users.branch_id',
+                    DB::raw('COUNT(DISTINCT leads.id) as total_leads'),
+                    DB::raw('COUNT(DISTINCT invoices.id) as total_orders'),
+                    DB::raw('COALESCE(SUM(invoices.amount), 0) as achievement_amount'),
+                    DB::raw('COALESCE(SUM(quotation_items.qty), 0) as total_unit_sales')
+                ])
+                ->groupBy('users.id', 'users.name', 'users.target', 'users.branch_id')
+                ->orderBy('users.name')
+                ->get();
+
+            $results = $users->map(function ($user) use ($start, $end, $currentYear) {
+                $targetAmount = (float) ($user->target ?? 0);
+                $achievementAmount = (float) ($user->achievement_amount ?? 0);
+                $achievementPercentage = $targetAmount > 0 ? round(($achievementAmount / $targetAmount) * 100, 2) : 0;
+
+                return [
+                    'sales_id' => $user->id,
+                    'nama_sales' => $user->name ?? '-',
+                    'target_amount' => $targetAmount,
+                    'achievement_amount' => $achievementAmount,
+                    'achievement_percentage' => $achievementPercentage,
+                    'unit_sales' => (int) ($user->total_unit_sales ?? 0),
+                    'branch' => $user->branch->name ?? '-',
+                    'total_leads' => (int) ($user->total_leads ?? 0),
+                    'periode' => "{$start} s/d {$end}",
+                    'tahun' => $currentYear
+                ];
+            });
+
+            $uniqueResults = $results->unique('sales_id')->values();
+
+            // Data untuk Line Chart (Per Bulan dengan detail per sales)
+            $monthlyData = $this->getMonthlyData($validated, $start, $end, $statusId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $uniqueResults,
+                'monthly_data' => $monthlyData,
+                'periode' => [
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'status_id' => $statusId,
+                    'tahun' => $currentYear
+                ],
+                'summary' => [
+                    'total_sales' => $uniqueResults->count(),
+                    'total_achievement' => $uniqueResults->sum('achievement_amount'),
+                    'total_target' => $uniqueResults->sum('target_amount'),
+                    'average_achievement_percentage' => $uniqueResults->avg('achievement_percentage') ?: 0,
+                    'total_unit_sales' => $uniqueResults->sum('unit_sales')
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in dealingList: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function getMonthlyData($filters, $start, $end, $statusId)
+    {
+        $monthlyQuery = User::query()
+            ->where('role_id', 2)
+            ->leftJoin('lead_claims as lc', 'lc.sales_id', '=', 'users.id')
+            ->leftJoin('leads', function ($join) use ($statusId, $start, $end) {
+                $join->on('leads.id', '=', 'lc.lead_id')
+                    ->where('leads.status_id', $statusId)
+                    ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end]);
+            })
+            ->leftJoin('quotations', function ($join) {
+                $join->on('quotations.lead_id', '=', 'leads.id')
+                    ->whereNull('quotations.deleted_at');
+            })
+            ->leftJoin('quotation_items', function ($join) {
+                $join->on('quotation_items.quotation_id', '=', 'quotations.id')
+                    ->whereNull('quotation_items.deleted_at');
+            })
+            ->leftJoin('proformas', function ($join) {
+                $join->on('proformas.quotation_id', '=', 'quotations.id')
+                    ->whereNull('proformas.deleted_at');
+            })
+            ->leftJoin('invoices', function ($join) {
+                $join->on('invoices.proforma_id', '=', 'proformas.id')
+                    ->whereNull('invoices.deleted_at');
+            })
+            ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
+                $q->where('users.branch_id', $filters['branch_id']);
+            })
+            ->when(!empty($filters['user_id']), function ($q) use ($filters) {
+                $q->where('users.id', $filters['user_id']);
+            })
+            ->select([
+                'users.id as sales_id',
+                'users.name as sales_name',
+                'users.target as target_amount',
+                DB::raw('YEAR(COALESCE(leads.published_at, leads.created_at)) as year'),
+                DB::raw('MONTH(COALESCE(leads.published_at, leads.created_at)) as month'),
+                DB::raw('CONCAT(YEAR(COALESCE(leads.published_at, leads.created_at)), "-", LPAD(MONTH(COALESCE(leads.published_at, leads.created_at)), 2, "0")) as period'),
+                DB::raw('COALESCE(SUM(invoices.amount), 0) as achievement_amount'),
+                DB::raw('COALESCE(SUM(quotation_items.qty), 0) as unit_sales'),
+                DB::raw('COUNT(DISTINCT leads.id) as total_leads'),
+                DB::raw('COUNT(DISTINCT invoices.id) as total_orders')
+            ])
+            ->whereNotNull('leads.id')
+            ->groupBy('users.id', 'users.name', 'users.target', 'year', 'month', 'period')
+            ->orderBy('year')
+            ->orderBy('month')
+            ->orderBy('users.name')
+            ->get();
+
+        // Generate semua bulan dalam rentang tanggal
+        $allMonths = $this->generateAllMonths($start, $end);
+
+        // Get semua sales yang aktif
+        $activeSales = User::where('role_id', 2)
+            ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
+                $q->where('branch_id', $filters['branch_id']);
+            })
+            ->when(!empty($filters['user_id']), function ($q) use ($filters) {
+                $q->where('id', $filters['user_id']);
+            })
+            ->select(['id as sales_id', 'name as sales_name', 'target as target_amount'])
+            ->get();
+
+        // Format data per bulan dengan detail per sales
+        $monthlyData = collect($allMonths)->map(function ($month) use ($monthlyQuery, $activeSales) {
+            $monthSales = $monthlyQuery->where('period', $month['period']);
+
+            $sales_data = $activeSales->map(function ($sales) use ($monthSales, $month) {
+                $salesMonthData = $monthSales->where('sales_id', $sales->sales_id)->first();
+                $achievementAmount = $salesMonthData ? (float) $salesMonthData->achievement_amount : 0;
+                $targetAmount = (float) $sales->target_amount;
+                $achievementPercentage = $targetAmount > 0 ? round(($achievementAmount / $targetAmount) * 100, 2) : 0;
+
+                return [
+                    'sales_id' => $sales->sales_id,
+                    'sales_name' => $sales->sales_name,
+                    'target_amount' => $targetAmount,
+                    'achievement_amount' => $achievementAmount,
+                    'achievement_percentage' => $achievementPercentage,
+                    'unit_sales' => $salesMonthData ? (int) $salesMonthData->unit_sales : 0,
+                    'total_leads' => $salesMonthData ? (int) $salesMonthData->total_leads : 0,
+                    'total_orders' => $salesMonthData ? (int) $salesMonthData->total_orders : 0,
+                ];
+            });
+
+            // Hitung total per bulan
+            $totalAchievement = $sales_data->sum('achievement_amount');
+            $totalUnitSales = $sales_data->sum('unit_sales');
+            $totalLeads = $sales_data->sum('total_leads');
+            $totalOrders = $sales_data->sum('total_orders');
+
+            return [
+                'period' => $month['period'],
+                'month_name' => $month['month_name'],
+                'year' => $month['year'],
+                'month' => $month['month'],
+                'total_achievement_amount' => $totalAchievement,
+                'total_unit_sales' => $totalUnitSales,
+                'total_leads' => $totalLeads,
+                'total_orders' => $totalOrders,
+                'sales_data' => $sales_data
+            ];
+        });
+
+        return $monthlyData;
+    }
+
+    private function generateAllMonths($start, $end)
+    {
+        $start = Carbon::parse($start);
+        $end = Carbon::parse($end);
+        $months = [];
+
+        $current = $start->copy()->startOfMonth();
+
+        while ($current <= $end) {
+            $months[] = [
+                'period' => $current->format('Y-m'),
+                'month_name' => $current->translatedFormat('F Y'),
+                'year' => $current->year,
+                'month' => $current->month,
+            ];
+            $current->addMonth();
+        }
+
+        return $months;
     }
 }
