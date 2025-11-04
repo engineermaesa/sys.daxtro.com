@@ -1902,7 +1902,6 @@ class DashboardController extends Controller
 
             $uniqueResults = $results->unique('sales_id')->values();
 
-            // Data untuk Line Chart (Per Bulan dengan detail per sales)
             $monthlyData = $this->getMonthlyData($validated, $start, $end, $statusId);
 
             return response()->json([
@@ -1924,11 +1923,6 @@ class DashboardController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error in dealingList: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat mengambil data',
@@ -1988,10 +1982,8 @@ class DashboardController extends Controller
             ->orderBy('users.name')
             ->get();
 
-        // Generate semua bulan dalam rentang tanggal
         $allMonths = $this->generateAllMonths($start, $end);
 
-        // Get semua sales yang aktif
         $activeSales = User::where('role_id', 2)
             ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
                 $q->where('branch_id', $filters['branch_id']);
@@ -2002,7 +1994,6 @@ class DashboardController extends Controller
             ->select(['id as sales_id', 'name as sales_name', 'target as target_amount'])
             ->get();
 
-        // Format data per bulan dengan detail per sales
         $monthlyData = collect($allMonths)->map(function ($month) use ($monthlyQuery, $activeSales) {
             $monthSales = $monthlyQuery->where('period', $month['period']);
 
@@ -2024,7 +2015,6 @@ class DashboardController extends Controller
                 ];
             });
 
-            // Hitung total per bulan
             $totalAchievement = $sales_data->sum('achievement_amount');
             $totalUnitSales = $sales_data->sum('unit_sales');
             $totalLeads = $sales_data->sum('total_leads');
@@ -2065,5 +2055,413 @@ class DashboardController extends Controller
         }
 
         return $months;
+    }
+    public function warmHotList(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+            'user_id'    => 'nullable|integer',
+        ]);
+
+        $currentYear = now()->year;
+        $start = $validated['start_date'] ?? Carbon::create($currentYear, 1, 1)->toDateString();
+        $end = $validated['end_date'] ?? Carbon::create($currentYear, 12, 31)->toDateString();
+
+        $warmStatusId = LeadStatus::WARM;
+        $hotStatusId = LeadStatus::HOT;
+
+        try {
+            $users = User::query()
+                ->with(['branch'])
+                ->where('role_id', 2)
+                ->leftJoin('lead_claims as lc', function ($join) {
+                    $join->on('lc.sales_id', '=', 'users.id')
+                        ->whereNull('lc.deleted_at')
+                        ->whereNull('lc.released_at'); // Hanya claim yang aktif
+                })
+                ->leftJoin('leads', function ($join) use ($warmStatusId, $hotStatusId, $start, $end) {
+                    $join->on('leads.id', '=', 'lc.lead_id')
+                        ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId])
+                        ->where(function ($query) use ($start, $end) {
+                            // ✅ TAMBAHKAN RULES VALIDITY PERIOD 30 HARI UNTUK LEADS
+                            $query->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
+                                ->orWhere(function ($q) use ($start, $end) {
+                                    $q->where(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), '<=', $end)
+                                        ->whereRaw('DATE_ADD(DATE(COALESCE(leads.published_at, leads.created_at)), INTERVAL 30 DAY) >= ?', [$start]);
+                                });
+                        });
+                })
+                ->leftJoin('quotations', function ($join) use ($start, $end) {
+                    $join->on('quotations.lead_id', '=', 'leads.id')
+                        ->where('quotations.status', 'published') // ✅ Hanya quotation published
+                        ->whereNull('quotations.deleted_at')
+                        ->where(function ($query) use ($start, $end) {
+                            // ✅ TAMBAHKAN RULES VALIDITY PERIOD 30 HARI UNTUK QUOTATIONS
+                            $query->whereBetween('quotations.created_at', [$start, $end])
+                                ->orWhere(function ($q) use ($start, $end) {
+                                    $q->where('quotations.created_at', '<=', $end)
+                                        ->whereRaw('DATE_ADD(quotations.created_at, INTERVAL 30 DAY) >= ?', [$start]);
+                                });
+                        });
+                })
+                ->leftJoin('quotation_items', function ($join) {
+                    $join->on('quotation_items.quotation_id', '=', 'quotations.id')
+                        ->whereNull('quotation_items.deleted_at');
+                })
+                ->when(!empty($validated['branch_id']), function ($q) use ($validated) {
+                    $q->where('users.branch_id', $validated['branch_id']);
+                })
+                ->when(!empty($validated['user_id']), function ($q) use ($validated) {
+                    $q->where('users.id', $validated['user_id']);
+                })
+                ->select([
+                    'users.id',
+                    'users.name',
+                    'users.branch_id',
+                    DB::raw('COUNT(DISTINCT leads.id) as total_leads'),
+                    DB::raw('SUM(CASE WHEN leads.status_id = ' . $warmStatusId . ' THEN 1 ELSE 0 END) as warm_count'),
+                    DB::raw('SUM(CASE WHEN leads.status_id = ' . $hotStatusId . ' THEN 1 ELSE 0 END) as hot_count'),
+                    DB::raw('COALESCE(SUM(quotations.subtotal), 0) as subtotal_amount'),
+                    DB::raw('COALESCE(SUM(quotations.grand_total), 0) as grand_total_amount'),
+                    DB::raw('COALESCE(SUM(quotations.tax_total), 0) as tax_total_amount'),
+                    DB::raw('COALESCE(SUM(quotation_items.qty), 0) as total_qty'),
+                    DB::raw('COALESCE(AVG(quotation_items.discount_pct), 0) as avg_item_discount'),
+                    DB::raw('COALESCE(SUM(quotation_items.discount_pct * quotation_items.qty * quotation_items.unit_price / 100), 0) as total_item_discount_amount'),
+                    // ✅ TAMBAH INFORMASI TANGGAL UNTUK VALIDASI
+                    DB::raw('MIN(quotations.created_at) as first_quotation_date'),
+                    DB::raw('MAX(quotations.created_at) as last_quotation_date')
+                ])
+                ->groupBy('users.id', 'users.name', 'users.branch_id')
+                ->orderBy('users.name')
+                ->get();
+
+            $results = $users->map(function ($user) use ($start, $end, $currentYear) {
+                $warmCount = (int) ($user->warm_count ?? 0);
+                $hotCount = (int) ($user->hot_count ?? 0);
+                $totalLeads = $warmCount + $hotCount;
+
+                $subtotalAmount = (float) ($user->subtotal_amount ?? 0);
+                $grandTotalAmount = (float) ($user->grand_total_amount ?? 0);
+                $taxTotalAmount = (float) ($user->tax_total_amount ?? 0);
+
+                $discountAmount = 0;
+                $avgDiscount = 0;
+
+                $documentDiscountAmount = $subtotalAmount - ($grandTotalAmount - $taxTotalAmount);
+
+                $itemDiscountAmount = (float) ($user->total_item_discount_amount ?? 0);
+
+                $avgItemDiscount = (float) ($user->avg_item_discount ?? 0);
+
+                if ($documentDiscountAmount > 0) {
+                    $discountAmount = $documentDiscountAmount;
+                    $avgDiscount = $subtotalAmount > 0 ? round(($discountAmount / $subtotalAmount) * 100, 2) : 0;
+                } elseif ($itemDiscountAmount > 0) {
+                    $discountAmount = $itemDiscountAmount;
+                    $avgDiscount = $subtotalAmount > 0 ? round(($discountAmount / $subtotalAmount) * 100, 2) : 0;
+                } else {
+                    $discountAmount = $subtotalAmount * ($avgItemDiscount / 100);
+                    $avgDiscount = $avgItemDiscount;
+                }
+
+                // Validasi discount values
+                if ($discountAmount < 0) {
+                    $discountAmount = 0;
+                }
+                if ($avgDiscount < 0) {
+                    $avgDiscount = 0;
+                }
+                if ($avgDiscount > 100) {
+                    $avgDiscount = 100;
+                }
+
+                // ✅ HITUNG VALIDITY PERIOD UNTUK INFORMASI
+                $firstQuotationDate = $user->first_quotation_date ? Carbon::parse($user->first_quotation_date) : null;
+                $lastQuotationDate = $user->last_quotation_date ? Carbon::parse($user->last_quotation_date) : null;
+
+                $validityInfo = "Data termasuk lead dengan validity period 30 hari dalam range {$start} hingga {$end}";
+
+                if ($firstQuotationDate && $lastQuotationDate) {
+                    $earliestValidityEnd = $firstQuotationDate->copy()->addDays(30)->format('Y-m-d');
+                    $latestValidityEnd = $lastQuotationDate->copy()->addDays(30)->format('Y-m-d');
+                    $validityInfo .= " (Quotation: {$firstQuotationDate->format('Y-m-d')} hingga {$lastQuotationDate->format('Y-m-d')})";
+                }
+
+                return [
+                    'sales_id' => $user->id,
+                    'nama_sales' => $user->name ?? '-',
+                    'warm_hot_amount' => $grandTotalAmount,
+                    'warm_hot_qty' => $totalLeads,
+                    'warm_count' => $warmCount,
+                    'hot_count' => $hotCount,
+                    'avg_discount' => $avgDiscount,
+                    'subtotal_amount' => $subtotalAmount,
+                    'discount_amount' => $discountAmount,
+                    'tax_total_amount' => $taxTotalAmount,
+                    'net_amount' => $grandTotalAmount - $taxTotalAmount,
+                    'discount_calculation_method' => $documentDiscountAmount > 0 ? 'document_level' : ($itemDiscountAmount > 0 ? 'item_level_amount' : 'item_level_percentage'),
+                    'branch' => $user->branch->name ?? '-',
+                    'periode' => "{$start} s/d {$end}",
+                    'tahun' => $currentYear,
+                    'validity_period_info' => $validityInfo,
+                    // ✅ TAMBAH INFORMASI VALIDITY PERIOD DETAIL
+                    'validity_period_detail' => [
+                        'filter_start' => $start,
+                        'filter_end' => $end,
+                        'first_quotation_date' => $firstQuotationDate?->format('Y-m-d'),
+                        'last_quotation_date' => $lastQuotationDate?->format('Y-m-d'),
+                        'earliest_validity_end' => $firstQuotationDate?->copy()->addDays(30)->format('Y-m-d'),
+                        'latest_validity_end' => $lastQuotationDate?->copy()->addDays(30)->format('Y-m-d')
+                    ]
+                ];
+            });
+
+            // ✅ FILTER: Hanya tampilkan sales yang memiliki data valid (lead dengan quotation)
+            $filteredResults = $results->filter(function ($item) {
+                return $item['warm_hot_qty'] > 0 && $item['warm_hot_amount'] > 0;
+            })->values();
+
+            $uniqueResults = $filteredResults->unique('sales_id')->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $uniqueResults,
+                'periode' => [
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'warm_status_id' => $warmStatusId,
+                    'hot_status_id' => $hotStatusId,
+                    'tahun' => $currentYear,
+                    // ✅ TAMBAHKAN INFORMASI BUSINESS RULES
+                    'business_rules' => [
+                        'validity_period_days' => 30,
+                        'description' => 'Data mencakup lead Warm/Hot dengan quotation published yang memiliki validity period 30 hari overlap dengan filter tanggal',
+                        'inclusion_criteria' => [
+                            'Lead status: Warm (' . $warmStatusId . ') atau Hot (' . $hotStatusId . ')',
+                            'Quotation status: Published',
+                            'Validity period: Quotation date + 30 hari overlap dengan filter range',
+                            'Sales role: User dengan role_id = 2',
+                            'Lead claim: Aktif (tidak deleted dan tidak released)'
+                        ],
+                        'filter_applied' => [
+                            'date_range' => "{$start} to {$end}",
+                            'validity_overlap' => 'true',
+                            'exclude_empty_quotations' => 'true'
+                        ]
+                    ]
+                ],
+                'summary' => [
+                    'total_sales' => $uniqueResults->count(),
+                    'total_warm_hot_amount' => $uniqueResults->sum('warm_hot_amount'),
+                    'total_warm_hot_qty' => $uniqueResults->sum('warm_hot_qty'),
+                    'total_warm_count' => $uniqueResults->sum('warm_count'),
+                    'total_hot_count' => $uniqueResults->sum('hot_count'),
+                    'average_discount' => $uniqueResults->avg('avg_discount') ?: 0,
+                    'total_discount_amount' => $uniqueResults->sum('discount_amount'),
+                    'total_tax_amount' => $uniqueResults->sum('tax_total_amount'),
+                    // ✅ TAMBAH SUMMARY TENTANG DATA YANG DIEXCLUDE
+                    'data_quality_note' => 'Hanya menampilkan sales dengan minimal 1 lead Warm/Hot yang memiliki quotation published dalam validity period'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in warmHotList: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data Warm + Hot',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function potentialDealing(Request $request)
+    {
+        $validated = $request->validate([
+            'branch_id'  => 'nullable|integer',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date',
+            'user_id'    => 'nullable|integer',
+        ]);
+
+        $end = $validated['end_date'] ?? now()->toDateString();
+        $start = $validated['start_date'] ?? now()->subDays(30)->toDateString();
+
+        $warmStatusId = LeadStatus::WARM;
+        $hotStatusId = LeadStatus::HOT;
+
+        try {
+            // Subquery untuk quotation terbaru per lead dalam validity period
+            $latestQuotationSubquery = DB::table('quotations')
+                ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
+                ->where('status', 'published')
+                ->whereNull('deleted_at')
+                ->where(function ($query) use ($start, $end) {
+                    // Quotation created dalam filter range ATAU validity period overlap dengan filter
+                    $query->whereBetween('created_at', [$start, $end])
+                        ->orWhere(function ($q) use ($start, $end) {
+                            $q->where('created_at', '<=', $end)
+                                ->whereRaw('DATE_ADD(created_at, INTERVAL 30 DAY) >= ?', [$start]);
+                        });
+                })
+                ->groupBy('lead_id');
+
+            // Query utama
+            $leads = Lead::query()
+                ->with([
+                    'region',
+                    'product',
+                    'status',
+                    'claims'
+                ])
+                ->join('quotations', function ($join) use ($start, $end) {
+                    $join->on('quotations.lead_id', '=', 'leads.id')
+                        ->where('quotations.status', 'published')
+                        ->whereNull('quotations.deleted_at')
+                        ->where(function ($query) use ($start, $end) {
+                            // Quotation dalam filter range ATAU validity period overlap
+                            $query->whereBetween('quotations.created_at', [$start, $end])
+                                ->orWhere(function ($q) use ($start, $end) {
+                                    $q->where('quotations.created_at', '<=', $end)
+                                        ->whereRaw('DATE_ADD(quotations.created_at, INTERVAL 30 DAY) >= ?', [$start]);
+                                });
+                        });
+                })
+                ->joinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
+                    $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
+                        ->on('quotations.created_at', '=', 'latest_quo.latest_date');
+                })
+                ->leftJoin('lead_claims', function ($join) {
+                    $join->on('lead_claims.lead_id', '=', 'leads.id')
+                        ->whereNull('lead_claims.deleted_at')
+                        ->whereNull('lead_claims.released_at');
+                })
+                ->leftJoin('users', 'users.id', '=', 'lead_claims.sales_id')
+                ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId])
+                ->when(!empty($validated['branch_id']), function ($q) use ($validated) {
+                    $q->where('leads.branch_id', $validated['branch_id']);
+                })
+                ->when(!empty($validated['user_id']), function ($q) use ($validated) {
+                    $q->where('lead_claims.sales_id', $validated['user_id']);
+                })
+                ->select([
+                    'leads.id',
+                    'leads.name as customer_name',
+                    'leads.company',
+                    'leads.status_id',
+                    'leads.region_id',
+                    'leads.product_id',
+                    'leads.published_at',
+                    'leads.updated_at',
+                    'leads.phone',
+                    'leads.email',
+                    'leads.contact_reason',
+                    'leads.business_reason',
+                    'quotations.quotation_no',
+                    'quotations.grand_total',
+                    'quotations.created_at as quotation_created_at',
+                    'users.name as sales_name',
+                    'users.id as sales_id'
+                ])
+                ->distinct()
+                ->get()
+                ->map(function ($lead) {
+                    $quotationDate = Carbon::parse($lead->quotation_created_at);
+                    $validityStart = $quotationDate->format('Y-m-d');
+                    $validityEnd = $quotationDate->copy()->addDays(30)->format('Y-m-d');
+
+                    $validationStatus = $this->checkDataValidation($lead);
+
+                    return [
+                        'customer_name' => $lead->customer_name ?? $lead->company ?? 'N/A',
+                        'company' => $lead->company ?? '-',
+                        'status' => $lead->status->name ?? '-',
+                        'status_id' => $lead->status_id,
+                        'amount' => (float) ($lead->grand_total ?? 0),
+                        'regional' => $lead->region->name ?? '-',
+                        'product' => $lead->product->name ?? '-',
+                        'last_activity' => $lead->updated_at->format('Y-m-d H:i'),
+                        'last_activity_date' => $lead->updated_at->format('Y-m-d'),
+                        'data_validation' => $validationStatus,
+                        'sales_name' => $lead->sales_name ?? '-',
+                        'sales_id' => $lead->sales_id ?? null,
+                        'quotation_no' => $lead->quotation_no ?? '-',
+                        'quotation_date' => $quotationDate->format('Y-m-d'),
+                        'validity_period' => [
+                            'start' => $validityStart,
+                            'end' => $validityEnd,
+                            'is_active' => now()->between($validityStart, $validityEnd)
+                        ],
+                        'contact_info' => [
+                            'phone' => $lead->phone,
+                            'email' => $lead->email
+                        ],
+                        'business_reason' => $lead->business_reason,
+                        'contact_reason' => $lead->contact_reason
+                    ];
+                });
+
+            // Hapus filter PHP karena sudah dihandle di query
+            // $filteredLeads = $leads->filter(function ($lead) {
+            //     return $lead['validity_period']['is_active'];
+            // })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $leads, // Langsung return $leads tanpa filter tambahan
+                'filters' => [
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                    'user_id' => $validated['user_id'] ?? null,
+                    'status_ids' => [$warmStatusId, $hotStatusId]
+                ],
+                'summary' => [
+                    'total_potential' => $leads->count(),
+                    'total_amount' => $leads->sum('amount'),
+                    'by_status' => $leads->groupBy('status')->map->count(),
+                    'by_regional' => $leads->groupBy('regional')->map->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in potentialDealing: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data Potential Dealing',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check data validation completeness (updated version)
+     */
+    private function checkDataValidation($lead)
+    {
+        $validationChecks = [
+            'contact_info' => !empty($lead->phone) || !empty($lead->email),
+            'business_reason' => !empty($lead->business_reason),
+            'quotation_exists' => !empty($lead->quotation_no),
+            'quotation_amount' => !empty($lead->grand_total) && $lead->grand_total > 0,
+            'regional_info' => !empty($lead->region_id),
+            'product_info' => !empty($lead->product_id)
+        ];
+
+        $passedChecks = count(array_filter($validationChecks));
+        $totalChecks = count($validationChecks);
+        $score = round(($passedChecks / $totalChecks) * 100, 2);
+
+        // Determine validation status
+        if ($score >= 80) return 'complete';
+        if ($score >= 60) return 'moderate';
+        if ($score >= 40) return 'basic';
+        return 'incomplete';
     }
 }

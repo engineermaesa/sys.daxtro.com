@@ -13,3 +13,5 @@ Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
 Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceConversion']);
 Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sourceMonthlyStats']);
 Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList']);
+Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList']);
+Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
