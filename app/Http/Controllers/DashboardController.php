@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Orders\Quotation;
-use App\Models\Leads\{Lead, LeadStatus};
+use App\Models\Leads\{Lead, LeadStatus, LeadSource};
 use App\Models\Masters\Branch;
 
 use Illuminate\Http\Request;
@@ -72,6 +72,8 @@ class DashboardController extends Controller
         }
 
         $branches = Branch::all();
+        $leadSources = LeadSource::orderBy('name')->get();
+
         $defaultStart = now()->startOfMonth()->format('Y-m-d');
         $defaultEnd   = now()->endOfMonth()->format('Y-m-d');
 
@@ -82,6 +84,7 @@ class DashboardController extends Controller
             'showOrders'           => $showOrders,
             'quotationStatusStats' => $quotationStatusStats,
             'branches'             => $branches,
+            'leadSources'          => $leadSources,
             'currentBranchId'      => $user->branch_id,
             'defaultStart'         => $defaultStart,
             'defaultEnd'           => $defaultEnd,
@@ -1565,6 +1568,7 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'branch_id'  => 'nullable|integer',
+            'source'     => 'nullable|string',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date',
         ]);
@@ -1593,6 +1597,10 @@ class DashboardController extends Controller
 
             if (!empty($validated['branch_id'])) {
                 $query->where('leads.branch_id', $validated['branch_id']);
+            }
+
+            if (!empty($validated['source'])) {
+                $query->where('lead_sources.name', $validated['source']);
             }
 
             $data = $query->get();
@@ -1640,6 +1648,7 @@ class DashboardController extends Controller
                     'start_date' => $start,
                     'end_date' => $end,
                     'branch_id' => $validated['branch_id'] ?? null,
+                    'source' => $validated['source'] ?? null,
                 ]
             ]);
         } catch (\Exception $e) {
@@ -1655,6 +1664,7 @@ class DashboardController extends Controller
             $validated = $request->validate([
                 'year' => 'nullable|integer|min:2000|max:2100',
                 'branch_id' => 'nullable|integer',
+                'source' => 'nullable|string',
             ]);
 
             $year = $validated['year'] ?? now()->year;
@@ -1680,6 +1690,10 @@ class DashboardController extends Controller
 
             if (!empty($branchId)) {
                 $query->where('leads.branch_id', $branchId);
+            }
+
+             if (!empty($validated['source'])) {
+                $query->where('lead_sources.name', $validated['source']);
             }
 
             $monthlyData = $query->get();
@@ -1725,7 +1739,8 @@ class DashboardController extends Controller
                 'month_labels' => $monthLabels,
                 'year' => $year,
                 'filters' => [
-                    'branch_id' => $branchId
+                    'branch_id' => $branchId,
+                    'source' => $validated['source'] ?? null,
                 ]
             ]);
         } catch (\Exception $e) {
