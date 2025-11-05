@@ -2624,8 +2624,8 @@
                                                 <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-acv-amount">0</td>
                                                 <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-percentage">0%</td>
                                                 <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-unit-sales">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;">-</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;">-</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -2727,8 +2727,8 @@
                                     <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
                                     <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
                                     <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center">-</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;">-</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -2827,10 +2827,10 @@
                                     <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
                                     <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
                                     <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center">-</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center">-</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center">-</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;">-</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -4575,12 +4575,19 @@ function loadOrdersMonthly() {
             }
 
           
-            function loadProcessFlowMkt5a(startDate = null, endDate = null) {
-                const params = {
-                    @if(auth()->user()->role?->code === 'branch_manager' || auth()->user()->role?->code === 'sales')
-                        branch_id: {{ auth()->user()->branch_id ?? 'null' }},
+            function loadProcessFlowMkt5a(startDate = null, endDate = null, branchId = null) {
+                const params = {};
+                
+                // Set branch_id based on user role or passed parameter
+                @if(auth()->user()->role?->code === 'super_admin')
+                    if (branchId) {
+                        params.branch_id = branchId;
+                    }
+                @else
+                    @if(auth()->user()->branch_id)
+                        params.branch_id = {{ auth()->user()->branch_id }};
                     @endif
-                };
+                @endif
                 
                 // Add date range if provided, otherwise use full year range
                 if (startDate) {
@@ -4687,8 +4694,7 @@ function loadOrdersMonthly() {
                 const defaultStartDate = '{{ now()->startOfYear()->format('Y-m-d') }}';
                 const defaultEndDate = '{{ now()->endOfYear()->format('Y-m-d') }}';
                 
-                loadProcessFlowMkt5a(defaultStartDate, defaultEndDate);
-
+                // Initial load will be handled by loadSourceConversionStats which will also trigger PROCESS FLOW
                 loadSourceConversionStats(); 
                 $('#source-apply').on('click', loadSourceConversionStats);
                 
@@ -5024,10 +5030,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
 
                     console.log('Loading source conversion with params:', params);
 
-                    if (startDate || endDate) {
-                        console.log('Also updating PROCESS FLOW with date range:', startDate, 'to', endDate);
-                        loadProcessFlowMkt5a(startDate, endDate);
-                    }
+                    // Always update PROCESS FLOW with all SOURCE CONVERSION LISTS filters
+                    console.log('Also updating PROCESS FLOW with filters - Branch:', params.branch_id, 'Date range:', startDate, 'to', endDate);
+                    loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
                     
                     $.get('/api/dashboard/source-conversion-stats', params)
                         .done(function(response) {
