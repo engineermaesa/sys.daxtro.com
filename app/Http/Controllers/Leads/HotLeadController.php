@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
@@ -10,8 +11,8 @@ class HotLeadController extends Controller
 {
     public function myHotList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source'])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::HOT))
+        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry'])
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
             ->whereNull('released_at');
 
         if ($request->user()->role?->code === 'sales') {
@@ -25,11 +26,14 @@ class HotLeadController extends Controller
         }
 
         return DataTables::of($claims)
-            ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn ($row) => $row->lead->name)
-            ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
-            ->addColumn('meeting_status', fn () => '<span class="badge bg-danger">Hot</span>')
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name)
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
+            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('meeting_status', fn() => '<span class="badge bg-danger">Hot</span>')
+            ->addColumn('industry', function ($row) {
+                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
+            })
             ->addColumn('actions', function ($row) {
                 $quotation = $row->lead->quotation;
                 $viewUrl   = route('leads.manage.form', $row->lead->id);
@@ -45,7 +49,7 @@ class HotLeadController extends Controller
                 $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">' 
+                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">'
                     . '      <i class="bi bi-eye mr-2"></i> View Lead</a>';
                 $activityUrl = route('leads.activity.logs', $row->lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';

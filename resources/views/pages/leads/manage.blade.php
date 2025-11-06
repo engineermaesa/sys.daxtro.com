@@ -308,14 +308,12 @@
                         {
                             data: 'factory_other_industry',
                             render: function(data, type, row) {
-                                if (row.industry_remark && row.industry_remark.trim() !==
-                                    '') {
-                                    return row.industry_remark;
-                                } else if (row.other_industry && row.other_industry
-                                    .trim() !== '') {
+                                if (row.industry && row.industry.name && row.industry.name.trim() !== '') {
+                                    return row.industry.name;
+                                } else if (row.other_industry && row.other_industry.trim() !== '') {
                                     return row.other_industry;
                                 } else {
-                                    return row.factory_other_industry || '';
+                                    return  'Belum Diisi';
                                 }
                             }
                         },

@@ -208,14 +208,14 @@
                         data: 'needs'
                     },
                     {
-                        data: 'factory_other_industry',
+                        data: 'industry',
                         render: function(data, type, row) {
-                            if (row.lead.industry_remark && row.lead.industry_remark.trim() !== '') {
-                                return row.lead.industry_remark;
+                            if (row.industry && row.industry.trim() !== '') {
+                                return row.industry;
                             } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
                                 return row.lead.other_industry;
                             } else {
-                                return row.lead.factory_other_industry || '';
+                                return  'Belum Diisi';
                             }
                         }
                     },
@@ -261,15 +261,15 @@
                         data: 'lead_name',
                         name: 'lead_name'
                     },
-                    {
-                        data: 'factory_other_industry',
+                     {
+                        data: 'industry',
                         render: function(data, type, row) {
-                            if (row.lead.industry_remark && row.lead.industry_remark.trim() !== '') {
-                                return row.lead.industry_remark;
-                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
+                            if (row.industry && row.industry.trim() !== ''&& row.industry.trim() !== '-') {
+                                return row.industry;
+                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== ''&& row.industry.trim() !== '-') {
                                 return row.lead.other_industry;
                             } else {
-                                return row.lead.factory_other_industry || '';
+                                return  'Belum Diisi';
                             }
                         }
                     },
