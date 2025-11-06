@@ -410,14 +410,51 @@
             }
         }
 
+        /* COMPREHENSIVE FIX: Remove border-radius from ALL table elements */
+        .table, .table-responsive, .source-conversion-responsive, .table-with-sticky-footer,
+        #source-conversion-table, #potential-branch-table, #potential-list-table,
+        .table *, .table-responsive *, .source-conversion-responsive *, 
+        .table-with-sticky-footer *, .potential-dealing-responsive * {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        .table th, .table td, thead th, tbody td, th, td,
+        .source-conversion-responsive th, .table-with-sticky-footer th,
+        .table thead th:first-child, .table thead th:last-child,
+        .table tbody td:first-child, .table tbody td:last-child {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        /* Container styling without border-radius */
+        .source-conversion-table-container, .table-with-sticky-footer, 
+        .potential-dealing-responsive, .table-container,
+        .card .table, .card .table-responsive {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
+        /* Bootstrap table overrides */
+        .table-bordered, .table-bordered th, .table-bordered td,
+        .rounded, .rounded-top, .rounded-bottom, .rounded-left, .rounded-right {
+            border-radius: 0 !important;
+            -webkit-border-radius: 0 !important;
+            -moz-border-radius: 0 !important;
+        }
+
         #source-conversion-table {
-            border-radius: 20px;
+            border-radius: 0 !important;
             overflow: hidden;
         }
 
         #source-conversion-table thead th {
             border: none;
             font-size: 14px;
+            border-radius: 0 !important;
         }
 
         #source-conversion-table tbody td {
@@ -436,7 +473,7 @@
             max-height: 350px; /* Height for exactly 5 rows + header */
             overflow-y: auto;
             overflow-x: auto;
-            border-radius: 20px;
+            border-radius: 0 !important;
             border: 1px solid #e3e6f0;
             background-color: #fff;
         }
@@ -483,18 +520,349 @@
             background: #0d4133;
         }
 
-        /* Sticky Footer for Total Row */
-        .table-with-sticky-footer {
+        /* SOURCE CONVERSION LISTS specific styling for cross-browser compatibility */
+        .source-conversion-responsive {
+            position: relative;
+            min-height: 200px; /* Minimum height for small data */
+            max-height: 400px; /* Maximum height for large data */
+            overflow: hidden;
+            border-radius: 20px;
+            border: 1px solid #e3e6f0;
+            background-color: #fff;
             display: flex;
             flex-direction: column;
-            height: 400px;
+        }
+        
+        .source-conversion-scroll {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            /* Firefox scrollbar styling */
+            scrollbar-width: thin;
+            scrollbar-color: #115641 #f1f1f1;
+        }
+        
+        /* Chrome/Safari scrollbar styling */
+        .source-conversion-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .source-conversion-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .source-conversion-scroll::-webkit-scrollbar-thumb {
+            background: #115641;
+            border-radius: 4px;
+        }
+        
+        .source-conversion-scroll::-webkit-scrollbar-thumb:hover {
+            background: #0d4133;
+        }
+        
+        /* Ensure table takes full width and proper display */
+        .source-conversion-responsive table {
+            width: 100%;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        /* Sticky header for all browsers */
+        .source-conversion-responsive thead {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 20;
+            background-color: #115641;
+            display: block;
+        }
+        
+        .source-conversion-responsive thead th {
+            background-color: #115641 !important;
+            border: none;
+        }
+        
+        /* Scrollable body */
+        .source-conversion-responsive tbody {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: block;
+        }
+        
+        /* Sticky footer for all browsers */
+        .source-conversion-responsive tfoot {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 15;
+            background-color: #115641;
+            display: block;
+        }
+        
+        .source-conversion-responsive tfoot td {
+            background-color: #115641 !important;
+            border: none;
+        }
+        
+        /* Table row styling for flexbox layout */
+        .source-conversion-responsive tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+        
+        /* Body content styling */
+        .source-conversion-responsive tbody td {
+            padding: 12px 16px;
+            border-top: 1px solid #f1f3f4;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+        
+        /* Header and footer cell styling */
+        .source-conversion-responsive thead th,
+        .source-conversion-responsive tfoot td {
+            padding: 12px 16px;
+        }
+        
+        /* Force footer visibility in all browsers */
+        .source-conversion-responsive tfoot tr {
+            display: table !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+        }
+        
+        /* Responsive height adjustment - untuk data sedikit atau kosong */
+        .source-conversion-responsive.compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        .source-conversion-responsive.compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        .source-conversion-responsive.compact table {
+            height: auto !important;
+        }
+        
+        .source-conversion-responsive.compact tbody {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* Untuk card dengan data sedikit, pastikan footer tetap sticky tapi tidak ada scroll */
+        .source-conversion-responsive.compact tfoot {
+            position: relative !important;
+            bottom: auto !important;
+        }
+        
+        /* CSS yang lebih spesifik untuk mencegah konflik antar tabel */
+        
+        /* SOURCE CONVERSION LISTS - compact mode */
+        .source-conversion-responsive:has(#source-conversion-table).compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        .source-conversion-responsive:has(#source-conversion-table).compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        .source-conversion-responsive:has(#source-conversion-table).compact tbody {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* SALES POTENTIAL DEALING BRANCH - compact mode */
+        .source-conversion-responsive:has(#potential-branch-table).compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        .source-conversion-responsive:has(#potential-branch-table).compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        .source-conversion-responsive:has(#potential-branch-table).compact tbody {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* SALES POTENTIAL DEALING LIST - compact mode */
+        .source-conversion-responsive:has(#potential-list-table).compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        .source-conversion-responsive:has(#potential-list-table).compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        
+        .source-conversion-responsive:has(#potential-list-table).compact tbody {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* Fallback untuk browser yang tidak support :has() selector dan CSS yang lebih spesifik */
+        @supports not (selector(:has())) {
+            /* SOURCE CONVERSION LISTS */
+            #source-conversion-container.compact {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
+            }
+            
+            #source-conversion-container.compact .source-conversion-scroll {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+            
+            /* SALES POTENTIAL DEALING BRANCH */
+            #potential-branch-container.compact {
+                height: auto !important;
+                min-height: auto !important;  
+                max-height: none !important;
+            }
+            
+            #potential-branch-container.compact .source-conversion-scroll {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+            
+            /* SALES POTENTIAL DEALING LIST */
+            #potential-list-container.compact {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: none !important;
+            }
+            
+            #potential-list-container.compact .source-conversion-scroll {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+        }
+        
+        /* CSS tambahan yang lebih spesifik untuk mengatasi konflik */
+        #source-conversion-container.compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        #potential-branch-container.compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        #potential-list-container.compact {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+        }
+        
+        /* Cross-browser scrollbar styling */
+        .source-conversion-responsive tbody::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .source-conversion-responsive tbody::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .source-conversion-responsive tbody::-webkit-scrollbar-thumb {
+            background: #115641;
+            border-radius: 4px;
+        }
+        
+        .source-conversion-responsive tbody::-webkit-scrollbar-thumb:hover {
+            background: #0d4133;
+        }
+        
+        /* Ensure consistent column widths for SOURCE CONVERSION LISTS */
+        #source-conversion-table th:nth-child(1),
+        #source-conversion-table td:nth-child(1) { width: 20%; }
+        #source-conversion-table th:nth-child(2),
+        #source-conversion-table td:nth-child(2) { width: 13%; }
+        #source-conversion-table th:nth-child(3),
+        #source-conversion-table td:nth-child(3) { width: 13%; }
+        #source-conversion-table th:nth-child(4),
+        #source-conversion-table td:nth-child(4) { width: 13%; }
+        #source-conversion-table th:nth-child(5),
+        #source-conversion-table td:nth-child(5) { width: 13%; }
+        #source-conversion-table th:nth-child(6),
+        #source-conversion-table td:nth-child(6) { width: 13%; }
+        #source-conversion-table th:nth-child(7),
+        #source-conversion-table td:nth-child(7) { width: 15%; }
+
+        /* Column widths for SALES POTENTIAL DEALING BRANCH (6 columns) */
+        #potential-branch-table th:nth-child(1),
+        #potential-branch-table td:nth-child(1) { width: 25%; } /* Nama Sales */
+        #potential-branch-table th:nth-child(2),
+        #potential-branch-table td:nth-child(2) { width: 18%; } /* Warm + Hot Amount */
+        #potential-branch-table th:nth-child(3),
+        #potential-branch-table td:nth-child(3) { width: 15%; } /* Qty (W + H) */
+        #potential-branch-table th:nth-child(4),
+        #potential-branch-table td:nth-child(4) { width: 15%; } /* Avg Discount */
+        #potential-branch-table th:nth-child(5),
+        #potential-branch-table td:nth-child(5) { width: 15%; } /* Branch */
+        #potential-branch-table th:nth-child(6),
+        #potential-branch-table td:nth-child(6) { width: 12%; } /* Periode */
+
+        /* Column widths for SALES POTENTIAL DEALING LIST (7 columns) */
+        #potential-list-table th:nth-child(1),
+        #potential-list-table td:nth-child(1) { width: 20%; } /* Nama Customer */
+        #potential-list-table th:nth-child(2),
+        #potential-list-table td:nth-child(2) { width: 12%; } /* Status */
+        #potential-list-table th:nth-child(3),
+        #potential-list-table td:nth-child(3) { width: 15%; } /* Amount */
+        #potential-list-table th:nth-child(4),
+        #potential-list-table td:nth-child(4) { width: 12%; } /* Regional */
+        #potential-list-table th:nth-child(5),
+        #potential-list-table td:nth-child(5) { width: 12%; } /* Product */
+        #potential-list-table th:nth-child(6),
+        #potential-list-table td:nth-child(6) { width: 14%; } /* Last Activity */
+        #potential-list-table th:nth-child(7),
+        #potential-list-table td:nth-child(7) { width: 15%; } /* Data Validation */
+
+
+
+        /* Sticky Footer for Total Row */
+        .table-with-sticky-footer {
+            position: relative;
             background: white;
             border-radius: 0;
             border: 1px solid #e3e6f0;
         }
 
         .table-body-scroll {
-            flex: 1;
+            position: relative;
             overflow-y: auto;
             overflow-x: visible;
         }
@@ -516,6 +884,18 @@
 
         .table-body-scroll::-webkit-scrollbar-thumb:hover {
             background: #0d4133;
+        }
+
+        /* Critical CSS for Chrome sticky footer compatibility */
+        .table-body-scroll {
+            /* Create stacking context for sticky positioning */
+            position: relative;
+            z-index: 1;
+            /* Force hardware acceleration */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            /* Optimize for scroll performance */
+            -webkit-overflow-scrolling: touch;
         }
 
         .table-footer-sticky {
@@ -1412,6 +1792,24 @@
             border-radius: 0 !important;
         }
 
+        /* Source Monitoring Table Sticky Footer - CRITICAL FOR CHROME */
+        #source-monitoring-table tfoot {
+            position: sticky;
+            bottom: 0;
+            z-index: 15;
+            background-color: #115641 !important;
+        }
+
+        #source-monitoring-table tfoot td {
+            position: sticky;
+            bottom: 0;
+            z-index: 15;
+            background-color: #115641 !important;
+            color: white !important;
+            font-weight: bold !important;
+            border: none !important;
+        }
+
         /* Source Conversion Table Sticky Header */
         #source-conversion-table thead {
             position: sticky;
@@ -1473,13 +1871,34 @@
             padding-left: 8px !important;
         }
 
-        /* Integrated Footer Styling */
+        /* Force Hardware Acceleration and Chrome Compatibility for Sticky Elements */
+        #source-monitoring-table tfoot,
+        #sls-dealing-table tfoot,
+        #source-monitoring-table tfoot td,
+        #sls-dealing-table tfoot td {
+            -webkit-transform: translateZ(0) !important;
+            -moz-transform: translateZ(0) !important;
+            -ms-transform: translateZ(0) !important;
+            transform: translateZ(0) !important;
+            -webkit-backface-visibility: hidden !important;
+            backface-visibility: hidden !important;
+            will-change: transform !important;
+        }
+
+        /* Additional Chrome-specific fixes for table containers */
+        .table-with-sticky-footer {
+            -webkit-overflow-scrolling: touch;
+            contain: layout style paint;
+        }
+
+        /* Integrated Footer Styling - Enhanced for Chrome Compatibility */
         #source-monitoring-table tfoot,
         #sls-dealing-table tfoot {
             background-color: #115641 !important;
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
+            position: -webkit-sticky !important; /* Safari */
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 15 !important;
         }
 
         #source-monitoring-table tfoot td,
@@ -1488,8 +1907,10 @@
             color: white !important;
             font-weight: bold !important;
             border: none !important;
-            position: sticky;
-            bottom: 0;
+            position: -webkit-sticky !important; /* Safari */
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 15 !important;
         }
 
         /* First column alignment */
@@ -2114,19 +2535,19 @@
                 </div>
 
                 {{-- Responsive Table with Integrated Footer --}}
-                <div class="potential-dealing-responsive">
+                <div class="source-conversion-responsive" id="source-conversion-container">
                     <!-- Scrollable Table Body -->
-                    <div class="potential-dealing-scroll">
+                    <div class="source-conversion-scroll">
                         <table class="table table-hover mb-0" id="source-conversion-table">
                             <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
                                 <tr>
                                     <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0;">Total</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
                                 </tr>
                             </thead>
                             <tbody id="source-conversion-tbody">
@@ -2251,33 +2672,33 @@
                             </div>
                         </div>
 
-                        {{-- Table with Sticky Footer for Total --}}
+                        {{-- Table with Sticky Footer for Total - Same as SLS Dealing --}}
                         <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
-                            <div style="min-width: 800px;">
+                            <div style="min-width: 900px;">
                                 <!-- Scrollable Table Body -->
-                                <div class="table-body-scroll" style="border-radius: 0; overflow: visible;">
+                                <div class="table-body-scroll" style="overflow: visible;">
                                     <table class="table table-hover table-sm mb-0" id="source-monitoring-table">
-                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
                                             <tr>
-                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px; border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Jan</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Feb</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Mar</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Apr</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">May</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Jun</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Jul</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Aug</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Sep</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Oct</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Nov</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px; position: sticky; top: 0; background-color: #115641;">Dec</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 60px; background-color: #0d4534; position: sticky; top: 0;">Total</th>
+                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Source</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jan</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Feb</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Mar</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Apr</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">May</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jun</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jul</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Aug</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Sep</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Oct</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Nov</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Dec</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 60px; background-color: #0d4534;">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody id="source-monitoring-tbody">
                                             <tr>
-                                                <td colspan="14" class="text-center py-5">
+                                                <td colspan="14" class="text-center py-4">
                                                     <div class="text-success">
                                                         <div class="spinner-border text-success" role="status">
                                                             <span class="visually-hidden">Loading...</span>
@@ -2498,349 +2919,6 @@
         </div>
     </div>
 
-    <!-- SLS DEALING Section -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
-        
-        <!-- Side-by-side SLS Dealing row -->
-        <div class="row sls-dealing-mobile-stack">
-            <!-- SLS Dealing Chart (Left) -->
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <!-- Chart Title -->
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Dealing Chart</h5>
-                            </div>
-                        </div>
-                        
-                        <!-- Chart Controls -->
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="sls-dealing-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-start-date" class="form-control modern-input" 
-                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-end-date" class="form-control modern-input" 
-                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-apply">
-                                    Apply
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Chart Container -->
-                        <div class="chart-container" style="height: 350px; position: relative;">
-                            <canvas id="sls-dealing-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SLS Dealing Table (Right) -->
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <!-- Table Title -->
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Dealing List</h5>
-                            </div>
-                        </div>
-                        
-                        <!-- Table Controls -->
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="sls-dealing-table-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-table-start-date" class="form-control modern-input" 
-                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-table-end-date" class="form-control modern-input" 
-                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-table-apply">
-                                    Apply
-                                </button>
-                            </div>
-                        </div>
-
-                        {{-- Table with Sticky Footer for Total --}}
-                        <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
-                            <div style="min-width: 900px;">
-                                <!-- Scrollable Table Body -->
-                                <div class="table-body-scroll" style="overflow: visible;">
-                                    <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
-                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
-                                            <tr>
-                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Nama Sales</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Target Amount</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">ACV Amount</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">% (ACV/Target)</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">Unit Sales</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Branch</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 120px;">Periode</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="sls-dealing-tbody">
-                                            <tr>
-                                                <td colspan="7" class="text-center py-4">
-                                                    <div class="text-success">
-                                                        <div class="spinner-border text-success" role="status">
-                                                            <span class="visually-hidden">Loading...</span>
-                                                        </div>
-                                                        <p class="mt-3 mb-0 text-muted">Loading SLS dealing data...</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                            <tr id="sls-dealing-total-row">
-                                                <td class="text-white fw-bold py-2 px-2" style="font-size: 11px; border-radius: 0;">TOTAL</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-target-amount">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-acv-amount">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-percentage">0%</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-unit-sales">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- End side-by-side SLS Dealing row -->
-    </div>
-
-    <!-- SALES POTENTIAL DEALING BRANCH Section -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                {{-- Filter Controls --}}
-                <div class="p-4 bg-light potential-dealing-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    {{-- Super Admin Layout - Single row with all filters --}}
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="potential-branch-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    {{-- Non-Admin Layout - Single row with all filters --}}
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-
-                {{-- Responsive Table with Sticky Footer --}}
-                <div class="potential-dealing-responsive">
-                    <!-- Scrollable Table Body -->
-                    <div class="potential-dealing-scroll">
-                        <table class="table table-hover mb-0" id="potential-branch-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Branch</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0;">Periode</th>
-                                </tr>
-                            </thead>
-                            <tbody id="potential-branch-tbody">
-                                <tr>
-                                    <td colspan="6" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing branch data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="potential-branch-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SALES POTENTIAL DEALING LIST Section -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING LIST</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                {{-- Filter Controls --}}
-                <div class="p-4 bg-light potential-dealing-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    {{-- Super Admin Layout - Single row with all filters --}}
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="potential-list-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="potential-list-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    {{-- Non-Admin Layout - Single row with all filters --}}
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="potential-list-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-
-                {{-- Responsive Table with Sticky Footer --}}
-                <div class="potential-dealing-responsive">
-                    <!-- Scrollable Table Body -->
-                    <div class="potential-dealing-scroll">
-                        <table class="table table-hover mb-0" id="potential-list-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Status</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Amount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Regional</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Product</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="position: sticky; top: 0; background-color: #115641;">Last Activity</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0;">Data Validation</th>
-                                </tr>
-                            </thead>
-                            <tbody id="potential-list-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing list data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="potential-list-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sales Achievement vs Target Section -->
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
         
@@ -3131,6 +3209,352 @@
         <!-- End side-by-side charts row -->
       </div>
     </div>
+
+    <!-- SLS DEALING Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
+        
+        <!-- Side-by-side SLS Dealing row -->
+        <div class="row sls-dealing-mobile-stack">
+            <!-- SLS Dealing Chart (Left) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <!-- Chart Title -->
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Dealing Chart</h5>
+                            </div>
+                        </div>
+                        
+                        <!-- Chart Controls -->
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="sls-dealing-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-start-date" class="form-control modern-input" 
+                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-end-date" class="form-control modern-input" 
+                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Chart Container -->
+                        <div class="chart-container" style="height: 350px; position: relative;">
+                            <canvas id="sls-dealing-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLS Dealing Table (Right) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <!-- Table Title -->
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Dealing List</h5>
+                            </div>
+                        </div>
+                        
+                        <!-- Table Controls -->
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="sls-dealing-table-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-table-start-date" class="form-control modern-input" 
+                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-table-end-date" class="form-control modern-input" 
+                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-table-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Table with Sticky Footer for Total --}}
+                        <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
+                            <div style="min-width: 900px;">
+                                <!-- Scrollable Table Body -->
+                                <div class="table-body-scroll" style="overflow: visible;">
+                                    <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
+                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                            <tr>
+                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Nama Sales</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Target Amount</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">ACV Amount</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">% (ACV/Target)</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">Unit Sales</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Branch</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 120px;">Periode</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sls-dealing-tbody">
+                                            <tr>
+                                                <td colspan="7" class="text-center py-4">
+                                                    <div class="text-success">
+                                                        <div class="spinner-border text-success" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <p class="mt-3 mb-0 text-muted">Loading SLS dealing data...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                            <tr id="sls-dealing-total-row">
+                                                <td class="text-white fw-bold py-2 px-2" style="font-size: 11px; border-radius: 0;">TOTAL</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-target-amount">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-acv-amount">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-percentage">0%</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-unit-sales">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End side-by-side SLS Dealing row -->
+    </div>
+
+    <!-- SALES POTENTIAL DEALING BRANCH Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                {{-- Filter Controls --}}
+                <div class="p-4 bg-light potential-dealing-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    {{-- Super Admin Layout - Single row with all filters --}}
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="potential-branch-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    {{-- Non-Admin Layout - Single row with all filters --}}
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- Responsive Table with Integrated Footer --}}
+                <div class="source-conversion-responsive" id="potential-branch-container">
+                    <!-- Scrollable Table Body -->
+                    <div class="source-conversion-scroll">
+                        <table class="table table-hover mb-0" id="potential-branch-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
+                                </tr>
+                            </thead>
+                            <tbody id="potential-branch-tbody">
+                                <tr>
+                                    <td colspan="6" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing branch data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                <tr id="potential-branch-total-row">
+                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SALES POTENTIAL DEALING LIST Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING LIST</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                {{-- Filter Controls --}}
+                <div class="p-4 bg-light potential-dealing-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    {{-- Super Admin Layout - Single row with all filters --}}
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="potential-list-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-list-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    {{-- Non-Admin Layout - Single row with all filters --}}
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-list-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- Responsive Table with Integrated Footer --}}
+                <div class="source-conversion-responsive" id="potential-list-container">
+                    <!-- Scrollable Table Body -->
+                    <div class="source-conversion-scroll">
+                        <table class="table table-hover mb-0" id="potential-list-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Status</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Amount</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Regional</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Product</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Last Activity</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; background-color: #0d4534; position: sticky; top: 0;">Data Validation</th>
+                                </tr>
+                            </thead>
+                            <tbody id="potential-list-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing list data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                <tr id="potential-list-total-row">
+                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+
+    
 
     {{-- <div class="row"> --}}
         {{-- <div class="col-md-12 mb-4">
@@ -4396,12 +4820,12 @@ function loadLeadsBranchTrend(prefix, status) {
 }
 */
 
-            // === Trend Total Penjualan per Branch ===
+
 let branchSalesChart;
 
 function loadBranchSalesTrend() {
     const params = {
-        branch_ids: $('#branch_sales_branches').val() || [],   // array of ids
+        branch_ids: $('#branch_sales_branches').val() || [],  
         start_date: $('#branch_sales_start').val(),
         end_date:   $('#branch_sales_end').val()
     };
@@ -4577,8 +5001,7 @@ function loadOrdersMonthly() {
           
             function loadProcessFlowMkt5a(startDate = null, endDate = null, branchId = null) {
                 const params = {};
-                
-                // Set branch_id based on user role or passed parameter
+
                 @if(auth()->user()->role?->code === 'super_admin')
                     if (branchId) {
                         params.branch_id = branchId;
@@ -4588,8 +5011,7 @@ function loadOrdersMonthly() {
                         params.branch_id = {{ auth()->user()->branch_id }};
                     @endif
                 @endif
-                
-                // Add date range if provided, otherwise use full year range
+
                 if (startDate) {
                     params.start_date = startDate;
                 } else {
@@ -4606,7 +5028,6 @@ function loadOrdersMonthly() {
                 
                 $.get('/api/dashboard/mkt5a', params)
                     .done(function(response) {
-                        // ROW 1 - Qty & ATR Time (5 Cards)
                         $('#all-leads-qty').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
                         $('#all-leads-time').text('ATR ' + formatTime(response.aware.all_leads_time_avg_hours || 0));
                         
@@ -4621,8 +5042,7 @@ function loadOrdersMonthly() {
 
                         $('#invoice-qty').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
                         $('#invoice-time').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
-                        
-                        // ROW 2 - Percentage & Amount (5 Cards)
+
                         $('#all-leads-pct').text(response.aware.all_leads_percentage + '%');
                         $('#all-leads-acq-pct').text('Total: ' + number_format(response.aware.all_leads_qty, 0, ',', '.'));
                         
@@ -4639,11 +5059,9 @@ function loadOrdersMonthly() {
                         $('#invoice-amount').text('Rp ' + formatAmount(response.act.invoice_in_amount));
                     })
                     .fail(function() {
-                        // Row 1 error handling (5 Cards)
                         $('#all-leads-qty, #acquisition-qty, #meeting-qty, #quotation-qty, #invoice-qty').text('0');
                         $('#all-leads-time, #acquisition-time, #meeting-time, #quotation-time, #invoice-time').text('ATR 00:00:00');
-                        
-                        // Row 2 error handling (5 Cards)
+
                         $('#all-leads-pct, #acquisition-pct, #meeting-pct, #quotation-pct, #invoice-pct').text('0%');
                         $('#all-leads-acq-pct').text('Total: 0');
                         $('#acquisition-cvr').text('Cvr: 0%');
@@ -4666,7 +5084,6 @@ function loadOrdersMonthly() {
                        String(s).padStart(2, '0');
             }
             
-            // Format amount to readable format (Milyar/Juta)
             function formatAmount(amount) {
                 if (!amount || amount === 0) return '0';
                 
@@ -4694,7 +5111,6 @@ function loadOrdersMonthly() {
                 const defaultStartDate = '{{ now()->startOfYear()->format('Y-m-d') }}';
                 const defaultEndDate = '{{ now()->endOfYear()->format('Y-m-d') }}';
                 
-                // Initial load will be handled by loadSourceConversionStats which will also trigger PROCESS FLOW
                 loadSourceConversionStats(); 
                 $('#source-apply').on('click', loadSourceConversionStats);
                 
@@ -5030,7 +5446,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
 
                     console.log('Loading source conversion with params:', params);
 
-                    // Always update PROCESS FLOW with all SOURCE CONVERSION LISTS filters
                     console.log('Also updating PROCESS FLOW with filters - Branch:', params.branch_id, 'Date range:', startDate, 'to', endDate);
                     loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
                     
@@ -5048,14 +5463,15 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                         </td>
                                     </tr>
                                 `);
-                                
-                                // Reset footer totals to 0 when no data
+
                                 $('#total-cum').text('0');
                                 $('#total-cold').text('0');
                                 $('#total-warm').text('0');
                                 $('#total-hot').text('0');
                                 $('#total-deal').text('0');
                                 $('#total-all').text('0');
+
+                                adjustSourceConversionHeight(0);
                             }
                         })
                         .fail(function(xhr) {
@@ -5071,37 +5487,42 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     </td>
                                 </tr>
                             `);
-                            
-                            // Reset footer totals to 0 when error occurs
                             $('#total-cum').text('0');
                             $('#total-cold').text('0');
                             $('#total-warm').text('0');
                             $('#total-hot').text('0');
                             $('#total-deal').text('0');
                             $('#total-all').text('0');
+
+                            adjustSourceConversionHeight(0);
                         });
                 }
 
-                // Helper function to adjust table height based on content
-                function adjustTableHeight(tableId) {
-                    const table = $('#' + tableId);
-                    const container = table.closest('.potential-dealing-responsive');
-                    const rowCount = table.find('tbody tr').length;
+                function adjustPotentialBranchHeight(rowCount) {
+                    const container = $('#potential-branch-container');
+
+                    container.removeClass('compact');
                     
-                    // Remove any existing height classes
-                    container.removeClass('compact-table normal-table');
-                    
-                    if (rowCount <= 2) {
-                        // For 1-2 rows, use compact mode
-                        container.addClass('compact-table');
-                        container.find('.potential-dealing-scroll').css('max-height', 'none');
-                    } else if (rowCount <= 5) {
-                        // For 3-5 rows, use normal mode without scroll
-                        container.addClass('normal-table');
-                        container.find('.potential-dealing-scroll').css('max-height', 'none');
+                    if (rowCount === 0) {
+                        container.addClass('compact');
+                    } else if (rowCount <= 3) {
+                        container.addClass('compact');
                     } else {
-                        // For many rows, enable scrolling
-                        container.find('.potential-dealing-scroll').css('max-height', '400px');
+                        container.removeClass('compact');
+                    }
+                }
+
+                function adjustPotentialListHeight(rowCount) {
+                    const container = $('#potential-list-container');
+
+                    container.removeClass('compact');
+                    
+                    if (rowCount === 0) {
+                        container.addClass('compact');
+                    } else if (rowCount <= 3) {
+                        container.addClass('compact');
+                    } else {
+                        container.removeClass('compact');
                     }
                 }
 
@@ -5109,7 +5530,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     const tbody = $('#source-conversion-tbody');
                     tbody.empty();
 
-                    // Calculate totals for each column
                     let totals = {
                         cumulative: 0,
                         cold: 0,
@@ -5126,7 +5546,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         totals.deal += item.deal || 0;
                     });
 
-                    // Render each data row with Total column (horizontal total)
                     data.forEach(function(item) {
                         const rowTotal = (item.cumulative || 0) + (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
                         
@@ -5163,7 +5582,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.append(row);
                     });
 
-                    // Update sticky footer totals
                     const grandTotal = totals.cumulative + totals.cold + totals.warm + totals.hot + totals.deal;
                     $('#total-cum').text(totals.cumulative.toLocaleString());
                     $('#total-cold').text(totals.cold.toLocaleString());
@@ -5172,9 +5590,24 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     $('#total-deal').text(totals.deal.toLocaleString());
                     $('#total-all').text(grandTotal.toLocaleString());
                     
-                    // Adjust table height based on content
-                    adjustTableHeight('source-conversion-table');
+                    adjustSourceConversionHeight(data.length);
                 }
+                
+                function adjustSourceConversionHeight(rowCount) {
+                    const container = $('#source-conversion-container');
+
+                    container.removeClass('compact');
+                    
+                    if (rowCount === 0) {
+                        container.addClass('compact');
+                    } else if (rowCount <= 3) {
+                        container.addClass('compact');
+                    } else {
+                        container.removeClass('compact');
+                    }
+                }
+
+
 
                 let sourceMonitoringChart;
 
@@ -5229,7 +5662,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             borderWidth: 2
                         }));
 
-                        // Initialize or update chart
                         const ctx = document.getElementById('source-monitoring-chart').getContext('2d');
                         
                         if (sourceMonitoringChart) {
@@ -5334,7 +5766,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         year: $('#source-monitoring-table-year').val() || new Date().getFullYear()
                     };
 
-                    // Add branch_id for branch users or when super admin selects a branch
                     @if(auth()->user()->role?->code !== 'super_admin')
                         params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
                     @else
@@ -5344,7 +5775,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         }
                     @endif
 
-                    // Add source filter
                     const sourceFilter = $('#source-monitoring-source-filter').val();
                     if (sourceFilter && sourceFilter !== '') {
                         params.source = sourceFilter;
@@ -5373,11 +5803,10 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.empty();
                         
                         if (res.data && res.data.length > 0) {
-                            // Calculate monthly totals
+
                             const monthlyTotals = new Array(12).fill(0);
                             let grandTotal = 0;
 
-                            // First pass: render data rows and calculate totals
                             res.data.forEach(function(item) {
                                 const months = item.months || [];
                                 for (let i = 0; i < 12; i++) {
@@ -5408,7 +5837,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 tbody.append(row);
                             });
 
-                            // Update sticky footer totals
                             $('#total-jan').text(monthlyTotals[0].toLocaleString());
                             $('#total-feb').text(monthlyTotals[1].toLocaleString());
                             $('#total-mar').text(monthlyTotals[2].toLocaleString());
@@ -5422,6 +5850,8 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             $('#total-nov').text(monthlyTotals[10].toLocaleString());
                             $('#total-dec').text(monthlyTotals[11].toLocaleString());
                             $('#total-year').text(grandTotal.toLocaleString());
+
+
                         } else {
                             tbody.html(`
                                 <tr>
@@ -5431,8 +5861,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     </td>
                                 </tr>
                             `);
-                            
-                            // Reset sticky footer totals
+
                             $('#total-jan, #total-feb, #total-mar, #total-apr, #total-may, #total-jun, #total-jul, #total-aug, #total-sep, #total-oct, #total-nov, #total-dec, #total-year').text('0');
                         }
 
@@ -5452,7 +5881,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                // Helper function to get chart colors
                 function getChartColor(index, alpha = 1) {
                     const colors = [
                         '#115641', '#F97316', '#3B82F6', '#EF4444', '#10B981', 
@@ -5462,7 +5890,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     const color = colors[index % colors.length];
                     
                     if (alpha < 1) {
-                        // Convert hex to rgba
                         const r = parseInt(color.slice(1, 3), 16);
                         const g = parseInt(color.slice(3, 5), 16);
                         const b = parseInt(color.slice(5, 7), 16);
@@ -5472,9 +5899,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     return color;
                 }
 
-                // Event handlers for Source Monitoring - Synchronized loading
                 $('#source-monitoring-apply').on('click', function() {
-                    // Sync table filters with chart filters
                     @if(auth()->user()->role?->code === 'super_admin')
                         $('#source-monitoring-table-branch').val($('#source-monitoring-branch').val());
                     @endif
@@ -5495,11 +5920,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     loadSourceMonitoringTable();
                 });
 
-                // Load initial data for Source Monitoring
                 loadSourceMonitoringStats();
                 loadSourceMonitoringTable();
 
-                // Event handlers for SOURCE CONVERSION LISTS are already defined above
 
                 // ==================== SLS DEALING FUNCTIONS ====================
                 let slsDealingChart;
@@ -5946,7 +6369,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             $('#total-branch-avg-discount').text(avgDiscount.toFixed(2) + '%');
                             
                             // Adjust table height based on content
-                            adjustTableHeight('#potential-branch-table-container', response.data.length);
+                            adjustPotentialBranchHeight(response.data.length);
                         } else {
                             tbody.html(`
                                 <tr>
@@ -5963,7 +6386,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                             $('#total-branch-avg-discount').text('0%');
                             
                             // Adjust table height for empty state
-                            adjustTableHeight('#potential-branch-table-container', 0);
+                            adjustPotentialBranchHeight(0);
                         }
 
                     }).fail(function(xhr, status, error) {
@@ -5987,7 +6410,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     });
                 }
 
-                // SLS Potential Dealing List Table Functions
                 function loadPotentialListTable() {
                     const params = {
                         branch_id: $('#potential-list-branch').val() || null,
@@ -5998,8 +6420,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     console.log('Loading potential list with params:', params);
 
                     const tbody = $('#potential-list-tbody');
-                    
-                    // Show loading state
+
                     tbody.html(`
                         <tr>
                             <td colspan="7" class="text-center py-5">
@@ -6030,14 +6451,11 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 totalPotential++;
                                 totalAmount += parseFloat(item.amount || 0);
 
-                                // Format last activity
                                 const lastActivity = item.last_activity ? new Date(item.last_activity).toLocaleDateString('id-ID') : '-';
-                                
-                                // Status badge
+
                                 const statusClass = item.status === 'Hot' ? 'badge-danger' : 'badge-warning';
                                 const statusBadge = `<span class="badge ${statusClass}">${item.status}</span>`;
-                                
-                                // Data validation badge
+
                                 const validationClass = item.data_validation === 'complete' ? 'badge-success' : 
                                                       item.data_validation === 'moderate' ? 'badge-warning' : 'badge-danger';
                                 const validationBadge = `<span class="badge ${validationClass}">${item.data_validation}</span>`;
@@ -6059,12 +6477,10 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 tbody.append(row);
                             });
 
-                            // Update sticky footer totals
                             $('#total-list-count').text(totalPotential.toLocaleString());
                             $('#total-list-amount').text('Rp' + formatAmountShort(totalAmount));
-                            
-                            // Adjust table height based on content
-                            adjustTableHeight('#potential-list-table-container', response.data.length);
+
+                            adjustPotentialListHeight(response.data.length);
                         } else {
                             tbody.html(`
                                 <tr>
@@ -6075,12 +6491,10 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 </tr>
                             `);
                             
-                            // Reset totals
                             $('#total-list-count').text('0');
                             $('#total-list-amount').text('Rp0');
-                            
-                            // Adjust table height for empty state
-                            adjustTableHeight('#potential-list-table-container', 0);
+
+                            adjustPotentialListHeight(0);
                         }
 
                     }).fail(function(xhr, status, error) {
@@ -6096,18 +6510,14 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 </td>
                             </tr>
                         `);
-                        
-                        // Reset totals on error
+
                         $('#total-list-count').text('0');
                         $('#total-list-amount').text('Rp0');
                     });
                 }
 
-
-
-                // Event handlers for SLS Dealing - Synchronized loading
                 $('#sls-dealing-apply').on('click', function() {
-                    // Sync table filters with chart filters
+
                     @if(auth()->user()->role?->code === 'super_admin')
                         $('#sls-dealing-table-branch').val($('#sls-dealing-branch').val());
                     @endif
@@ -6119,7 +6529,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                 });
 
                 $('#sls-dealing-table-apply').on('click', function() {
-                    // Sync chart filters with table filters
+ 
                     @if(auth()->user()->role?->code === 'super_admin')
                         $('#sls-dealing-branch').val($('#sls-dealing-table-branch').val());
                     @endif
@@ -6130,8 +6540,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     loadSlsDealingTable();
                 });
 
-                // Event handlers for SLS Potential Dealing Branch Table
-                // Event handlers for SLS Potential Dealing Tables
+
                 $('#potential-branch-apply').on('click', function() {
                     loadPotentialBranchTable();
                 });
@@ -6140,11 +6549,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     loadPotentialListTable();
                 });
 
-                // Load initial data for SLS Dealing
                 loadSlsDealingChart();
                 loadSlsDealingTable();
 
-                // Load initial data for SLS Potential Dealing
                 loadPotentialBranchTable();
                 loadPotentialListTable();
             });
