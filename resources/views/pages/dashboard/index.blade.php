@@ -525,42 +525,76 @@
             position: relative;
             min-height: 200px; /* Minimum height for small data */
             max-height: 400px; /* Maximum height for large data */
-            overflow: hidden;
-            border-radius: 20px;
+            overflow: auto; /* Enable scrolling */
+            border-radius: 0 !important; /* Remove border radius */
             border: 1px solid #e3e6f0;
             background-color: #fff;
             display: flex;
             flex-direction: column;
+            
+            /* Cross-browser scrolling support */
+            -webkit-overflow-scrolling: touch;
+            /* Firefox scrollbar styling */
+            scrollbar-width: thin;
+            scrollbar-color: #115641 #f1f1f1;
+        }
+        
+        /* Ensure SALES POTENTIAL DEALING tables work the same as SOURCE CONVERSION LISTS */
+        #potential-branch-container,
+        #potential-list-container {
+            position: relative;
+            min-height: 200px;
+            max-height: 400px;
+            overflow: auto;
+            border-radius: 0 !important;
+            border: 1px solid #e3e6f0;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #115641 #f1f1f1;
         }
         
         .source-conversion-scroll {
             flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-y: auto; /* Enable vertical scrolling */
+            overflow-x: hidden; /* Hide horizontal scroll */
             position: relative;
-            /* Firefox scrollbar styling */
-            scrollbar-width: thin;
-            scrollbar-color: #115641 #f1f1f1;
+            height: 100%;
         }
         
-        /* Chrome/Safari scrollbar styling */
-        .source-conversion-scroll::-webkit-scrollbar {
+        /* Chrome/Safari scrollbar styling for both container and scroll */
+        .source-conversion-responsive::-webkit-scrollbar,
+        .source-conversion-scroll::-webkit-scrollbar,
+        #potential-branch-container::-webkit-scrollbar,
+        #potential-list-container::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
         
-        .source-conversion-scroll::-webkit-scrollbar-track {
+        .source-conversion-responsive::-webkit-scrollbar-track,
+        .source-conversion-scroll::-webkit-scrollbar-track,
+        #potential-branch-container::-webkit-scrollbar-track,
+        #potential-list-container::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 4px;
         }
         
-        .source-conversion-scroll::-webkit-scrollbar-thumb {
+        .source-conversion-responsive::-webkit-scrollbar-thumb,
+        .source-conversion-scroll::-webkit-scrollbar-thumb,
+        #potential-branch-container::-webkit-scrollbar-thumb,
+        #potential-list-container::-webkit-scrollbar-thumb {
             background: #115641;
             border-radius: 4px;
         }
         
-        .source-conversion-scroll::-webkit-scrollbar-thumb:hover {
+        .source-conversion-responsive::-webkit-scrollbar-thumb:hover,
+        .source-conversion-scroll::-webkit-scrollbar-thumb:hover,
+        #potential-branch-container::-webkit-scrollbar-thumb:hover,
+        #potential-list-container::-webkit-scrollbar-thumb:hover {
             background: #0d4133;
         }
         
@@ -616,6 +650,61 @@
             table-layout: fixed;
         }
         
+        /* Apply same structure to SALES POTENTIAL DEALING tables */
+        #potential-branch-container table,
+        #potential-list-container table {
+            width: 100%;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        #potential-branch-container thead,
+        #potential-list-container thead {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 20;
+            background-color: #115641;
+            display: block;
+        }
+        
+        #potential-branch-container thead th,
+        #potential-list-container thead th {
+            background-color: #115641 !important;
+            border: none;
+        }
+        
+        #potential-branch-container tbody,
+        #potential-list-container tbody {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: block;
+        }
+        
+        #potential-branch-container tfoot,
+        #potential-list-container tfoot {
+            flex-shrink: 0;
+            position: relative;
+            z-index: 15;
+            background-color: #115641;
+            display: block;
+        }
+        
+        #potential-branch-container tfoot td,
+        #potential-list-container tfoot td {
+            background-color: #115641 !important;
+            border: none;
+        }
+        
+        #potential-branch-container tr,
+        #potential-list-container tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+        
         /* Body content styling */
         .source-conversion-responsive tbody td {
             padding: 12px 16px;
@@ -630,6 +719,22 @@
             padding: 12px 16px;
         }
         
+        /* Apply same styling to SALES POTENTIAL DEALING tables */
+        #potential-branch-container tbody td,
+        #potential-list-container tbody td {
+            padding: 12px 16px;
+            border-top: 1px solid #f1f3f4;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+        
+        #potential-branch-container thead th,
+        #potential-branch-container tfoot td,
+        #potential-list-container thead th,
+        #potential-list-container tfoot td {
+            padding: 12px 16px;
+        }
+        
         /* Force footer visibility in all browsers */
         .source-conversion-responsive tfoot tr {
             display: table !important;
@@ -641,13 +746,15 @@
         .source-conversion-responsive.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Still allow some scrolling if needed */
+            overflow: auto !important; /* Maintain scrolling capability */
         }
         
         .source-conversion-responsive.compact .source-conversion-scroll {
             height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
+            max-height: 250px !important; /* Allow scrolling within compact mode */
+            overflow-y: auto !important; /* Enable vertical scrolling */
+            overflow-x: hidden !important; /* Hide horizontal scroll */
         }
         
         .source-conversion-responsive.compact table {
@@ -691,38 +798,44 @@
         .source-conversion-responsive:has(#potential-branch-table).compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Allow scrolling in compact mode */
+            overflow: auto !important; /* Enable scrolling */
         }
         
         .source-conversion-responsive:has(#potential-branch-table).compact .source-conversion-scroll {
             height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
+            max-height: 250px !important; /* Allow scrolling */
+            overflow-y: auto !important; /* Enable vertical scrolling */
+            overflow-x: hidden !important; /* Hide horizontal scroll */
         }
         
         .source-conversion-responsive:has(#potential-branch-table).compact tbody {
-            overflow: visible !important;
+            overflow-y: auto !important; /* Enable vertical scrolling */
+            overflow-x: hidden !important; /* Hide horizontal scroll */
             height: auto !important;
-            max-height: none !important;
+            max-height: 200px !important; /* Allow scrolling */
         }
         
         /* SALES POTENTIAL DEALING LIST - compact mode */
         .source-conversion-responsive:has(#potential-list-table).compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Allow scrolling in compact mode */
+            overflow: auto !important; /* Enable scrolling */
         }
         
         .source-conversion-responsive:has(#potential-list-table).compact .source-conversion-scroll {
             height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
+            max-height: 250px !important; /* Allow scrolling */
+            overflow-y: auto !important; /* Enable vertical scrolling */
+            overflow-x: hidden !important; /* Hide horizontal scroll */
         }
         
         .source-conversion-responsive:has(#potential-list-table).compact tbody {
-            overflow: visible !important;
+            overflow-y: auto !important; /* Enable vertical scrolling */
+            overflow-x: hidden !important; /* Hide horizontal scroll */
             height: auto !important;
-            max-height: none !important;
+            max-height: 200px !important; /* Allow scrolling */
         }
         
         /* Fallback untuk browser yang tidak support :has() selector dan CSS yang lebih spesifik */
@@ -736,72 +849,128 @@
             
             #source-conversion-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
+                max-height: 200px !important; /* Allow mobile scrolling */
+                overflow-y: auto !important; /* Enable vertical scrolling */
+                overflow-x: hidden !important; /* Hide horizontal scroll */
             }
             
             /* SALES POTENTIAL DEALING BRANCH */
             #potential-branch-container.compact {
                 height: auto !important;
                 min-height: auto !important;  
-                max-height: none !important;
+                max-height: 250px !important; /* Allow mobile scrolling */
+                overflow: auto !important; /* Enable scrolling */
             }
             
             #potential-branch-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
+                max-height: 200px !important; /* Allow mobile scrolling */
+                overflow-y: auto !important; /* Enable vertical scrolling */
+                overflow-x: hidden !important; /* Hide horizontal scroll */
             }
             
             /* SALES POTENTIAL DEALING LIST */
             #potential-list-container.compact {
                 height: auto !important;
                 min-height: auto !important;
-                max-height: none !important;
+                max-height: 250px !important; /* Allow mobile scrolling */
+                overflow: auto !important; /* Enable scrolling */
             }
             
             #potential-list-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
+                max-height: 200px !important; /* Allow mobile scrolling */
+                overflow-y: auto !important; /* Enable vertical scrolling */
+                overflow-x: hidden !important; /* Hide horizontal scroll */
             }
+        }
+        
+        /* CSS untuk mode normal (non-compact) - memastikan scrolling berfungsi */
+        #potential-branch-container:not(.compact),
+        #potential-list-container:not(.compact),
+        #source-conversion-container:not(.compact) {
+            overflow: auto !important;
+            max-height: 400px !important;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        
+        #potential-branch-container:not(.compact) .source-conversion-scroll,
+        #potential-list-container:not(.compact) .source-conversion-scroll,
+        #source-conversion-container:not(.compact) .source-conversion-scroll {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            height: 100% !important;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        
+        /* Force scrollable tbody for all potential tables */
+        #potential-branch-table tbody,
+        #potential-list-table tbody {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            display: block !important;
+            max-height: 300px !important;
+        }
+        
+        /* Ensure table headers have proper width in scrollable mode */
+        #potential-branch-table thead,
+        #potential-list-table thead {
+            display: block !important;
+        }
+        
+        #potential-branch-table tr,
+        #potential-list-table tr {
+            display: table !important;
+            width: 100% !important;
+            table-layout: fixed !important;
         }
         
         /* CSS tambahan yang lebih spesifik untuk mengatasi konflik */
         #source-conversion-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Allow some scrolling even in compact */
+            overflow: auto !important; /* Enable scrolling */
         }
         
         #potential-branch-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Allow some scrolling even in compact */
+            overflow: auto !important; /* Enable scrolling */
         }
         
         #potential-list-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: none !important;
+            max-height: 300px !important; /* Allow some scrolling even in compact */
+            overflow: auto !important; /* Enable scrolling */
         }
         
         /* Cross-browser scrollbar styling */
-        .source-conversion-responsive tbody::-webkit-scrollbar {
+        .source-conversion-responsive tbody::-webkit-scrollbar,
+        #potential-branch-container tbody::-webkit-scrollbar,
+        #potential-list-container tbody::-webkit-scrollbar {
             width: 8px;
         }
         
-        .source-conversion-responsive tbody::-webkit-scrollbar-track {
+        .source-conversion-responsive tbody::-webkit-scrollbar-track,
+        #potential-branch-container tbody::-webkit-scrollbar-track,
+        #potential-list-container tbody::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 4px;
         }
         
-        .source-conversion-responsive tbody::-webkit-scrollbar-thumb {
+        .source-conversion-responsive tbody::-webkit-scrollbar-thumb,
+        #potential-branch-container tbody::-webkit-scrollbar-thumb,
+        #potential-list-container tbody::-webkit-scrollbar-thumb {
             background: #115641;
             border-radius: 4px;
         }
         
-        .source-conversion-responsive tbody::-webkit-scrollbar-thumb:hover {
+        .source-conversion-responsive tbody::-webkit-scrollbar-thumb:hover,
+        #potential-branch-container tbody::-webkit-scrollbar-thumb:hover,
+        #potential-list-container tbody::-webkit-scrollbar-thumb:hover {
             background: #0d4133;
         }
         
@@ -3406,45 +3575,42 @@
                     @endif
                 </div>
 
-                {{-- Responsive Table with Integrated Footer --}}
+                {{-- Responsive Table with Integrated Footer - Same Structure as SOURCE CONVERSION LISTS --}}
                 <div class="source-conversion-responsive" id="potential-branch-container">
-                    <!-- Scrollable Table Body -->
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="potential-branch-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
-                                </tr>
-                            </thead>
-                            <tbody id="potential-branch-tbody">
-                                <tr>
-                                    <td colspan="6" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing branch data...</p>
+                    <table class="table table-hover mb-0" id="potential-branch-table">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
+                            </tr>
+                        </thead>
+                        <tbody id="potential-branch-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
                                         </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="potential-branch-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading potential dealing branch data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                            <tr id="potential-branch-total-row">
+                                <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
         </div>
@@ -3506,47 +3672,44 @@
                     @endif
                 </div>
 
-                {{-- Responsive Table with Integrated Footer --}}
+                {{-- Responsive Table with Integrated Footer - Same Structure as SOURCE CONVERSION LISTS --}}
                 <div class="source-conversion-responsive" id="potential-list-container">
-                    <!-- Scrollable Table Body -->
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="potential-list-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Status</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Amount</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Regional</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Product</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Last Activity</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; background-color: #0d4534; position: sticky; top: 0;">Data Validation</th>
-                                </tr>
-                            </thead>
-                            <tbody id="potential-list-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading potential dealing list data...</p>
+                    <table class="table table-hover mb-0" id="potential-list-table">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Status</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Regional</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Product</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Last Activity</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; background-color: #0d4534; position: sticky; top: 0;">Data Validation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="potential-list-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
                                         </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="potential-list-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading potential dealing list data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                            <tr id="potential-list-total-row">
+                                <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
         </div>
