@@ -961,19 +961,23 @@
 
 
         #potential-list-table th:nth-child(1),
-        #potential-list-table td:nth-child(1) { width: 20%; } /* Nama Customer */
+        #potential-list-table td:nth-child(1) { width: 16%; } /* Nama Customer */
         #potential-list-table th:nth-child(2),
-        #potential-list-table td:nth-child(2) { width: 12%; } /* Status */
+        #potential-list-table td:nth-child(2) { width: 12%; } /* Sales Name */
         #potential-list-table th:nth-child(3),
-        #potential-list-table td:nth-child(3) { width: 15%; } /* Amount */
+        #potential-list-table td:nth-child(3) { width: 8%; } /* Status */
         #potential-list-table th:nth-child(4),
-        #potential-list-table td:nth-child(4) { width: 12%; } /* Regional */
+        #potential-list-table td:nth-child(4) { width: 12%; } /* Segment */
         #potential-list-table th:nth-child(5),
-        #potential-list-table td:nth-child(5) { width: 12%; } /* Product */
+        #potential-list-table td:nth-child(5) { width: 12%; } /* Amount */
         #potential-list-table th:nth-child(6),
-        #potential-list-table td:nth-child(6) { width: 14%; } /* Last Activity */
+        #potential-list-table td:nth-child(6) { width: 12%; } /* Regional */
         #potential-list-table th:nth-child(7),
-        #potential-list-table td:nth-child(7) { width: 15%; } /* Data Validation */
+        #potential-list-table td:nth-child(7) { width: 10%; } /* Product */
+        #potential-list-table th:nth-child(8),
+        #potential-list-table td:nth-child(8) { width: 10%; } /* Last Activity */
+        #potential-list-table th:nth-child(9),
+        #potential-list-table td:nth-child(9) { width: 8%; } /* Data Validation */
 
         .table-with-sticky-footer {
             position: relative;
@@ -2259,6 +2263,7 @@
         #potential-list-table {
             table-layout: fixed;
             width: 100%;
+            min-width: 1200px; /* Minimum width untuk 9 kolom */
         }
 
         #potential-branch-table th,
@@ -2268,6 +2273,7 @@
             text-overflow: ellipsis;
             overflow: hidden;
             vertical-align: middle;
+            white-space: nowrap;
         }
 
         #potential-branch-table tfoot,
@@ -2339,25 +2345,25 @@
 
         #potential-branch-table thead th,
         #potential-list-table thead th {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
+            padding: 10px 8px !important;
+            font-size: 12px !important;
             font-weight: 600 !important;
-            line-height: 1.4 !important;
+            line-height: 1.3 !important;
         }
 
         #potential-branch-table tbody td,
         #potential-list-table tbody td {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
-            line-height: 1.4 !important;
+            padding: 10px 8px !important;
+            font-size: 12px !important;
+            line-height: 1.3 !important;
         }
 
         #potential-branch-table tfoot td,
         #potential-list-table tfoot td {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
+            padding: 10px 8px !important;
+            font-size: 12px !important;
             font-weight: 600 !important;
-            line-height: 1.4 !important;
+            line-height: 1.3 !important;
         }
 
         .potential-dealing-responsive {
@@ -3695,7 +3701,9 @@
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
                             <tr>
                                 <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Sales Name</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Status</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Segment</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Amount</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Regional</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Product</th>
@@ -3705,7 +3713,7 @@
                         </thead>
                         <tbody id="potential-list-tbody">
                             <tr>
-                                <td colspan="7" class="text-center py-5">
+                                <td colspan="9" class="text-center py-5">
                                     <div class="text-success">
                                         <div class="spinner-border text-success" role="status">
                                             <span class="visually-hidden">Loading...</span>
@@ -3718,7 +3726,9 @@
                         <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
                             <tr id="potential-list-total-row">
                                 <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-count">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" id="total-list-amount">0</td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
@@ -6617,7 +6627,7 @@ loadBranchSalesTrend();
 
                     tbody.html(`
                         <tr>
-                            <td colspan="7" class="text-center py-5">
+                            <td colspan="9" class="text-center py-5">
                                 <div class="text-success">
                                     <div class="spinner-border text-success" role="status">
                                         <span class="visually-hidden">Loading...</span>
@@ -6654,13 +6664,25 @@ loadBranchSalesTrend();
                                                       item.data_validation === 'moderate' ? 'badge-warning' : 'badge-danger';
                                 const validationBadge = `<span class="badge ${validationClass}">${item.data_validation}</span>`;
 
+                                // Logic untuk Segment: jika industry null atau "-" maka ambil other_industry
+                                let segment = '-';
+                                if (item.industry_detail) {
+                                    if (item.industry_detail.industry && item.industry_detail.industry !== '-' && item.industry_detail.industry !== null) {
+                                        segment = item.industry_detail.industry;
+                                    } else if (item.industry_detail.other_industry && item.industry_detail.other_industry !== null) {
+                                        segment = item.industry_detail.other_industry;
+                                    }
+                                }
+
                                 const row = $(`
                                     <tr class="potential-list-row">
                                         <td class="py-3 px-4">
                                             <strong>${item.customer_name || 'Unknown'}</strong>
                                             <br><small class="text-muted">${item.company || '-'}</small>
                                         </td>
+                                        <td class="text-center py-3 px-4">${item.sales_name || '-'}</td>
                                         <td class="text-center py-3 px-4">${statusBadge}</td>
+                                        <td class="text-center py-3 px-4">${segment}</td>
                                         <td class="text-center py-3 px-4">Rp${formatAmountShort(item.amount || 0)}</td>
                                         <td class="text-center py-3 px-4">${item.regional || '-'}</td>
                                         <td class="text-center py-3 px-4">${item.product || '-'}</td>
@@ -6678,7 +6700,7 @@ loadBranchSalesTrend();
                         } else {
                             tbody.html(`
                                 <tr>
-                                    <td colspan="7" class="text-center py-5 text-muted">
+                                    <td colspan="9" class="text-center py-5 text-muted">
                                         <i class="fas fa-info-circle mb-2" style="font-size: 1.5rem;"></i><br>
                                         <span>No potential dealing list data available for the selected period</span>
                                     </td>
@@ -6695,7 +6717,7 @@ loadBranchSalesTrend();
                         console.error('Error loading potential list table:', error);
                         tbody.html(`
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-danger">
+                                <td colspan="9" class="text-center py-5 text-danger">
                                     <i class="fas fa-exclamation-circle mb-2" style="font-size: 1.5rem;"></i><br>
                                     <span>Error loading potential dealing list data</span>
                                     <br><button class="btn btn-sm btn-outline-primary mt-3" onclick="loadPotentialListTable()">
