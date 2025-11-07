@@ -201,7 +201,6 @@
             }
         }
 
-        /* Chart Cards Styling - Modern Design */
         .chart-card {
             border-radius: 16px;
             background: #fff;
@@ -248,7 +247,7 @@
             background: #fff;
             transition: all 0.2s ease;
             min-width: 120px;
-            height: 40px; /* Fixed height for consistency */
+            height: 40px; 
             line-height: 1.5;
             display: inline-flex;
             align-items: center;
@@ -268,7 +267,7 @@
             border-radius: 8px;
             padding: 8px 20px;
             font-size: 13px;
-            height: 40px; /* Match input/select height */
+            height: 40px; 
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -291,7 +290,6 @@
             border: 1px solid #F1F3F4;
         }
 
-        /* SOURCE CONVERSION LISTS Styling */
         .source-conversion-section {
             background: #f8f9fa !important;
             border-radius: 15px !important;
@@ -323,7 +321,6 @@
             box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
         }
 
-        /* Source dropdown specific styling */
         #source-filter {
             max-width: 160px;
         }
@@ -335,7 +332,6 @@
             max-width: 160px;
         }
 
-        /* Source monitoring filter */
         #source-monitoring-source-filter {
             max-width: 140px;
         }
@@ -365,7 +361,6 @@
             box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
         }
 
-        /* Responsive improvements for SOURCE CONVERSION LISTS filters */
         @media (max-width: 768px) {
             .source-conversion-section {
                 padding: 20px !important;
@@ -410,7 +405,6 @@
             }
         }
 
-        /* COMPREHENSIVE FIX: Remove border-radius from ALL table elements */
         .table, .table-responsive, .source-conversion-responsive, .table-with-sticky-footer,
         #source-conversion-table, #potential-branch-table, #potential-list-table,
         .table *, .table-responsive *, .source-conversion-responsive *, 
@@ -429,7 +423,6 @@
             -moz-border-radius: 0 !important;
         }
 
-        /* Container styling without border-radius */
         .source-conversion-table-container, .table-with-sticky-footer, 
         .potential-dealing-responsive, .table-container,
         .card .table, .card .table-responsive {
@@ -438,7 +431,6 @@
             -moz-border-radius: 0 !important;
         }
 
-        /* Bootstrap table overrides */
         .table-bordered, .table-bordered th, .table-bordered td,
         .rounded, .rounded-top, .rounded-bottom, .rounded-left, .rounded-right {
             border-radius: 0 !important;
@@ -468,9 +460,8 @@
             background-color: #f8f9fa;
         }
 
-        /* Source Conversion Table Container with Max 5 Rows */
         .source-conversion-table-container {
-            max-height: 350px; /* Height for exactly 5 rows + header */
+            max-height: 350px;
             overflow-y: auto;
             overflow-x: auto;
             border-radius: 0 !important;
@@ -478,12 +469,10 @@
             background-color: #fff;
         }
 
-        /* Ensure table takes full width */
         .source-conversion-table-container .table {
             margin-bottom: 0;
         }
 
-        /* Sticky header styling */
         .source-conversion-table-container thead th {
             background-color: #115641 !important;
             border: none;
@@ -492,7 +481,6 @@
             z-index: 10;
         }
 
-        /* Table row height calculation for exactly 5 visible rows */
         #source-conversion-table tbody td {
             padding: 16px;
             border-top: 1px solid #f1f3f4;
@@ -500,7 +488,6 @@
             vertical-align: middle;
         }
 
-        /* Custom scrollbar for better UX */
         .source-conversion-table-container::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -520,26 +507,22 @@
             background: #0d4133;
         }
 
-        /* SOURCE CONVERSION LISTS specific styling for cross-browser compatibility */
         .source-conversion-responsive {
             position: relative;
-            min-height: 200px; /* Minimum height for small data */
-            max-height: 400px; /* Maximum height for large data */
-            overflow: auto; /* Enable scrolling */
-            border-radius: 0 !important; /* Remove border radius */
+            min-height: 200px; 
+            max-height: 400px; 
+            overflow: auto; 
+            border-radius: 0 !important; 
             border: 1px solid #e3e6f0;
             background-color: #fff;
             display: flex;
             flex-direction: column;
-            
-            /* Cross-browser scrolling support */
+
             -webkit-overflow-scrolling: touch;
-            /* Firefox scrollbar styling */
             scrollbar-width: thin;
             scrollbar-color: #115641 #f1f1f1;
         }
-        
-        /* Ensure SALES POTENTIAL DEALING tables work the same as SOURCE CONVERSION LISTS */
+
         #potential-branch-container,
         #potential-list-container {
             position: relative;
@@ -560,13 +543,12 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            overflow-y: auto; /* Enable vertical scrolling */
-            overflow-x: hidden; /* Hide horizontal scroll */
+            overflow-y: auto; 
+            overflow-x: hidden;
             position: relative;
             height: 100%;
         }
         
-        /* Chrome/Safari scrollbar styling for both container and scroll */
         .source-conversion-responsive::-webkit-scrollbar,
         .source-conversion-scroll::-webkit-scrollbar,
         #potential-branch-container::-webkit-scrollbar,
@@ -597,8 +579,7 @@
         #potential-list-container::-webkit-scrollbar-thumb:hover {
             background: #0d4133;
         }
-        
-        /* Ensure table takes full width and proper display */
+
         .source-conversion-responsive table {
             width: 100%;
             margin-bottom: 0;
@@ -606,8 +587,7 @@
             flex-direction: column;
             height: 100%;
         }
-        
-        /* Sticky header for all browsers */
+
         .source-conversion-responsive thead {
             flex-shrink: 0;
             position: relative;
@@ -620,16 +600,14 @@
             background-color: #115641 !important;
             border: none;
         }
-        
-        /* Scrollable body */
+
         .source-conversion-responsive tbody {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             display: block;
         }
-        
-        /* Sticky footer for all browsers */
+
         .source-conversion-responsive tfoot {
             flex-shrink: 0;
             position: relative;
@@ -642,15 +620,13 @@
             background-color: #115641 !important;
             border: none;
         }
-        
-        /* Table row styling for flexbox layout */
+
         .source-conversion-responsive tr {
             display: table;
             width: 100%;
             table-layout: fixed;
         }
-        
-        /* Apply same structure to SALES POTENTIAL DEALING tables */
+
         #potential-branch-container table,
         #potential-list-container table {
             width: 100%;
@@ -704,22 +680,19 @@
             width: 100%;
             table-layout: fixed;
         }
-        
-        /* Body content styling */
+
         .source-conversion-responsive tbody td {
             padding: 12px 16px;
             border-top: 1px solid #f1f3f4;
             font-size: 13px;
             vertical-align: middle;
         }
-        
-        /* Header and footer cell styling */
+
         .source-conversion-responsive thead th,
         .source-conversion-responsive tfoot td {
             padding: 12px 16px;
         }
-        
-        /* Apply same styling to SALES POTENTIAL DEALING tables */
+
         #potential-branch-container tbody td,
         #potential-list-container tbody td {
             padding: 12px 16px;
@@ -734,27 +707,25 @@
         #potential-list-container tfoot td {
             padding: 12px 16px;
         }
-        
-        /* Force footer visibility in all browsers */
+
         .source-conversion-responsive tfoot tr {
             display: table !important;
             width: 100% !important;
             table-layout: fixed !important;
         }
-        
-        /* Responsive height adjustment - untuk data sedikit atau kosong */
+
         .source-conversion-responsive.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Still allow some scrolling if needed */
-            overflow: auto !important; /* Maintain scrolling capability */
+            max-height: 300px !important; 
+            overflow: auto !important; 
         }
         
         .source-conversion-responsive.compact .source-conversion-scroll {
             height: auto !important;
-            max-height: 250px !important; /* Allow scrolling within compact mode */
-            overflow-y: auto !important; /* Enable vertical scrolling */
-            overflow-x: hidden !important; /* Hide horizontal scroll */
+            max-height: 250px !important; 
+            overflow-y: auto !important;
+            overflow-x: hidden !important; 
         }
         
         .source-conversion-responsive.compact table {
@@ -766,16 +737,12 @@
             height: auto !important;
             max-height: none !important;
         }
-        
-        /* Untuk card dengan data sedikit, pastikan footer tetap sticky tapi tidak ada scroll */
+
         .source-conversion-responsive.compact tfoot {
             position: relative !important;
             bottom: auto !important;
         }
-        
-        /* CSS yang lebih spesifik untuk mencegah konflik antar tabel */
-        
-        /* SOURCE CONVERSION LISTS - compact mode */
+
         .source-conversion-responsive:has(#source-conversion-table).compact {
             height: auto !important;
             min-height: auto !important;
@@ -793,54 +760,50 @@
             height: auto !important;
             max-height: none !important;
         }
-        
-        /* SALES POTENTIAL DEALING BRANCH - compact mode */
+
         .source-conversion-responsive:has(#potential-branch-table).compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Allow scrolling in compact mode */
-            overflow: auto !important; /* Enable scrolling */
+            max-height: 300px !important; 
+            overflow: auto !important; 
         }
         
         .source-conversion-responsive:has(#potential-branch-table).compact .source-conversion-scroll {
             height: auto !important;
-            max-height: 250px !important; /* Allow scrolling */
-            overflow-y: auto !important; /* Enable vertical scrolling */
-            overflow-x: hidden !important; /* Hide horizontal scroll */
+            max-height: 250px !important;
+            overflow-y: auto !important; 
+            overflow-x: hidden !important; 
         }
         
         .source-conversion-responsive:has(#potential-branch-table).compact tbody {
-            overflow-y: auto !important; /* Enable vertical scrolling */
-            overflow-x: hidden !important; /* Hide horizontal scroll */
+            overflow-y: auto !important; 
+            overflow-x: hidden !important;
             height: auto !important;
-            max-height: 200px !important; /* Allow scrolling */
+            max-height: 200px !important; 
         }
-        
-        /* SALES POTENTIAL DEALING LIST - compact mode */
+
         .source-conversion-responsive:has(#potential-list-table).compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Allow scrolling in compact mode */
-            overflow: auto !important; /* Enable scrolling */
+            max-height: 300px !important; 
+            overflow: auto !important;
         }
         
         .source-conversion-responsive:has(#potential-list-table).compact .source-conversion-scroll {
             height: auto !important;
-            max-height: 250px !important; /* Allow scrolling */
-            overflow-y: auto !important; /* Enable vertical scrolling */
-            overflow-x: hidden !important; /* Hide horizontal scroll */
+            max-height: 250px !important;
+            overflow-y: auto !important; 
+            overflow-x: hidden !important; 
         }
         
         .source-conversion-responsive:has(#potential-list-table).compact tbody {
-            overflow-y: auto !important; /* Enable vertical scrolling */
-            overflow-x: hidden !important; /* Hide horizontal scroll */
+            overflow-y: auto !important; 
+            overflow-x: hidden !important;
             height: auto !important;
-            max-height: 200px !important; /* Allow scrolling */
+            max-height: 200px !important;
         }
-        
-        /* Fallback untuk browser yang tidak support :has() selector dan CSS yang lebih spesifik */
+
         @supports not (selector(:has())) {
-            /* SOURCE CONVERSION LISTS */
             #source-conversion-container.compact {
                 height: auto !important;
                 min-height: auto !important;
@@ -849,49 +812,46 @@
             
             #source-conversion-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: 200px !important; /* Allow mobile scrolling */
-                overflow-y: auto !important; /* Enable vertical scrolling */
-                overflow-x: hidden !important; /* Hide horizontal scroll */
+                max-height: 200px !important; 
+                overflow-y: auto !important; 
+                overflow-x: hidden !important; 
             }
-            
-            /* SALES POTENTIAL DEALING BRANCH */
+
             #potential-branch-container.compact {
                 height: auto !important;
                 min-height: auto !important;  
-                max-height: 250px !important; /* Allow mobile scrolling */
-                overflow: auto !important; /* Enable scrolling */
+                max-height: 250px !important; 
+                overflow: auto !important; 
             }
             
             #potential-branch-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: 200px !important; /* Allow mobile scrolling */
-                overflow-y: auto !important; /* Enable vertical scrolling */
-                overflow-x: hidden !important; /* Hide horizontal scroll */
+                max-height: 200px !important; 
+                overflow-y: auto !important; 
+                overflow-x: hidden !important; 
             }
-            
-            /* SALES POTENTIAL DEALING LIST */
+
             #potential-list-container.compact {
                 height: auto !important;
                 min-height: auto !important;
-                max-height: 250px !important; /* Allow mobile scrolling */
-                overflow: auto !important; /* Enable scrolling */
+                max-height: 250px !important; 
+                overflow: auto !important; 
             }
             
             #potential-list-container.compact .source-conversion-scroll {
                 height: auto !important;
-                max-height: 200px !important; /* Allow mobile scrolling */
-                overflow-y: auto !important; /* Enable vertical scrolling */
-                overflow-x: hidden !important; /* Hide horizontal scroll */
+                max-height: 200px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important; 
             }
         }
-        
-        /* CSS untuk mode normal (non-compact) - memastikan scrolling berfungsi */
+
         #potential-branch-container:not(.compact),
         #potential-list-container:not(.compact),
         #source-conversion-container:not(.compact) {
             overflow: auto !important;
             max-height: 400px !important;
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            -webkit-overflow-scrolling: touch; 
         }
         
         #potential-branch-container:not(.compact) .source-conversion-scroll,
@@ -900,10 +860,9 @@
             overflow-y: auto !important;
             overflow-x: hidden !important;
             height: 100% !important;
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            -webkit-overflow-scrolling: touch; 
         }
-        
-        /* Force scrollable tbody for all potential tables */
+
         #potential-branch-table tbody,
         #potential-list-table tbody {
             overflow-y: auto !important;
@@ -911,8 +870,7 @@
             display: block !important;
             max-height: 300px !important;
         }
-        
-        /* Ensure table headers have proper width in scrollable mode */
+
         #potential-branch-table thead,
         #potential-list-table thead {
             display: block !important;
@@ -924,30 +882,28 @@
             width: 100% !important;
             table-layout: fixed !important;
         }
-        
-        /* CSS tambahan yang lebih spesifik untuk mengatasi konflik */
+
         #source-conversion-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Allow some scrolling even in compact */
-            overflow: auto !important; /* Enable scrolling */
+            max-height: 300px !important; 
+            overflow: auto !important; 
         }
         
         #potential-branch-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Allow some scrolling even in compact */
-            overflow: auto !important; /* Enable scrolling */
+            max-height: 300px !important; 
+            overflow: auto !important; 
         }
         
         #potential-list-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; /* Allow some scrolling even in compact */
-            overflow: auto !important; /* Enable scrolling */
+            max-height: 300px !important; 
+            overflow: auto !important; 
         }
-        
-        /* Cross-browser scrollbar styling */
+
         .source-conversion-responsive tbody::-webkit-scrollbar,
         #potential-branch-container tbody::-webkit-scrollbar,
         #potential-list-container tbody::-webkit-scrollbar {
@@ -973,8 +929,7 @@
         #potential-list-container tbody::-webkit-scrollbar-thumb:hover {
             background: #0d4133;
         }
-        
-        /* Ensure consistent column widths for SOURCE CONVERSION LISTS */
+
         #source-conversion-table th:nth-child(1),
         #source-conversion-table td:nth-child(1) { width: 20%; }
         #source-conversion-table th:nth-child(2),
@@ -990,7 +945,6 @@
         #source-conversion-table th:nth-child(7),
         #source-conversion-table td:nth-child(7) { width: 15%; }
 
-        /* Column widths for SALES POTENTIAL DEALING BRANCH (6 columns) */
         #potential-branch-table th:nth-child(1),
         #potential-branch-table td:nth-child(1) { width: 25%; } /* Nama Sales */
         #potential-branch-table th:nth-child(2),
@@ -1004,7 +958,7 @@
         #potential-branch-table th:nth-child(6),
         #potential-branch-table td:nth-child(6) { width: 12%; } /* Periode */
 
-        /* Column widths for SALES POTENTIAL DEALING LIST (7 columns) */
+
         #potential-list-table th:nth-child(1),
         #potential-list-table td:nth-child(1) { width: 20%; } /* Nama Customer */
         #potential-list-table th:nth-child(2),
@@ -1020,9 +974,6 @@
         #potential-list-table th:nth-child(7),
         #potential-list-table td:nth-child(7) { width: 15%; } /* Data Validation */
 
-
-
-        /* Sticky Footer for Total Row */
         .table-with-sticky-footer {
             position: relative;
             background: white;
@@ -1055,15 +1006,11 @@
             background: #0d4133;
         }
 
-        /* Critical CSS for Chrome sticky footer compatibility */
         .table-body-scroll {
-            /* Create stacking context for sticky positioning */
             position: relative;
             z-index: 1;
-            /* Force hardware acceleration */
             -webkit-transform: translateZ(0);
             transform: translateZ(0);
-            /* Optimize for scroll performance */
             -webkit-overflow-scrolling: touch;
         }
 
@@ -1085,7 +1032,6 @@
             font-size: 15px !important;
         }
 
-        /* Specific styling for Source Monitoring List - compact design */
         .table-footer-sticky.source-monitoring-footer {
             background: #115641;
             border-radius: 0;
@@ -1112,12 +1058,10 @@
             margin-bottom: 0;
         }
 
-        /* Ensure last row has proper spacing */
         .table-body-scroll tbody tr:last-child td {
             border-bottom: 1px solid #f1f3f4;
         }
 
-        /* Source Link Styling */
         .source-link {
             color: #007bff;
             text-decoration: none;
@@ -1130,7 +1074,6 @@
             text-decoration: none;
         }
 
-        /* Source Monitoring Table Styling */
         #source-monitoring-table {
             border-radius: 20px;
             overflow: hidden;
@@ -1152,7 +1095,6 @@
             background-color: #f8f9fa;
         }
 
-        /* Responsive adjustments for max 5 rows */
         @media (max-width: 768px) {
             #source-conversion-table thead th,
             #source-conversion-table tbody td {
@@ -1164,13 +1106,11 @@
                 font-size: 11px;
                 padding: 3px 8px;
             }
-            
-            /* Adjust container height for mobile */
+
             .source-conversion-table-container {
                 max-height: 300px;
             }
 
-            /* Reset source filter width for mobile */
             #source-filter,
             #source-monitoring-source-filter {
                 max-width: 100%;
@@ -1188,13 +1128,11 @@
                 font-size: 10px;
                 padding: 2px 6px;
             }
-            
-            /* Further adjust container height for small mobile */
+
             .source-conversion-table-container {
                 max-height: 280px;
             }
 
-            /* Stack filters vertically on small screens */
             .source-conversion-section .row {
                 flex-direction: column;
             }
@@ -1227,7 +1165,6 @@
             font-size: 0.9em;
         }
 
-        /* Source Monitoring Compact Table Styling */
         #source-monitoring-table {
             font-size: 10px;
             background-color: transparent;
@@ -1257,14 +1194,12 @@
             background-color: rgba(248, 249, 250, 0.5);
         }
 
-        /* Specific width for Source column */
         #source-monitoring-table th:first-child,
         #source-monitoring-table td:first-child {
             min-width: 120px;
             max-width: 120px;
         }
 
-        /* Specific width for month columns */
         #source-monitoring-table th:not(:first-child):not(:last-child),
         #source-monitoring-table td:not(:first-child):not(:last-child) {
             width: 45px;
@@ -1272,14 +1207,12 @@
             max-width: 45px;
         }
 
-        /* Specific width for Total column */
         #source-monitoring-table th:last-child,
         #source-monitoring-table td:last-child {
             min-width: 60px;
             max-width: 60px;
         }
 
-        /* Table container styling - now inside chart-card */
         .source-monitoring-table-container {
             background-color: transparent;
             border: none;
@@ -1288,7 +1221,6 @@
             overflow: hidden;
         }
 
-        /* Responsive Source Monitoring */
         @media (max-width: 1199px) {
             #source-monitoring-table {
                 font-size: 9px !important;
@@ -1370,7 +1302,6 @@
         }
 
         @media (max-width: 767px) {
-            /* Stack Source Monitoring components vertically on mobile */
             .source-monitoring-mobile-stack .col-lg-6 {
                 margin-bottom: 1rem !important;
             }
@@ -1432,14 +1363,14 @@
                 min-width: 110px;
                 padding: 7px 10px;
                 font-size: 12px;
-                height: 36px; /* Consistent height for tablet */
+                height: 36px; 
             }
             
             .modern-apply-btn {
                 padding: 7px 16px;
                 font-size: 12px;
                 min-width: 70px;
-                height: 36px; /* Match input/select height for tablet */
+                height: 36px; 
             }
         }
 
@@ -1461,13 +1392,13 @@
                 min-width: 100px;
                 padding: 6px 8px;
                 font-size: 11px;
-                height: 32px; /* Consistent height for mobile */
+                height: 32px; 
             }
             
             .modern-apply-btn {
                 padding: 6px 14px;
                 font-size: 11px;
-                height: 32px; /* Match input/select height for mobile */
+                height: 32px;
                 min-width: 60px;
             }
         }
@@ -1488,17 +1419,16 @@
             .modern-input {
                 width: 100%;
                 min-width: 0;
-                height: 32px; /* Consistent height for small screens */
+                height: 32px;
             }
             
             .modern-apply-btn {
                 width: 100%;
                 min-width: 0;
-                height: 32px; /* Match input/select height for small screens */
+                height: 32px; 
             }
         }
 
-        /* Dashboard Section Headers Styling */
         .dashboard-section-header {
             background: #115641 !important;
             color: white !important;
@@ -1523,7 +1453,6 @@
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
-        /* Responsive Dashboard Headers */
         @media (max-width: 768px) {
             .dashboard-section-header {
                 padding: 12px 20px;
@@ -1546,7 +1475,6 @@
             }
         }
 
-        /* Achievement Cards Styling */
         .achievement-card {
             background: #fff;
             border-radius: 20px;
@@ -1626,7 +1554,6 @@
             font-weight: 500;
         }
 
-        /* Branch List Container for Super Admin */
         .branch-list-container {
             width: 100%;
             max-height: 290px;
@@ -1680,7 +1607,6 @@
             font-weight: 600;
         }
 
-        /* Progress Bar Styling */
         .branch-progress {
             margin-top: 8px;
         }
@@ -1708,7 +1634,6 @@
             text-align: right;
         }
 
-        /* Custom scrollbar for branch list */
         .branch-list-container::-webkit-scrollbar {
             width: 4px;
         }
@@ -1727,7 +1652,6 @@
             background: #0d4133;
         }
 
-        /* Responsive Achievement Cards */
         @media (max-width: 1199px) {
             .achievement-card {
                 height: 350px;
@@ -1849,8 +1773,7 @@
             .stat-target {
                 font-size: 12px;
             }
-            
-            /* Mobile specific adjustments */
+
             .d-flex.flex-column.flex-sm-row {
                 flex-direction: column !important;
             }
@@ -1869,7 +1792,6 @@
             }
         }
 
-        /* Additional responsive adjustments for title and controls */
         @media (max-width: 991px) {
             .d-flex.flex-column.flex-lg-row h4 {
                 font-size: 20px !important;
@@ -1888,12 +1810,9 @@
             }
         }
 
-        /* SLS Dealing Styling */
         .sls-dealing-mobile-stack {
-            /* Same styling as source-monitoring-mobile-stack */
         }
 
-        /* SLS Dealing Table Styling */
         #sls-dealing-table {
             font-size: 10px;
             background-color: transparent;
@@ -1928,7 +1847,6 @@
             background-color: rgba(248, 249, 250, 0.5);
         }
 
-        /* Remove border-radius from table container */
         .table-with-sticky-footer {
             border-radius: 0 !important;
             position: relative;
@@ -1938,13 +1856,11 @@
             border-radius: 0 !important;
         }
 
-        /* Remove border-radius from all table elements */
         .table, .table thead, .table tbody, .table tfoot, 
         .table th, .table td, .table tr {
             border-radius: 0 !important;
         }
 
-        /* Source Monitoring Table Sticky Header */
         #source-monitoring-table thead {
             position: sticky;
             top: 0;
@@ -1961,7 +1877,6 @@
             border-radius: 0 !important;
         }
 
-        /* Source Monitoring Table Sticky Footer - CRITICAL FOR CHROME */
         #source-monitoring-table tfoot {
             position: sticky;
             bottom: 0;
@@ -1979,7 +1894,6 @@
             border: none !important;
         }
 
-        /* Source Conversion Table Sticky Header */
         #source-conversion-table thead {
             position: sticky;
             top: 0;
@@ -1996,7 +1910,6 @@
             border-radius: 0 !important;
         }
 
-        /* Ensure Source Conversion table columns have consistent width */
         #source-conversion-table,
         .table-footer-sticky {
             table-layout: fixed;
@@ -2018,7 +1931,7 @@
         #source-conversion-table th:nth-child(7),
         .table-footer-sticky td:nth-child(7) { width: 15%; }
 
-        /* Ensure Source Monitoring and SLS Dealing tables alignment */
+
         #source-monitoring-table,
         #sls-dealing-table,
         #source-monitoring-table + .table-footer-sticky,
@@ -2027,20 +1940,17 @@
             width: 100%;
         }
 
-        /* Force consistent column alignment */
         .table-footer-sticky td {
             vertical-align: middle;
             text-align: center !important;
             padding: 8px 4px !important;
         }
 
-        /* Override for first column (TOTAL) */
         .table-footer-sticky td:first-child {
             text-align: left !important;
             padding-left: 8px !important;
         }
 
-        /* Force Hardware Acceleration and Chrome Compatibility for Sticky Elements */
         #source-monitoring-table tfoot,
         #sls-dealing-table tfoot,
         #source-monitoring-table tfoot td,
@@ -2054,17 +1964,15 @@
             will-change: transform !important;
         }
 
-        /* Additional Chrome-specific fixes for table containers */
         .table-with-sticky-footer {
             -webkit-overflow-scrolling: touch;
             contain: layout style paint;
         }
 
-        /* Integrated Footer Styling - Enhanced for Chrome Compatibility */
         #source-monitoring-table tfoot,
         #sls-dealing-table tfoot {
             background-color: #115641 !important;
-            position: -webkit-sticky !important; /* Safari */
+            position: -webkit-sticky !important;
             position: sticky !important;
             bottom: 0 !important;
             z-index: 15 !important;
@@ -2076,25 +1984,22 @@
             color: white !important;
             font-weight: bold !important;
             border: none !important;
-            position: -webkit-sticky !important; /* Safari */
+            position: -webkit-sticky !important; 
             position: sticky !important;
             bottom: 0 !important;
             z-index: 15 !important;
         }
 
-        /* First column alignment */
         #source-monitoring-table tfoot td:first-child,
         #sls-dealing-table tfoot td:first-child {
             text-align: left !important;
         }
 
-        /* Other columns center alignment */
         #source-monitoring-table tfoot td:not(:first-child),
         #sls-dealing-table tfoot td:not(:first-child) {
             text-align: center !important;
         }
 
-        /* SLS Potential Dealing Tables Styling */
         #potential-branch-table thead,
         #potential-dealing-table thead {
             position: sticky;
@@ -2141,7 +2046,6 @@
             text-align: center !important;
         }
 
-        /* Potential Dealing Controls Alignment */
         .chart-controls {
             align-items: center !important;
         }
@@ -2159,7 +2063,6 @@
             min-width: auto;
         }
 
-        /* Ensure table headers don't break awkwardly */
         #potential-branch-table th,
         #potential-dealing-table th,
         #potential-list-table th {
@@ -2168,7 +2071,6 @@
             padding-bottom: 8px !important;
         }
 
-        /* Perfect alignment for Potential Dealing tables */
         #potential-branch-table,
         #potential-list-table {
             table-layout: fixed;
@@ -2212,7 +2114,6 @@
             text-align: center !important;
         }
 
-        /* Fully responsive height for tables - adapts to content */
         .potential-dealing-responsive {
             min-height: auto;
             max-height: 500px;
@@ -2252,7 +2153,6 @@
             background: #a8a8a8;
         }
 
-        /* Header, Body, and Footer consistency */
         #potential-branch-table thead th,
         #potential-list-table thead th {
             padding: 12px 16px !important;
@@ -2276,12 +2176,10 @@
             line-height: 1.4 !important;
         }
 
-        /* Responsive table behavior */
         .potential-dealing-responsive {
             transition: height 0.3s ease;
         }
 
-        /* Optimize for small data sets */
         #potential-branch-table tr,
         #potential-list-table tr,
         #source-conversion-table tr {
@@ -2289,13 +2187,11 @@
             min-height: 45px;
         }
 
-        /* Compact mode for tables with few rows */
         .potential-dealing-responsive:has(tbody tr:only-child),
         .potential-dealing-responsive:has(tbody tr:nth-child(-n+2)) {
             min-height: auto;
         }
 
-        /* Ensure loading and empty states are compact */
         .potential-dealing-responsive .text-center.py-5 {
             padding: 2rem 1rem !important;
         }
@@ -2304,7 +2200,6 @@
             padding: 1.5rem 1rem !important;
         }
 
-        /* Apply same styling to SOURCE CONVERSION LISTS */
         #source-conversion-table {
             table-layout: fixed;
             width: 100%;
@@ -2362,7 +2257,6 @@
             min-height: 45px;
         }
 
-        /* Smart height adjustment based on content */
         .potential-dealing-responsive table {
             height: auto;
             min-height: fit-content;
@@ -2381,7 +2275,6 @@
             min-height: fit-content;
         }
 
-        /* Override any conflicting SOURCE CONVERSION styles */
         #source-conversion-table .py-3 {
             padding-top: 12px !important;
             padding-bottom: 12px !important;
@@ -2392,12 +2285,10 @@
             padding-right: 16px !important;
         }
 
-        /* Ensure consistent text alignment */
         #source-conversion-table .text-center {
             text-align: center !important;
         }
 
-        /* Ensure sticky header works properly */
         #sls-dealing-table thead {
             position: sticky;
             top: 0;
@@ -2422,12 +2313,10 @@
             border-top-right-radius: 0 !important;
         }
 
-        /* Remove border-radius from sticky footer */
         .table-footer-sticky.source-monitoring-footer {
             border-radius: 0 !important;
         }
 
-        /* Responsive SLS Dealing */
         @media (max-width: 1199px) {
             #sls-dealing-table {
                 font-size: 9px !important;
@@ -2451,7 +2340,6 @@
         }
 
         @media (max-width: 767px) {
-            /* Stack SLS Dealing components vertically on mobile */
             .sls-dealing-mobile-stack .col-lg-6 {
                 margin-bottom: 1rem !important;
             }
@@ -2481,10 +2369,7 @@
 
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
-        
-        {{-- Row 1 - Qty & ATR Time (5 Cards) --}}
         <div class="row" id="process-flow-container">
-            {{-- All Leads In --}}
             <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
                 <div class="process-flow-card">
                     <div class="process-flow-icon">
@@ -2555,7 +2440,6 @@
             </div>
         </div>
         
-        {{-- Row 2 - Percentage & Amount Data (5 Cards) --}}
         <div class="row" id="process-flow-row2">
             {{-- All Leads In - Percentage --}}
             <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
@@ -2635,10 +2519,8 @@
         
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
-                {{-- Filter Controls --}}
                 <div class="p-4 bg-light source-conversion-section">
                     @if(auth()->user()->role?->code === 'super_admin')
-                    {{-- Super Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">Branch</label>
@@ -2674,7 +2556,6 @@
                         </div>
                     </div>
                     @else
-                    {{-- Non-Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-3 col-md-3 col-sm-6">
                             <label class="form-label">Source</label>
@@ -2703,9 +2584,7 @@
                     @endif
                 </div>
 
-                {{-- Responsive Table with Integrated Footer --}}
                 <div class="source-conversion-responsive" id="source-conversion-container">
-                    <!-- Scrollable Table Body -->
                     <div class="source-conversion-scroll">
                         <table class="table table-hover mb-0" id="source-conversion-table">
                             <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
@@ -2752,14 +2631,10 @@
     <!-- SOURCE MONITORING Section -->
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
-        
-        <!-- Side-by-side Source Monitoring row -->
         <div class="row source-monitoring-mobile-stack">
-            <!-- Source Monitoring Chart (Left) -->
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="card chart-card shadow-sm border-0">
                     <div class="card-body p-4">
-                        <!-- Chart Title -->
                         <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h5 class="chart-title mb-0">Source Monitoring Chart</h5>
@@ -2790,7 +2665,6 @@
                             </div>
                         </div>
 
-                        <!-- Chart Container -->
                         <div class="chart-container" style="height: 350px; position: relative;">
                             <canvas id="source-monitoring-chart"></canvas>
                         </div>
@@ -2802,15 +2676,13 @@
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="card chart-card shadow-sm border-0">
                     <div class="card-body p-4">
-                        <!-- Table Title -->
                         <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h5 class="chart-title mb-0">Source Monitoring List</h5>
                                 {{-- <p class="chart-subtitle text-muted mb-0">Monthly Data Summary</p> --}}
                             </div>
                         </div>
-                        
-                        <!-- Table Controls -->
+
                         <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
                             @if(auth()->user()->role?->code === 'super_admin')
                             <div class="control-item">
@@ -2841,10 +2713,8 @@
                             </div>
                         </div>
 
-                        {{-- Table with Sticky Footer for Total - Same as SLS Dealing --}}
                         <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
                             <div style="min-width: 900px;">
-                                <!-- Scrollable Table Body -->
                                 <div class="table-body-scroll" style="overflow: visible;">
                                     <table class="table table-hover table-sm mb-0" id="source-monitoring-table">
                                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
@@ -2902,7 +2772,6 @@
                 </div>
             </div>
         </div>
-        <!-- End side-by-side Source Monitoring row -->
     </div>
 
     
@@ -3093,7 +2962,6 @@
         
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
-                {{-- Filter Controls --}}
                 <div class="p-4 bg-light">
                     <div class="row g-3 align-items-end justify-content-start">
                         <div class="col-md-3 ms-auto">
@@ -3114,12 +2982,9 @@
                         </div>
                     </div>
                 </div>
-                
-                {{-- Main Content --}}
+
                 <div class="p-4">                @if(auth()->user()->role?->code === 'super_admin')
-                <!-- Super Admin Layout -->
                 <div class="row g-4">
-                    <!-- Global Achievement -->
                     <div class="col-lg-4 col-md-6">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3144,7 +3009,6 @@
                         </div>
                     </div>
 
-                    <!-- All Branch Target -->
                     <div class="col-lg-4 col-md-6">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3169,7 +3033,6 @@
                         </div>
                     </div>
 
-                    <!-- Achievement per Branch Container -->
                     <div class="col-lg-4 col-md-12">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3177,7 +3040,6 @@
                             </div>
                             <div class="achievement-body" style="height: calc(100% - 70px); padding: 16px;">
                                 <div id="branch_achievements_container" class="branch-list-container">
-                                    <!-- Branch items will be populated by JavaScript -->
                                     <div class="branch-item">
                                         <div class="branch-info">
                                             <span class="branch-name">BRANCH JAKARTA</span>
@@ -3229,9 +3091,7 @@
                     </div>
                 </div>
                 @else
-                <!-- Branch User Layout -->
                 <div class="row g-4">
-                    <!-- Global Achievement -->
                     <div class="col-lg-4 col-md-6">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3256,7 +3116,6 @@
                         </div>
                     </div>
 
-                    <!-- All Branch Target (Plan) -->
                     <div class="col-lg-4 col-md-6">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3281,7 +3140,6 @@
                         </div>
                     </div>
 
-                    <!-- Achievement per Branch -->
                     <div class="col-lg-4 col-md-12">
                         <div class="achievement-card">
                             <div class="achievement-header">
@@ -3312,17 +3170,13 @@
         </div>
     </div>
 
-    <!-- Side-by-side charts section -->
     <div class="col-md-12 mb-4">
-        <!-- Side-by-side charts row -->
         <div class="row">
-          <!-- Target vs Sales Chart (Left) -->
           <div class="col-lg-6 col-md-12 mb-4">
             <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">TARGET VS SALES</h2>
             <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
               <div class="card-body p-4">
-            
-            <!-- Chart Controls -->
+
             <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
               <div class="control-item">
                 <select id="tvsm_scope" class="form-select modern-select">
@@ -3342,7 +3196,6 @@
               </div>
             </div>
 
-            <!-- Chart Container -->
             <div class="chart-container" style="height: 300px; position: relative;">
               <canvas id="tvsm_chart"></canvas>
             </div>
@@ -3350,13 +3203,11 @@
         </div>
       </div>
 
-          <!-- Achievement vs Target Chart (Right) -->
           <div class="col-lg-6 col-md-12 mb-4">
             <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">ACHIEVEMENT VS TARGET</h2>
             <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
               <div class="card-body p-4">
-            
-            <!-- Chart Controls -->
+
             <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
               <div class="control-item">
                 <input type="number" id="svt_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
@@ -3368,14 +3219,12 @@
               </div>
             </div>
 
-            <!-- Chart Container -->
             <div class="chart-container" style="height: 300px; position: relative;">
               <canvas id="svt_percent_chart"></canvas>
             </div>
             </div>
           </div>
         </div>
-        <!-- End side-by-side charts row -->
       </div>
     </div>
 
@@ -3383,20 +3232,17 @@
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
         
-        <!-- Side-by-side SLS Dealing row -->
         <div class="row sls-dealing-mobile-stack">
             <!-- SLS Dealing Chart (Left) -->
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="card chart-card shadow-sm border-0">
                     <div class="card-body p-4">
-                        <!-- Chart Title -->
                         <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h5 class="chart-title mb-0">Dealing Chart</h5>
                             </div>
                         </div>
-                        
-                        <!-- Chart Controls -->
+
                         <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
                             @if(auth()->user()->role?->code === 'super_admin')
                             <div class="control-item">
@@ -3423,7 +3269,6 @@
                             </div>
                         </div>
 
-                        <!-- Chart Container -->
                         <div class="chart-container" style="height: 350px; position: relative;">
                             <canvas id="sls-dealing-chart"></canvas>
                         </div>
@@ -3435,14 +3280,12 @@
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="card chart-card shadow-sm border-0">
                     <div class="card-body p-4">
-                        <!-- Table Title -->
                         <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h5 class="chart-title mb-0">Dealing List</h5>
                             </div>
                         </div>
-                        
-                        <!-- Table Controls -->
+
                         <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
                             @if(auth()->user()->role?->code === 'super_admin')
                             <div class="control-item">
@@ -3469,10 +3312,8 @@
                             </div>
                         </div>
 
-                        {{-- Table with Sticky Footer for Total --}}
                         <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
                             <div style="min-width: 900px;">
-                                <!-- Scrollable Table Body -->
                                 <div class="table-body-scroll" style="overflow: visible;">
                                     <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
                                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
@@ -3516,7 +3357,6 @@
                 </div>
             </div>
         </div>
-        <!-- End side-by-side SLS Dealing row -->
     </div>
 
     <!-- SALES POTENTIAL DEALING BRANCH Section -->
@@ -3525,10 +3365,8 @@
         
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
-                {{-- Filter Controls --}}
                 <div class="p-4 bg-light potential-dealing-section">
                     @if(auth()->user()->role?->code === 'super_admin')
-                    {{-- Super Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">Branch</label>
@@ -3555,7 +3393,6 @@
                         </div>
                     </div>
                     @else
-                    {{-- Non-Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
@@ -3575,7 +3412,6 @@
                     @endif
                 </div>
 
-                {{-- Responsive Table with Integrated Footer - Same Structure as SOURCE CONVERSION LISTS --}}
                 <div class="source-conversion-responsive" id="potential-branch-container">
                     <table class="table table-hover mb-0" id="potential-branch-table">
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
@@ -3622,10 +3458,8 @@
         
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
-                {{-- Filter Controls --}}
                 <div class="p-4 bg-light potential-dealing-section">
                     @if(auth()->user()->role?->code === 'super_admin')
-                    {{-- Super Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-3 col-md-4 col-sm-6">
                             <label class="form-label">Branch</label>
@@ -3652,7 +3486,6 @@
                         </div>
                     </div>
                     @else
-                    {{-- Non-Admin Layout - Single row with all filters --}}
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
@@ -4599,7 +4432,6 @@ function loadTargetVsSalesMonthly() {
 const donutBranchCharts = {};
 
 function renderDonut(ctx, achieved, target) {
-  // clamp agar tidak negatif/lebih dari target pada visual
   const inTarget = Math.min(achieved, target);
   const remaining = Math.max(target - inTarget, 0);
 
@@ -4650,39 +4482,31 @@ function loadSalesAchievementDonuts() {
   };
 
   $.post('{{ route('dashboard.sales-achievement-donut') }}', params, function(res){
-    // Check if user is super admin or branch user
     const isSuperAdmin = {{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }};
     
     if (isSuperAdmin) {
-        // SUPER ADMIN LAYOUT
-        
-        // Global Achievement
         const g = res.global || { achieved:0, target:10000000, percent:0 };
         const gctx = document.getElementById('donut_global');
         if (gctx) {
             if (donutGlobalChart) donutGlobalChart.destroy();
             donutGlobalChart = renderDonut(gctx.getContext('2d'), g.achieved, g.target);
-            
-            // Update stats
+
             $('#global_achievement_pct').text((g.percent ? g.percent.toFixed(0) : '0') + '%');
             $('#global_achievement_amount').text('Rp' + number_format(g.achieved,0,',','.'));
             $('#global_target_amount').text('Rp' + number_format(g.target,0,',','.'));
         }
 
-        // All Branch Target
         const all = res.all_branch || { achieved:0, target:10000000, percent:0 };
         const allCtx = document.getElementById('donut_all');
         if (allCtx) {
             if (donutAllChart) donutAllChart.destroy();
             donutAllChart = renderDonut(allCtx.getContext('2d'), all.achieved, all.target);
-            
-            // Update stats
+
             $('#all_achievement_pct').text((all.percent ? all.percent.toFixed(0) : '0') + '%');
             $('#all_achievement_amount').text('Rp' + number_format(all.achieved,0,',','.'));
             $('#all_target_amount').text('Rp' + number_format(all.target,0,',','.'));
         }
 
-        // Branch Achievements List
         const container = $('#branch_achievements_container');
         container.empty();
         
@@ -4715,43 +4539,36 @@ function loadSalesAchievementDonuts() {
         });
         
     } else {
-        // BRANCH USER LAYOUT
-        
-        // Global Achievement for Branch User
+
         const g = res.global || { achieved:0, target:10000000, percent:0 };
         const gBranchCtx = document.getElementById('donut_global_branch');
         if (gBranchCtx) {
             if (donutGlobalBranchChart) donutGlobalBranchChart.destroy();
             donutGlobalBranchChart = renderDonut(gBranchCtx.getContext('2d'), g.achieved, g.target);
-            
-            // Update stats
+
             $('#global_branch_achievement_pct').text((g.percent ? g.percent.toFixed(0) : '0') + '%');
             $('#global_branch_achievement_amount').text('Rp' + number_format(g.achieved,0,',','.'));
             $('#global_branch_target_amount').text('Rp' + number_format(g.target,0,',','.'));
         }
 
-        // All Branch Target (Plan) for Branch User
         const all = res.all_branch || { achieved:0, target:10000000, percent:0 };
         const allBranchCtx = document.getElementById('donut_all_branch');
         if (allBranchCtx) {
             if (donutAllBranchChart) donutAllBranchChart.destroy();
             donutAllBranchChart = renderDonut(allBranchCtx.getContext('2d'), all.achieved, all.target);
-            
-            // Update stats
+
             $('#all_branch_achievement_pct').text((all.percent ? all.percent.toFixed(0) : '0') + '%');
             $('#all_branch_achievement_amount').text('Rp' + number_format(all.achieved,0,',','.'));
             $('#all_branch_target_amount').text('Rp' + number_format(all.target,0,',','.'));
         }
 
-        // Single Branch Achievement for Branch User
         const branches = res.branches || [];
         const currentBranch = branches.length > 0 ? branches[0] : { achieved:0, target:10000000, percent:0 };
         const branchSingleCtx = document.getElementById('donut_branch_single');
         if (branchSingleCtx) {
             if (donutBranchSingleChart) donutBranchSingleChart.destroy();
             donutBranchSingleChart = renderDonut(branchSingleCtx.getContext('2d'), currentBranch.achieved, currentBranch.target);
-            
-            // Update stats
+
             $('#branch_single_achievement_pct').text((currentBranch.percent ? currentBranch.percent.toFixed(0) : '0') + '%');
             $('#branch_single_achievement_amount').text('Rp' + number_format(currentBranch.achieved,0,',','.'));
             $('#branch_single_target_amount').text('Rp' + number_format(currentBranch.target,0,',','.'));
@@ -4763,7 +4580,6 @@ function loadSalesAchievementDonuts() {
 
 let spBarChart, saLineChart;
 
-// Bar: Cold/Warm/Hot/Deal per Sales
 function loadSalesPerformanceBar() {
   const params = {
     branch_id:  $('#sp_branch').val(),
@@ -4804,18 +4620,17 @@ function loadSalesPerformanceBar() {
   });
 }
 
-// Line: Achievement % per Sales (Top 3 atau pilihan)
 function loadSalesAchievementTrend() {
   const params = {
     sales_ids: ($('#sa_sales_ids').val() || []).slice(0,3),
-    branch_id: $('#sp_branch').val(), // sinkron dengan filter branch di atas
+    branch_id: $('#sp_branch').val(), 
     start_date: $('#sp_start').val(),
     end_date:   $('#sp_end').val()
   };
   $.post('{{ route('dashboard.sales-achievement-trend') }}', params, function(res){
     const labels = res.labels || [];
     const series = res.series || [];
-    const colors = ['#4e73df', '#e74a3b', '#1cc88a', '#f6c23e']; // sampai 4 warna
+    const colors = ['#4e73df', '#e74a3b', '#1cc88a', '#f6c23e']; 
 
     const ctx = document.getElementById('sa_line').getContext('2d');
     if (saLineChart) saLineChart.destroy();
@@ -4861,7 +4676,7 @@ function loadSalesAchievementTrend() {
 }
 
 
-        const lbCharts = {}; // simpan instance chart per prefix
+        const lbCharts = {}; 
 
 // Function commented out because HTML elements are commented
 /*
@@ -5000,7 +4815,6 @@ function loadBranchSalesTrend() {
         const ctx = document.getElementById('branch_sales_chart').getContext('2d');
         if (branchSalesChart) branchSalesChart.destroy();
 
-        // palet warna untuk 3 garis
         const colors = ['#4e73df', '#e74a3b', '#1cc88a'];
 
         branchSalesChart = new Chart(ctx, {
@@ -5280,22 +5094,19 @@ function loadOrdersMonthly() {
                 $('#svt_apply').on('click', loadAchievementMonthlyPercent);
 loadAchievementMonthlyPercent();
 
-// binding & initial load
 $('#tvsm_apply').on('click', loadTargetVsSalesMonthly);
 loadTargetVsSalesMonthly();
 
 
-                // binding & initial
 $('#donut_apply').on('click', loadSalesAchievementDonuts);
 loadSalesAchievementDonuts();
-                // bindings
+
 $('#sp_apply').on('click', function(){
   loadSalesPerformanceBar();
   loadSalesAchievementTrend();
 });
 $('#sa_apply').on('click', loadSalesAchievementTrend);
 
-// initial load
 loadSalesPerformanceBar();
 loadSalesAchievementTrend();
 
@@ -5311,7 +5122,7 @@ loadSalesAchievementTrend();
 // loadLeadsBranchTrend('hl','hot');
 
                 $('#branch_sales_apply').on('click', loadBranchSalesTrend);
-loadBranchSalesTrend(); // initial (YTD / Top 3)
+loadBranchSalesTrend(); 
 
                 $('#orders_apply').on('click', loadOrdersMonthly);
                 loadOrdersMonthly();
@@ -6090,7 +5901,6 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                 // ==================== SLS DEALING FUNCTIONS ====================
                 let slsDealingChart;
 
-                // Helper function to format amount in short form (M, Jt, Rb)
                 function formatAmountShort(amount) {
                     if (!amount || amount === 0) return '0';
                     
@@ -6156,11 +5966,9 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         const labels = res.monthly_data.map(month => month.month_name) || [];
                         const achievementData = res.monthly_data.map(month => month.total_achievement_amount) || [];
                         const unitSalesData = res.monthly_data.map(month => month.total_unit_sales) || [];
-                        
-                        // Store monthly data for tooltip reference
+
                         const monthlyDataRef = res.monthly_data;
 
-                        // Initialize chart
                         const ctx = document.getElementById('sls-dealing-chart').getContext('2d');
                         
                         if (slsDealingChart) {
@@ -6389,12 +6197,10 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                         tbody.empty();
                         
                         if (res.data && res.data.length > 0) {
-                            // Calculate totals
                             let totalTargetAmount = 0;
                             let totalAcvAmount = 0;
                             let totalUnitSales = 0;
 
-                            // Render data rows and calculate totals
                             res.data.forEach(function(item) {
                                 totalTargetAmount += item.target_amount || 0;
                                 totalAcvAmount += item.achievement_amount || 0;
@@ -6416,10 +6222,8 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 tbody.append(row);
                             });
 
-                            // Calculate overall percentage
                             const totalPercentage = totalTargetAmount > 0 ? (totalAcvAmount / totalTargetAmount * 100) : 0;
 
-                            // Update sticky footer totals
                             $('#total-target-amount').text('Rp' + formatAmountShort(totalTargetAmount));
                             $('#total-acv-amount').text('Rp' + formatAmountShort(totalAcvAmount));
                             $('#total-percentage').text(totalPercentage.toFixed(1) + '%');
@@ -6433,8 +6237,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     </td>
                                 </tr>
                             `);
-                            
-                            // Reset sticky footer totals
+
                             $('#total-target-amount, #total-acv-amount').text('Rp0');
                             $('#total-percentage').text('0%');
                             $('#total-unit-sales').text('0');
@@ -6453,15 +6256,13 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 </td>
                             </tr>
                         `);
-                        
-                        // Reset sticky footer totals on error
+
                         $('#total-target-amount, #total-acv-amount').text('Rp0');
                         $('#total-percentage').text('0%');
                         $('#total-unit-sales').text('0');
                     });
                 }
 
-                // SLS Potential Dealing Branch Table Functions
                 function loadPotentialBranchTable() {
                     const params = {
                         branch_id: $('#potential-branch-branch').val() || null,
@@ -6472,8 +6273,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                     console.log('Loading potential branch with params:', params);
 
                     const tbody = $('#potential-branch-tbody');
-                    
-                    // Show loading state
+
                     tbody.html(`
                         <tr>
                             <td colspan="6" class="text-center py-5">
@@ -6523,15 +6323,12 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 tbody.append(row);
                             });
 
-                            // Calculate average discount
                             const avgDiscount = count > 0 ? (totalAvgDiscount / count) : 0;
 
-                            // Update sticky footer totals
                             $('#total-branch-warm-hot-amount').text('Rp' + formatAmountShort(totalWarmHotAmount));
                             $('#total-branch-warm-hot-qty').text(totalWarmHotQty.toLocaleString());
                             $('#total-branch-avg-discount').text(avgDiscount.toFixed(2) + '%');
-                            
-                            // Adjust table height based on content
+
                             adjustPotentialBranchHeight(response.data.length);
                         } else {
                             tbody.html(`
@@ -6542,13 +6339,11 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                     </td>
                                 </tr>
                             `);
-                            
-                            // Reset totals
+
                             $('#total-branch-warm-hot-amount').text('Rp0');
                             $('#total-branch-warm-hot-qty').text('0');
                             $('#total-branch-avg-discount').text('0%');
                             
-                            // Adjust table height for empty state
                             adjustPotentialBranchHeight(0);
                         }
 
@@ -6565,8 +6360,7 @@ loadBranchSalesTrend(); // initial (YTD / Top 3)
                                 </td>
                             </tr>
                         `);
-                        
-                        // Reset totals on error
+
                         $('#total-branch-warm-hot-amount').text('Rp0');
                         $('#total-branch-warm-hot-qty').text('0');
                         $('#total-branch-avg-discount').text('0%');
