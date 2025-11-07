@@ -1810,6 +1810,189 @@
             }
         }
 
+        #sa_sales_ids {
+            min-height: 40px;
+        }
+
+        #sa_sales_ids[multiple] {
+            min-width: 200px;
+            max-width: 300px;
+        }
+
+        .chart-card .border-top {
+            border-color: #e5e7eb !important;
+            border-width: 1px !important;
+        }
+
+        .chart-container canvas {
+            border-radius: 8px;
+        }
+
+        .select2-container--default .select2-selection--single,
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid #d1d3e2;
+            border-radius: 8px;
+            height: 42px;
+            background: #fff;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #374151;
+            line-height: 40px;
+            padding-left: 12px;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            padding: 6px 8px;
+        }
+
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--focus .select2-selection--multiple {
+            border-color: #115641;
+            box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #115641;
+            border: 1px solid #115641;
+            color: white;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: white;
+            font-weight: bold;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        #sa_sales_ids + .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container--default .select2-selection--multiple {
+            min-height: 42px !important;
+            max-height: 80px;
+            overflow-y: auto;
+            border: 1px solid #d1d3e2 !important;
+            border-radius: 8px !important;
+        }
+
+        .source-conversion-section .form-label {
+            margin-bottom: 8px !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #495057 !important;
+            line-height: 1.4 !important;
+        }
+
+        .source-conversion-section .btn.source-apply-button {
+            height: 42px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+        }
+
+        .source-conversion-section .d-flex.flex-column.justify-content-end {
+            min-height: 70px; 
+            padding-top: 25px;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            padding: 6px 8px !important;
+            min-height: 30px !important;
+        }
+
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            margin: 2px 4px 2px 0 !important;
+            padding: 2px 8px !important;
+            font-size: 12px !important;
+        }
+
+        .source-conversion-section small.text-muted {
+            font-size: 12px !important;
+            margin-top: 5px !important;
+            display: block !important;
+        }
+
+        @media (max-width: 991px) {
+            .source-conversion-section .d-flex.flex-column.justify-content-end {
+                min-height: auto !important;
+                padding-top: 0 !important;
+                margin-top: 10px !important;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .source-conversion-section .col-sm-12 {
+                margin-bottom: 15px !important;
+            }
+            
+            .source-conversion-section .col-sm-12:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        .select2-dropdown,
+        .select2-dropdown-modern {
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-top: 2px;
+        }
+
+        .select2-container--default .select2-results__option {
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: #115641;
+            color: white;
+        }
+
+        .select2-container--default .select2-results__option[aria-selected=true] {
+            background-color: #f3f4f6;
+            color: #115641;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .chart-container {
+                height: 280px !important;
+            }
+            
+            #sa_sales_ids[multiple] {
+                min-width: 100%;
+                max-width: 100%;
+            }
+
+            .select2-container {
+                width: 100% !important;
+            }
+        }
+
         .sls-dealing-mobile-stack {
         }
 
@@ -2641,8 +2824,7 @@
                                 {{-- <p class="chart-subtitle text-muted mb-0">Monthly Lead Source Tracking</p> --}}
                             </div>
                         </div>
-                        
-                        <!-- Chart Controls -->
+
                         <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
                             @if(auth()->user()->role?->code === 'super_admin')
                             <div class="control-item">
@@ -3505,7 +3687,6 @@
                     @endif
                 </div>
 
-                {{-- Responsive Table with Integrated Footer - Same Structure as SOURCE CONVERSION LISTS --}}
                 <div class="source-conversion-responsive" id="potential-list-container">
                     <table class="table table-hover mb-0" id="potential-list-table">
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
@@ -3599,7 +3780,6 @@
       <div class="card-body">
         <div class="row g-2 mb-3">
           <div class="col-md-4">
-            {{-- pilih hingga 3 branch --}}
             <select id="branch_sales_branches" class="form-select form-select-sm select2" multiple>
               @foreach ($branches as $branch)
                 <option value="{{ $branch->id }}">{{ $branch->name }}</option>
@@ -3761,109 +3941,124 @@
   </div>
 </div> --}}
 
-<div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Sales Performance</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#salesPerfBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
+    <!-- SALES PERFORMANCE -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES PERFORMANCE</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light source-conversion-section">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="sp_branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="sp_start" class="form-control source-control-input" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="sp_end" class="form-control source-control-input" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="sp_apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                    <div style="height: 380px;">
+                        <canvas id="sp_bar"></canvas>
+                    </div>
+                </div>
+
+                <!-- Achievement Trend Section -->
+                <div class="p-4 bg-light source-conversion-section" style="border-top: 1px solid #e5e7eb;">
+                    <div class="row g-3">
+                        <div class="col-lg-9 col-md-8 col-sm-12">
+                            <label class="form-label">Select Sales (max 3)</label>
+                            <select id="sa_sales_ids" class="form-select source-control-input" multiple>
+                                @foreach ($salesUsers as $s)
+                                    <option value="{{ $s->id }}">{{ $s->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-12 d-flex flex-column justify-content-end">
+                            <button type="button" class="btn source-apply-button w-100" id="sa_apply" style="height: 42px;">
+                                <i class="fas fa-filter me-1"></i> Refresh Trend
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <small class="text-muted">Select max 3 sales for trend (empty = Top 3 auto)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                    <div style="height: 380px;">
+                        <canvas id="sa_line"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div id="salesPerfBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-3">
-            <select id="sp_branch" class="form-select form-select-sm select2">
-              <option value="">All Branch</option>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="sp_start" class="form-control form-control-sm" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="sp_end" class="form-control form-control-sm" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="sp_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
-        </div>
 
-        <div style="height: 360px;" class="mb-4">
-          <canvas id="sp_bar"></canvas>
-        </div>
+    <!-- TREND ORDERS BULANAN (YTD) -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">TREND ORDERS BULANAN (YTD)</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light source-conversion-section">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="orders_branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}" {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="orders_start" class="form-control source-control-input" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="orders_end" class="form-control source-control-input" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="orders_apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-        <div class="row g-2 mb-3">
-          <div class="col-md-9">
-            <select id="sa_sales_ids" class="form-select form-select-sm select2" multiple>
-              @foreach ($salesUsers as $s)
-                <option value="{{ $s->id }}">{{ $s->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 sales untuk tren Achievement% (kosongkan = Top 3 otomatis)</small>
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="sa_apply">
-              <i class="bi bi-graph-up-arrow me-1"></i> Refresh Trend
-            </button>
-          </div>
+                <!-- Chart Container -->
+                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                    <div style="height: 380px;">
+                        <canvas id="orders_monthly_chart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div style="height: 360px;">
-          <canvas id="sa_line"></canvas>
-        </div>
-      </div>
     </div>
-  </div>
-</div>
-
-        <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Trend Orders Bulanan (YTD)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#ordersMonthlyBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="ordersMonthlyBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-3">
-            <select id="orders_branch" class="form-select form-select-sm select2">
-              <option value="">All Branch</option>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}" {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                  {{ $branch->name }}
-                </option>
-              @endforeach
-            </select>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="orders_start" class="form-control form-control-sm"
-                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="orders_end" class="form-control form-control-sm"
-                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="orders_apply">
-              <i class="bi bi-search me-1"></i> Apply Filters
-            </button>
-          </div>
-        </div>
-
-        <div style="height: 360px;">
-          <canvas id="orders_monthly_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
         {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
@@ -5884,7 +6079,6 @@ loadBranchSalesTrend();
                 });
 
                 $('#source-monitoring-table-apply').on('click', function() {
-                    // Sync chart filters with table filters
                     @if(auth()->user()->role?->code === 'super_admin')
                         $('#source-monitoring-branch').val($('#source-monitoring-table-branch').val());
                     @endif
@@ -6511,6 +6705,20 @@ loadBranchSalesTrend();
 
                 loadPotentialBranchTable();
                 loadPotentialListTable();
+
+                $('#sa_sales_ids').select2({
+                    placeholder: 'Select sales (max 3)',
+                    allowClear: true,
+                    maximumSelectionLength: 3,
+                    width: '100%',
+                    dropdownCssClass: 'select2-dropdown-modern'
+                });
+
+                $('#sp_branch, #orders_branch').select2({
+                    minimumResultsForSearch: Infinity,
+                    width: '100%',
+                    dropdownCssClass: 'select2-dropdown-modern'
+                });
             });
         </script>
     @endsection
