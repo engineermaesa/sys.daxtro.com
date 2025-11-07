@@ -1999,6 +1999,7 @@ class DashboardController extends Controller
         $start = $validated['start_date'] ?? Carbon::create($currentYear, 1, 1)->toDateString();
         $end = $validated['end_date'] ?? Carbon::create($currentYear, 12, 31)->toDateString();
 
+        $coldStatusId = LeadStatus::COLD;
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
 
@@ -2011,9 +2012,9 @@ class DashboardController extends Controller
                         ->whereNull('lc.deleted_at')
                         ->whereNull('lc.released_at');
                 })
-                ->leftJoin('leads', function ($join) use ($warmStatusId, $hotStatusId, $start, $end) {
+                ->leftJoin('leads', function ($join) use ($coldStatusId, $warmStatusId, $hotStatusId, $start, $end) {
                     $join->on('leads.id', '=', 'lc.lead_id')
-                        ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId])
+                        ->whereIn('leads.status_id', [$coldStatusId, $warmStatusId, $hotStatusId])
                         ->where(function ($query) use ($start, $end) {
                             $query->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
                                 ->orWhere(function ($q) use ($start, $end) {
@@ -2049,6 +2050,7 @@ class DashboardController extends Controller
                     'users.name',
                     'users.branch_id',
                     DB::raw('COUNT(DISTINCT leads.id) as total_leads'),
+                    DB::raw('SUM(CASE WHEN leads.status_id = ' . $coldStatusId . ' THEN 1 ELSE 0 END) as cold_count'),
                     DB::raw('SUM(CASE WHEN leads.status_id = ' . $warmStatusId . ' THEN 1 ELSE 0 END) as warm_count'),
                     DB::raw('SUM(CASE WHEN leads.status_id = ' . $hotStatusId . ' THEN 1 ELSE 0 END) as hot_count'),
                     DB::raw('COALESCE(SUM(quotations.subtotal), 0) as subtotal_amount'),
@@ -2065,6 +2067,7 @@ class DashboardController extends Controller
                 ->get();
 
             $results = $users->map(function ($user) use ($start, $end, $currentYear) {
+                $coldCount = (int) ($user->cold_count ?? 0);
                 $warmCount = (int) ($user->warm_count ?? 0);
                 $hotCount = (int) ($user->hot_count ?? 0);
                 $totalLeads = $warmCount + $hotCount;
@@ -2117,6 +2120,7 @@ class DashboardController extends Controller
                 return [
                     'sales_id' => $user->id,
                     'nama_sales' => $user->name ?? '-',
+                    'cold_count' => $coldCount,
                     'warm_hot_amount' => $grandTotalAmount,
                     'warm_hot_qty' => $totalLeads,
                     'warm_count' => $warmCount,
@@ -2154,6 +2158,7 @@ class DashboardController extends Controller
                 'periode' => [
                     'start_date' => $start,
                     'end_date' => $end,
+                    'cold_status_id' => $coldStatusId,
                     'warm_status_id' => $warmStatusId,
                     'hot_status_id' => $hotStatusId,
                     'tahun' => $currentYear,
@@ -2161,7 +2166,7 @@ class DashboardController extends Controller
                         'validity_period_days' => 30,
                         'description' => 'Data mencakup lead Warm/Hot dengan quotation published yang memiliki validity period 30 hari overlap dengan filter tanggal',
                         'inclusion_criteria' => [
-                            'Lead status: Warm (' . $warmStatusId . ') atau Hot (' . $hotStatusId . ')',
+                            'Lead status: Cold (' . $coldStatusId . '), Warm (' . $warmStatusId . ') atau Hot (' . $hotStatusId . ')',
                             'Quotation status: Published',
                             'Validity period: Quotation date + 30 hari overlap dengan filter range',
                             'Sales role: User dengan role_id = 2',
@@ -2176,6 +2181,7 @@ class DashboardController extends Controller
                 ],
                 'summary' => [
                     'total_sales' => $uniqueResults->count(),
+                    'total_cold_count' => $uniqueResults->sum('cold_count'),
                     'total_warm_hot_amount' => $uniqueResults->sum('warm_hot_amount'),
                     'total_warm_hot_qty' => $uniqueResults->sum('warm_hot_qty'),
                     'total_warm_count' => $uniqueResults->sum('warm_count'),
@@ -2183,13 +2189,13 @@ class DashboardController extends Controller
                     'average_discount' => $uniqueResults->avg('avg_discount') ?: 0,
                     'total_discount_amount' => $uniqueResults->sum('discount_amount'),
                     'total_tax_amount' => $uniqueResults->sum('tax_total_amount'),
-                    'data_quality_note' => 'Hanya menampilkan sales dengan minimal 1 lead Warm/Hot yang memiliki quotation published dalam validity period'
+                    'data_quality_note' => 'Menampilkan sales dengan lead Cold/Warm/Hot yang memiliki quotation published dalam validity period. Cold count tersedia untuk semua sales.'
                 ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat mengambil data Warm + Hot',
+                'message' => 'Terjadi kesalahan saat mengambil data Cold + Warm + Hot',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -173,8 +173,7 @@
                 font-size: 11px;
             }
         }
-        
-        /* Custom 5-column grid for 20% width each */
+
         .col-xl-2-4 {
             flex: 0 0 20%;
             max-width: 20%;
@@ -946,17 +945,19 @@
         #source-conversion-table td:nth-child(7) { width: 15%; }
 
         #potential-branch-table th:nth-child(1),
-        #potential-branch-table td:nth-child(1) { width: 25%; } /* Nama Sales */
+        #potential-branch-table td:nth-child(1) { width: 20%; } /* Nama Sales */
         #potential-branch-table th:nth-child(2),
-        #potential-branch-table td:nth-child(2) { width: 18%; } /* Warm + Hot Amount */
+        #potential-branch-table td:nth-child(2) { width: 12%; } /* Cold */
         #potential-branch-table th:nth-child(3),
-        #potential-branch-table td:nth-child(3) { width: 15%; } /* Qty (W + H) */
+        #potential-branch-table td:nth-child(3) { width: 12%; } /* Qty (W + H) */
         #potential-branch-table th:nth-child(4),
-        #potential-branch-table td:nth-child(4) { width: 15%; } /* Avg Discount */
+        #potential-branch-table td:nth-child(4) { width: 16%; } /* Warm + Hot Amount */
         #potential-branch-table th:nth-child(5),
-        #potential-branch-table td:nth-child(5) { width: 15%; } /* Branch */
+        #potential-branch-table td:nth-child(5) { width: 12%; } /* Avg Discount */
         #potential-branch-table th:nth-child(6),
-        #potential-branch-table td:nth-child(6) { width: 12%; } /* Periode */
+        #potential-branch-table td:nth-child(6) { width: 16%; } /* Branch */
+        #potential-branch-table th:nth-child(7),
+        #potential-branch-table td:nth-child(7) { width: 12%; } /* Periode */
 
 
         #potential-list-table th:nth-child(1),
@@ -3599,8 +3600,9 @@
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
                             <tr>
                                 <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
                                 <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
@@ -3608,7 +3610,7 @@
                         </thead>
                         <tbody id="potential-branch-tbody">
                             <tr>
-                                <td colspan="6" class="text-center py-5">
+                                <td colspan="7" class="text-center py-5">
                                     <div class="text-success">
                                         <div class="spinner-border text-success" role="status">
                                             <span class="visually-hidden">Loading...</span>
@@ -3621,8 +3623,9 @@
                         <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
                             <tr id="potential-branch-total-row">
                                 <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-cold">0</td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
@@ -6458,19 +6461,51 @@ loadBranchSalesTrend();
                 }
 
                 function loadPotentialBranchTable() {
+                    const selectedBranch = $('#potential-branch-branch').val();
+                    const userBranchId = {{ auth()->user()->branch_id ?? 'null' }};
+                    const isSuperAdmin = {{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }};
+                    
+                    console.log('=== BRANCH DEBUG INFO ===');
+                    console.log('Selected branch from dropdown:', selectedBranch);
+                    console.log('User branch from login:', userBranchId);
+                    console.log('Is Super Admin:', isSuperAdmin);
+                    console.log('User role:', '{{ auth()->user()->role?->code ?? "No role" }}');
+                    console.log('User info:', '{{ auth()->user()->name ?? "Unknown" }}');
+                    
                     const params = {
-                        branch_id: $('#potential-branch-branch').val() || null,
                         start_date: $('#potential-branch-start-date').val(),
                         end_date: $('#potential-branch-end-date').val()
                     };
 
-                    console.log('Loading potential branch with params:', params);
+                    // Logic branch_id untuk Super Admin:
+                    // 1. Jika Super Admin dan ada branch dipilih dari dropdown, gunakan itu
+                    // 2. Jika Super Admin dan tidak ada branch dipilih, JANGAN kirim branch_id (tampilkan semua)
+                    // 3. Jika bukan Super Admin, gunakan branch user atau branch yang dipilih
+                    if (isSuperAdmin) {
+                        if (selectedBranch && selectedBranch !== '') {
+                            params.branch_id = parseInt(selectedBranch);
+                            console.log('Super Admin - Using selected branch_id:', params.branch_id);
+                        } else {
+                            console.log('Super Admin - No branch_id sent (show all branches)');
+                        }
+                    } else {
+                        // User biasa (bukan Super Admin)
+                        if (selectedBranch && selectedBranch !== '') {
+                            params.branch_id = parseInt(selectedBranch);
+                            console.log('Regular User - Using selected branch_id:', params.branch_id);
+                        } else if (userBranchId && userBranchId !== null) {
+                            params.branch_id = userBranchId;
+                            console.log('Regular User - Using user branch_id:', params.branch_id);
+                        }
+                    }
+
+                    console.log('Final API params:', params);
 
                     const tbody = $('#potential-branch-tbody');
 
                     tbody.html(`
                         <tr>
-                            <td colspan="6" class="text-center py-5">
+                            <td colspan="7" class="text-center py-5">
                                 <div class="text-success">
                                     <div class="spinner-border text-success" role="status">
                                         <span class="visually-hidden">Loading...</span>
@@ -6491,12 +6526,14 @@ loadBranchSalesTrend();
                         tbody.empty();
 
                         if (response.success && response.data && response.data.length > 0) {
+                            let totalCold = 0;
                             let totalWarmHotAmount = 0;
                             let totalWarmHotQty = 0;
                             let totalAvgDiscount = 0;
                             let count = 0;
 
                             response.data.forEach(function(item) {
+                                totalCold += parseInt(item.cold_count || 0);
                                 totalWarmHotAmount += parseFloat(item.warm_hot_amount || 0);
                                 totalWarmHotQty += parseInt(item.warm_hot_qty || 0);
                                 totalAvgDiscount += parseFloat(item.avg_discount || 0);
@@ -6507,8 +6544,9 @@ loadBranchSalesTrend();
                                         <td class="py-3 px-4">
                                             <a href="#" class="source-link">${item.nama_sales || 'Unknown'}</a>
                                         </td>
-                                        <td class="text-center py-3 px-4">Rp${formatAmountShort(item.warm_hot_amount || 0)}</td>
+                                        <td class="text-center py-3 px-4">${(item.cold_count || 0).toLocaleString()}</td>
                                         <td class="text-center py-3 px-4">${(item.warm_hot_qty || 0).toLocaleString()}</td>
+                                        <td class="text-center py-3 px-4">Rp${formatAmountShort(item.warm_hot_amount || 0)}</td>
                                         <td class="text-center py-3 px-4">${(item.avg_discount || 0).toFixed(2)}%</td>
                                         <td class="text-center py-3 px-4">${item.branch || '-'}</td>
                                         <td class="text-center py-3 px-4" style="background-color: #f8f9fa;">${item.periode || '-'}</td>
@@ -6519,23 +6557,25 @@ loadBranchSalesTrend();
 
                             const avgDiscount = count > 0 ? (totalAvgDiscount / count) : 0;
 
-                            $('#total-branch-warm-hot-amount').text('Rp' + formatAmountShort(totalWarmHotAmount));
+                            $('#total-branch-cold').text(totalCold.toLocaleString());
                             $('#total-branch-warm-hot-qty').text(totalWarmHotQty.toLocaleString());
+                            $('#total-branch-warm-hot-amount').text('Rp' + formatAmountShort(totalWarmHotAmount));
                             $('#total-branch-avg-discount').text(avgDiscount.toFixed(2) + '%');
 
                             adjustPotentialBranchHeight(response.data.length);
                         } else {
                             tbody.html(`
                                 <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">
+                                    <td colspan="7" class="text-center py-5 text-muted">
                                         <i class="fas fa-info-circle mb-2" style="font-size: 1.5rem;"></i><br>
                                         <span>No potential dealing branch data available for the selected period</span>
                                     </td>
                                 </tr>
                             `);
 
-                            $('#total-branch-warm-hot-amount').text('Rp0');
+                            $('#total-branch-cold').text('0');
                             $('#total-branch-warm-hot-qty').text('0');
+                            $('#total-branch-warm-hot-amount').text('Rp0');
                             $('#total-branch-avg-discount').text('0%');
                             
                             adjustPotentialBranchHeight(0);
@@ -6545,7 +6585,7 @@ loadBranchSalesTrend();
                         console.error('Error loading potential branch table:', error);
                         tbody.html(`
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-danger">
+                                <td colspan="7" class="text-center py-5 text-danger">
                                     <i class="fas fa-exclamation-circle mb-2" style="font-size: 1.5rem;"></i><br>
                                     <span>Error loading potential dealing branch data</span>
                                     <br><button class="btn btn-sm btn-outline-primary mt-3" onclick="loadPotentialBranchTable()">
@@ -6555,8 +6595,9 @@ loadBranchSalesTrend();
                             </tr>
                         `);
 
-                        $('#total-branch-warm-hot-amount').text('Rp0');
+                        $('#total-branch-cold').text('0');
                         $('#total-branch-warm-hot-qty').text('0');
+                        $('#total-branch-warm-hot-amount').text('Rp0');
                         $('#total-branch-avg-discount').text('0%');
                     });
                 }
