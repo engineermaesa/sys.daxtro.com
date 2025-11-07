@@ -5703,7 +5703,7 @@ loadBranchSalesTrend();
                     tbody.empty();
 
                     let totals = {
-                        cumulative: 0,
+                        cum: 0,
                         cold: 0,
                         warm: 0,
                         hot: 0,
@@ -5711,7 +5711,8 @@ loadBranchSalesTrend();
                     };
 
                     data.forEach(function(item) {
-                        totals.cumulative += item.cumulative || 0;
+                        // Jumlahkan semua kolom termasuk cumulative untuk footer
+                        totals.cum += item.cumulative || 0;
                         totals.cold += item.cold || 0;
                         totals.warm += item.warm || 0;
                         totals.hot += item.hot || 0;
@@ -5719,7 +5720,8 @@ loadBranchSalesTrend();
                     });
 
                     data.forEach(function(item) {
-                        const rowTotal = (item.cumulative || 0) + (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        // Total per row tidak termasuk cumulative karena itu persentase, bukan nilai absolut
+                        const rowTotal = (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
                         
                         const row = $(`
                             <tr>
@@ -5754,8 +5756,8 @@ loadBranchSalesTrend();
                         tbody.append(row);
                     });
 
-                    const grandTotal = totals.cumulative + totals.cold + totals.warm + totals.hot + totals.deal;
-                    $('#total-cum').text(totals.cumulative.toLocaleString());
+                    const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
+                    $('#total-cum').text(totals.cum.toLocaleString()); // Footer: Cumulative dijumlahkan
                     $('#total-cold').text(totals.cold.toLocaleString());
                     $('#total-warm').text(totals.warm.toLocaleString());
                     $('#total-hot').text(totals.hot.toLocaleString());
