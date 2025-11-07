@@ -1692,7 +1692,7 @@ class DashboardController extends Controller
                 $query->where('leads.branch_id', $branchId);
             }
 
-             if (!empty($validated['source'])) {
+            if (!empty($validated['source'])) {
                 $query->where('lead_sources.name', $validated['source']);
             }
 
@@ -2234,7 +2234,8 @@ class DashboardController extends Controller
                     'region',
                     'product',
                     'status',
-                    'claims'
+                    'claims',
+                    'industry'
                 ])
                 ->join('quotations', function ($join) use ($start, $end) {
                     $join->on('quotations.lead_id', '=', 'leads.id')
@@ -2278,6 +2279,8 @@ class DashboardController extends Controller
                     'leads.email',
                     'leads.contact_reason',
                     'leads.business_reason',
+                    'leads.industry_id',
+                    'leads.other_industry',
                     'quotations.quotation_no',
                     'quotations.grand_total',
                     'quotations.created_at as quotation_created_at',
@@ -2293,6 +2296,14 @@ class DashboardController extends Controller
 
                     $validationStatus = $this->checkDataValidation($lead);
 
+                    $industryName = $lead->industry->name ?? '-';
+                    $otherIndustry = $lead->other_industry ?? null;
+
+                    $fullIndustry = $industryName;
+                    if ($otherIndustry) {
+                        $fullIndustry = $industryName . ' - ' . $otherIndustry;
+                    }
+
                     return [
                         'customer_name' => $lead->customer_name ?? $lead->company ?? 'N/A',
                         'company' => $lead->company ?? '-',
@@ -2301,6 +2312,11 @@ class DashboardController extends Controller
                         'amount' => (float) ($lead->grand_total ?? 0),
                         'regional' => $lead->region->name ?? '-',
                         'product' => $lead->product->name ?? '-',
+                        'industry' => $fullIndustry,
+                        'industry_detail' => [
+                            'industry' => $industryName,
+                            'other_industry' => $otherIndustry
+                        ],
                         'last_activity' => $lead->updated_at->format('Y-m-d H:i'),
                         'last_activity_date' => $lead->updated_at->format('Y-m-d'),
                         'data_validation' => $validationStatus,
@@ -2336,7 +2352,8 @@ class DashboardController extends Controller
                     'total_potential' => $leads->count(),
                     'total_amount' => $leads->sum('amount'),
                     'by_status' => $leads->groupBy('status')->map->count(),
-                    'by_regional' => $leads->groupBy('regional')->map->count()
+                    'by_regional' => $leads->groupBy('regional')->map->count(),
+                    'by_industry' => $leads->groupBy('industry')->map->count()
                 ]
             ]);
         } catch (\Exception $e) {
