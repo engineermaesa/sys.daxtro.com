@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\{Attachment};
 use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadStatus, LeadStatusLog};
 use App\Models\Masters\MeetingType;
@@ -311,6 +312,24 @@ class MeetingController extends Controller
 
             $lead->status_id = $newStatus;
             $lead->save();
+            
+            // Force update timestamp saat pindah status
+            Log::info('Before update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
+            
+            DB::table('leads')
+                ->where('id', $lead->id)
+                ->update(['updated_at' => now()]);
+            
+            // Update claim's claimed_at when status changes to WARM
+            if ($newStatus === LeadStatus::WARM) {
+                DB::table('lead_claims')
+                    ->where('lead_id', $lead->id)
+                    ->whereNull('released_at')
+                    ->update(['claimed_at' => now()]);
+            }
+            
+            $lead->refresh();
+            Log::info('After update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
 
             LeadStatusLog::create([
                 'lead_id'   => $lead->id,

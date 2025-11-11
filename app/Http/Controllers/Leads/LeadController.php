@@ -523,6 +523,9 @@ class LeadController extends Controller
 
     public function my()
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = auth()->user();
 
         $claims = LeadClaim::whereNull('released_at')
@@ -532,7 +535,19 @@ class LeadController extends Controller
             $claims->where('sales_id', $user->id);
         }
 
-        $counts = $claims->get()
+        $allClaims = $claims->get();
+        
+        // Filter by time constraints like All Leads
+        $filteredClaims = $allClaims->filter(function($claim) {
+            if ($claim->lead->status_id == LeadStatus::COLD) {
+                return $claim->claimed_at >= now()->subDays(10);
+            } elseif ($claim->lead->status_id == LeadStatus::WARM) {
+                return $claim->claimed_at >= now()->subDays(30);
+            }
+            return true; // HOT and DEAL have no time limits
+        });
+
+        $counts = $filteredClaims
             ->groupBy(fn ($claim) => $claim->lead->status_id)
             ->map->count();
 
@@ -549,6 +564,9 @@ class LeadController extends Controller
 
     public function myCounts(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $claims = LeadClaim::whereNull('released_at');
 
         if ($request->user()->role?->code === 'sales') {
@@ -560,10 +578,12 @@ class LeadController extends Controller
 
         $cold = (clone $claims)
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+            ->where('claimed_at', '>=', now()->subDays(10))
             ->count();
 
         $warmQuery = (clone $claims)
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM));
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+            ->where('claimed_at', '>=', now()->subDays(30));
         if ($start && $end) {
             $warmQuery->whereHas('lead.quotation', fn($q) => $q->firstApprovalBetween($start, $end));
         }
@@ -807,6 +827,54 @@ class LeadController extends Controller
             ->addColumn('invoice_price', function($lead) {
                 return $lead->quotation?->proformas->first()?->invoice ? 
                     number_format($lead->quotation->proformas->first()->invoice->amount ?? 0, 2) : '-';
+            })
+           ->addColumn('quot_created', function($lead) {
+                // Ambil dari published_at lead atau quotation published_at
+                if ($lead->published_at) {
+                    return \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y');
+                } elseif ($lead->quotation?->published_at) {
+                    return \Carbon\Carbon::parse($lead->quotation->published_at)->format('d/m/Y');
+                } else {
+                    return '-';
+                }
+            })
+            ->addColumn('quot_end_date', function($lead) {
+                // Menggunakan updated_at sesuai permintaan
+                return $lead->updated_at ? 
+                    \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y') : '-';
+            })
+            ->addColumn('act_last_time', function($lead) {
+                // Debug: lihat semua activity logs untuk lead ini
+                $activities = $lead->activityLogs;
+                
+                if ($activities->isEmpty()) {
+                    return '-';
+                }
+                
+                // Ambil yang terbaru berdasarkan logged_at dan id
+                $latestActivity = $activities->sortByDesc(function($activity) {
+                    // Combine logged_at timestamp with id for precise sorting
+                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
+                })->first();
+                
+                return $latestActivity ? 
+                    \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y') : '-';
+            })
+            ->addColumn('act_status', function($lead) {
+                // Debug: lihat semua activity logs untuk lead ini
+                $activities = $lead->activityLogs;
+                
+                if ($activities->isEmpty()) {
+                    return '-';
+                }
+                
+                // Ambil yang terbaru berdasarkan logged_at dan id
+                $latestActivity = $activities->sortByDesc(function($activity) {
+                    // Combine logged_at timestamp with id for precise sorting
+                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
+                })->first();
+                
+                return $latestActivity?->activity?->name ?? '-';
             })
             ->addColumn('actions', function ($row) use ($role) {
                 $editUrl   = route('leads.manage.form', $row->id);
@@ -1101,6 +1169,9 @@ class LeadController extends Controller
 
     public function myColdList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
@@ -1110,7 +1181,8 @@ class LeadController extends Controller
             $claims->where('sales_id', $user->id);
         }
 
-        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD));
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+               ->where('claimed_at', '>=', now()->subDays(10));
 
         return DataTables::of($claims)
             ->addColumn('name', fn($row) => $row->lead->name ?? '')
@@ -1172,6 +1244,9 @@ class LeadController extends Controller
 
     public function myWarmList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
@@ -1181,7 +1256,8 @@ class LeadController extends Controller
             $claims->where('sales_id', $user->id);
         }
 
-        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM));
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+               ->where('claimed_at', '>=', now()->subDays(30));
 
         // Apply date filtering if provided
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -1236,6 +1312,9 @@ class LeadController extends Controller
 
     public function myHotList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
@@ -1295,6 +1374,9 @@ class LeadController extends Controller
 
     public function myDealList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')

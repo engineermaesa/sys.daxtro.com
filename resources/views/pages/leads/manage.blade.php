@@ -88,6 +88,7 @@
                                             <th>Nama</th>
                                             <th>Sales Name</th>
                                             <th>Telephone</th>
+                                            <th>Source</th>
                                             <th>Needs</th>
                                             <th>Segment</th>
                                             <th>City</th>
@@ -98,6 +99,10 @@
                                             <th>Quotation Price</th>
                                             <th>Invoice</th>
                                             <th>Invoice Price</th>
+                                            <th>Quot Created</th>
+                                            <th>Quot End Date</th>
+                                            <th>ACT Last Time</th>
+                                            <th>ACT Status</th>
                                             <th class="text-center">Actions</th>
                                         </tr>
                                     </thead>
@@ -291,21 +296,8 @@
                 },
                 columns: [
                     { data: 'id', visible: false },
-                    { data: 'name'.
-                        render: function(data, type, row) {
-                            if (type === 'display' {
-                                return '<span class="name">' + (data || '') .toUpperCase() + '</span>';
-                            })
-                        }
-                     },
-                    { data: 'sales_name', 
-                    render: function(data, type, row) {
-                            if (type === 'display') {
-                                return '<span class="sales-name">' + (data || '').toUpperCase() + '</span>';
-                            }
-                            return data;
-                        }
-                     },
+                    { data: 'name' },
+                    { data: 'sales_name' },
                     { data: 'phone' },
                     { data: 'needs' },
                     { data: 'segment_name' },
@@ -317,6 +309,10 @@
                     { data: 'quotation_price' },
                     { data: 'invoice_number' },
                     { data: 'invoice_price' },
+                    { data: 'quot_created' },
+                    { data: 'quot_end_date' },
+                    { data: 'act_last_time' },
+                    { data: 'act_status' },
                     { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
                 ],
                 order: [[0, 'desc']]
@@ -354,21 +350,13 @@
                             data: 'phone'
                         },
                         {
+                            data: 'source_name'
+                        },
+                        {
                             data: 'needs'
                         },
                         {
-                            data: 'factory_other_industry',
-                            render: function(data, type, row) {
-                                if (row.industry_remark && row.industry_remark.trim() !==
-                                    '') {
-                                    return row.industry_remark;
-                                } else if (row.other_industry && row.other_industry
-                                    .trim() !== '') {
-                                    return row.other_industry;
-                                } else {
-                                    return row.factory_other_industry || '';
-                                }
-                            }
+                            data: 'segment_name'
                         },
                         {
                             data: 'city_name'
@@ -393,6 +381,18 @@
                         },
                         {
                             data: 'invoice_price'
+                        },
+                        {
+                            data: 'quot_created'
+                        },
+                        {
+                            data: 'quot_end_date'
+                        },
+                        {
+                            data: 'act_last_time'
+                        },
+                        {
+                            data: 'act_status'
                         },
                         {
                             data: 'actions',
@@ -627,14 +627,6 @@
             margin-left: 0.4rem;
             font-size: 85%;
             vertical-align: middle;
-        }
-
-        .sales-name {
-            text-transform: uppercase;
-        }
-
-        .name {
-            text-transform: uppercase
         }
     </style>
 @endsection
