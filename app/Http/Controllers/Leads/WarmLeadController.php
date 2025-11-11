@@ -18,10 +18,17 @@ class WarmLeadController extends Controller
         $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source'])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
+            
+        $roleCode = $request->user()->role?->code;
 
-        if ($request->user()->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
         }
+
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $claims->whereHas('lead.quotation', function ($q) use ($request) {
@@ -32,6 +39,7 @@ class WarmLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
             ->addColumn('lead_name', fn ($row) => $row->lead->name)
+            ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
             ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('meeting_status', function ($row) {

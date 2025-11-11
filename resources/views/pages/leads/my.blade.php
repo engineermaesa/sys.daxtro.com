@@ -76,6 +76,7 @@
                                             @else
                                                 <th>Claimed At</th>
                                                 <th>Lead Name</th>
+                                                <th>Sales Name</th>
                                                 <th>Segment</th>
                                                 <th class="text-center">Status</th>
                                             @endif
@@ -192,10 +193,22 @@
                         visible: false
                     },
                     {
-                        data: 'name'
+                        data: 'name',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return '<span class="sales-name">' + (data || '') + '</span>';
+                            }
+                            return data;
+                        }
                     },
                     {
-                        data: 'sales_name'
+                        data: 'sales_name',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return '<span class="sales-name">' + (data || '') + '</span>';
+                            }
+                            return data;
+                        }
                     },
                     {
                         data: 'phone'
@@ -260,6 +273,15 @@
                     {
                         data: 'lead_name',
                         name: 'lead_name'
+                    },
+                    {
+                        data: 'sales_name',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return '<span class="sales-name">' + (data || '') + '</span>';
+                            }
+                            return data;
+                        }
                     },
                     {
                         data: 'factory_other_industry',
@@ -577,6 +599,10 @@
             margin-left: 0.4rem;
             font-size: 85%;
             vertical-align: middle;
+        }
+    
+        .sales-name {
+            text-transform: uppercase;
         }
     </style>
 @endsection

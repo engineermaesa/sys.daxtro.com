@@ -22,18 +22,22 @@ class LeadController extends Controller
 
     public function availableList(Request $request)
     {
-        $user = $request->user();
+        $user = auth()->user();
 
         $leads = Lead::with(['region', 'source', 'segment', 'status'])
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (!in_array($user->role?->code, ['super_admin'])) {
-            $leads->where(function($q) use ($user) {
-                $q->whereNull('region_id')                       
-                ->orWhereHas('region', fn($q) => 
-                    $q->where('branch_id', $user->branch_id)   
-                );
-            });
+            if ($user->role?->code === 'branch_manager') {
+                $leads->where('branch_id', $user->branch_id);
+            } else {
+                $leads->where(function($q) use ($user) {
+                    $q->whereNull('region_id')                       
+                    ->orWhereHas('region', fn($q) => 
+                        $q->where('branch_id', $user->branch_id)   
+                    );
+                });
+            }
         }
 
         if ($request->filled('region_id')) {

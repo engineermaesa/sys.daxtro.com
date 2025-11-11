@@ -14,8 +14,14 @@ class DealLeadController extends Controller
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::DEAL))
             ->whereNull('released_at');
 
-        if ($request->user()->role?->code === 'sales') {
+        $roleCode = $request->user()->role?->code;
+
+        if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
         }
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -27,6 +33,7 @@ class DealLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
             ->addColumn('lead_name', fn ($row) => $row->lead->name)
+            ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
             ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('meeting_status', fn () => '<span class="badge bg-success">Deal</span>')

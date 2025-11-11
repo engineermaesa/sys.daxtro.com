@@ -364,13 +364,13 @@
                                                 <option value="" disabled selected>Pilih</option>
                                                 @php
                                                     $needsOptions = [
-                                                        'Tube Ice ( Mesin Es Kristal Tabung )',
-                                                        'Cube Ice ( Mesin Es Kristal Kubus )',
-                                                        'Block Ice ( Mesin Es Balok )',
-                                                        'Flake ice ( Mesin Es Pecah )',
-                                                        'Slurry Ice ( Es Bubur halus )',
-                                                        'Flake Ice ( Es Serpih )',
-                                                        'Cold Room ( Ruang Pendingin )',
+                                                        'Tube Ice',
+                                                        'Cube Ice',
+                                                        'Block Ice',
+                                                        'Flake ice',
+                                                        'Slurry Ice',
+                                                        'Flake Ice',
+                                                        'Cold Room',
                                                         'Other ( Keperluan Kustom )',
                                                     ];
                                                     $selectedNeed = old('needs', $form_data->needs);
