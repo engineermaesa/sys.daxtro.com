@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Classes\ActivityLogger;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadClaim, LeadMeeting, LeadStatus, LeadStatusLog, LeadSource, LeadSegment};
@@ -14,6 +15,11 @@ class ColdLeadController extends Controller
 { 
     public function myColdList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
+        $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
+
         $claims = LeadClaim::with([
                 'lead.status',
                 'lead.segment',
@@ -23,7 +29,8 @@ class ColdLeadController extends Controller
                 'sales'
             ])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::COLD))
-            ->whereNull('released_at');
+            ->whereNull('released_at')
+            ->where('claimed_at', '>=', $tenDaysAgo); // Filter: claimed_at tidak lebih dari 10 hari
 
         $roleCode = $request->user()->role?->code;
 

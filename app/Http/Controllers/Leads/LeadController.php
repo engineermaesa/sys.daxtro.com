@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Classes\ActivityLogger;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
@@ -596,6 +597,9 @@ class LeadController extends Controller
             abort(403);
         }
 
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+
         $leads = Lead::query();
 
         if ($request->filled('branch_id')) {
@@ -618,10 +622,18 @@ class LeadController extends Controller
 
         $cold = (clone $leads)
             ->where('status_id', LeadStatus::COLD)
+            ->whereHas('claims', function ($q) {
+                $q->whereNull('released_at')
+                  ->where('claimed_at', '>=', now()->subDays(10));
+            })
             ->count();
 
         $warmQuery = (clone $leads)
-            ->where('status_id', LeadStatus::WARM);
+            ->where('status_id', LeadStatus::WARM)
+            ->whereHas('claims', function ($q) {
+                $q->whereNull('released_at')
+                  ->where('claimed_at', '>=', now()->subDays(30));
+            });
         if ($start && $end) {
             $warmQuery->whereHas('quotation', fn($q) => $q->firstApprovalBetween($start, $end));
         }
@@ -656,24 +668,35 @@ class LeadController extends Controller
             abort(403);
         }
 
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+
         $branches = Branch::all();
         $regions  = Region::all();
 
-        $counts = Lead::select('status_id', DB::raw('COUNT(*) as cnt'))
-            ->whereIn('status_id', [
-                LeadStatus::COLD,
-                LeadStatus::WARM,
-                LeadStatus::HOT,
-                LeadStatus::DEAL,
-            ])
-            ->groupBy('status_id')
-            ->pluck('cnt', 'status_id');
+        // Count leads with proper filters like manageList
+        $coldCount = Lead::where('status_id', LeadStatus::COLD)
+            ->whereHas('claims', function ($q) {
+                $q->whereNull('released_at')
+                  ->where('claimed_at', '>=', now()->subDays(10));
+            })
+            ->count();
+
+        $warmCount = Lead::where('status_id', LeadStatus::WARM)
+            ->whereHas('claims', function ($q) {
+                $q->whereNull('released_at')
+                  ->where('claimed_at', '>=', now()->subDays(30));
+            })
+            ->count();
+
+        $hotCount = Lead::where('status_id', LeadStatus::HOT)->count();
+        $dealCount = Lead::where('status_id', LeadStatus::DEAL)->count();
 
         $leadCounts = [
-            'cold' => $counts[LeadStatus::COLD] ?? 0,
-            'warm' => $counts[LeadStatus::WARM] ?? 0,
-            'hot'  => $counts[LeadStatus::HOT] ?? 0,
-            'deal' => $counts[LeadStatus::DEAL] ?? 0,
+            'cold' => $coldCount,
+            'warm' => $warmCount,
+            'hot'  => $hotCount,
+            'deal' => $dealCount,
         ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();
@@ -686,6 +709,9 @@ class LeadController extends Controller
         if ($request->user()->role?->code === 'sales') {
             abort(403);
         }
+
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
 
         $leads = Lead::with([
             'region.branch',
@@ -720,6 +746,22 @@ class LeadController extends Controller
 
         if ($request->filled('status_id')) {
             $leads->where('status_id', $request->status_id);
+            
+            // Apply day filters for Cold and Warm leads like in My Leads
+            $status = (int) $request->status_id;
+            if ($status === LeadStatus::COLD) {
+                // Cold leads: only show leads claimed within last 10 days
+                $leads->whereHas('claims', function ($q) {
+                    $q->whereNull('released_at')
+                      ->where('claimed_at', '>=', now()->subDays(10));
+                });
+            } elseif ($status === LeadStatus::WARM) {
+                // Warm leads: only show leads claimed within last 30 days
+                $leads->whereHas('claims', function ($q) {
+                    $q->whereNull('released_at')
+                      ->where('claimed_at', '>=', now()->subDays(30));
+                });
+            }
         }
 
         if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
