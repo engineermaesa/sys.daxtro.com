@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog, LeadSegment};
 use App\Models\Orders\{Quotation, QuotationItems, QuotationPaymentTerm, PaymentConfirmation, QuotationLog};
@@ -15,9 +16,13 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source'])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
-            ->whereNull('released_at');
+            ->whereNull('released_at')
+            ->where('claimed_at', '>=', now()->subDays(30));
             
         $roleCode = $request->user()->role?->code;
 
