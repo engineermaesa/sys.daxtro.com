@@ -76,7 +76,6 @@
                                             @else
                                                 <th>Claimed At</th>
                                                 <th>Lead Name</th>
-                                                <th>Sales Name</th>
                                                 <th>Segment</th>
                                                 <th class="text-center">Status</th>
                                             @endif
@@ -193,22 +192,10 @@
                         visible: false
                     },
                     {
-                        data: 'name',
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                return '<span class="sales-name">' + (data || '') + '</span>';
-                            }
-                            return data;
-                        }
+                        data: 'name'
                     },
                     {
-                        data: 'sales_name',
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                return '<span class="sales-name">' + (data || '') + '</span>';
-                            }
-                            return data;
-                        }
+                        data: 'sales_name'
                     },
                     {
                         data: 'phone'
@@ -221,14 +208,19 @@
                         data: 'needs'
                     },
                     {
-                        data: 'factory_other_industry',
+                        data: 'industry',
                         render: function(data, type, row) {
-                            if (row.lead.industry_remark && row.lead.industry_remark.trim() !== '') {
-                                return row.lead.industry_remark;
-                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
-                                return row.lead.other_industry;
+                            console.log('Full row object:', row);
+                            console.log('row.lead.industry_id:', row.lead.industry_id);
+                            console.log('row.lead:', row.lead);
+                            console.log('row.lead.other_industry:', row.lead?.other_industry_id);
+
+                            if (row.industry_name && row.industry_name.trim() !== '') {
+                                return row.industry_name;
+                            } else if (row.other_industry && row.other_industry.trim() !== '') {
+                                return row.other_industry;
                             } else {
-                                return row.lead.factory_other_industry || '';
+                                return 'Belum Diisi';
                             }
                         }
                     },
@@ -275,23 +267,19 @@
                         name: 'lead_name'
                     },
                     {
-                        data: 'sales_name',
+                        data: 'industry',
                         render: function(data, type, row) {
-                            if (type === 'display') {
-                                return '<span class="sales-name">' + (data || '') + '</span>';
-                            }
-                            return data;
-                        }
-                    },
-                    {
-                        data: 'factory_other_industry',
-                        render: function(data, type, row) {
-                            if (row.lead.industry_remark && row.lead.industry_remark.trim() !== '') {
-                                return row.lead.industry_remark;
-                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
-                                return row.lead.other_industry;
+                            console.log('Full row object:', row);
+                            console.log('row.lead.industry_id:', row.lead.industry_id);
+                            console.log('row.lead:', row.lead);
+                            console.log('row.lead.other_industry:', row.lead?.other_industry_id);
+
+                            if (row.industry_name && row.industry_name.trim() !== '') {
+                                return row.industry_name;
+                            } else if (row.other_industry && row.other_industry.trim() !== '') {
+                                return row.other_industry;
                             } else {
-                                return row.lead.factory_other_industry || '';
+                                return 'Belum Diisi';
                             }
                         }
                     },
@@ -599,10 +587,6 @@
             margin-left: 0.4rem;
             font-size: 85%;
             vertical-align: middle;
-        }
-    
-        .sales-name {
-            text-transform: uppercase;
         }
     </style>
 @endsection

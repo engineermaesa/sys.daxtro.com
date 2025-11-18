@@ -1250,7 +1250,7 @@ class LeadController extends Controller
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
@@ -1269,6 +1269,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function($row) {
                 return '<span class="badge badge-warning">Warm</span>';
@@ -1318,7 +1320,7 @@ class LeadController extends Controller
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
@@ -1336,6 +1338,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function($row) {
                 return '<span class="badge badge-danger">Hot</span>';
@@ -1380,7 +1384,7 @@ class LeadController extends Controller
         $user = $request->user();
         
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
@@ -1398,6 +1402,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function($row) {
                 return '<span class="badge badge-success">Deal</span>';

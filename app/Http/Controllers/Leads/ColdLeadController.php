@@ -22,6 +22,7 @@ class ColdLeadController extends Controller
 
         $claims = LeadClaim::with([
                 'lead.status',
+                'lead.industry',
                 'lead.segment',
                 'lead.source',
                 'lead.region.regional',
@@ -49,6 +50,8 @@ class ColdLeadController extends Controller
             ->addColumn('phone', fn ($row) => $row->lead->phone)
             ->addColumn('source', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('needs', fn ($row) => $row->lead->needs)
+            ->addColumn('industry_name', fn ($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry_name', fn ($row) => $row->lead->other_industry->name ?? null)
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '')
             ->addColumn('city_name', fn ($row) => $row->lead->region->name ?? 'All Regions')
             ->addColumn('regional_name', fn ($row) => $row->lead->region->regional->name ?? 'All Regions')

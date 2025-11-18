@@ -10,7 +10,7 @@ class HotLeadController extends Controller
 {
     public function myHotList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source'])
+        $claims = LeadClaim::with(['lead.status', 'lead.industry', 'lead.segment', 'lead.source'])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::HOT))
             ->whereNull('released_at');
             
@@ -35,6 +35,8 @@ class HotLeadController extends Controller
             ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
             ->addColumn('lead_name', fn ($row) => $row->lead->name)
             ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
             ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
             ->addColumn('meeting_status', fn () => '<span class="badge bg-danger">Hot</span>')

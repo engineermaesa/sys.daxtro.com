@@ -19,7 +19,7 @@ class WarmLeadController extends Controller
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
         
-        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source'])
+        $claims = LeadClaim::with(['lead.industry','lead.quotation', 'lead.segment', 'lead.source'])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at')
             ->where('claimed_at', '>=', now()->subDays(30));
@@ -44,6 +44,8 @@ class WarmLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
             ->addColumn('lead_name', fn ($row) => $row->lead->name)
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
             ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
             ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
