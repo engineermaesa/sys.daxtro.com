@@ -69,14 +69,14 @@
                                                 <th>Telephone</th>
                                                 <th>Source</th>
                                                 <th>Needs</th>
-                                                <th>Segment</th>
+                                                <th>Industry</th>
                                                 <th>City</th>
                                                 <th>Regional</th>
                                                 <th class="text-center">Status</th>
                                             @else
                                                 <th>Claimed At</th>
                                                 <th>Lead Name</th>
-                                                <th>Segment</th>
+                                                <th>Industry</th>
                                                 <th class="text-center">Status</th>
                                             @endif
                                             <th class="text-center">Action</th>

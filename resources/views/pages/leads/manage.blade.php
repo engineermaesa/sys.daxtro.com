@@ -90,7 +90,7 @@
                                             <th>Telephone</th>
                                             <th>Source</th>
                                             <th>Needs</th>
-                                            <th>Segment</th>
+                                            <th>Industry</th>
                                             <th>City</th>
                                             <th>Regional</th>
                                             <th>Customer Type</th>
@@ -276,48 +276,6 @@
                     if (activeId === 'deal-tab') $('#filterNote').text(notes.deal);
                 }
             }
-            
-            function initTable(selector, statusId) {
-                return $(selector).DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: '{{ route("leads.manage.list") }}',
-                    type: 'POST',
-                    data: function(d){
-                    d.branch_id  = $('#filter_branch').val();
-                    d.region_id  = $('#filter_region').val();
-                    d.sales_id   = $('#filter_sales').val();
-                    d.start_date = $('#filter_start').val();
-                    d.end_date   = $('#filter_end').val();
-                    d.status_id  = statusId;
-                    d._token     = '{{ csrf_token() }}';
-                    }
-                },
-                columns: [
-                    { data: 'id', visible: false },
-                    { data: 'name' },
-                    { data: 'sales_name' },
-                    { data: 'phone' },
-                    { data: 'needs' },
-                    { data: 'segment_name' },
-                    { data: 'city_name' },
-                    { data: 'regional_name' },
-                    { data: 'customer_type' },
-                    { data: 'product_description' },
-                    { data: 'quotation_number' },
-                    { data: 'quotation_price' },
-                    { data: 'invoice_number' },
-                    { data: 'invoice_price' },
-                    { data: 'quot_created' },
-                    { data: 'quot_end_date' },
-                    { data: 'act_last_time' },
-                    { data: 'act_status' },
-                    { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
-                ],
-                order: [[0, 'desc']]
-                });
-            }
 
             function initTable(selector, statusId) {
                 return $(selector).DataTable({
@@ -341,13 +299,16 @@
                             visible: false
                         },
                         {
-                            data: 'name'
+                            data: 'name',
+                            searchable: true
                         },
                         {
-                            data: 'sales_name'
+                            data: 'sales_name',
+                            searchable: true
                         },
                         {
-                            data: 'phone'
+                            data: 'phone',
+                            searchable: true
                         },
                         {
                             data: 'source_name'
@@ -356,7 +317,16 @@
                             data: 'needs'
                         },
                         {
-                            data: 'segment_name'
+                            data: 'industry_name',
+                            render: function(data, type, row) {
+                                if (row.industry_name && row.industry_name.trim() !== '' && row.industry_name.trim() !== '-') {
+                                    return row.industry_name;
+                                } else if (row.other_industry && row.other_industry.trim() !== '' && row.other_industry.trim() !== '-') {
+                                    return row.other_industry;
+                                } else {
+                                    return 'Belum Diisi';
+                                }
+                            }
                         },
                         {
                             data: 'city_name'

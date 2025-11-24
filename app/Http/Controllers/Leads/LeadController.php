@@ -737,6 +737,7 @@ class LeadController extends Controller
             'region.branch',
             'region.regional',
             'source',
+            'industry',
             'segment',
             'status',
             'quotation',
@@ -806,6 +807,8 @@ class LeadController extends Controller
             ->addColumn('phone', fn ($row) => $row->phone)
             ->addColumn('needs', fn ($row) => $row->needs)
             ->addColumn('source_name', fn ($row) => $row->source->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->industry?->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->other_industry ?? null)
             ->addColumn('segment_name', fn ($row) => $row->segment->name ?? '')
             ->addColumn('city_name', fn ($row) => $row->region->name ?? 'All Regions')
             ->addColumn('regional_name', fn ($row) => $row->region->regional->name ?? '-')
@@ -918,6 +921,21 @@ class LeadController extends Controller
                 $html .= '</div>';
 
                 return $html;
+            })
+            ->filter(function ($query) use ($request) {
+                if ($request->has('search') && $request->search['value'] != '') {
+                    $search = $request->search['value'];
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('needs', 'like', "%{$search}%")
+                        ->orWhere('city_name', 'like', "%{$search}%")
+                        ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%")) // Changed from claims.user to claims.sales
+                        ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%")) // Changed from quotation_number to quotation_no
+                        ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%")); // Changed from invoice_number to invoice_no
+                    });
+                }
             })
             ->rawColumns(['actions', 'status_name'])
             ->make(true);

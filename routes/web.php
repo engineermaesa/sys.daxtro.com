@@ -31,8 +31,6 @@ Route::post('dashboard/sales-performance-bar', [DashboardController::class, 'sal
     ->name('dashboard.sales-performance-bar');
 
 Route::post('dashboard/sales-achievement-monthly-percent', [DashboardController::class, 'salesAchievementMonthlyPercent'])->name('dashboard.sales-achievement-monthly-percent');
-
-
     // routes/web.php
 Route::post('dashboard/target-vs-sales-monthly', [DashboardController::class, 'targetVsSalesMonthly'])
     ->name('dashboard.target-vs-sales-monthly');
