@@ -2141,6 +2141,11 @@ class DashboardController extends Controller
 
             $totalPercentage = $totalCumulative > 0 ? 100.00 : 0.00;
 
+            $provinceReached = $data->filter(function ($item) {
+                $cumulative = $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
+                return $cumulative > 0;
+            })->count();
+
             $formattedData = $data->map(function ($item) use ($totalCumulative) {
                 $cold = (int) $item->cold_count;
                 $warm = (int) $item->warm_count;
@@ -2175,6 +2180,7 @@ class DashboardController extends Controller
                 'summary' => [
                     'total_percentage' => $totalPercentage,
                     'total_cumulative' => $totalCumulative,
+                    'province_reached' => $provinceReached,
                     'total_provinces' => $data->count()
                 ],
                 'filters' => [
