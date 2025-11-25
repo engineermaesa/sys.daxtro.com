@@ -2818,6 +2818,131 @@
         </div>
     </div>
 
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light source-conversion-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="segment-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="segment-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Month</label>
+                            <select id="segment-month" class="form-select source-control-input">
+                                <option value="">All Months</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="segment-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Month</label>
+                            <select id="segment-month" class="form-select source-control-input">
+                                <option value="">All Months</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="source-conversion-responsive" id="segment-container">
+                    <div class="source-conversion-scroll">
+                        <table class="table table-hover mb-0" id="segment-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Segment</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="segment-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading segment performance data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                <tr id="segment-total-row">
+                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cum">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cold">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-warm">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-hot">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-deal">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="segment-total-all">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- SOURCE MONITORING Section -->
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
@@ -4027,6 +4152,131 @@
         </div>
     </div>
 
+
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">REGIONAL PERFORMANCE</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light source-conversion-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="regional-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="regional-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">Month</label>
+                            <select id="regional-month" class="form-select source-control-input">
+                                <option value="">All Months</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="regional-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Year</label>
+                            <input type="number" id="regional-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Month</label>
+                            <select id="regional-month" class="form-select source-control-input">
+                                <option value="">All Months</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="regional-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="source-conversion-responsive" id="regional-container">
+                    <div class="source-conversion-scroll">
+                        <table class="table table-hover mb-0" id="regional-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Province</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="regional-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading regional performance data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                <tr id="regional-total-row">
+                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cum">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cold">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-warm">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-hot">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-deal">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="regional-total-all">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TREND ORDERS BULANAN (YTD) -->
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">TREND ORDERS BULANAN (YTD)</h2>
@@ -5005,6 +5255,301 @@ function loadLeadsBranchTrend(prefix, status) {
   });
 }
 */
+
+                function loadRegionalPerformance() {
+                    const params = {
+                        year: $('#regional-year').val() || new Date().getFullYear(),
+                        month: $('#regional-month').val() || ''
+                    };
+
+                    @if(auth()->user()->role?->code === 'super_admin')
+                        const branchId = $('#regional-branch').val();
+                        if (branchId && branchId !== '') {
+                            params.branch_id = branchId;
+                        }
+                    @else
+                        @if(auth()->user()->branch_id)
+                            params.branch_id = {{ auth()->user()->branch_id }};
+                        @endif
+                    @endif
+
+                    console.log('Loading regional performance with params:', params);
+
+                    const tbody = $('#regional-tbody');
+                    tbody.html(`
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0 text-muted">Loading regional performance data...</p>
+                            </td>
+                        </tr>
+                    `);
+
+                    $.get('/api/dashboard/regional-performance', params)
+                        .done(function(response) {
+                            console.log('Regional performance response:', response);
+                            if (response.data && response.data.length > 0) {
+                                renderRegionalPerformanceTable(response.data);
+                            } else {
+                                tbody.html(`
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <i class="fas fa-info-circle text-muted mb-2" style="font-size: 2rem;"></i>
+                                            <p class="mb-0 text-muted">No data available for the selected period</p>
+                                        </td>
+                                    </tr>
+                                `);
+
+                                $('#regional-total-cum, #regional-total-cold, #regional-total-warm, #regional-total-hot, #regional-total-deal, #regional-total-all').text('0');
+                                adjustRegionalHeight(0);
+                            }
+                        })
+                        .fail(function(xhr) {
+                            console.error('Failed to load regional performance data:', xhr);
+                            tbody.html(`
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 text-muted">Failed to load data. Please try again.</p>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadRegionalPerformance()">
+                                            <i class="fas fa-refresh me-1"></i> Retry
+                                        </button>
+                                    </td>
+                                </tr>
+                            `);
+                            $('#regional-total-cum, #regional-total-cold, #regional-total-warm, #regional-total-hot, #regional-total-deal, #regional-total-all').text('0');
+                            adjustRegionalHeight(0);
+                        });
+                }
+
+                function renderRegionalPerformanceTable(data) {
+                    const tbody = $('#regional-tbody');
+                    tbody.empty();
+
+                    let totals = {
+                        cum: 0,
+                        cold: 0,
+                        warm: 0,
+                        hot: 0,
+                        deal: 0
+                    };
+
+                    data.forEach(function(item) {
+                        totals.cum += item.cumulative || 0;
+                        totals.cold += item.cold || 0;
+                        totals.warm += item.warm || 0;
+                        totals.hot += item.hot || 0;
+                        totals.deal += item.deal || 0;
+                    });
+
+                    data.forEach(function(item) {
+                        const rowTotal = (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        
+                        const row = $(`
+                            <tr>
+                                <td>
+                                    <span class="source-badge">${item.province || 'Unknown'}</span>
+                                </td>
+                                <td class="text-center conversion-number">
+                                    ${(item.cumulative || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cumulative_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.cold || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cold_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.warm || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.warm_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.hot || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.hot_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center conversion-number">
+                                    ${(item.deal || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center" style="background-color: rgba(17, 86, 65, 0.1); font-weight: bold;">
+                                    ${rowTotal.toLocaleString()}
+                                </td>
+                            </tr>
+                        `);
+                        tbody.append(row);
+                    });
+
+                    const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
+                    $('#regional-total-cum').text(totals.cum.toLocaleString());
+                    $('#regional-total-cold').text(totals.cold.toLocaleString());
+                    $('#regional-total-warm').text(totals.warm.toLocaleString());
+                    $('#regional-total-hot').text(totals.hot.toLocaleString());
+                    $('#regional-total-deal').text(totals.deal.toLocaleString());
+                    $('#regional-total-all').text(grandTotal.toLocaleString());
+                    
+                    adjustRegionalHeight(data.length);
+                }
+
+                function adjustRegionalHeight(rowCount) {
+                    const container = $('#regional-container');
+                    container.removeClass('compact');
+                    
+                    if (rowCount === 0 || rowCount <= 3) {
+                        container.addClass('compact');
+                    }
+                }
+
+                function loadSegmentPerformance() {
+                    const params = {
+                        year: $('#segment-year').val() || new Date().getFullYear(),
+                        month: $('#segment-month').val() || ''
+                    };
+
+                    @if(auth()->user()->role?->code === 'super_admin')
+                        const branchId = $('#segment-branch').val();
+                        if (branchId && branchId !== '') {
+                            params.branch_id = branchId;
+                        }
+                    @else
+                        @if(auth()->user()->branch_id)
+                            params.branch_id = {{ auth()->user()->branch_id }};
+                        @endif
+                    @endif
+
+                    console.log('Loading segment performance with params:', params);
+
+                    const tbody = $('#segment-tbody');
+                    tbody.html(`
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0 text-muted">Loading segment performance data...</p>
+                            </td>
+                        </tr>
+                    `);
+
+                    $.get('/api/dashboard/sales-segment-performance', params)
+                        .done(function(response) {
+                            console.log('Segment performance response:', response);
+                            if (response.data && response.data.length > 0) {
+                                renderSegmentPerformanceTable(response.data);
+                            } else {
+                                tbody.html(`
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <i class="fas fa-info-circle text-muted mb-2" style="font-size: 2rem;"></i>
+                                            <p class="mb-0 text-muted">No data available for the selected period</p>
+                                        </td>
+                                    </tr>
+                                `);
+
+                                $('#segment-total-cum, #segment-total-cold, #segment-total-warm, #segment-total-hot, #segment-total-deal, #segment-total-all').text('0');
+                                adjustSegmentHeight(0);
+                            }
+                        })
+                        .fail(function(xhr) {
+                            console.error('Failed to load segment performance data:', xhr);
+                            tbody.html(`
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="fas fa-exclamation-triangle text-warning mb-2" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 text-muted">Failed to load data. Please try again.</p>
+                                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadSegmentPerformance()">
+                                            <i class="fas fa-refresh me-1"></i> Retry
+                                        </button>
+                                    </td>
+                                </tr>
+                            `);
+                            $('#segment-total-cum, #segment-total-cold, #segment-total-warm, #segment-total-hot, #segment-total-deal, #segment-total-all').text('0');
+                            adjustSegmentHeight(0);
+                        });
+                }
+
+                function renderSegmentPerformanceTable(data) {
+                    const tbody = $('#segment-tbody');
+                    tbody.empty();
+
+                    let totals = {
+                        cum: 0,
+                        cold: 0,
+                        warm: 0,
+                        hot: 0,
+                        deal: 0
+                    };
+
+                    data.forEach(function(item) {
+                        totals.cum += item.cumulative || 0;
+                        totals.cold += item.cold || 0;
+                        totals.warm += item.warm || 0;
+                        totals.hot += item.hot || 0;
+                        totals.deal += item.deal || 0;
+                    });
+
+                    data.forEach(function(item) {
+                        const rowTotal = (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        
+                        const row = $(`
+                            <tr>
+                                <td>
+                                    <span class="source-badge">${item.segment || 'Unknown'}</span>
+                                </td>
+                                <td class="text-center conversion-number">
+                                    ${(item.cumulative || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cumulative_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.cold || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cold_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.warm || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.warm_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center">
+                                    ${(item.hot || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.hot_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center conversion-number">
+                                    ${(item.deal || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="text-center" style="background-color: rgba(17, 86, 65, 0.1); font-weight: bold;">
+                                    ${rowTotal.toLocaleString()}
+                                </td>
+                            </tr>
+                        `);
+                        tbody.append(row);
+                    });
+
+                    const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
+                    $('#segment-total-cum').text(totals.cum.toLocaleString());
+                    $('#segment-total-cold').text(totals.cold.toLocaleString());
+                    $('#segment-total-warm').text(totals.warm.toLocaleString());
+                    $('#segment-total-hot').text(totals.hot.toLocaleString());
+                    $('#segment-total-deal').text(totals.deal.toLocaleString());
+                    $('#segment-total-all').text(grandTotal.toLocaleString());
+                    
+                    adjustSegmentHeight(data.length);
+                }
+
+                function adjustSegmentHeight(rowCount) {
+                    const container = $('#segment-container');
+                    container.removeClass('compact');
+                    
+                    if (rowCount === 0 || rowCount <= 3) {
+                        container.addClass('compact');
+                    }
+                }
+
+                $('#regional-apply').on('click', loadRegionalPerformance);
+                $('#segment-apply').on('click', loadSegmentPerformance);
+
+                loadRegionalPerformance();
+                loadSegmentPerformance();
+
 
 
 let branchSalesChart;
