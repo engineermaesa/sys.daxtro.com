@@ -1998,10 +1998,15 @@ class DashboardController extends Controller
         ]);
 
         $year = $validated['year'] ?? now()->year;
-        $month = $validated['month'] ?? now()->month;
+        $month = $validated['month'] ?? null;
 
-        $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-        $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
+        if ($month) {
+            $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+            $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
+        } else {
+            $start = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
+            $end = Carbon::create($year, 12, 31)->endOfYear()->toDateString();
+        }
 
         try {
             $coldStatus = LeadStatus::COLD;
@@ -2102,11 +2107,16 @@ class DashboardController extends Controller
         ]);
 
         $year = $validated['year'] ?? now()->year;
-        $month = $validated['month'] ?? now()->month;
+        $month = $validated['month'] ?? null;
 
-        $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-        $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
-
+        if ($month) {
+            $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
+            $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
+        } else {
+            $start = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
+            $end = Carbon::create($year, 12, 31)->endOfYear()->toDateString();
+        }
+        
         try {
             $coldStatus = LeadStatus::COLD;
             $warmStatus = LeadStatus::WARM;
