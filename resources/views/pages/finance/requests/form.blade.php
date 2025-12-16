@@ -25,6 +25,7 @@
           'invoice' => 'success',
           'payment-confirmation' => 'warning',
           'meeting-expense' => 'info',
+          'meeting-realization' => 'secondary',
         ];
         $statusColors = [
           'pending' => 'warning',
@@ -136,7 +137,7 @@
         </tbody>
       </table>
 
-      @if($proforma->paymentConfirmation)
+    @if($proforma->paymentConfirmation)
       <h6 class="mt-3">Payment Confirmation Details</h6>
       <table class="table table-bordered table-sm">
         <tr><th>Payer Name</th><td>{{ $proforma->paymentConfirmation->payer_name }}</td></tr>
