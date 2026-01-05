@@ -2818,6 +2818,121 @@
         </div>
     </div>
 
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light source-conversion-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="segment-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Source</label>
+                            <select id="source-filter" class="form-select source-control-input">
+                                <option value="">All Source</option>
+                                @foreach($leadSources as $source)
+                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">Source</label>
+                            <select id="source-filter" class="form-select source-control-input">
+                                <option value="">All Source</option>
+                                @foreach($leadSources as $source)
+                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-3 col-md-3 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="source-conversion-responsive" id="source-conversion-container">
+                    <div class="source-conversion-scroll">
+                        <table class="table table-hover mb-0" id="source-conversion-table">
+                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                <tr>
+                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
+                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="source-conversion-tbody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="text-success">
+                                            <div class="spinner-border text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                <tr id="source-conversion-total-row">
+                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cum">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cold">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
+                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="total-all">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- SOURCE MONITORING Section -->
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
@@ -3354,6 +3469,290 @@
                     </div>
                 </div>
                 @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12 mb-4">
+        <div class="row">
+          <div class="col-lg-6 col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">TARGET VS SALES</h2>
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+              <div class="card-body p-4">
+
+            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+              <div class="control-item">
+                <select id="tvsm_scope" class="form-select modern-select">
+                  <option value="global">Global</option>
+                  <option value="jakarta">Branch Jakarta</option>
+                  <option value="makassar">Branch Makassar</option>
+                  <option value="surabaya">Branch Surabaya</option>
+                </select>
+              </div>
+              <div class="control-item">
+                <input type="number" id="tvsm_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
+              </div>
+              <div class="control-item">
+                <button type="button" class="btn modern-apply-btn" id="tvsm_apply">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <div class="chart-container" style="height: 300px; position: relative;">
+              <canvas id="tvsm_chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+          <div class="col-lg-6 col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">ACHIEVEMENT VS TARGET</h2>
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+              <div class="card-body p-4">
+
+            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+              <div class="control-item">
+                <input type="number" id="svt_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
+              </div>
+              <div class="control-item">
+                <button type="button" class="btn modern-apply-btn" id="svt_apply">
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            <div class="chart-container" style="height: 300px; position: relative;">
+              <canvas id="svt_percent_chart"></canvas>
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLS DEALING Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
+        
+        <div class="row sls-dealing-mobile-stack">
+            <!-- SLS Dealing Chart (Left) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Dealing Chart</h5>
+                            </div>
+                        </div>
+
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="sls-dealing-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-start-date" class="form-control modern-input" 
+                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-end-date" class="form-control modern-input" 
+                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="chart-container" style="height: 350px; position: relative;">
+                            <canvas id="sls-dealing-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SLS Dealing Table (Right) -->
+            <div class="col-lg-6 col-md-12 mb-4">
+                <div class="card chart-card shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="chart-title mb-0">Dealing List</h5>
+                            </div>
+                        </div>
+
+                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                            @if(auth()->user()->role?->code === 'super_admin')
+                            <div class="control-item">
+                                <select id="sls-dealing-table-branch" class="form-select modern-select">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-table-start-date" class="form-control modern-input" 
+                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <input type="date" id="sls-dealing-table-end-date" class="form-control modern-input" 
+                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            </div>
+                            <div class="control-item">
+                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-table-apply">
+                                    Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
+                            <div style="min-width: 900px;">
+                                <div class="table-body-scroll" style="overflow: visible;">
+                                    <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
+                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                            <tr>
+                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Nama Sales</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Target Amount</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">ACV Amount</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">% (ACV/Target)</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">Unit Sales</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Branch</th>
+                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 120px;">Periode</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sls-dealing-tbody">
+                                            <tr>
+                                                <td colspan="7" class="text-center py-4">
+                                                    <div class="text-success">
+                                                        <div class="spinner-border text-success" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                        <p class="mt-3 mb-0 text-muted">Loading SLS dealing data...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                            <tr id="sls-dealing-total-row">
+                                                <td class="text-white fw-bold py-2 px-2" style="font-size: 11px; border-radius: 0;">TOTAL</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-target-amount">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-acv-amount">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-percentage">0%</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-unit-sales">0</td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
+                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SALES POTENTIAL DEALING BRANCH Section -->
+    <div class="col-md-12 mb-4">
+        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
+        
+        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+            <div class="card-body p-0">
+                <div class="p-4 bg-light potential-dealing-section">
+                    @if(auth()->user()->role?->code === 'super_admin')
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Branch</label>
+                            <select id="potential-branch-branch" class="form-select source-control-input">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-2 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @else
+                    <div class="row g-3 align-items-end">
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-lg-4 col-md-4 col-sm-6">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn source-apply-button w-100" id="potential-branch-apply">
+                                <i class="fas fa-filter me-1"></i> Apply Filter
+                            </button>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="source-conversion-responsive" id="potential-branch-container">
+                    <table class="table table-hover mb-0" id="potential-branch-table">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
+                            </tr>
+                        </thead>
+                        <tbody id="potential-branch-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading potential dealing branch data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                            <tr id="potential-branch-total-row">
+                                <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-cold">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
         </div>

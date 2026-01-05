@@ -69,6 +69,12 @@
     }
     .sign-box b { display: block; margin-top: 24pt; /* space for signature */ }
 
+    
+    .sales-name {
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
   </style>
 </head>
 <body>

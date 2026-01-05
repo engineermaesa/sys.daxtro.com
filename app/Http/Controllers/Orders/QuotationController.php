@@ -24,19 +24,12 @@ class QuotationController extends Controller
         // 2. Load the quotation with its relations
         $quotation = Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
 
+        // Get the user who created the quotation or current user
+        $user = $quotation->createdBy ?? auth()->user();
+
         // 3. Ensure temp dir exists
         $tempDir = storage_path('app/temp');
         File::ensureDirectoryExists($tempDir);
-
-        // 4. Render page-2 (body)
-        $bodyPath = "{$tempDir}/body_{$quotation->id}.pdf";
-        Pdf::loadView('pdfs.quotation_body', compact('quotation'))
-            ->setPaper('A4','portrait')
-            ->save($bodyPath);
-
-        if (! File::exists($bodyPath)) {
-            throw new \RuntimeException("Body PDF not found at {$bodyPath}");
-        }
 
         // 4.1 Load the active LeadClaim to get Sales info
         $claim = LeadClaim::where('lead_id', $quotation->lead_id)
@@ -45,18 +38,28 @@ class QuotationController extends Controller
                     ->latest('claimed_at')
                     ->first();
 
-        // 5. Render page-3 (terms & conditions)
-        $termsPath = "{$tempDir}/terms_{$quotation->id}.pdf";
-        Pdf::loadView('pdfs.quotation_terms', compact('quotation','claim'))
+        // 4. Render page-2 (body) - ADD $user and $claim variables
+        $bodyPath = "{$tempDir}/body_{$quotation->id}.pdf";
+        Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
             ->setPaper('A4','portrait')
-            ->save($termsPath);
+            ->save($bodyPath);
 
-        if (! File::exists($termsPath)) {
-            throw new \RuntimeException("Terms PDF not found at {$termsPath}");
+        if (! File::exists($bodyPath)) {
+            throw new \RuntimeException("Body PDF not found at {$bodyPath}");
         }
 
+        // // 5. Render page-3 (terms & conditions) - ADD $user variable
+        // $termsPath = "{$tempDir}/terms_{$quotation->id}.pdf";
+        // Pdf::loadView('pdfs.quotation_terms', compact('quotation','claim', 'user'))
+        //     ->setPaper('A4','portrait')
+        //     ->save($termsPath);
+
+        // if (! File::exists($termsPath)) {
+        //     throw new \RuntimeException("Terms PDF not found at {$termsPath}");
+        // }
+
         // 6. Paths for the static pages
-        $coverPath      = resource_path('pdf/quotation/cover.pdf');
+        // $coverPath      = resource_path('pdf/quotation/cover.pdf');
         // $componentsPath = resource_path('pdf/quotation/components.pdf');
 
         // foreach ([$coverPath, $componentsPath] as $static) {
@@ -67,9 +70,9 @@ class QuotationController extends Controller
 
         // 7. Merge: cover → body → terms → components
         $merger = PDFMerger::init();
-        $merger->addPDF($coverPath,       'all');
+        // $merger->addPDF($coverPath,       'all');
         $merger->addPDF($bodyPath,        'all');
-        $merger->addPDF($termsPath,       'all');
+        // $merger->addPDF($termsPath,       'all');
         // $merger->addPDF($componentsPath,  'all');
 
         // 8. Save merged file
@@ -86,7 +89,7 @@ class QuotationController extends Controller
         }
 
         // 9. Clean up temp PDFs
-        File::delete([$bodyPath, $termsPath]);
+        // File::delete([$bodyPath, $termsPath]);
 
         // 10. Return download (auto-deletes the merged file)
         return response()
@@ -165,9 +168,43 @@ class QuotationController extends Controller
     }
 
     public function approve(Request $request, $id)
-    {        
-        $incentive = env('INCENTIVE_AMOUNT_RATE', 100000);
+    {
+        $baseIncentive = env('INCENTIVE_AMOUNT_RATE', 100000);
         $quotation = Quotation::with('paymentTerms', 'lead', 'items', 'reviews')->findOrFail($id);
+
+        $incentive = 0;
+
+        foreach ($quotation->items as $item) {
+            if ($item->discount_pct > 100 || $item->discount_pct < 0) {
+                abort(400, 'Invalid discount percentage on item ID: ' . $item->id);
+            }
+
+            if ($item->discount_pct == null) {
+                abort(400, 'Discount percentage cannot be null on item ID: ' . $item->id);
+            }
+
+            $itemPrice = $item->price;
+            $itemQty = $item->qty;
+            $itemDiscount = $item->discount_pct;
+
+            $basePricePerUnit = $item->base_price ?? $item->product->base_price ?? $itemPrice;
+
+            if ($itemDiscount < 5) {
+                if ($itemPrice > $basePricePerUnit) {
+                    $markupAmount = ($itemPrice - $basePricePerUnit) * $itemQty;
+                    $incentive += 0.3 * $markupAmount;
+                }
+
+                if ($itemDiscount < 1) {
+                    $markupAmount = ($itemPrice * $itemDiscount / 100) * $itemQty;
+                    $incentive += 0.5 * $markupAmount;
+                }
+                $incentive += 0.01 * $itemPrice * $itemQty;
+            }
+            
+        }
+
+        $totalIncentive = $baseIncentive + $incentive;
 
         $request->validate([
             'notes' => 'required|string',
@@ -175,7 +212,7 @@ class QuotationController extends Controller
 
         $userRole = $request->user()->role?->code;
         $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-        $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+        $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
 
         // Validation rules
         if ($userRole === 'finance' && !$bmApproved) {
@@ -190,11 +227,11 @@ class QuotationController extends Controller
             abort(403, 'Finance has already approved this quotation.');
         }
 
-        DB::transaction(function () use ($quotation, $request, $incentive, $userRole) {            
+        DB::transaction(function () use ($quotation, $request, $totalIncentive, $userRole) {            
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
-                'finance' => 'finance',
+                'finance' => 'FIN',
             ];
             
             $role = $roleMapping[$userRole] ?? $userRole;
@@ -210,8 +247,8 @@ class QuotationController extends Controller
             ];
 
             // Only add incentive_nominal if it's not null (for Finance approvals)
-            if ($userRole === 'finance') {
-                $reviewData['incentive_nominal'] = $incentive;
+            if ($userRole === 'FIN') {
+                $reviewData['incentive_nominal'] = $totalIncentive;
             } else {
                 $reviewData['incentive_nominal'] = 0; // Set to 0 instead of null
             }
@@ -227,7 +264,7 @@ class QuotationController extends Controller
 
             // Check approval status after this approval
             $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
 
             // Update quotation status based on approvals
             if ($userRole === 'branch_manager') {
@@ -246,7 +283,7 @@ class QuotationController extends Controller
                 // Create incentive log
                 \App\Models\UserBalanceLog::create([
                     'user_id'       => $quotation->created_by,
-                    'amount'        => $incentive,
+                    'amount'        => $totalIncentive,
                     'quotation_id'  => $quotation->id,
                     'description'   => 'Incentive for quotation ' . $quotation->quotation_no,
                     'status'        => 'pending',
@@ -332,7 +369,7 @@ class QuotationController extends Controller
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
-                'finance' => 'finance',
+                'finance' => 'FIN',
             ];
             
             $userRole = $request->user()->role?->code;

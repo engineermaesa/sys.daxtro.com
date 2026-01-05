@@ -15,6 +15,7 @@ class FinanceRequest extends Model
         'proforma',
         'invoice',
         'payment-confirmation',
+        'expense-realization',
     ];
 
     protected $fillable = [
@@ -37,5 +38,11 @@ class FinanceRequest extends Model
     public function approver()
     {
         return $this->belongsTo(\App\Models\User::class, 'approver_id');
+    }
+
+    public function expenseRealization()
+    {
+        return $this->belongsTo(ExpenseRealization::class, 'reference_id')
+                    ->where('request_type', 'expense-realization');
     }
 }

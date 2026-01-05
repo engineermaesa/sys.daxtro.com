@@ -327,14 +327,14 @@
               <label for="needs" class="form-label">Needs <span class="text-danger">*</span></label>
               <select class="form-select select2" id="needs" name="needs" required>
                 <option value="" disabled selected>Pilih</option>
-                <option value="Tube Ice ( Mesin Es Kristal Tabung )">Tube Ice ( Mesin Es Kristal Tabung )</option>
-                <option value="Cube Ice ( Mesin Es Kristal Kubus )">Cube Ice ( Mesin Es Kristal Kubus )</option>
-                <option value="Block Ice ( Mesin Es Balok )">Block Ice ( Mesin Es Balok )</option>
-                <option value="Flake ice ( Mesin Es Pecah )">Flake ice ( Mesin Es Pecah )</option>
-                <option value="Slurry Ice ( Es Bubur halus )">Slurry Ice ( Es Bubur halus )</option>
-                <option value="Flake Ice ( Es Serpih )">Flake Ice ( Es Serpih )</option>
-                <option value="Cold Room ( Ruang Pendingin )">Cold Room ( Ruang Pendingin )</option>
-                <option value="Other ( Keperluan Kustom )">Other ( Keperluan Kustom )</option>
+                <option value="Tube Ice">Tube Ice</option>
+                <option value="Cube Ice">Cube Ice</option>
+                <option value="Block Ice">Block Ice</option>
+                <option value="Flake ice">Flake ice</option>
+                <option value="Slurry Ice">Slurry Ice</option>
+                <option value="Flake Ice">Flake Ice</option>
+                <option value="Cold Room">Cold Room</option>
+                <option value="Other">Other</option>
               </select>
             </div>
             <div class="col-md-4">

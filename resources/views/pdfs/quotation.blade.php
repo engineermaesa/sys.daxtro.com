@@ -133,12 +133,14 @@
         </tr>
       </thead>
       <tbody>
+        {{-- $totalDiscount = 0; --}}
         @foreach($quotation->items as $i => $item)
-          @php
-            $subtotal   = $item->unit_price * $item->qty;
-            $discAmount = $subtotal * ($item->discount_pct/100);
-            $grandTotal = $subtotal - $discAmount;
-          @endphp
+            @php
+              $subtotal   = $item->unit_price * $item->qty;
+              $discAmount = $subtotal * ($item->discount_pct/100);
+              $grandTotal = $subtotal - $discAmount;
+              // $totalDiscount += $item->unit_price * ($item->discount_pct/100);
+            @endphp
           <tr>
             <td class="text-center">{{ $i + 1 }}</td>
             <td>
@@ -167,6 +169,7 @@
               <td class="text-right">
                 {{ $item->discount_pct ? $item->discount_pct.'%' : '-' }}
               </td>
+              <td class="text-right">Rp {{ number_format($totalDiscount, 0, ',', '.') }}</td>
             @endif
             <td class="text-right">Rp {{ number_format($grandTotal, 0, ',', '.') }}</td>
           </tr>

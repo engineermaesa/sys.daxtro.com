@@ -34,6 +34,7 @@ class OrderSeeder extends Seeder
                 'subtotal' => $subtotal,
                 'tax_pct' => $taxPct,
                 'tax_total' => $tax,
+                'total_discount' => 0,
                 'grand_total' => $grand,
                 'booking_fee' => $subtotal * 0.1,
                 'expiry_date' => now()->addWeeks(2),
@@ -142,6 +143,7 @@ class OrderSeeder extends Seeder
                     'discount_pct' => 0,
                     'tax_pct' => 10,
                     'line_total' => $itemPrice + ($itemPrice * 0.1),
+                    'total_discount' => 0,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

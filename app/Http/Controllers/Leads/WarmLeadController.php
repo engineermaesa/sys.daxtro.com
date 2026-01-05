@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog, LeadSegment};
 use App\Models\Orders\{Quotation, QuotationItems, QuotationPaymentTerm, PaymentConfirmation, QuotationLog};
@@ -19,9 +20,14 @@ class WarmLeadController extends Controller
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
-        if ($request->user()->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
         }
+
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $claims->whereHas('lead.quotation', function ($q) use ($request) {
@@ -250,6 +256,7 @@ class WarmLeadController extends Controller
                 'unit_price.*'      => 'required|numeric',
                 'discount_pct.*'    => 'nullable|numeric|min:0|max:100',
                 'tax_pct'           => 'required|numeric',
+                'total_discount'    => 'nullable|numeric|min:0',
                 'term_percentage.*' => 'required|numeric|min:0|max:100',
                 'term_description.*' => 'nullable|string',
                 'payment_type'      => 'required|in:booking_fee,down_payment',
@@ -300,6 +307,7 @@ class WarmLeadController extends Controller
 
             $items = [];
             $subtotal = 0;
+            $totalDiscount = 0;
 
             foreach ($request->qty as $idx => $qty) {
                 $pidRaw = $request->product_id[$idx] ?? null;
@@ -309,6 +317,7 @@ class WarmLeadController extends Controller
                 $description = $request->description[$idx] ?? '';
                 $line = ($price - ($price * $discount / 100)) * $qty;
                 $subtotal += $line;
+                $totalDiscount += ($price * $discount / 100) * $qty;
 
                 $isVisible = isset($request->is_visible_pdf[$idx]) ?
                     (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
@@ -362,6 +371,7 @@ class WarmLeadController extends Controller
                     'subtotal'    => $subtotal,
                     'tax_pct'     => $request->tax_pct,
                     'tax_total'   => $taxTotal,
+                    'total_discount' => $totalDiscount,
                     'grand_total' => $grandTotal,
                     'booking_fee' => $bookingFee,
                     'expiry_date' => now()->addDays(15),
@@ -388,6 +398,7 @@ class WarmLeadController extends Controller
                     'subtotal' => $subtotal,
                     'tax_pct' => $request->tax_pct,
                     'tax_total' => $taxTotal,
+                    'total_discount' => $totalDiscount,
                     'grand_total' => $grandTotal,
                     'booking_fee' => $bookingFee,
                     'created_by' => $request->user()->id,

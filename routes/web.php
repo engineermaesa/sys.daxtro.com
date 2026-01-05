@@ -31,8 +31,6 @@ Route::post('dashboard/sales-performance-bar', [DashboardController::class, 'sal
     ->name('dashboard.sales-performance-bar');
 
 Route::post('dashboard/sales-achievement-monthly-percent', [DashboardController::class, 'salesAchievementMonthlyPercent'])->name('dashboard.sales-achievement-monthly-percent');
-
-
     // routes/web.php
 Route::post('dashboard/target-vs-sales-monthly', [DashboardController::class, 'targetVsSalesMonthly'])
     ->name('dashboard.target-vs-sales-monthly');
@@ -143,6 +141,33 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
     });
 
     Route::group([
+        'prefix' => 'expense-realizations',
+        'as' => 'expense-realizations.',
+        'namespace' => 'App\\Http\\Controllers\\Orders',
+    ], function () {
+        Route::get('/', 'ExpenseRealizationController@index')->name('index');
+        Route::post('/list', 'ExpenseRealizationController@list')->name('list');
+        Route::get('/create/{meetingExpenseId?}', 'ExpenseRealizationController@create')->name('create');
+        Route::post('/', 'ExpenseRealizationController@store')->name('store');
+        Route::get('/{id}', 'ExpenseRealizationController@show')->name('show');
+        Route::get('/{id}/edit', 'ExpenseRealizationController@edit')->name('edit');
+        Route::put('/{id}', 'ExpenseRealizationController@update')->name('update');
+        Route::post('/{id}/submit', 'ExpenseRealizationController@submit')->name('submit');
+    });
+
+    Route::get('/debug/expense-realizations', function() {
+        $count = \App\Models\Orders\ExpenseRealization::count();
+        $meetingExpenseCount = \App\Models\Orders\MeetingExpense::where('status', 'approved')->count();
+        $data = \App\Models\Orders\ExpenseRealization::with(['sales', 'meetingExpense.meeting.lead'])->get();
+        
+        return response()->json([
+            'expense_realization_count' => $count,
+            'approved_meeting_expense_count' => $meetingExpenseCount,
+            'data' => $data
+        ]);
+    });
+
+    Route::group([
         'prefix' => 'payment-confirmation',
         'as' => 'payment-confirmation.',
         'namespace' => 'App\\Http\\Controllers\\Payment',
@@ -175,6 +200,19 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::post('/{id}/reject', 'FinanceRequestController@reject')->name('reject');
         Route::get('/{id}', 'FinanceRequestController@form')->name('form');
     });
+
+    Route::get('api/expense-types', function() {
+        return \App\Models\Masters\ExpenseType::all();
+    })->name('api.expense-types');
+
+    Route::get('api/meeting-expense-details/{id}', function($id) {
+        return \App\Models\Orders\MeetingExpenseDetail::where('meeting_expense_id', $id)
+            ->with('expenseType')
+            ->get();
+    })->name('api.meeting-expense-details');
+
+    Route::post('finance-requests/approve-with-realization', [FinanceRequestController::class, 'approveWithRealization'])
+        ->name('finance-requests.approve-with-realization');
 
     // Masters
     Route::group([

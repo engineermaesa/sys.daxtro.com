@@ -88,8 +88,9 @@
                                             <th>Nama</th>
                                             <th>Sales Name</th>
                                             <th>Telephone</th>
+                                            <th>Source</th>
                                             <th>Needs</th>
-                                            <th>Segment</th>
+                                            <th>Industry</th>
                                             <th>City</th>
                                             <th>Regional</th>
                                             <th>Customer Type</th>
@@ -98,6 +99,10 @@
                                             <th>Quotation Price</th>
                                             <th>Invoice</th>
                                             <th>Invoice Price</th>
+                                            <th>Quot Created</th>
+                                            <th>Quot End Date</th>
+                                            <th>ACT Last Time</th>
+                                            <th>ACT Status</th>
                                             <th class="text-center">Actions</th>
                                         </tr>
                                     </thead>
@@ -294,19 +299,25 @@
                             visible: false
                         },
                         {
-                            data: 'name'
+                            data: 'name',
+                            searchable: true
                         },
                         {
-                            data: 'sales_name'
+                            data: 'sales_name',
+                            searchable: true
                         },
                         {
-                            data: 'phone'
+                            data: 'phone',
+                            searchable: true
+                        },
+                        {
+                            data: 'source_name'
                         },
                         {
                             data: 'needs'
                         },
                         {
-                            data: 'factory_other_industry',
+                            data: 'industry_name',
                             render: function(data, type, row) {
                                 if (row.industry && row.industry.name && row.industry.name.trim() !== '') {
                                     return row.industry.name;
@@ -340,6 +351,18 @@
                         },
                         {
                             data: 'invoice_price'
+                        },
+                        {
+                            data: 'quot_created'
+                        },
+                        {
+                            data: 'quot_end_date'
+                        },
+                        {
+                            data: 'act_last_time'
+                        },
+                        {
+                            data: 'act_status'
                         },
                         {
                             data: 'actions',

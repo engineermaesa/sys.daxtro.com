@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\{Attachment};
 use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadStatus, LeadStatusLog};
 use App\Models\Masters\MeetingType;
@@ -14,6 +15,7 @@ use App\Models\Orders\{MeetingExpense, MeetingExpenseDetail, FinanceRequest};
 
 class MeetingController extends Controller
 {
+
     public function save(Request $request, $id = null)
     {
         $meetingType = MeetingType::find($request->meeting_type_id);
@@ -27,9 +29,19 @@ class MeetingController extends Controller
             'scheduled_start_at' => 'required|date',
             'scheduled_end_at'   => 'required|date|after:scheduled_start_at',
             'meeting_url'        => ($request->meeting_type_id == $zoomId) ? 'required|url' : 'nullable|url',
+            
+            // Lead details validation
+            'lead_name.*'        => 'required|string',
+            'lead_type.*'        => 'required|in:office,canvas',
+            'lead_province.*'    => 'required|string',
+            'lead_city.*'        => 'required|string',
+            'lead_product_id.*'  => 'required|exists:ref_products,id',
+            'lead_price.*'       => 'required',
+            'lead_description.*' => 'nullable|string',
         ];
 
         if (! $isOnline) {
+            $rules['province'] = 'required|string';
             $rules['city'] = 'required|in:' . implode(',', config('cities'));
             $rules['address'] = 'required';
             $rules['expense_notes.*'] = 'nullable|required';
@@ -50,12 +62,21 @@ class MeetingController extends Controller
             'scheduled_end_at.date' => 'The meeting end time must be a valid date.',
             'scheduled_end_at.after' => 'The end time must be after the start time.',
 
+            'province.required' => 'Province is required for offline meetings.',
             'city.required_if' => 'City is required for offline meetings.',
-
             'address.required_if' => 'Address is required for offline meetings.',
 
             'meeting_url.required' => 'The online meeting link is required for Zoom / Google Meet.',
             'meeting_url.url' => 'Please provide a valid URL for the online meeting.',
+
+            'lead_name.*.required' => 'Lead name is required.',
+            'lead_type.*.required' => 'Lead type is required.',
+            'lead_type.*.in' => 'Lead type must be office or canvas.',
+            'lead_province.*.required' => 'Lead province is required.',
+            'lead_city.*.required' => 'Lead city is required.',
+            'lead_product_id.*.required' => 'Product is required.',
+            'lead_product_id.*.exists' => 'Invalid product selected.',
+            'lead_price.*.required' => 'Price is required.',
 
             'expense_notes.*.required_if' => 'Expense notes is required for offline meetings.',
             'expense_amount.*.required_if' => 'Expense amount is required for offline meetings.',
@@ -72,72 +93,103 @@ class MeetingController extends Controller
                 'expense_type_id.*.exists' => 'Invalid expense type selected.',
             ]);
 
-            $validator->validate(); // ini akan throw ValidationException yang sama seperti $request->validate()
+            $validator->validate();
         }
 
-        // === 🟠 HANDLE RESCHEDULE ===
-        if ($id) {
-            $meeting = LeadMeeting::findOrFail($id);
+        DB::beginTransaction();
+        try {
+            if ($id) {
+                $meeting = LeadMeeting::findOrFail($id);
 
-            LeadMeetingReschedule::create([
-                'meeting_id'              => $meeting->id,
-                'old_scheduled_start_at'  => $meeting->scheduled_start_at,
-                'old_scheduled_end_at'    => $meeting->scheduled_end_at,
-                'new_scheduled_start_at'  => $request->scheduled_start_at,
-                'new_scheduled_end_at'    => $request->scheduled_end_at,
-                'old_online_url'          => $meeting->online_url,
-                'new_online_url'          => $request->meeting_url,
-                'old_location'            => trim(($meeting->city ?? '') . ' ' . ($meeting->address ?? '')),
-                'new_location'            => trim(($request->city ?? '') . ' ' . ($request->address ?? '')),
-                'reason'                  => $request->reason,
-                'rescheduled_by'          => $request->user()->id,
-                'rescheduled_at'          => now(),
-            ]);
+                LeadMeetingReschedule::create([
+                    'meeting_id'              => $meeting->id,
+                    'old_scheduled_start_at'  => $meeting->scheduled_start_at,
+                    'old_scheduled_end_at'    => $meeting->scheduled_end_at,
+                    'new_scheduled_start_at'  => $request->scheduled_start_at,
+                    'new_scheduled_end_at'    => $request->scheduled_end_at,
+                    'old_online_url'          => $meeting->online_url,
+                    'new_online_url'          => $request->meeting_url,
+                    'old_location'            => trim(($meeting->province ?? '') . ' - ' . ($meeting->city ?? '') . ' ' . ($meeting->address ?? '')),
+                    'new_location'            => trim(($request->province ?? '') . ' - ' . ($request->city ?? '') . ' ' . ($request->address ?? '')),
+                    'reason'                  => $request->reason,
+                    'rescheduled_by'          => $request->user()->id,
+                    'rescheduled_at'          => now(),
+                ]);
 
-            $meeting->update([
+                $meeting->update([
+                    'meeting_type_id'    => $request->meeting_type_id,
+                    'is_online'          => $isOnline,
+                    'scheduled_start_at' => $request->scheduled_start_at,
+                    'scheduled_end_at'   => $request->scheduled_end_at,
+                    'province'           => $request->province,
+                    'city'               => $request->city,
+                    'address'            => $request->address,
+                    'online_url'         => $request->meeting_url,
+                ]);
+
+                // Update lead details
+                $meeting->leadDetails()->delete();
+                $this->saveMeetingLeadDetails($request, $meeting);
+                
+                if (! $isOnline && $meeting->expense && $meeting->expense->financeRequest) {
+                    $meeting->expense->financeRequest->update([
+                        'status' => 'pending',
+                        'decided_at' => null,
+                        'approver_id' => null,
+                    ]);
+                }
+
+                if (! $isOnline) {
+                    $this->updateMeetingExpense($request, $meeting);
+                }
+
+                DB::commit();
+                return $this->setJsonResponse('Meeting rescheduled successfully');
+            }
+
+            $meeting = LeadMeeting::create([
+                'lead_id'            => $request->lead_id,
                 'meeting_type_id'    => $request->meeting_type_id,
                 'is_online'          => $isOnline,
+                'online_url'         => $request->meeting_url,
                 'scheduled_start_at' => $request->scheduled_start_at,
                 'scheduled_end_at'   => $request->scheduled_end_at,
+                'province'           => $request->province,
                 'city'               => $request->city,
                 'address'            => $request->address,
-                'online_url'         => $request->meeting_url,
             ]);
-            
-            if (! $isOnline && $meeting->expense->financeRequest) {
-                $meeting->expense->financeRequest->update([
-                    'status' => 'pending',
-                    'decided_at' => null,
-                    'approver_id' => null,
-                ]);
-            }
+
+            $this->saveMeetingLeadDetails($request, $meeting);
 
             if (! $isOnline) {
-                $this->updateMeetingExpense($request, $meeting);
+                $this->createMeetingExpense($request, $meeting);
             }
 
-            return $this->setJsonResponse('Meeting rescheduled successfully');
+            DB::commit();
+            return $this->setJsonResponse('Meeting created successfully');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Meeting Save Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Error saving meeting: ' . $e->getMessage()], 500);
         }
+    }
 
-        // === 🟢 CREATE NEW MEETING ===
-        $meeting = LeadMeeting::create([
-            'lead_id'            => $request->lead_id,
-            'meeting_type_id'    => $request->meeting_type_id,
-            'is_online'          => $isOnline,
-            'online_url'         => $request->meeting_url,
-            'scheduled_start_at' => $request->scheduled_start_at,
-            'scheduled_end_at'   => $request->scheduled_end_at,
-            'city'               => $request->city,
-            'address'            => $request->address,
-        ]);
-
-        // === 💰 IF OFFLINE: CREATE EXPENSE & FINANCE REQUEST ===
-        if (! $isOnline) {
-            $this->createMeetingExpense($request, $meeting);
+    protected function saveMeetingLeadDetails(Request $request, LeadMeeting $meeting)
+    {
+        foreach ($request->lead_name as $index => $name) {
+            LeadMeetingDetail::create([
+                'lead_meeting_id' => $meeting->id,
+                'name'            => $name,
+                'type'            => $request->lead_type[$index],
+                'province'        => $request->lead_province[$index],
+                'city'            => $request->lead_city[$index],
+                'product_id'      => $request->lead_product_id[$index],
+                'price'           => str_replace(['.', ','], ['', '.'], $request->lead_price[$index]),
+                'description'     => $request->lead_description[$index] ?? null,
+            ]);
         }
-
-        return $this->setJsonResponse('Meeting created successfully');
-    }    
+    }
     
     protected function createMeetingExpense(Request $request, LeadMeeting $meeting)
     {
@@ -311,6 +363,24 @@ class MeetingController extends Controller
 
             $lead->status_id = $newStatus;
             $lead->save();
+            
+            // Force update timestamp saat pindah status
+            Log::info('Before update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
+            
+            DB::table('leads')
+                ->where('id', $lead->id)
+                ->update(['updated_at' => now()]);
+            
+            // Update claim's claimed_at when status changes to WARM
+            if ($newStatus === LeadStatus::WARM) {
+                DB::table('lead_claims')
+                    ->where('lead_id', $lead->id)
+                    ->whereNull('released_at')
+                    ->update(['claimed_at' => now()]);
+            }
+            
+            $lead->refresh();
+            Log::info('After update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
 
             LeadStatusLog::create([
                 'lead_id'   => $lead->id,

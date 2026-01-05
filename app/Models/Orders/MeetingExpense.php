@@ -32,10 +32,14 @@ class MeetingExpense extends Model
 
     public function financeRequest()
     {
-        return $this->hasOne(\App\Models\Orders\FinanceRequest::class, 'reference_id')
+        return $this->hasOne(FinanceRequest::class, 'reference_id')
                     ->where('request_type', 'meeting-expense');
     }
 
+    public function expenseRealizations()
+    {
+        return $this->hasMany(ExpenseRealization::class, 'meeting_expense_id');
+    }
 
     public function sales()
     {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Classes\ActivityLogger;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
@@ -22,7 +23,7 @@ class LeadController extends Controller
 
     public function availableList(Request $request)
     {
-        $user = $request->user();
+        $user = auth()->user();
 
         $leads = Lead::with(['region', 'source', 'segment', 'status'])
             ->where('status_id', LeadStatus::PUBLISHED);
@@ -166,6 +167,7 @@ class LeadController extends Controller
                 'title'       => 'required|in:Mr,Mrs',
                 'name'        => 'required',
                 'company'     => 'nullable|string|max:150',
+                'company_address' => 'required|string',
                 'customer_type' => 'nullable|exists:ref_customer_types,name',
                 'contact_reason' => 'nullable|string',
                 'business_reason' => 'nullable|string',
@@ -232,6 +234,7 @@ class LeadController extends Controller
                     'title.*'      => 'required|in:Mr,Mrs',
                     'name.*'       => 'required',
                     'company.*'    => 'nullable|string|max:150',
+                    'company_address.*'    => 'nullable|string',
                     'customer_type.*' => 'nullable|exists:ref_customer_types,name',
                     'contact_reason.*' => 'nullable|string',
                     'business_reason.*' => 'nullable|string',
@@ -294,6 +297,7 @@ class LeadController extends Controller
                     $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
                     $lead->industry_remark = $request->industry_remark[$i] ?? null;
                     $lead->company = $request->company[$i] ?? null;
+                    $lead->company_address = $request->company_address[$i] ?? null;
                     $lead->customer_type = $request->customer_type[$i] ?? null;
                     $lead->contact_reason = $request->contact_reason[$i] ?? null;
                     $lead->business_reason = $request->business_reason[$i] ?? null;
@@ -396,6 +400,7 @@ class LeadController extends Controller
             $lead->factory_industry_id = $request->factory_industry_id;
             $lead->industry_remark = $request->industry_remark;
             $lead->company      = $request->company;
+            $lead->company_address = $request->company_address;
             $lead->customer_type = $request->customer_type;
             $lead->contact_reason = $request->contact_reason;
             $lead->business_reason = $request->business_reason;
@@ -516,6 +521,9 @@ class LeadController extends Controller
 
     public function my()
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = auth()->user();
 
         $claims = LeadClaim::whereNull('released_at')
@@ -542,6 +550,9 @@ class LeadController extends Controller
 
     public function myCounts(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $claims = LeadClaim::whereNull('released_at');
 
         if ($request->user()->role?->code === 'sales') {
@@ -553,10 +564,12 @@ class LeadController extends Controller
 
         $cold = (clone $claims)
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+            ->where('claimed_at', '>=', now()->subDays(10))
             ->count();
 
         $warmQuery = (clone $claims)
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM));
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+            ->where('claimed_at', '>=', now()->subDays(30));
         if ($start && $end) {
             $warmQuery->whereHas('lead.quotation', fn($q) => $q->firstApprovalBetween($start, $end));
         }
@@ -671,6 +684,9 @@ class LeadController extends Controller
             abort(403);
         }
 
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+
         $branches = Branch::all();
         $regions  = Region::all();
 
@@ -693,10 +709,10 @@ class LeadController extends Controller
         $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
         $leadCounts = [
-            'cold' => $counts[LeadStatus::COLD] ?? 0,
-            'warm' => $counts[LeadStatus::WARM] ?? 0,
-            'hot'  => $counts[LeadStatus::HOT] ?? 0,
-            'deal' => $counts[LeadStatus::DEAL] ?? 0,
+            'cold' => $coldCount,
+            'warm' => $warmCount,
+            'hot'  => $hotCount,
+            'deal' => $dealCount,
         ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();
@@ -710,10 +726,14 @@ class LeadController extends Controller
             abort(403);
         }
 
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+
         $leads = Lead::with([
             'region.branch',
             'region.regional',
             'source',
+            'industry',
             'segment',
             'status',
             'quotation',
@@ -753,6 +773,22 @@ class LeadController extends Controller
 
         if ($request->filled('status_id')) {
             $leads->where('status_id', $request->status_id);
+            
+            // Apply day filters for Cold and Warm leads like in My Leads
+            $status = (int) $request->status_id;
+            if ($status === LeadStatus::COLD) {
+                // Cold leads: only show leads claimed within last 10 days
+                $leads->whereHas('claims', function ($q) {
+                    $q->whereNull('released_at')
+                      ->where('claimed_at', '>=', now()->subDays(10));
+                });
+            } elseif ($status === LeadStatus::WARM) {
+                // Warm leads: only show leads claimed within last 30 days
+                $leads->whereHas('claims', function ($q) {
+                    $q->whereNull('released_at')
+                      ->where('claimed_at', '>=', now()->subDays(30));
+                });
+            }
         }
 
         if ($branchId && $request->filled('status_id')) {
@@ -811,6 +847,54 @@ class LeadController extends Controller
                 return $lead->quotation?->proformas->first()?->invoice ?
                     number_format($lead->quotation->proformas->first()->invoice->amount ?? 0, 2) : '-';
             })
+           ->addColumn('quot_created', function($lead) {
+                // Ambil dari published_at lead atau quotation published_at
+                if ($lead->published_at) {
+                    return \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y');
+                } elseif ($lead->quotation?->published_at) {
+                    return \Carbon\Carbon::parse($lead->quotation->published_at)->format('d/m/Y');
+                } else {
+                    return '-';
+                }
+            })
+            ->addColumn('quot_end_date', function($lead) {
+                // Menggunakan updated_at sesuai permintaan
+                return $lead->updated_at ? 
+                    \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y') : '-';
+            })
+            ->addColumn('act_last_time', function($lead) {
+                // Debug: lihat semua activity logs untuk lead ini
+                $activities = $lead->activityLogs;
+                
+                if ($activities->isEmpty()) {
+                    return '-';
+                }
+                
+                // Ambil yang terbaru berdasarkan logged_at dan id
+                $latestActivity = $activities->sortByDesc(function($activity) {
+                    // Combine logged_at timestamp with id for precise sorting
+                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
+                })->first();
+                
+                return $latestActivity ? 
+                    \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y') : '-';
+            })
+            ->addColumn('act_status', function($lead) {
+                // Debug: lihat semua activity logs untuk lead ini
+                $activities = $lead->activityLogs;
+                
+                if ($activities->isEmpty()) {
+                    return '-';
+                }
+                
+                // Ambil yang terbaru berdasarkan logged_at dan id
+                $latestActivity = $activities->sortByDesc(function($activity) {
+                    // Combine logged_at timestamp with id for precise sorting
+                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
+                })->first();
+                
+                return $latestActivity?->activity?->name ?? '-';
+            })
             ->addColumn('actions', function ($row) use ($role) {
                 $editUrl   = route('leads.manage.form', $row->id);
                 // $deleteUrl = route('leads.manage.delete', $row->id);
@@ -853,6 +937,21 @@ class LeadController extends Controller
                 $html .= '</div>';
 
                 return $html;
+            })
+            ->filter(function ($query) use ($request) {
+                if ($request->has('search') && $request->search['value'] != '') {
+                    $search = $request->search['value'];
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('needs', 'like', "%{$search}%")
+                        ->orWhere('city_name', 'like', "%{$search}%")
+                        ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%")) // Changed from claims.user to claims.sales
+                        ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%")) // Changed from quotation_number to quotation_no
+                        ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%")); // Changed from invoice_number to invoice_no
+                    });
+                }
             })
             ->rawColumns(['actions', 'status_name'])
             ->make(true);
@@ -1108,6 +1207,9 @@ class LeadController extends Controller
 
     public function myColdList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
@@ -1117,7 +1219,8 @@ class LeadController extends Controller
             $claims->where('sales_id', $user->id);
         }
 
-        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD));
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+               ->where('claimed_at', '>=', now()->subDays(10));
 
         return DataTables::of($claims)
             ->addColumn('name', fn($row) => $row->lead->name ?? '')
@@ -1179,16 +1282,20 @@ class LeadController extends Controller
 
     public function myWarmList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
         }
 
-        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM));
+        $claims->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+               ->where('claimed_at', '>=', now()->subDays(30));
 
         // Apply date filtering if provided
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -1200,6 +1307,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-warning">Warm</span>';
@@ -1243,10 +1352,13 @@ class LeadController extends Controller
 
     public function myHotList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
@@ -1264,6 +1376,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-danger">Hot</span>';
@@ -1302,10 +1416,13 @@ class LeadController extends Controller
 
     public function myDealList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
         $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
-            ->with(['lead.segment', 'lead.quotation', 'sales']);
+            ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
@@ -1323,6 +1440,8 @@ class LeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name ?? '')
+            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
+            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-success">Deal</span>';

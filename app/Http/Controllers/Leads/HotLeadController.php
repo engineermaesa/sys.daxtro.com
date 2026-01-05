@@ -14,10 +14,17 @@ class HotLeadController extends Controller
         $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
             ->whereNull('released_at');
+            
+        $roleCode = $request->user()->role?->code;
 
-        if ($request->user()->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
         }
+
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $claims->whereHas('lead.quotation', function ($q) use ($request) {

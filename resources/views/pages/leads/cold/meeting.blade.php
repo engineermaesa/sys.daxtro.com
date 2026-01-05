@@ -132,6 +132,152 @@
               </select>
             </div>
 
+            {{-- Lead Details Table --}}
+            <div class="mb-3">
+              <label class="form-label">Lead Details <i class="required">*</i></label>
+              <table class="table table-bordered" id="leads-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Province</th>
+                    <th>City</th>
+                    <th>Product</th>
+                    <th style="width:190px;">Price</th>
+                    <th>Description</th>
+                    @if(!($isViewOnly ?? false))
+                      <th style="width:40px;"></th>
+                    @endif
+                  </tr>
+                </thead>
+                <tbody>
+                  @php
+                    $leadDetails = old('lead_name')
+                      ? collect(old('lead_name'))->map(fn($name, $i) => [
+                          'name' => $name,
+                          'type' => old('lead_type')[$i] ?? '',
+                          'province' => old('lead_province')[$i] ?? '',
+                          'city' => old('lead_city')[$i] ?? '',
+                          'product_id' => old('lead_product_id')[$i] ?? '',
+                          'price' => old('lead_price')[$i] ?? '',
+                          'description' => old('lead_description')[$i] ?? '',
+                        ])
+                      : (isset($data) && $data->leadDetails && $data->leadDetails->count() 
+                          ? $data->leadDetails->map(fn($d) => [
+                              'name' => $d->name,
+                              'type' => $d->type,
+                              'province' => $d->province,
+                              'city' => $d->city,
+                              'product_id' => $d->product_id,
+                              'price' => $d->price,
+                              'description' => $d->description,
+                            ])
+                          : collect([['name' => '', 'type' => 'office', 'province' => '', 'city' => '', 'product_id' => '', 'price' => '', 'description' => '']])
+                        );
+                  @endphp
+
+                  @foreach($leadDetails as $row)
+                  <tr>
+                    <td>
+                      <input type="text" name="lead_name[]" class="form-control" 
+                             value="{{ $row['name'] }}" 
+                             @if($isViewOnly ?? false) readonly @endif required>
+                    </td>
+                    <td>
+                      <select name="lead_type[]" class="form-select" @if($isViewOnly ?? false) disabled @endif required>
+                        <option value="office" {{ $row['type'] == 'office' ? 'selected' : '' }}>Office</option>
+                        <option value="canvas" {{ $row['type'] == 'canvas' ? 'selected' : '' }}>Canvas</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" name="lead_province[]" class="form-control lead-province" 
+                             value="{{ $row['province'] }}" 
+                             @if($isViewOnly ?? false) readonly @endif required>
+                    </td>
+                    <td>
+                      <select name="lead_city[]" class="form-select select2 lead-city" 
+                              @if($isViewOnly ?? false) disabled @endif required>
+                        <option value="">Select City</option>
+                        @foreach($cities as $cityOption)
+                          <option value="{{ $cityOption }}" 
+                                  data-province="{{ $cityOption }}"
+                                  {{ $row['city'] == $cityOption ? 'selected' : '' }}>
+                            {{ $cityOption }}
+                          </option>
+                        @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <select name="lead_product_id[]" class="form-select lead-product select2" 
+                              @if($isViewOnly ?? false) disabled @endif required>
+                        <option value="">Select Product</option>
+                        @foreach($products as $p)
+                          <option value="{{ $p->id }}"
+                                  {{ $row['product_id'] == $p->id ? 'selected' : '' }}
+                                  data-price="{{ $p->price }}"
+                                  data-gov="{{ $p->government_price }}"
+                                  data-corp="{{ $p->corporate_price }}"
+                                  data-pers="{{ $p->personal_price }}"
+                                  data-fob="{{ $p->fob_price }}">
+                            {{ $p->name }} ({{ $p->sku }})
+                          </option>
+                        @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" name="lead_price[]" 
+                             class="form-control lead-price number-input" 
+                             value="{{ $row['price'] ? number_format($row['price'], 0, ',', '.') : '' }}" 
+                             @if($isViewOnly ?? false) readonly @endif required>
+                      @if(isset($row['product_id']) && $row['product_id'])
+                        @php
+                          $product = $products->firstWhere('id', $row['product_id']);
+                        @endphp
+                        @if($product)
+                        <div class="form-text segment-price-info small text-muted">
+                          <ul class="list-inline mb-0">
+                            <li class="list-inline-item me-3">
+                              <span class="fw-semibold">Gov:</span>
+                              Rp{{ number_format($product->government_price ?? 0, 0, ',', '.') }}
+                            </li>
+                            <li class="list-inline-item me-3">
+                              <span class="fw-semibold">Corp:</span>
+                              Rp{{ number_format($product->corporate_price ?? 0, 0, ',', '.') }}
+                            </li>
+                            <li class="list-inline-item me-3">
+                              <span class="fw-semibold">Personal:</span>
+                              Rp{{ number_format($product->personal_price ?? 0, 0, ',', '.') }}
+                            </li>
+                            <li class="list-inline-item me-3">
+                              <span class="fw-semibold">FOB:</span>
+                              Rp{{ number_format($product->fob_price ?? 0, 0, ',', '.') }}
+                            </li>
+                          </ul>
+                        </div>
+                        @endif
+                      @else
+                        <div class="form-text segment-price-info small text-muted"></div>
+                      @endif
+                    </td>
+                    <td>
+                      <input type="text" name="lead_description[]" class="form-control" 
+                             value="{{ $row['description'] }}" 
+                             @if($isViewOnly ?? false) readonly @endif>
+                    </td>
+                    @if(!($isViewOnly ?? false))
+                      <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-danger remove-lead">&times;</button>
+                      </td>
+                    @endif
+                  </tr>
+                  @endforeach
+                </tbody>
+              </table>
+              @if(!($isViewOnly ?? false))
+                <button type="button" id="add-lead" class="btn btn-sm btn-outline-primary">Add Lead</button>
+              @endif
+            </div>
+
             {{-- Online URL --}}
             <div id="online-url-section" class="mb-3" style="display: none;">
               <label for="meeting_url" class="form-label">Meeting URL <i class="required">*</i></label>
@@ -146,6 +292,18 @@
             {{-- Offline Section --}}
             <div id="offline-section" style="display: none;">
               <div class="mb-3">
+                <label for="province" class="form-label">Province <i class="required">*</i></label>
+                <input type="text" 
+                       name="province" 
+                       id="province" 
+                       class="form-control" 
+                       value="{{ old('province', $data->province ?? '') }}"
+                       readonly
+                       style="background-color: #e9ecef; cursor: not-allowed;"
+                       @if($isViewOnly ?? false) readonly @endif>
+              </div>
+              
+              <div class="mb-3">
                 <label for="city" class="form-label">City <i class="required">*</i></label>
                 <select name="city" id="city" class="form-select select2" @if($isViewOnly ?? false) disabled @endif>
                   <option value="">-- Select City --</option>
@@ -154,6 +312,7 @@
                   @endforeach
                 </select>
               </div>
+              
               <div class="mb-3">
                 <label for="address" class="form-label">Address <i class="required">*</i></label>
                 <textarea name="address" id="address"
@@ -346,6 +505,135 @@
     const zoomName = 'Zoom / Google Meet';
     const expoName = 'EXPO';
 
+    // Helper to get province from city mapping
+    const cityProvinceMap = @json(
+        collect($cities)->mapWithKeys(function($city) use ($regions) {
+            // Try to find matching region
+            $region = $regions->first(function($r) use ($city) {
+                return $r->name === $city;
+            });
+            return [$city => $region ? $region->province->name : ''];
+        })
+    );
+
+    // Helper functions for number formatting
+    function parseNumber(val) {
+        if (!val) return 0;
+        return parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    function formatNumber(val) {
+        return new Intl.NumberFormat('id-ID').format(val);
+    }
+
+    // Render the four price tiers as a neat inline list
+    function renderPriceTiers(gov, corp, pers, fob) {
+        return `
+            <ul class="list-inline mb-0 small text-muted">
+              <li class="list-inline-item me-3">
+                <span class="fw-semibold">Gov:</span> Rp${formatNumber(gov)}
+              </li>
+              <li class="list-inline-item me-3">
+                <span class="fw-semibold">Corp:</span> Rp${formatNumber(corp)}
+              </li>
+              <li class="list-inline-item me-3">
+                <span class="fw-semibold">Personal:</span> Rp${formatNumber(pers)}
+              </li>
+              <li class="list-inline-item me-3">
+                <span class="fw-semibold">FOB:</span> Rp${formatNumber(fob)}
+              </li>
+            </ul>
+        `;
+    }
+
+    // Update province when city changes in lead details table
+    function updateLeadProvince($citySelect) {
+        const city = $citySelect.val();
+        const $row = $citySelect.closest('tr');
+        const $provinceInput = $row.find('.lead-province');
+        
+        if (city && cityProvinceMap[city]) {
+            $provinceInput.val(cityProvinceMap[city]);
+        } else {
+            $provinceInput.val('');
+        }
+    }
+
+    // Update province when offline meeting city changes
+    function updateMeetingProvince() {
+        const city = $('#city').val();
+        const $provinceInput = $('#province');
+        
+        if (city && cityProvinceMap[city]) {
+            $provinceInput.val(cityProvinceMap[city]);
+        } else {
+            $provinceInput.val('');
+        }
+    }
+
+    // Initialize province for existing lead cities
+    $('#leads-table tbody tr').each(function() {
+        updateLeadProvince($(this).find('.lead-city'));
+    });
+
+    // Initialize province for meeting city if exists
+    if ($('#city').val()) {
+        updateMeetingProvince();
+    }
+
+    // Lead city change handler
+    $(document).on('change', '.lead-city', function() {
+        updateLeadProvince($(this));
+    });
+
+    // Meeting city change handler
+    $('#city').on('change', updateMeetingProvince);
+
+    // Lead product change handler
+    $(document).on('change', '.lead-product', function() {
+        let row = $(this).closest('tr');
+        let opt = $(this).find('option:selected');
+        let price = opt.data('price') || 0;
+        
+        row.find('.lead-price').val(formatNumber(price));
+        
+        // Update price tiers info
+        row.find('.segment-price-info').html(
+            renderPriceTiers(
+                opt.data('gov')  || 0,
+                opt.data('corp') || 0,
+                opt.data('pers') || 0,
+                opt.data('fob')  || 0
+            )
+        );
+    });
+
+    // Format number inputs
+    $(document).on('keyup', '.number-input', function() {
+        $(this).val(formatNumber(parseNumber($(this).val())));
+    });
+
+    // Add lead row
+    $('#add-lead').on('click', function() {
+        $('select.select2').select2('destroy');
+        let newRow = $('#leads-table tbody tr:first').clone();
+        
+        newRow.find('input').val('');
+        newRow.find('select').val('').prop('selectedIndex', 0);
+        newRow.find('select[name="lead_type[]"]').val('office');
+        newRow.find('.segment-price-info').html('');
+        
+        $('#leads-table tbody').append(newRow);
+        $('.select2').select2({ width: '100%' });
+    });
+
+    // Remove lead row
+    $(document).on('click', '.remove-lead', function() {
+        if ($('#leads-table tbody tr').length > 1) {
+            $(this).closest('tr').remove();
+        }
+    });
+
     function toggleMeetingTypeSections() {
         const selectedName = $('#meeting_type_id option:selected').data('name');
         const isOnline = onlineNames.includes(selectedName);
@@ -354,7 +642,7 @@
 
         // Remove EXPO styling if switching away from EXPO
         if (!isExpo) {
-            $('#city, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
+            $('#city, #province, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
                 .removeClass('expo-auto-filled');
             $('#expo-info-alert').remove();
         }
@@ -390,10 +678,11 @@
             );
         }
 
-        // Set city to Jakarta Pusat
+        // Set city to Jakarta Pusat and update province automatically
         $('#city').val('Kota Administrasi Jakarta Pusat').trigger('change');
+        updateMeetingProvince();
         
-        // Clear address
+        // Set address
         $('#address').val('Jiexpo Kemayoran Jakarta Indonesia Jakarta, Pademangan Tim., Kec. Pademangan, Jkt Utara, Daerah Khusus Ibukota Jakarta 10620');
         
         // Set expenses to 0 for all rows
@@ -416,7 +705,7 @@
         $('#meeting_url').val('');
         
         // Add visual styling to auto-filled fields
-        $('#city, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
+        $('#city, #province, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
             .addClass('expo-auto-filled');
     }
 
@@ -496,9 +785,12 @@
             // Re-apply EXPO values if user tries to change them
             setTimeout(() => {
                 if ($(this).is('#city')) {
-                    $(this).val('Jakarta Pusat').trigger('change');
+                    $(this).val('Kota Administrasi Jakarta Pusat').trigger('change');
+                    updateMeetingProvince();
+                } else if ($(this).is('#province')) {
+                    updateMeetingProvince();
                 } else if ($(this).is('#address')) {
-                    $(this).val('');
+                    $(this).val('Jiexpo Kemayoran Jakarta Indonesia Jakarta, Pademangan Tim., Kec. Pademangan, Jkt Utara, Daerah Khusus Ibukota Jakarta 10620');
                 } else if ($(this).is('[name="expense_amount[]"]')) {
                     $(this).val('0');
                 } else if ($(this).is('[name="expense_notes[]"]')) {

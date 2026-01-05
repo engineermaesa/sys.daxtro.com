@@ -4,16 +4,22 @@ namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Classes\ActivityLogger;
+use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadClaim, LeadMeeting, LeadStatus, LeadStatusLog, LeadSource, LeadSegment};
-use App\Models\Masters\{Branch, Region, ExpenseType};
+use App\Models\Masters\{Branch, Region, ExpenseType, Product};
 use Illuminate\Support\Facades\DB;
 
 class ColdLeadController extends Controller
 {
     public function myColdList(Request $request)
     {
+        // Trigger auto-trash if needed (non-blocking)
+        AutoTrashService::triggerIfNeeded();
+        
+        $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
+
         $claims = LeadClaim::with([
             'lead.status',
             'lead.segment',
@@ -26,9 +32,14 @@ class ColdLeadController extends Controller
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
 
-        if ($request->user()->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
         }
+
 
         return DataTables::of($claims)
             ->addColumn('name', fn($row) => $row->lead->name)
@@ -153,6 +164,24 @@ class ColdLeadController extends Controller
         $meeting = $claim->lead->meetings()->latest()->first();
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
+        
+        // Get products with default segment pricing
+        $segmentName = strtolower($claim->lead->segment->name ?? '');
+        $priceField = match ($segmentName) {
+            'fob' => 'fob_price',
+            'bdi' => 'bdi_price',
+            'government' => 'government_price',
+            'corporate'  => 'corporate_price',
+            default      => 'personal_price',
+        };
+
+        $products = Product::all()->map(function ($product) use ($priceField) {
+            $product->price = $product->{$priceField};
+            return $product;
+        });
+
+        $regions = Region::with('province:id,name')
+            ->get(['id', 'name', 'province_id', 'branch_id']);
 
         $rescheduleCount = $meeting?->reschedules()->count() ?? 0;
 
@@ -169,6 +198,8 @@ class ColdLeadController extends Controller
             'expenseTypes'  => $expenseTypes,
             'cities'        => config('cities'),
             'meetingTypes'  => $meetingTypes,
+            'products'      => $products,
+            'regions'       => $regions,
             'isViewOnly'    => $isViewOnly,
             'canReschedule' => $canReschedule,
         ]);
@@ -177,9 +208,27 @@ class ColdLeadController extends Controller
 
     public function reschedule($meetingId)
     {
-        $meeting = LeadMeeting::with('reschedules')->findOrFail($meetingId);
+        $meeting = LeadMeeting::with('reschedules', 'lead.segment')->findOrFail($meetingId);
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
+        
+        // Get products with default segment pricing
+        $segmentName = strtolower($meeting->lead->segment->name ?? '');
+        $priceField = match ($segmentName) {
+            'fob' => 'fob_price',
+            'bdi' => 'bdi_price',
+            'government' => 'government_price',
+            'corporate'  => 'corporate_price',
+            default      => 'personal_price',
+        };
+
+        $products = Product::all()->map(function ($product) use ($priceField) {
+            $product->price = $product->{$priceField};
+            return $product;
+        });
+
+        $regions = Region::with('province:id,name')
+            ->get(['id', 'name', 'province_id', 'branch_id']);
 
         return $this->render('pages.leads.cold.meeting', [
             'data' => $meeting,
@@ -187,8 +236,10 @@ class ColdLeadController extends Controller
             'expenseTypes' => $expenseTypes,
             'cities' => config('cities'),
             'meetingTypes' => $meetingTypes,
+            'products' => $products,
+            'regions' => $regions,
             'isReschedule' => true,
-            'isViewOnly' => false, // allow editing
+            'isViewOnly' => false,
             'canReschedule' => false,
         ]);
     }

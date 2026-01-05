@@ -1745,6 +1745,25 @@ class DashboardController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'data' => $formattedData,
+                'summary' => [
+                    'total_percentage' => $totalPercentage,
+                    'total_cumulative' => $totalCumulative,
+                    'province_reached' => $provinceReached,
+                    'total_provinces' => $data->count()
+                ],
+                'filters' => [
+                    'year' => $year,
+                    'month' => $month,
+                    'month_name' => Carbon::create($year, $month, 1)->format('F'),
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                    'province' => $validated['province'] ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
                 'error' => 'Terjadi kesalahan server',
                 'message' => $e->getMessage()
             ], 500);

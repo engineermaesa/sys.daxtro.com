@@ -23,6 +23,7 @@ protected $fillable = [
     'subtotal',
     'tax_pct',
     'tax_total',
+    'total_discount',
     'grand_total',
     'booking_fee',
     'expiry_date',
@@ -49,6 +50,11 @@ public function proformas()
 public function paymentTerms()
 {
     return $this->hasMany(QuotationPaymentTerm::class, 'quotation_id')->orderBy('term_no');
+}
+
+public function createdBy()
+{
+    return $this->belongsTo(\App\Models\User::class, 'created_by');
 }
 
 public function reviews()
