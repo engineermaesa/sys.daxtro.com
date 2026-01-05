@@ -16,15 +16,9 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
-        // Trigger auto-trash if needed (non-blocking)
-        AutoTrashService::triggerIfNeeded();
-        
-        $claims = LeadClaim::with(['lead.industry','lead.quotation', 'lead.segment', 'lead.source'])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
-            ->whereNull('released_at')
-            ->where('claimed_at', '>=', now()->subDays(30));
-            
-        $roleCode = $request->user()->role?->code;
+        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry'])
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+            ->whereNull('released_at');
 
         if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
@@ -42,13 +36,13 @@ class WarmLeadController extends Controller
         }
 
         return DataTables::of($claims)
-            ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn ($row) => $row->lead->name)
-            ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
-            ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
-            ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
-            ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name)
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
+            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('industry', function ($row) {
+                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
+            })
             ->addColumn('meeting_status', function ($row) {
                 $quotation = $row->lead->quotation;
 
@@ -66,7 +60,7 @@ class WarmLeadController extends Controller
                     default     => 'bg-light text-dark',
                 };
 
-                return '<span class="badge '.$badgeClass.'">'.ucfirst($status).'</span>';
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($status) . '</span>';
             })
             ->addColumn('actions', function ($row) {
                 $quotation = $row->lead->quotation;
@@ -85,7 +79,7 @@ class WarmLeadController extends Controller
                 $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">' 
+                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">'
                     . '      <i class="bi bi-eye mr-2"></i> View Lead</a>';
                 $activityUrl = route('leads.activity.logs', $row->lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
@@ -219,7 +213,7 @@ class WarmLeadController extends Controller
             'priceField'    => $priceField,
             'segmentName'   => $segmentName,
             'segments'      => $segments,
-            'defaultSegment'=> $claim->lead->segment->name ?? '',
+            'defaultSegment' => $claim->lead->segment->name ?? '',
             'rejection'     => $rejection,
             'approval'      => $approval,
         ]);
@@ -281,8 +275,7 @@ class WarmLeadController extends Controller
                 'discount_pct.*.max'       => 'Discount cannot exceed 100%.',
                 'tax_pct.required'         => 'Tax percentage is required.',
                 'tax_pct.numeric'          => 'Tax percentage must be a number.',
-                'total_discount.min'      => 'Total discount cannot be negative.',
-                'term_percentage.*.required'=> 'Each payment term needs a percentage.',
+                'term_percentage.*.required' => 'Each payment term needs a percentage.',
                 'term_percentage.*.min'    => 'Term percentage cannot be negative.',
                 'term_percentage.*.max'    => 'Term percentage cannot exceed 100%.',
                 'payment_type.required'    => 'Please choose a payment type.',
@@ -291,7 +284,7 @@ class WarmLeadController extends Controller
                 'is_visible_pdf.*.boolean' => 'is_visible_pdf must be true or false.',
                 'merge_into_item_id.*.exists' => 'Selected merge item does not exist.',
             ];
-            
+
             // 3. Run validator
             $validator = Validator::make($request->all(), $rules, $messages);
 
@@ -303,9 +296,9 @@ class WarmLeadController extends Controller
                     422
                 );
             }
-            
+
             $totalTerm = collect($request->term_percentage)->sum();
-            
+
             if (round($totalTerm, 2) !== 100.00) {
                 return $this->setJsonResponse('Total Term of Payment must be exactly 100%', [], 422);
             }
@@ -326,10 +319,10 @@ class WarmLeadController extends Controller
                 $subtotal += $line;
                 $totalDiscount += ($price * $discount / 100) * $qty;
 
-                $isVisible = isset($request->is_visible_pdf[$idx]) ? 
+                $isVisible = isset($request->is_visible_pdf[$idx]) ?
                     (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
-                
-                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ? 
+
+                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ?
                     (int)$request->merge_into_item_id[$idx] : null;
 
                 $items[] = [
@@ -349,7 +342,7 @@ class WarmLeadController extends Controller
             $bookingFee = $request->payment_type === 'booking_fee'
                 ? ($request->booking_fee ?? 0)
                 : null;
-                
+
             if ($bookingFee > $grandTotal) {
                 return $this->setJsonResponse('Booking fee cannot be greater than Grand Total.', [], 422);
             }
@@ -417,7 +410,7 @@ class WarmLeadController extends Controller
             foreach ($items as $index => $itemData) {
                 $mergeIndex = $itemData['merge_into_index'] ?? null;
                 unset($itemData['merge_into_index']);
-                
+
                 $savedItem = QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $itemData));
                 $savedItems[$index] = $savedItem;
             }
@@ -431,7 +424,7 @@ class WarmLeadController extends Controller
             }
 
             // Save payment terms
-           foreach ($request->term_percentage as $idx => $pct) {
+            foreach ($request->term_percentage as $idx => $pct) {
                 if ($pct !== null) {
                     QuotationPaymentTerm::create([
                         'quotation_id' => $quotation->id,

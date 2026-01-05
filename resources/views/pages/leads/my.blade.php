@@ -210,17 +210,12 @@
                     {
                         data: 'industry',
                         render: function(data, type, row) {
-                            console.log('Full row object:', row);
-                            console.log('row.lead.industry_id:', row.lead.industry_id);
-                            console.log('row.lead:', row.lead);
-                            console.log('row.lead.other_industry:', row.lead?.other_industry_id);
-
-                            if (row.industry_name && row.industry_name.trim() !== '') {
-                                return row.industry_name;
-                            } else if (row.other_industry && row.other_industry.trim() !== '') {
-                                return row.other_industry;
+                            if (row.industry && row.industry.trim() !== '') {
+                                return row.industry;
+                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
+                                return row.lead.other_industry;
                             } else {
-                                return 'Belum Diisi';
+                                return  'Belum Diisi';
                             }
                         }
                     },
@@ -266,20 +261,15 @@
                         data: 'lead_name',
                         name: 'lead_name'
                     },
-                    {
+                     {
                         data: 'industry',
                         render: function(data, type, row) {
-                            console.log('Full row object:', row);
-                            console.log('row.lead.industry_id:', row.lead.industry_id);
-                            console.log('row.lead:', row.lead);
-                            console.log('row.lead.other_industry:', row.lead?.other_industry_id);
-
-                            if (row.industry_name && row.industry_name.trim() !== '') {
-                                return row.industry_name;
-                            } else if (row.other_industry && row.other_industry.trim() !== '') {
-                                return row.other_industry;
+                            if (row.industry && row.industry.trim() !== ''&& row.industry.trim() !== '-') {
+                                return row.industry;
+                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== ''&& row.industry.trim() !== '-') {
+                                return row.lead.other_industry;
                             } else {
-                                return 'Belum Diisi';
+                                return  'Belum Diisi';
                             }
                         }
                     },

@@ -12,7 +12,7 @@ use App\Models\Masters\{Branch, Region, ExpenseType, Product};
 use Illuminate\Support\Facades\DB;
 
 class ColdLeadController extends Controller
-{ 
+{
     public function myColdList(Request $request)
     {
         // Trigger auto-trash if needed (non-blocking)
@@ -21,19 +21,16 @@ class ColdLeadController extends Controller
         $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
 
         $claims = LeadClaim::with([
-                'lead.status',
-                'lead.industry',
-                'lead.segment',
-                'lead.source',
-                'lead.region.regional',
-                'lead.meetings.expense',
-                'sales'
-            ])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::COLD))
-            ->whereNull('released_at')
-            ->where('claimed_at', '>=', $tenDaysAgo); // Filter: claimed_at tidak lebih dari 10 hari
-
-        $roleCode = $request->user()->role?->code;
+            'lead.status',
+            'lead.segment',
+            'lead.source',
+            'lead.region.regional',
+            'lead.meetings.expense',
+            'lead.industry',
+            'sales'
+        ])
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+            ->whereNull('released_at');
 
         if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
@@ -45,16 +42,17 @@ class ColdLeadController extends Controller
 
 
         return DataTables::of($claims)
-            ->addColumn('name', fn ($row) => $row->lead->name)
-            ->addColumn('sales_name', fn ($row) => $row->sales->name ?? '-')
-            ->addColumn('phone', fn ($row) => $row->lead->phone)
-            ->addColumn('source', fn ($row) => $row->lead->source->name ?? '-')
-            ->addColumn('needs', fn ($row) => $row->lead->needs)
-            ->addColumn('industry_name', fn ($row) => $row->lead->industry->name ?? null)
-            ->addColumn('other_industry_name', fn ($row) => $row->lead->other_industry->name ?? null)
-            ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '')
-            ->addColumn('city_name', fn ($row) => $row->lead->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn ($row) => $row->lead->region->regional->name ?? 'All Regions')
+            ->addColumn('name', fn($row) => $row->lead->name)
+            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
+            ->addColumn('phone', fn($row) => $row->lead->phone)
+            ->addColumn('source', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('needs', fn($row) => $row->lead->needs)
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
+            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
+            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
+            ->addColumn('industry', function ($row) {
+                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
+            })
             ->addColumn('meeting_status', function ($row) {
                 $meeting = $row->lead->meetings()->latest()->first();
 
@@ -100,7 +98,7 @@ class ColdLeadController extends Controller
                 // Jika expired atau selesai tapi tidak punya status khusus
                 return $expiredBadge . $finishedBadge;
             })
-           ->addColumn('actions', function ($row) {
+            ->addColumn('actions', function ($row) {
                 $meeting     = $row->lead->meetings()->latest()->first();
                 $leadUrl     = route('leads.my.cold.manage', $row->lead_id);
                 $trashUrl    = route('leads.my.cold.trash', $row->id);

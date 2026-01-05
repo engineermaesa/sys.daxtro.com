@@ -1745,6 +1745,25 @@ class DashboardController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'data' => $formattedData,
+                'summary' => [
+                    'total_percentage' => $totalPercentage,
+                    'total_cumulative' => $totalCumulative,
+                    'province_reached' => $provinceReached,
+                    'total_provinces' => $data->count()
+                ],
+                'filters' => [
+                    'year' => $year,
+                    'month' => $month,
+                    'month_name' => Carbon::create($year, $month, 1)->format('F'),
+                    'start_date' => $start,
+                    'end_date' => $end,
+                    'branch_id' => $validated['branch_id'] ?? null,
+                    'province' => $validated['province'] ?? null,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
                 'error' => 'Terjadi kesalahan server',
                 'message' => $e->getMessage()
             ], 500);
@@ -1986,231 +2005,6 @@ class DashboardController extends Controller
 
         return $months;
     }
-
-
-    public function salesSegmentPerformance(Request $request)
-    {
-        $validated = $request->validate([
-            'branch_id'  => 'nullable|integer',
-            'segment'    => 'nullable|string',
-            'year'       => 'nullable|integer|min:2000|max:2100',
-            'month'      => 'nullable|integer|min:1|max:12',
-        ]);
-
-        $year = $validated['year'] ?? now()->year;
-        $month = $validated['month'] ?? null;
-
-        if ($month) {
-            $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-            $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
-        } else {
-            $start = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
-            $end = Carbon::create($year, 12, 31)->endOfYear()->toDateString();
-        }
-
-        try {
-            $coldStatus = LeadStatus::COLD;
-            $warmStatus = LeadStatus::WARM;
-            $hotStatus = LeadStatus::HOT;
-            $dealStatus = LeadStatus::DEAL;
-
-            $query = Lead::query()
-                ->leftJoin('lead_segments', 'leads.segment_id', '=', 'lead_segments.id') // Changed to leftJoin
-                ->select(
-                    DB::raw("COALESCE(lead_segments.name, 'Unassigned') as segment"), // Handle NULL segments
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$coldStatus} THEN 1 ELSE 0 END) as cold_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$warmStatus} THEN 1 ELSE 0 END) as warm_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$hotStatus} THEN 1 ELSE 0 END) as hot_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$dealStatus} THEN 1 ELSE 0 END) as deal_count")
-                )
-                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
-                ->groupBy('segment')
-                ->orderBy('segment');
-
-            if (!empty($validated['branch_id'])) {
-                $query->where('leads.branch_id', $validated['branch_id']);
-            }
-
-            if (!empty($validated['segment'])) {
-                $query->where('lead_segments.name', $validated['segment']);
-            }
-
-            $data = $query->get();
-
-            $totalCumulative = $data->sum(function ($item) {
-                return $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
-            });
-
-            $totalPercentage = $totalCumulative > 0 ? 100.00 : 0.00;
-
-            $formattedData = $data->map(function ($item) use ($totalCumulative) {
-                $cold = (int) $item->cold_count;
-                $warm = (int) $item->warm_count;
-                $hot = (int) $item->hot_count;
-                $deal = (int) $item->deal_count;
-
-                $cumulative = $cold + $warm + $hot + $deal;
-
-                $cumulativePercentage = $totalCumulative > 0 ? round(($cumulative / $totalCumulative) * 100, 2) : 0;
-                $coldPercentage = $cumulative > 0 ? round(($cold / $cumulative) * 100, 2) : 0;
-                $warmPercentage = $cumulative > 0 ? round(($warm / $cumulative) * 100, 2) : 0;
-                $hotPercentage = $cumulative > 0 ? round(($hot / $cumulative) * 100, 2) : 0;
-                $dealPercentage = $cumulative > 0 ? round(($deal / $cumulative) * 100, 2) : 0;
-
-                return [
-                    'segment'               => $item->segment,
-                    'cumulative'            => $cumulative,
-                    'cumulative_percentage' => $cumulativePercentage,
-                    'cold'                  => $cold,
-                    'cold_percentage'       => $coldPercentage,
-                    'warm'                  => $warm,
-                    'warm_percentage'       => $warmPercentage,
-                    'hot'                   => $hot,
-                    'hot_percentage'        => $hotPercentage,
-                    'deal'                  => $deal,
-                    'deal_percentage'       => $dealPercentage,
-                ];
-            });
-
-            return response()->json([
-                'data' => $formattedData,
-                'summary' => [
-                    'total_percentage' => $totalPercentage,
-                    'total_cumulative' => $totalCumulative,
-                    'total_segments' => $data->count()
-                ],
-                'filters' => [
-                    'year' => $year,
-                    'month' => $month,
-                    'month_name' => Carbon::create($year, $month, 1)->format('F'),
-                    'start_date' => $start,
-                    'end_date' => $end,
-                    'branch_id' => $validated['branch_id'] ?? null,
-                    'segment' => $validated['segment'] ?? null,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Terjadi kesalahan server',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function regionalPerformance(Request $request)
-    {
-        $validated = $request->validate([
-            'branch_id'  => 'nullable|integer',
-            'province'   => 'nullable|string',
-            'year'       => 'nullable|integer|min:2000|max:2100',
-            'month'      => 'nullable|integer|min:1|max:12',
-        ]);
-
-        $year = $validated['year'] ?? now()->year;
-        $month = $validated['month'] ?? null;
-
-        if ($month) {
-            $start = Carbon::create($year, $month, 1)->startOfMonth()->toDateString();
-            $end = Carbon::create($year, $month, 1)->endOfMonth()->toDateString();
-        } else {
-            $start = Carbon::create($year, 1, 1)->startOfYear()->toDateString();
-            $end = Carbon::create($year, 12, 31)->endOfYear()->toDateString();
-        }
-        
-        try {
-            $coldStatus = LeadStatus::COLD;
-            $warmStatus = LeadStatus::WARM;
-            $hotStatus = LeadStatus::HOT;
-            $dealStatus = LeadStatus::DEAL;
-
-            $query = Lead::query()
-                ->select(
-                    DB::raw("COALESCE(leads.province, 'Unknown') as province"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$coldStatus} THEN 1 ELSE 0 END) as cold_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$warmStatus} THEN 1 ELSE 0 END) as warm_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$hotStatus} THEN 1 ELSE 0 END) as hot_count"),
-                    DB::raw("SUM(CASE WHEN leads.status_id = {$dealStatus} THEN 1 ELSE 0 END) as deal_count")
-                )
-                ->whereBetween(DB::raw('DATE(COALESCE(leads.published_at, leads.created_at))'), [$start, $end])
-                ->groupBy('province')
-                ->orderBy('province');
-
-            if (!empty($validated['branch_id'])) {
-                $query->where('leads.branch_id', $validated['branch_id']);
-            }
-
-            if (!empty($validated['province'])) {
-                $query->where('leads.province', $validated['province']);
-            }
-
-            $data = $query->get();
-
-            $totalCumulative = $data->sum(function ($item) {
-                return $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
-            });
-
-            $totalPercentage = $totalCumulative > 0 ? 100.00 : 0.00;
-
-            $provinceReached = $data->filter(function ($item) {
-                $cumulative = $item->cold_count + $item->warm_count + $item->hot_count + $item->deal_count;
-                return $cumulative > 0;
-            })->count();
-
-            $formattedData = $data->map(function ($item) use ($totalCumulative) {
-                $cold = (int) $item->cold_count;
-                $warm = (int) $item->warm_count;
-                $hot = (int) $item->hot_count;
-                $deal = (int) $item->deal_count;
-
-                $cumulative = $cold + $warm + $hot + $deal;
-
-                $cumulativePercentage = $totalCumulative > 0 ? round(($cumulative / $totalCumulative) * 100, 2) : 0;
-                $coldPercentage = $cumulative > 0 ? round(($cold / $cumulative) * 100, 2) : 0;
-                $warmPercentage = $cumulative > 0 ? round(($warm / $cumulative) * 100, 2) : 0;
-                $hotPercentage = $cumulative > 0 ? round(($hot / $cumulative) * 100, 2) : 0;
-                $dealPercentage = $cumulative > 0 ? round(($deal / $cumulative) * 100, 2) : 0;
-
-                return [
-                    'province'              => $item->province,
-                    'cumulative'            => $cumulative,
-                    'cumulative_percentage' => $cumulativePercentage,
-                    'cold'                  => $cold,
-                    'cold_percentage'       => $coldPercentage,
-                    'warm'                  => $warm,
-                    'warm_percentage'       => $warmPercentage,
-                    'hot'                   => $hot,
-                    'hot_percentage'        => $hotPercentage,
-                    'deal'                  => $deal,
-                    'deal_percentage'       => $dealPercentage,
-                ];
-            });
-
-            return response()->json([
-                'data' => $formattedData,
-                'summary' => [
-                    'total_percentage' => $totalPercentage,
-                    'total_cumulative' => $totalCumulative,
-                    'province_reached' => $provinceReached,
-                    'total_provinces' => $data->count()
-                ],
-                'filters' => [
-                    'year' => $year,
-                    'month' => $month,
-                    'month_name' => Carbon::create($year, $month, 1)->format('F'),
-                    'start_date' => $start,
-                    'end_date' => $end,
-                    'branch_id' => $validated['branch_id'] ?? null,
-                    'province' => $validated['province'] ?? null,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Terjadi kesalahan server',
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
     public function warmHotList(Request $request)
     {
         $validated = $request->validate([

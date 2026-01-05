@@ -12,7 +12,7 @@ use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industr
 use Illuminate\Support\Facades\DB;
 
 class LeadController extends Controller
-{ 
+{
     public function available()
     {
         $branches = Branch::all();
@@ -29,16 +29,14 @@ class LeadController extends Controller
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (!in_array($user->role?->code, ['super_admin'])) {
-            if ($user->role?->code === 'branch_manager') {
-                $leads->where('branch_id', $user->branch_id);
-            } else {
-                $leads->where(function($q) use ($user) {
-                    $q->whereNull('region_id')                       
-                    ->orWhereHas('region', fn($q) => 
-                        $q->where('branch_id', $user->branch_id)   
+            $leads->where(function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($q) =>
+                        $q->where('branch_id', $user->branch_id)
                     );
-                });
-            }
+            });
         }
 
         if ($request->filled('region_id')) {
@@ -57,14 +55,14 @@ class LeadController extends Controller
                 $q->where('id', $request->region_id);
             });
         }
-      
+
         return DataTables::of($leads)
-            ->addColumn('region_name', fn ($row) => $row->region->name ?? '')
-            ->addColumn('branch_name', fn ($row) => $row->region->branch->name ?? '')
-            ->addColumn('source_name', fn ($row) => $row->source->name ?? '')
-            ->addColumn('segment_name', fn ($row) => $row->segment->name ?? 'Not Set')
-            ->addColumn('status_name', fn ($row) => $row->status->name ?? '')
-            ->addColumn('published_at', fn ($row) => $row->published_at)
+            ->addColumn('region_name', fn($row) => $row->region->name ?? '')
+            ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
+            ->addColumn('source_name', fn($row) => $row->source->name ?? '')
+            ->addColumn('segment_name', fn($row) => $row->segment->name ?? 'Not Set')
+            ->addColumn('status_name', fn($row) => $row->status->name ?? '')
+            ->addColumn('published_at', fn($row) => $row->published_at)
             ->addColumn('actions', function ($row) {
                 $editUrl  = route('leads.form', $row->id);
                 $claimUrl = route('leads.claim', $row->id);
@@ -128,7 +126,7 @@ class LeadController extends Controller
 
     public function save(Request $request, $id = null)
     {
-        try{
+        try {
             $user    = auth()->user();
             $isSales = $user->role->code === 'sales';
 
@@ -140,7 +138,7 @@ class LeadController extends Controller
                 'province'    => "nullable",
                 'region_id'   => [
                     'nullable',
-                    function($attribute, $value, $fail) {
+                    function ($attribute, $value, $fail) {
                         if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
                             $fail("$attribute is invalid");
                         }
@@ -148,7 +146,7 @@ class LeadController extends Controller
                 ],
                 'factory_city_id' => [
                     'nullable',
-                    function($attribute, $value, $fail) {
+                    function ($attribute, $value, $fail) {
                         if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
                             $fail("$attribute is invalid");
                         }
@@ -158,7 +156,7 @@ class LeadController extends Controller
                 // 'factory_industry_id' => 'nullable|exists:ref_industries,id',
                 'factory_industry_id' => [
                     'nullable',
-                    function($attribute, $value, $fail) {
+                    function ($attribute, $value, $fail) {
                         if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
                             $fail("$attribute is invalid");
                         }
@@ -178,7 +176,7 @@ class LeadController extends Controller
                 'email'       => 'nullable|email',
                 'industry_id' => [
                     'nullable',
-                    function($attribute, $value, $fail) {
+                    function ($attribute, $value, $fail) {
                         if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
                             $fail("$attribute is invalid");
                         }
@@ -208,7 +206,7 @@ class LeadController extends Controller
                     'province.*'   => "nullable",
                     'region_id.*'  => [
                         'nullable',
-                        function($attribute, $value, $fail) {
+                        function ($attribute, $value, $fail) {
                             if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
                                 $fail("$attribute is invalid");
                             }
@@ -216,7 +214,7 @@ class LeadController extends Controller
                     ],
                     'factory_city_id.*' => [
                         'nullable',
-                        function($attribute, $value, $fail) {
+                        function ($attribute, $value, $fail) {
                             if ($value !== 'ALL' && ! Region::where('id', $value)->exists()) {
                                 $fail("$attribute is invalid");
                             }
@@ -225,7 +223,7 @@ class LeadController extends Controller
                     'factory_province.*' => 'nullable|string',
                     'factory_industry_id.*' => [
                         'nullable',
-                        function($attribute, $value, $fail) {
+                        function ($attribute, $value, $fail) {
                             if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
                                 $fail("$attribute is invalid");
                             }
@@ -245,7 +243,7 @@ class LeadController extends Controller
                     'email.*'      => 'nullable|email',
                     'industry_id.*' => [
                         'nullable',
-                        function($attribute, $value, $fail) {
+                        function ($attribute, $value, $fail) {
                             if ($value !== null && $value !== 'other' && !Industry::where('id', $value)->exists()) {
                                 $fail("$attribute is invalid");
                             }
@@ -273,8 +271,8 @@ class LeadController extends Controller
                     $lead = new Lead();
 
                     // Add null checks for each array access
-                    $rawRegion = isset($request->region_id[$i]) && $request->region_id[$i] === 'ALL' 
-                        ? null 
+                    $rawRegion = isset($request->region_id[$i]) && $request->region_id[$i] === 'ALL'
+                        ? null
                         : ($request->region_id[$i] ?? null);
 
                     $region = $rawRegion ? Region::with('province')->find($rawRegion) : null;
@@ -393,8 +391,8 @@ class LeadController extends Controller
             if (! $id) {
                 $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
             }
-            $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL' 
-                ? null 
+            $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL'
+                ? null
                 : ($request->factory_city_id ?? null);
             $factoryRegion = $rawFactoryRegion ? Region::with('province')->find($rawFactoryRegion) : null;
             $lead->factory_city_id = $rawFactoryRegion;
@@ -469,23 +467,23 @@ class LeadController extends Controller
                 ['before' => $before, 'after' => $after],
                 $user
             );
-            
+
             return $this->setJsonResponse('Lead saved successfully');
-    } catch (\Exception $e) {
-        \Log::error('Lead Save Error:', [
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(), 
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString(),
-            'request_data' => $request->all() // Log the request data
-        ]);
-        
-        return response()->json([
-            'error' => true,
-            'message' => 'Error saving lead: ' . $e->getMessage()
-        ], 500);
+        } catch (\Exception $e) {
+            \Log::error('Lead Save Error:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all() // Log the request data
+            ]);
+
+            return response()->json([
+                'error' => true,
+                'message' => 'Error saving lead: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
 
 
     public function claim($id)
@@ -494,7 +492,7 @@ class LeadController extends Controller
 
         LeadClaim::create([
             'lead_id'    => $lead->id,
-            'sales_id'   => request()->user()->id,            
+            'sales_id'   => request()->user()->id,
             'claimed_at' => now(),
         ]);
 
@@ -535,20 +533,8 @@ class LeadController extends Controller
             $claims->where('sales_id', $user->id);
         }
 
-        $allClaims = $claims->get();
-        
-        // Filter by time constraints like All Leads
-        $filteredClaims = $allClaims->filter(function($claim) {
-            if ($claim->lead->status_id == LeadStatus::COLD) {
-                return $claim->claimed_at >= now()->subDays(10);
-            } elseif ($claim->lead->status_id == LeadStatus::WARM) {
-                return $claim->claimed_at >= now()->subDays(30);
-            }
-            return true; // HOT and DEAL have no time limits
-        });
-
-        $counts = $filteredClaims
-            ->groupBy(fn ($claim) => $claim->lead->status_id)
+        $counts = $claims->get()
+            ->groupBy(fn($claim) => $claim->lead->status_id)
             ->map->count();
 
         return view('pages.leads.my', [
@@ -617,13 +603,17 @@ class LeadController extends Controller
             abort(403);
         }
 
-        // Trigger auto-trash if needed (non-blocking)
-        AutoTrashService::triggerIfNeeded();
-
+        $user = $request->user();
         $leads = Lead::query();
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
+        // Auto-apply user's branch_id for branch managers and similar roles
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+        if (!$branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
+            $branchId = $user->branch_id;
+        }
+
+        if ($branchId) {
+            $leads->whereHas('region.branch', fn($q) => $q->where('id', $branchId));
         }
 
         if ($request->filled('region_id')) {
@@ -633,27 +623,26 @@ class LeadController extends Controller
         if ($request->filled('sales_id')) {
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
-                  ->whereNull('released_at');
+                    ->whereNull('released_at');
             });
         }
 
         $start = $request->input('start_date');
         $end   = $request->input('end_date');
 
-        $cold = (clone $leads)
-            ->where('status_id', LeadStatus::COLD)
-            ->whereHas('claims', function ($q) {
-                $q->whereNull('released_at')
-                  ->where('claimed_at', '>=', now()->subDays(10));
-            })
-            ->count();
+        // Apply branch_id filter specifically for each status lead if provided
+        $coldQuery = (clone $leads)
+            ->where('status_id', LeadStatus::COLD);
+        if ($branchId) {
+            $coldQuery->where('branch_id', $branchId);
+        }
+        $cold = $coldQuery->count();
 
         $warmQuery = (clone $leads)
-            ->where('status_id', LeadStatus::WARM)
-            ->whereHas('claims', function ($q) {
-                $q->whereNull('released_at')
-                  ->where('claimed_at', '>=', now()->subDays(30));
-            });
+            ->where('status_id', LeadStatus::WARM);
+        if ($branchId) {
+            $warmQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $warmQuery->whereHas('quotation', fn($q) => $q->firstApprovalBetween($start, $end));
         }
@@ -661,6 +650,9 @@ class LeadController extends Controller
 
         $hotQuery = (clone $leads)
             ->where('status_id', LeadStatus::HOT);
+        if ($branchId) {
+            $hotQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $hotQuery->whereHas('quotation', fn($q) => $q->bookingFeeBetween($start, $end));
         }
@@ -668,6 +660,9 @@ class LeadController extends Controller
 
         $dealQuery = (clone $leads)
             ->where('status_id', LeadStatus::DEAL);
+        if ($branchId) {
+            $dealQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $dealQuery->whereHas('quotation', fn($q) => $q->firstTermPaidBetween($start, $end));
         }
@@ -683,7 +678,8 @@ class LeadController extends Controller
 
     public function manage()
     {
-        $userRole = request()->user()->role?->code;
+        $user = request()->user();
+        $userRole = $user->role?->code;
         if ($userRole === 'sales') {
             abort(403);
         }
@@ -694,23 +690,23 @@ class LeadController extends Controller
         $branches = Branch::all();
         $regions  = Region::all();
 
-        // Count leads with proper filters like manageList
-        $coldCount = Lead::where('status_id', LeadStatus::COLD)
-            ->whereHas('claims', function ($q) {
-                $q->whereNull('released_at')
-                  ->where('claimed_at', '>=', now()->subDays(10));
-            })
-            ->count();
 
-        $warmCount = Lead::where('status_id', LeadStatus::WARM)
-            ->whereHas('claims', function ($q) {
-                $q->whereNull('released_at')
-                  ->where('claimed_at', '>=', now()->subDays(30));
-            })
-            ->count();
+        $userBranchId = $user->branch_id && in_array($userRole, ['branch_manager', 'finance', 'accountant', 'purchasing']) 
+            ? $user->branch_id : null;
 
-        $hotCount = Lead::where('status_id', LeadStatus::HOT)->count();
-        $dealCount = Lead::where('status_id', LeadStatus::DEAL)->count();
+        $countsQuery = Lead::select('status_id', DB::raw('COUNT(*) as cnt'))
+            ->whereIn('status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ]);
+
+        if ($userBranchId) {
+            $countsQuery->where('branch_id', $userBranchId);
+        }
+
+        $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
         $leadCounts = [
             'cold' => $coldCount,
@@ -721,7 +717,7 @@ class LeadController extends Controller
 
         $activities = \App\Models\Leads\LeadActivityList::all();
 
-        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities'));
+        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId'));
     }
 
     public function manageList(Request $request)
@@ -741,16 +737,26 @@ class LeadController extends Controller
             'segment',
             'status',
             'quotation',
-            'claims' => function($query) {
-                    $query->whereNull('released_at')
-                        ->latest('claimed_at')
-                        ->with('sales');
-                }
-            ]);
+            'industry',
+            'claims' => function ($query) {
+                $query->whereNull('released_at')
+                    ->latest('claimed_at')
+                    ->with('sales');
+            }
+        ]);
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', function ($q) use ($request) {
-                $q->where('id', $request->branch_id);
+
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+        if (!$branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
+            $branchId = $user->branch_id;
+        }
+
+        if ($branchId) {
+            $leads->where(function($q) use ($branchId) {
+                $q->whereHas('region.branch', function ($subq) use ($branchId) {
+                    $subq->where('id', $branchId);
+                })
+                ->orWhere('branch_id', $branchId);
             });
         }
 
@@ -761,7 +767,7 @@ class LeadController extends Controller
         if ($request->filled('sales_id')) {
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
-                  ->whereNull('released_at');
+                    ->whereNull('released_at');
             });
         }
 
@@ -785,6 +791,15 @@ class LeadController extends Controller
             }
         }
 
+        if ($branchId && $request->filled('status_id')) {
+            $statusId = (int) $request->status_id;
+            $branchIdInt = (int) $branchId;
+            
+            if (in_array($statusId, [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])) {
+                $leads->where('branch_id', $branchIdInt);
+            }
+        }
+
         if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
             $leads->whereHas('quotation', function ($q) use ($request) {
                 $status = (int) $request->status_id;
@@ -801,34 +816,35 @@ class LeadController extends Controller
         $role = $request->user()->role?->code;
 
         return DataTables::of($leads)
-            ->addColumn('sales_name', function($lead) {
+            ->addColumn('sales_name', function ($lead) {
                 return $lead->claims->first()?->sales?->name ?? '-';
             })
-            ->addColumn('phone', fn ($row) => $row->phone)
-            ->addColumn('needs', fn ($row) => $row->needs)
-            ->addColumn('source_name', fn ($row) => $row->source->name ?? '')
-            ->addColumn('industry_name', fn($row) => $row->industry?->name ?? null)
-            ->addColumn('other_industry', fn($row) => $row->other_industry ?? null)
-            ->addColumn('segment_name', fn ($row) => $row->segment->name ?? '')
-            ->addColumn('city_name', fn ($row) => $row->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn ($row) => $row->region->regional->name ?? '-')
-            ->addColumn('customer_type', function($lead) {
+            ->addColumn('phone', fn($row) => $row->phone)
+            ->addColumn('needs', fn($row) => $row->needs)
+            ->addColumn('source_name', fn($row) => $row->source->name ?? '')
+            ->addColumn('segment_name', fn($row) => $row->segment->name ?? '')
+            ->addColumn('city_name', fn($row) => $row->region->name ?? 'All Regions')
+            ->addColumn('regional_name', fn($row) => $row->region->regional->name ?? '-')
+            ->addColumn('customer_type', function ($lead) {
                 return $lead->customer_type ?? '-';
             })
-            ->addColumn('product_description', function($lead) {
+            ->addColumn('existing_industries', function ($lead) {
+                return $lead->industry->name ?? '-';
+            })
+            ->addColumn('product_description', function ($lead) {
                 return $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? '');
             })
-            ->addColumn('quotation_number', function($lead) {
+            ->addColumn('quotation_number', function ($lead) {
                 return $lead->quotation->quotation_no ?? '-';
             })
-            ->addColumn('quotation_price', function($lead) {
+            ->addColumn('quotation_price', function ($lead) {
                 return $lead->quotation ? number_format($lead->quotation->grand_total ?? 0, 2) : '-';
             })
-            ->addColumn('invoice_number', function($lead) {
+            ->addColumn('invoice_number', function ($lead) {
                 return $lead->quotation?->proformas->first()?->invoice?->invoice_no ?? '-';
             })
-            ->addColumn('invoice_price', function($lead) {
-                return $lead->quotation?->proformas->first()?->invoice ? 
+            ->addColumn('invoice_price', function ($lead) {
+                return $lead->quotation?->proformas->first()?->invoice ?
                     number_format($lead->quotation->proformas->first()->invoice->amount ?? 0, 2) : '-';
             })
            ->addColumn('quot_created', function($lead) {
@@ -884,7 +900,7 @@ class LeadController extends Controller
                 // $deleteUrl = route('leads.manage.delete', $row->id);
                 $quote     = $row->quotation;
                 $quoteUrl  = $quote ? route('quotations.show', $quote->id) : null;
-                
+
                 $btnId = 'manageActionsDropdown' . $row->id;
 
                 $html  = '<div class="dropdown">';
@@ -982,16 +998,18 @@ class LeadController extends Controller
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (! in_array($user->role?->code, ['super_admin'])) {
-            $leads->where(function($q) use ($user) {
-                $q->whereNull('region_id')    
-                ->orWhereHas('region', fn($q) =>
-                    $q->where('branch_id', $user->branch_id)
-                );
+            $leads->where(function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($q) =>
+                        $q->where('branch_id', $user->branch_id)
+                    );
             });
         }
 
         if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn ($q) => $q->where('id', $request->branch_id));
+            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
         }
 
         if ($request->filled('region_id')) {
@@ -1031,22 +1049,24 @@ class LeadController extends Controller
         }
 
         $leads = Lead::with([
-            'region.branch', 
-            'source', 
-            'segment', 
+            'region.branch',
+            'source',
+            'segment',
             'claims.sales',
             'quotation',
-            'quotation.proformas' => function($query) {
+            'quotation.proformas' => function ($query) {
                 $query->orderBy('created_at', 'desc');
             },
             'quotation.proformas.invoice'
         ])
-        ->when($request->filled('status_id'), fn ($q) => 
-            $q->where('status_id', $request->status_id)
-        );
+            ->when(
+                $request->filled('status_id'),
+                fn($q) =>
+                $q->where('status_id', $request->status_id)
+            );
 
         if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn ($q) => $q->where('id', $request->branch_id));
+            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
         }
 
         if ($request->filled('region_id')) {
@@ -1056,7 +1076,7 @@ class LeadController extends Controller
         if ($request->filled('sales_id')) {
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
-                  ->whereNull('released_at');
+                    ->whereNull('released_at');
             });
         }
 
@@ -1079,9 +1099,9 @@ class LeadController extends Controller
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $claim = $lead->claims()->latest()->first();
-            
+
             $quotation = $lead->quotation;
-            
+
             // Get latest proforma and its invoice
             $latestProforma = $quotation?->proformas->first();
             $invoice = $latestProforma?->invoice;
@@ -1191,7 +1211,7 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
         
         $user = $request->user();
-        
+
         $claims = LeadClaim::whereNull('released_at')
             ->with(['lead.region.regional', 'lead.source', 'lead.segment', 'lead.meetings', 'sales']);
 
@@ -1211,20 +1231,20 @@ class LeadController extends Controller
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
             ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
             ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? '')
-            ->addColumn('meeting_status', function($row) {
+            ->addColumn('meeting_status', function ($row) {
                 $meeting = $row->lead->meetings()->latest()->first();
                 if (!$meeting) {
                     return '<span class="badge badge-secondary">No Meeting</span>';
                 }
-                
+
                 $status = $meeting->status ?? 'pending';
                 $badgeClass = [
                     'pending' => 'badge-warning',
-                    'approved' => 'badge-success', 
+                    'approved' => 'badge-success',
                     'rejected' => 'badge-danger',
                     'cancelled' => 'badge-secondary'
                 ][$status] ?? 'badge-secondary';
-                
+
                 return '<span class="badge ' . $badgeClass . '">' . ucfirst($status) . '</span>';
             })
             ->addColumn('actions', function ($row) {
@@ -1238,10 +1258,10 @@ class LeadController extends Controller
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right">';
                 $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
-                
+
                 $activityUrl = route('leads.activity.logs', $lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
-                
+
                 $meeting = $lead->meetings()->latest()->first();
                 if (!$meeting) {
                     $coldTrashUrl = route('leads.my.cold.trash', $row->id);
@@ -1250,7 +1270,7 @@ class LeadController extends Controller
                     $cancelUrl = route('leads.meeting.cancel', $meeting->id);
                     $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . ($meeting->status ?? 'pending') . '"><i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
                 }
-                
+
                 $html .= '  </div>';
                 $html .= '</div>';
 
@@ -1266,7 +1286,7 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
         
         $user = $request->user();
-        
+
         $claims = LeadClaim::whereNull('released_at')
             ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
@@ -1279,7 +1299,7 @@ class LeadController extends Controller
 
         // Apply date filtering if provided
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function($q) use ($request) {
+            $claims->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->firstApprovalBetween($request->start_date, $request->end_date);
             });
         }
@@ -1290,7 +1310,7 @@ class LeadController extends Controller
             ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
             ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
-            ->addColumn('meeting_status', function($row) {
+            ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-warning">Warm</span>';
             })
             ->addColumn('actions', function ($row) {
@@ -1304,23 +1324,23 @@ class LeadController extends Controller
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right">';
                 $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
-                
+
                 $activityUrl = route('leads.activity.logs', $lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
-                
+
                 if ($lead->quotation) {
                     $quoteUrl = route('quotations.show', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    
+
                     $logUrl = route('quotations.logs', $lead->quotation->id);
                     $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
                 }
-                
+
                 if (!$lead->quotation || $lead->quotation->status !== 'published') {
                     $warmTrashUrl = route('leads.my.warm.trash', $row->id);
                     $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($warmTrashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
                 }
-                
+
                 $html .= '  </div>';
                 $html .= '</div>';
 
@@ -1336,7 +1356,7 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
         
         $user = $request->user();
-        
+
         $claims = LeadClaim::whereNull('released_at')
             ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
@@ -1348,7 +1368,7 @@ class LeadController extends Controller
 
         // Apply date filtering if provided
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function($q) use ($request) {
+            $claims->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->bookingFeeBetween($request->start_date, $request->end_date);
             });
         }
@@ -1359,7 +1379,7 @@ class LeadController extends Controller
             ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
             ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
-            ->addColumn('meeting_status', function($row) {
+            ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-danger">Hot</span>';
             })
             ->addColumn('actions', function ($row) {
@@ -1373,18 +1393,18 @@ class LeadController extends Controller
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-right">';
                 $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
-                
+
                 $activityUrl = route('leads.activity.logs', $lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
-                
+
                 if ($lead->quotation) {
                     $quoteUrl = route('quotations.show', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    
+
                     $logUrl = route('quotations.logs', $lead->quotation->id);
                     $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
                 }
-                
+
                 $html .= '  </div>';
                 $html .= '</div>';
 
@@ -1400,7 +1420,7 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
         
         $user = $request->user();
-        
+
         $claims = LeadClaim::whereNull('released_at')
             ->with(['lead.industry', 'lead.segment', 'lead.quotation', 'sales']);
 
@@ -1412,7 +1432,7 @@ class LeadController extends Controller
 
         // Apply date filtering if provided
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function($q) use ($request) {
+            $claims->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->firstTermPaidBetween($request->start_date, $request->end_date);
             });
         }
@@ -1423,7 +1443,7 @@ class LeadController extends Controller
             ->addColumn('industry_name', fn($row) => $row->lead->industry->name ?? null)
             ->addColumn('other_industry', fn($row) => $row->lead->other_industry ?? null)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
-            ->addColumn('meeting_status', function($row) {
+            ->addColumn('meeting_status', function ($row) {
                 return '<span class="badge badge-success">Deal</span>';
             })
             ->addColumn('actions', function ($row) {
@@ -1437,18 +1457,18 @@ class LeadController extends Controller
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right">';
                 $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
-                
+
                 $activityUrl = route('leads.activity.logs', $lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
-                
+
                 if ($lead->quotation) {
                     $quoteUrl = route('quotations.show', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    
+
                     $logUrl = route('quotations.logs', $lead->quotation->id);
                     $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
                 }
-                
+
                 $html .= '  </div>';
                 $html .= '</div>';
 
@@ -1457,5 +1477,4 @@ class LeadController extends Controller
             ->rawColumns(['meeting_status', 'actions'])
             ->make(true);
     }
-
 }
