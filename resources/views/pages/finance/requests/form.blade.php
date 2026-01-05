@@ -110,14 +110,29 @@
           <tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
         </thead>
         <tbody>
-          @foreach($proforma->quotation->order->orderItems ?? [] as $item)
-          <tr>
-            <td>{{ $item->description }}</td>
-            <td>{{ $item->qty }}</td>
-            <td>{{ $item->unit_price }}</td>
-            <td>{{ $item->line_total }}</td>
-          </tr>
-          @endforeach
+          @if($proforma->quotation->order && $proforma->quotation->order->orderItems->count() > 0)
+            @foreach($proforma->quotation->order->orderItems ?? [] as $item)
+            <tr>
+              <td>{{ $item->description }}</td>
+              <td>{{ $item->qty }}</td>
+              <td>{{ $item->unit_price }}</td>
+              <td>{{ $item->line_total }}</td>
+            </tr>
+            @endforeach
+              @elseif($proforma->quotation->items)
+                @foreach($proforma->quotation->items as $item)
+                <tr>
+                  <td>{{ $item->description }}</td>
+                  <td>{{ $item->qty }}</td>
+                  <td>{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                  <td>{{ number_format($item->total_price, 0, ',', '.') }}</td>
+                </tr>
+                @endforeach
+              @else
+                <tr>
+                  <td colspan="4" class="text-center">No items found</td>
+                </tr>
+              @endif
         </tbody>
       </table>
 

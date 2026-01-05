@@ -18,7 +18,7 @@ class QuotationController extends Controller
         public function download(Request $request, $id)
     {
         // 1. Authorize
-        $allowed = ['branch_manager','super_admin','sales_director','sales'];
+        $allowed = ['branch_manager','super_admin','sales', 'finance'];
         abort_if(! in_array($request->user()->role?->code, $allowed), 403);
 
         // 2. Load the quotation with its relations
@@ -57,20 +57,20 @@ class QuotationController extends Controller
 
         // 6. Paths for the static pages
         $coverPath      = resource_path('pdf/quotation/cover.pdf');
-        $componentsPath = resource_path('pdf/quotation/components.pdf');
+        // $componentsPath = resource_path('pdf/quotation/components.pdf');
 
-        foreach ([$coverPath, $componentsPath] as $static) {
-            if (! File::exists($static)) {
-                throw new \RuntimeException("Static PDF missing at {$static}");
-            }
-        }
+        // foreach ([$coverPath, $componentsPath] as $static) {
+        //     if (! File::exists($static)) {
+        //         throw new \RuntimeException("Static PDF missing at {$static}");
+        //     }
+        // }
 
         // 7. Merge: cover → body → terms → components
         $merger = PDFMerger::init();
         $merger->addPDF($coverPath,       'all');
         $merger->addPDF($bodyPath,        'all');
         $merger->addPDF($termsPath,       'all');
-        $merger->addPDF($componentsPath,  'all');
+        // $merger->addPDF($componentsPath,  'all');
 
         // 8. Save merged file
         $fileName  = $quotation->quotation_no
@@ -98,7 +98,7 @@ class QuotationController extends Controller
 
     public function downloadOld(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'super_admin', 'sales_director', 'sales'];
+        $allowed = ['branch_manager', 'super_admin', 'sales', 'finance'];
 
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
@@ -117,7 +117,7 @@ class QuotationController extends Controller
     
     public function show(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'sales_director', 'sales'];
+        $allowed = ['branch_manager', 'sales', 'finance', 'super_admin'];
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
         }
@@ -152,6 +152,15 @@ class QuotationController extends Controller
 
         $claim = $claimQuery->first();
 
+        \Log::info('Quotation Show Debug', [
+            'quotation_id' => $id,
+            'user_role' => $request->user()->role?->code,
+            'user_id' => $request->user()->id,
+            'quotation_status' => $quotation->status,
+            'has_claim' => $claim !== null,
+            'claim_id' => $claim?->id,
+        ]);
+
         return $this->render('pages.orders.quotation-show', compact('quotation', 'claim', 'rejection'));
     }
 
@@ -165,32 +174,49 @@ class QuotationController extends Controller
         ]);
 
         $userRole = $request->user()->role?->code;
-        $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-        $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+        $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+        $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
 
-        if ($userRole === 'sales_director' && ! $bmApproved) {
-            abort(403, 'Branch Manager approval is required before Sales Director.');
+        // Validation rules
+        if ($userRole === 'finance' && !$bmApproved) {
+            abort(403, 'Branch Manager approval is required before Finance approval.');
         }
 
         if ($userRole === 'branch_manager' && $bmApproved) {
             abort(403, 'Branch Manager has already approved this quotation.');
         }
 
-        if ($userRole === 'sales_director' && $dirApproved) {
-            abort(403, 'Sales Director has already approved this quotation.');
+        if ($userRole === 'finance' && $financeApproved) {
+            abort(403, 'Finance has already approved this quotation.');
         }
+
         DB::transaction(function () use ($quotation, $request, $incentive, $userRole) {            
-            $role = $userRole === 'branch_manager' ? 'BM' : 'SD';            
+            // Map user role to review role
+            $roleMapping = [
+                'branch_manager' => 'BM',
+                'finance' => 'finance',
+            ];
             
-            QuotationReview::create([
+            $role = $roleMapping[$userRole] ?? $userRole;
+            
+            // Prepare review data
+            $reviewData = [
                 'quotation_id'      => $quotation->id,
                 'reviewer_id'       => $request->user()->id,
                 'role'              => $role,
                 'decision'          => 'approve',
                 'notes'             => $request->input('notes'),
-                'incentive_nominal' => $incentive,
                 'decided_at'        => now(),
-            ]);
+            ];
+
+            // Only add incentive_nominal if it's not null (for Finance approvals)
+            if ($userRole === 'finance') {
+                $reviewData['incentive_nominal'] = $incentive;
+            } else {
+                $reviewData['incentive_nominal'] = 0; // Set to 0 instead of null
+            }
+            
+            QuotationReview::create($reviewData);
 
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
@@ -199,79 +225,25 @@ class QuotationController extends Controller
                 'logged_at'    => now(),
             ]);
 
-            $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
+            // Check approval status after this approval
+            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
 
-            if ($bmApproved && $dirApproved && $quotation->status !== 'published') {
+            // Update quotation status based on approvals
+            if ($userRole === 'branch_manager') {
+                // BM approved - set to pending finance approval
+                $quotation->update(['status' => 'pending_finance']);
+            } elseif ($userRole === 'finance' && $bmApproved) {
+                // Both BM and Finance approved - publish the quotation
                 $quotation->update([
                     'status' => 'published',
                     'expiry_date' => now()->addDays(30),
-                ]);            
+                ]);
 
-                if ($quotation->booking_fee) {
-                    $proforma = $quotation->proformas()->firstOrCreate(
-                        ['proforma_type' => 'booking_fee'],
-                        ['term_no' => null]
-                    );
+                // Only create proformas when both approvals are complete
+                $this->createProformas($quotation, $request->user());
 
-                    $proforma->fill([
-                        'amount'      => $quotation->booking_fee,
-                        'status'      => 'confirmed',
-                        'proforma_no' => 'PROFORMA_'.$proforma->id,
-                        'issued_at'   => now(),
-                        'issued_by'   => $request->user()->id,
-                    ])->save();
-
-                    $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
-                    $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
-                    $fileName = $proforma->proforma_no.'.pdf';
-                    $filePath = 'proformas/'.$fileName;
-                    Storage::put($filePath, $pdf->output());
-
-                    $attachment = Attachment::create([
-                        'type'        => 'proforma_pdf',
-                        'file_path'   => $filePath,
-                        'mime_type'   => 'application/pdf',
-                        'size'        => strlen($pdf->output()),
-                        'uploaded_by' => $request->user()->id,
-                    ]);
-
-                    $proforma->update(['attachment_id' => $attachment->id]);
-                }            
-
-                foreach ($quotation->paymentTerms as $term) {
-                    $amount = $quotation->grand_total * ($term->percentage / 100);
-                    $type   = $term->term_no == 1 ? 'down_payment' : 'term_payment';
-
-                    $proforma = $quotation->proformas()->firstOrCreate(
-                        ['term_no' => $term->term_no],
-                        ['proforma_type' => $type]
-                    );
-
-                    $proforma->fill([
-                        'amount'      => $amount,
-                        'status'      => 'confirmed',
-                        'proforma_no' => 'PROFORMA_'.$proforma->id,
-                        'issued_at'   => now(),
-                    ])->save();
-
-                    $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
-                    $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
-                    $fileName = $proforma->proforma_no.'.pdf';
-                    $filePath = 'proformas/'.$fileName;
-                    Storage::put($filePath, $pdf->output());
-
-                    $attachment = Attachment::create([
-                        'type'        => 'proforma_pdf',
-                        'file_path'   => $filePath,
-                        'mime_type'   => 'application/pdf',
-                        'size'        => strlen($pdf->output()),
-                        'uploaded_by' => $request->user()->id,
-                    ]);
-
-                    $proforma->update(['attachment_id' => $attachment->id]);                
-                }
-
+                // Create incentive log
                 \App\Models\UserBalanceLog::create([
                     'user_id'       => $quotation->created_by,
                     'amount'        => $incentive,
@@ -280,19 +252,91 @@ class QuotationController extends Controller
                     'status'        => 'pending',
                     'created_at'    => now(),
                 ]);
-
             }
         });
 
         return back()->with('status', 'Quotation approved');
     }
 
+    // Extract proforma creation to separate method for cleaner code
+    private function createProformas($quotation, $user)
+    {
+        // Create booking fee proforma if exists
+        if ($quotation->booking_fee) {
+            $proforma = $quotation->proformas()->firstOrCreate(
+                ['proforma_type' => 'booking_fee'],
+                ['term_no' => null]
+            );
+
+            $proforma->fill([
+                'amount'      => $quotation->booking_fee,
+                'status'      => 'confirmed',
+                'proforma_no' => 'PROFORMA_'.$proforma->id,
+                'issued_at'   => now(),
+                'issued_by'   => $user->id,
+            ])->save();
+
+            $this->generateProformaPDF($proforma, $quotation, $user);
+        }
+
+        // Create payment term proformas
+        foreach ($quotation->paymentTerms as $term) {
+            $amount = $quotation->grand_total * ($term->percentage / 100);
+            $type   = $term->term_no == 1 ? 'down_payment' : 'term_payment';
+
+            $proforma = $quotation->proformas()->firstOrCreate(
+                ['term_no' => $term->term_no],
+                ['proforma_type' => $type]
+            );
+
+            $proforma->fill([
+                'amount'      => $amount,
+                'status'      => 'confirmed',
+                'proforma_no' => 'PROFORMA_'.$proforma->id,
+                'issued_at'   => now(),
+            ])->save();
+
+            $this->generateProformaPDF($proforma, $quotation, $user);
+        }
+    }
+
+    private function generateProformaPDF($proforma, $quotation, $user)
+    {
+        $storagePath = storage_path('app/public/proformas');
+        if (!File::exists($storagePath)) {
+            File::makeDirectory($storagePath, 0755, true);
+        }
+
+        $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
+        $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
+        $fileName = $proforma->proforma_no.'.pdf';
+
+        $filePath = 'proformas/'.$fileName;
+        Storage::disk('public')->put($filePath, $pdf->output());
+
+        $attachment = Attachment::create([
+            'type'        => 'proforma_pdf',
+            'file_path'   => 'proformas/'.$fileName,
+            'mime_type'   => 'application/pdf',
+            'size'        => Storage::disk('public')->size($filePath),
+            'uploaded_by' => $user->id,
+        ]);
+
+        $proforma->update(['attachment_id' => $attachment->id]);
+    }
     public function reject(Request $request, $id)
     {
         $quotation = Quotation::findOrFail($id);
 
         DB::transaction(function () use ($quotation, $request) {
-            $role = $request->user()->role?->code === 'branch_manager' ? 'BM' : 'SD';            
+            // Map user role to review role
+            $roleMapping = [
+                'branch_manager' => 'BM',
+                'finance' => 'finance',
+            ];
+            
+            $userRole = $request->user()->role?->code;
+            $role = $roleMapping[$userRole] ?? $userRole;
 
             $quotation->update(['status' => 'rejected']);
 
@@ -302,6 +346,7 @@ class QuotationController extends Controller
                 'role'        => $role,
                 'decision'    => 'reject',
                 'notes'       => $request->input('notes'),
+                'incentive_nominal' => 0, // Add this to prevent NULL issues
                 'decided_at'  => now(),
             ]);
 

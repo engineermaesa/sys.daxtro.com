@@ -332,6 +332,8 @@ class OrderController extends Controller
             'lead.quotation.proformas.invoice.payments',
             'lead.quotation.proformas.paymentConfirmation',
             'paymentTerms',
+            'lead.customerType',
+            'lead.quotation.items',
         ]);
 
         if ($request->filled('segment_id')) {

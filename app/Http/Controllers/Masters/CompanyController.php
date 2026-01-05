@@ -19,13 +19,14 @@ class CompanyController extends Controller
     public function list(Request $request)
     {
         return DataTables::of(Company::query())
+            ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.companies.form', $row->id);
                 $del  = route('masters.companies.delete', $row->id);
 
                 return '
-                    <a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="'.$del.'" data-id="'.$row->id.'" data-table="companiesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
+                    <a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
+                    <a href="' . $del . '" data-id="' . $row->id . '" data-table="companiesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
                 ';
             })
             ->rawColumns(['actions'])
@@ -44,6 +45,7 @@ class CompanyController extends Controller
             'name'    => 'required',
             'address' => 'nullable',
             'phone'   => 'nullable',
+            'target'  => 'nullable|numeric|min:0',
         ]);
 
         $company = $id ? Company::findOrFail($id) : new Company();
@@ -52,6 +54,7 @@ class CompanyController extends Controller
         $company->name = $request->name;
         $company->address = $request->address;
         $company->phone = $request->phone;
+        $company->target = $request->target ?: null;
         $company->save();
 
         $after = $company->fresh()->toArray();

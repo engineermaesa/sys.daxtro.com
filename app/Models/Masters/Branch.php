@@ -17,6 +17,7 @@ class Branch extends Model
         'name',
         'code',
         'address',
+        'target'
     ];
 
     public function company()

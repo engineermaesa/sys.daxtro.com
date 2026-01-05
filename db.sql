@@ -1134,7 +1134,7 @@ CREATE TABLE `quotation_reviews` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `quotation_id` bigint unsigned NOT NULL,
   `reviewer_id` bigint unsigned NOT NULL,
-  `role` enum('BM','SD') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role` enum('BM') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `decision` enum('approve','reject') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `notes` text COLLATE utf8mb4_unicode_ci,
   `incentive_nominal` decimal(8,2) NOT NULL DEFAULT '0.00',

@@ -28,102 +28,6 @@
 
                                     <div class="card-body">
                                         <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Source <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2" required>
-                                            <option value="" disabled selected>Pilih</option>
-                                            @php
-                                                $filter = ['Canvas', 'Visit', 'Expo'];
-                                                $isNew = empty($form_data->source_id);
-                                            @endphp
-
-                                        @foreach ($sources as $source)
-                                            @if ($isNew ? in_array($source->name, $filter) : true)
-                                                <option value="{{ $source->id }}"
-                                                    {{ old('source_id', $form_data->source_id) == $source->id ? 'selected' : '' }}>
-                                                    {{ $source->name }}
-                                                </option>
-                                            @endif
-                                        @endforeach
-
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Company <i class="required">*</i></label>
-                                            <input type="text" name="{{ $isCreate ? 'company[]' : 'company' }}" placeholder="Nama Perusahaan" class="form-control"
-                                                value="{{ old('company', $form_data->company) }}" required>
-                                        </div>
-
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Customer Type <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'customer_type[]' : 'customer_type' }}" class="form-select select2" required>
-                                                <option value="" disabled selected>Pilih</option>
-                                                @foreach($customerTypes as $type)
-                                                    <option value="{{ $type->name }}" {{ old('customer_type', $form_data->customer_type) == $type->name ? 'selected' : '' }}>{{ $type->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>                                        
-
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Transaction Type <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'segment_id[]' : 'segment_id' }}" class="form-select select2" required>
-                                            <option value="" disabled selected>Pilih</option>
-                                            @foreach ($segments as $segment)
-                                                <option value="{{ $segment->id }}"
-                                                    {{ old('segment_id', $form_data->segment_id) == $segment->id ? 'selected' : '' }}>
-                                                    {{ $segment->name }}</option>
-                                            @endforeach
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="col-md-2 mb-3">
-                                            <label class="form-label">City <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'region_id[]' : 'region_id' }}" class="form-select select2 region-select">
-                                                <option value="" disabled {{ old('region_id', $form_data->region_id)===null ? 'selected' : '' }}>Pilih</option>
-                                                <option value="ALL" {{ old('region_id', $form_data->region_id)==='ALL' ? 'selected' : '' }}>
-                                                    All Regions (will show in all regions)
-                                                </option>
-                                                @foreach($regions as $region)
-                                                    <option 
-                                                    value="{{ $region->id }}" 
-                                                    data-branch="{{ $region->branch_id }}"
-                                                    {{ old('region_id', $form_data->region_id)==$region->id ? 'selected' : '' }}
-                                                    >
-                                                    {{ $region->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <input type="hidden" 
-                                                name="{{ $isCreate ? 'branch_id[]' : 'branch_id' }}" 
-                                                class="branch-id-field" 
-                                                value="{{ old('branch_id', $form_data->branch_id) }}">
-                                        </div>
-
-                                        <div class="col-md-2 mb-3">
-                                            <label class="form-label">Province <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'province[]' : 'province' }}" class="form-select select2 province-select">
-                                            <option value="" selected>Pilih</option>
-                                            @foreach ($provinces as $prov)
-                                                <option value="{{ $prov }}"
-                                                    {{ old('province', $form_data->province) == $prov ? 'selected' : '' }}>
-                                                    {{ $prov }}</option>
-                                            @endforeach
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Industry <i class="required">*</i></label>
-                                            <select name="{{ $isCreate ? 'industry_id[]' : 'industry_id' }}" class="form-select select2 industry-select" required>
-                                                <option value="" disabled selected>Pilih</option>
-                                                @foreach($industries as $industry)
-                                                    <option value="{{ $industry->id }}" {{ old('industry_id', $form_data->industry_id ?? ($form_data->other_industry ? 'other' : null)) == $industry->id ? 'selected' : '' }}>{{ $industry->name }}</option>
-                                                @endforeach
-                                                <option value="other" {{ old('industry_id', $form_data->industry_id ?? ($form_data->other_industry ? 'other' : null)) === 'other' ? 'selected' : '' }}>Lainnya</option>
-                                            </select>
-                                            <input type="text" name="{{ $isCreate ? 'other_industry[]' : 'other_industry' }}" class="form-control mt-2 industry-other d-none" placeholder="Isi industri" value="{{ old('other_industry', $form_data->other_industry) }}" />
-                                        </div>
-
                                         @php
                                             $defaultName = old('name', $form_data->name);
                                             $defaultTitle = old('title');
@@ -168,9 +72,9 @@
                                         </div>                                                                                
 
                                         <div class="col-md-4 mb-3">
-                                            <label class="form-label">Email <i class="required">*</i></label>
+                                            <label class="form-label">Email</label>
                                             <input type="email" name="{{ $isCreate ? 'email[]' : 'email' }}" placeholder="email@domain.com" class="form-control"
-                                                value="{{ old('email', $form_data->email) }}" required>
+                                                value="{{ old('email', $form_data->email) }}">
                                         </div>
 
                                         <div class="pic-extensions col-12">
@@ -210,8 +114,235 @@
                                                 <i class="bi bi-person-plus me-1"></i> Add PIC
                                             </button>
                                         </div>
-                                
+
+                                        <div class="col-12 mb-4"> 
+                                            <hr class="text-muted" />
+                                        </div>
+
+
+
                                         <div class="col-md-4 mb-3">
+                                            <label class="form-label">Source <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'source_id[]' : 'source_id' }}" class="form-select select2 source-select" required>
+                                            <option value="" disabled selected>Pilih</option>
+                                            @php
+                                                $filter = [
+                                                    'Ads Google',
+                                                    'Website',
+                                                    'Meta',
+                                                    'Linked In',
+                                                    'Tik Tok',
+                                                    'Friends Recommendation',
+                                                    'Canvas', 
+                                                    'Visit', 
+                                                    'Expo RHVAC Jakarta 2025',
+                                                    'Association',
+                                                    'Business Association',
+                                                    'Repeat Order',
+                                                    'Sales Independen',
+                                                    'Aftersales',
+                                                    'Office Walk In',
+                                                    'Media with QR/Referral',
+                                                    'Agent / Reseller',
+                                                    'Youtube',
+                                                    'Google Search',
+                                                    'Telemarketing',
+                                                ];
+                                                $isNew = empty($form_data->source_id);
+                                            @endphp
+
+                                            @foreach ($sources as $source)
+                                                @if ($isNew ? in_array($source->name, $filter) : true)
+                                                    <option value="{{ $source->id }}"
+                                                        {{ old('source_id', $form_data->source_id) == $source->id ? 'selected' : '' }}>
+                                                        {{ $source->name }}
+                                                    </option>
+                                                @endif
+                                            @endforeach
+                                            </select>
+                                        </div>
+
+                                    <div class="col-md-2 mb-3 agent-fields d-none">
+                                        <label class="form-label">Agent Title</label>
+                                        <select name="{{ $isCreate ? 'agent_title[]' : 'agent_title' }}" class="form-select">
+                                            <option value="">Select Title</option>
+                                            <option value="Mr" {{ old('agent_title', $form_data->agent_title) === 'Mr' ? 'selected' : '' }}>Mr</option>
+                                            <option value="Mrs" {{ old('agent_title', $form_data->agent_title) === 'Mrs' ? 'selected' : '' }}>Mrs</option>
+                                            <option value="Ms" {{ old('agent_title', $form_data->agent_title) === 'Ms' ? 'selected' : '' }}>Ms</option>
+                                            <option value="Dr" {{ old('agent_title', $form_data->agent_title) === 'Dr' ? 'selected' : '' }}>Dr</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3 agent-fields d-none">
+                                        <label class="form-label">Agent Name</label>
+                                        <input type="text" name="{{ $isCreate ? 'agent_name[]' : 'agent_name' }}" 
+                                            class="form-control" 
+                                            placeholder="Enter agent name" 
+                                            value="{{ old('agent_name', $form_data->agent_name) }}">
+                                    </div>
+
+                                    <div class="col-md-8 mb-3 canvas-fields d-none">
+                                        <label class="form-label">SPK Canvassing</label>
+                                        <input type="text" name="{{ $isCreate ? 'spk_canvassing[]' : 'spk_canvassing' }}" 
+                                            class="form-control" 
+                                            placeholder="Enter SPK Canvassing details" 
+                                            value="{{ old('spk_canvassing', $form_data->spk_canvassing) }}">
+                                    </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Company <i class="required">*</i></label>
+                                            <input type="text" name="{{ $isCreate ? 'company[]' : 'company' }}" placeholder="Nama Perusahaan" class="form-control"
+                                                value="{{ old('company', $form_data->company) }}" required>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Customer Type <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'customer_type[]' : 'customer_type' }}" class="form-select select2" required>
+                                                <option value="" disabled selected>Pilih</option>
+                                                @foreach($customerTypes as $type)
+                                                    <option value="{{ $type->name }}" {{ old('customer_type', $form_data->customer_type) == $type->name ? 'selected' : '' }}>{{ $type->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>      
+                                        
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label contact-reason-label">Reason of Contacting Us</label>
+                                            <textarea name="{{ $isCreate ? 'contact_reason[]' : 'contact_reason' }}" class="form-control" rows="2">{{ old('contact_reason', $form_data->contact_reason) }}</textarea>
+                                        </div>
+
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Reason to Open Business</label>
+                                            <textarea name="{{ $isCreate ? 'business_reason[]' : 'business_reason' }}" class="form-control" rows="2">{{ old('business_reason', $form_data->business_reason) }}</textarea>
+                                        </div>
+
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Competitor Offer</label>
+                                            <textarea name="{{ $isCreate ? 'competitor_offer[]' : 'competitor_offer' }}" class="form-control" rows="2">{{ old('competitor_offer', $form_data->competitor_offer) }}</textarea>
+                                        </div>
+
+                                        {{-- <div class="col-md-4 mb-3">
+                                            <label class="form-label">Transaction Type <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'segment_id[]' : 'segment_id' }}" class="form-select select2" required>
+                                            <option value="" disabled selected>Pilih</option>
+                                            @foreach ($segments as $segment)
+                                                <option value="{{ $segment->id }}"
+                                                    {{ old('segment_id', $form_data->segment_id) == $segment->id ? 'selected' : '' }}>
+                                                    {{ $segment->name }}</option>
+                                            @endforeach
+                                            </select>
+                                        </div> --}}
+                                        
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Customer City <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'region_id[]' : 'region_id' }}" class="form-select select2 region-select">
+                                                <option value="" disabled {{ old('region_id', $form_data->region_id)===null ? 'selected' : '' }}>Pilih</option>
+                                                <option value="ALL" {{ old('region_id', $form_data->region_id)==='ALL' ? 'selected' : '' }}>
+                                                    All Regions (will show in all regions)
+                                                </option>
+                                                @foreach($regions as $region)
+                                                    <option 
+                                                    value="{{ $region->id }}" 
+                                                    data-branch="{{ $region->branch_id }}"
+                                                    {{ old('region_id', $form_data->region_id)==$region->id ? 'selected' : '' }}
+                                                    >
+                                                    {{ $region->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <input type="hidden" 
+                                                name="{{ $isCreate ? 'branch_id[]' : 'branch_id' }}" 
+                                                class="branch-id-field" 
+                                                value="{{ old('branch_id', $form_data->branch_id) }}">
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Customer Province <i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'province[]' : 'province' }}" class="form-select select2 province-select">
+                                            <option value="" selected>Pilih</option>
+                                            @foreach ($provinces as $prov)
+                                                <option value="{{ $prov }}"
+                                                    {{ old('province', $form_data->province) == $prov ? 'selected' : '' }}>
+                                                    {{ $prov }}</option>
+                                            @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Existing Customer Industry<i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'industry_id[]' : 'industry_id' }}" class="form-select select2 industry-select" required>
+                                                <option value="" disabled selected>Pilih</option>
+                                                @foreach($industries as $industry)
+                                                    <option value="{{ $industry->id }}" {{ old('industry_id', $form_data->industry_id ?? ($form_data->other_industry ? 'other' : null)) == $industry->id ? 'selected' : '' }}>{{ $industry->name }}</option>
+                                                @endforeach
+                                                <option value="other" {{ old('industry_id', $form_data->industry_id ?? ($form_data->other_industry ? 'other' : null)) === 'other' ? 'selected' : '' }}>Lainnya</option>
+                                            </select>
+                                            <input type="text" name="{{ $isCreate ? 'other_industry[]' : 'other_industry' }}" class="form-control mt-2 industry-other d-none" placeholder="Isi industri" value="{{ old('other_industry', $form_data->other_industry) }}" />
+                                        </div>
+
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Industry Remark</label>
+                                            <textarea name="{{ $isCreate ? 'industry_remark[]' : 'industry_remark' }}" class="form-control" placeholder="Additional comments about the industry" rows="2">{{ old('industry_remark', $form_data->industry_remark) }}</textarea>
+                                        </div>
+
+                                        <div class="col-12 mb-4"> 
+                                            <hr class="text-muted" />
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">City Factory To Be</label>
+                                            <select name="{{ $isCreate ? 'factory_city_id[]' : 'factory_city_id' }}" class="form-select select2 factory-region-select">
+                                                <option value="" disabled selected>Pilih</option>
+                                                <option value="ALL" {{ old('factory_city_id', $form_data->factory_city_id) === 'ALL' ? 'selected' : '' }}>
+                                                    All Cities
+                                                </option>
+                                                @foreach($regions as $region)
+                                                    <option value="{{ $region->id }}" 
+                                                        data-branch="{{ $region->branch_id }}"
+                                                        data-province="{{ $region->province->name ?? '' }}"
+                                                        {{ old('factory_city_id', $form_data->factory_city_id) == $region->id ? 'selected' : '' }}>
+                                                        {{ $region->name }}
+                                                    </option>
+                                                @endforeach
+
+                                                @php
+                                                    dump('Region object:', $region ?? null);
+                                                    dump('Factory city data:', $form_data->factory_city_id ?? null);
+                                                    dump('Factory province:', $form_data->factory_province ?? null);
+                                                @endphp
+                                                
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Province Factory To Be</label>
+                                            <select name="{{ $isCreate ? 'factory_province[]' : 'factory_province' }}" class="form-select select2 factory-province-select">
+                                                <option value="" selected>Pilih</option>
+                                                @foreach ($provinces as $prov)
+                                                    <option value="{{ $prov }}" {{ old('factory_province', $form_data->factory_province) == $prov ? 'selected' : '' }}>
+                                                        {{ $prov }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">Industry To Be</label>
+                                            <select name="{{ $isCreate ? 'factory_industry_id[]' : 'factory_industry_id' }}" class="form-select select2 factory-industry-select">
+                                                <option value="" disabled selected>Pilih</option>
+                                                @foreach($industries as $industry)
+                                                    <option value="{{ $industry->id }}" {{ old('factory_industry_id', $form_data->factory_industry_id) == $industry->id ? 'selected' : '' }}>
+                                                        {{ $industry->name }}
+                                                    </option>
+                                                @endforeach
+                                                <option value="other" {{ old('factory_industry_id', $form_data->factory_industry_id ?? ($form_data->factory_other_industry ? 'other' : null)) === 'other' ? 'selected' : '' }}>Lainnya</option>
+                                            </select>
+                                            <input type="text" name="{{ $isCreate ? 'factory_other_industry[]' : 'factory_other_industry' }}" 
+                                                class="form-control mt-2 factory-industry-other d-none" 
+                                                placeholder="Isi industri" 
+                                                value="{{ old('factory_other_industry', $form_data->factory_other_industry) }}" />
+                                        </div>
+                                
+                                        {{-- <div class="col-md-4 mb-3">
                                             <label class="form-label">Product @if($isCreate)<i class="required">*</i>@endif</label>
                                             <select name="{{ $isCreate ? 'product_id[]' : 'product_id' }}" class="form-select select2" @if($isCreate) required @endif>
                                                 <option value="" disabled selected>Pilih</option>
@@ -219,9 +350,9 @@
                                                     <option value="{{ $p->id }}" {{ old('product_id', $form_data->product_id) == $p->id ? 'selected' : '' }}>{{ $p->name }} ({{ $p->sku }})</option>
                                                 @endforeach
                                             </select>
-                                        </div>
+                                        </div> --}}
 
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-6 mb-3">
                                             <label class="form-label">Needs <i class="required">*</i></label>
                                             <select name="{{ $isCreate ? 'needs[]' : 'needs' }}" class="form-select select2" required>
                                                 <option value="" disabled selected>Pilih</option>
@@ -243,9 +374,14 @@
                                                 @endforeach
                                             </select>
                                         </div>
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-6 mb-3">
                                             <label class="form-label">Tonase</label>
                                             <input type="number" step="0.01" name="{{ $isCreate ? 'tonase[]' : 'tonase' }}" class="form-control" value="{{ old('tonase', $form_data->tonase) }}" placeholder="0.00">
+                                        </div>
+
+                                        <div class="col-md-12 mb-3">
+                                            <label class="form-label">Tonage Remark</label>
+                                            <textarea name="{{ $isCreate ? 'tonage_remark[]' : 'tonage_remark' }}" class="form-control" rows="2">{{ old('tonage_remark', $form_data->tonage_remark) }}</textarea>
                                         </div>
 
                                         @if ($isCreate)
@@ -473,7 +609,7 @@
                                                 @if ($pf->attachment_id)
                                                     <a href="{{ route('attachments.download', $pf->attachment_id) }}"
                                                         class="btn btn-sm btn-outline-secondary">
-                                                        <i class="bi bi-download"></i> Proforma
+                                                        <i class="bi bi-download"></i> Download Proforma
                                                     </a>
                                                 @endif
 
@@ -597,6 +733,62 @@
         });
     }
 
+    function updateContactReasonLabel($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $contactReasonLabel = $entry.find('.contact-reason-label');
+        const selectedText = $select.find('option:selected').text().trim();
+
+        const labelMappings = {
+            'Canvas': 'Reason of Contacting Them (via Canvas)',
+        }
+
+        const newLabel = labelMappings[selectedText] || 'Reason of Contacting Us';
+        $contactReasonLabel.text(newLabel);
+    }
+
+    function toggleAgentFields($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $agentFields = $entry.find('.agent-fields');
+        const $agentTitle = $entry.find('select[name*="agent_title"]');
+        const $agentName = $entry.find('input[name*="agent_name"]');
+        const $canvasFields = $entry.find('.canvas-fields');
+        const $spkCanvassing = $entry.find('input[name*="spk_canvassing"]');
+        // const $contactReasonLabel = $entry.find('.contact-reason-label');
+        
+        const selectedText = $select.find('option:selected').text().trim();
+
+        if (selectedText === 'Agent / Reseller') {
+            $agentFields.removeClass('d-none');
+            $agentTitle.prop('required', true);
+            $agentName.prop('required', true);
+        } else {
+            $agentFields.addClass('d-none');
+            $agentTitle.prop('required', false).val('');
+            $agentName.prop('required', false).val('');
+        }
+        
+        if (selectedText === 'Canvas') {
+            $canvasFields.removeClass('d-none');
+            $spkCanvassing.prop('required', true);
+            // $contactReasonLabel.text('Reason of Contacting Them (via Canvas)');
+        } else {
+            $canvasFields.addClass('d-none');
+            $spkCanvassing.prop('required', false).val('');
+            // $contactReasonLabel.text('Reason of Contacting Us');
+        }
+
+        updateContactReasonLabel($select);
+    }
+
+    $('#lead-entries .source-select').each(function(){
+        toggleAgentFields($(this));
+    });
+
+    // Add event handler for source changes
+    $(document).on('change', '.source-select', function() {
+        toggleAgentFields($(this));
+    });
+
     /* -----------------------------------------------------------
     * helper: renumber the “Lead n” labels
     * --------------------------------------------------------- */
@@ -631,6 +823,32 @@
     $('#lead-entries .province-select').on('select2:opening', e => e.preventDefault());
     $('#lead-entries .region-select').each(function(){
         setProvince($(this));
+    });
+
+    function setFactoryProvince($regionSelect) {
+        const regionId = $regionSelect.val();
+        const $entry = $regionSelect.closest('.lead-entry');
+        const $provinceSelect = $entry.find('.factory-province-select');
+
+        if (regionId === 'ALL') {
+            $provinceSelect.val('').trigger('change.select2');
+        } else {
+            const province = $regionSelect.find('option:selected').data('province') || '';
+            $provinceSelect.val(province).trigger('change.select2');
+        }
+    }
+
+    $('#lead-entries .factory-region-select').each(function(){
+        setFactoryProvince($(this));
+    });
+
+    $(document).on('change', '.factory-region-select', function() {
+        setFactoryProvince($(this));
+    });
+
+    $(document).on('select2:opening', '.factory-province-select', function(e) {
+        // Optional: prevent manual selection if you want it auto-filled only
+        // e.preventDefault();
     });
 
     function toggleIndustryOther($select) {
@@ -727,6 +945,10 @@
             .removeAttr('selected');
         });
 
+        toggleIndustryOther($clone.find('.industry-select'));
+        toggleFactoryIndustryOther($clone.find('.factory-industry-select'));
+        toggleAgentFields($clone.find('.source-select'));
+
         /* ---- clear field values ---- */
         $clone.find('input').val('');
         // ensure select boxes start on their placeholder
@@ -781,6 +1003,35 @@
             $provinceSelect.prop('required', true);
         }
     }
+
+    function toggleFactoryIndustryOther($select) {
+        const $entry = $select.closest('.lead-entry');
+        const $other = $entry.find('.factory-industry-other');
+        if ($select.val() === 'other') {
+            $other.removeClass('d-none').prop('required', true);
+        } else {
+            $other.addClass('d-none').prop('required', false).val('');
+        }
+    }
+
+        // Initialize both industry selects
+    $('#lead-entries .industry-select').each(function(){
+        toggleIndustryOther($(this));
+    });
+
+    $('#lead-entries .factory-industry-select').each(function(){
+        toggleFactoryIndustryOther($(this));
+    });
+
+    // Add event handlers for both industry selects
+    $(document).on('change', '.industry-select', function() {
+        toggleIndustryOther($(this));
+    });
+
+    $(document).on('change', '.factory-industry-select', function() {
+        toggleFactoryIndustryOther($(this));
+    });
+
 
     $(document).on('select2:opening', '.province-select', function (e) {
         e.preventDefault();

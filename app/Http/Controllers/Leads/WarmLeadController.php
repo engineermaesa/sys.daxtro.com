@@ -15,8 +15,8 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source'])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
+        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry'])
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
         if ($request->user()->role?->code === 'sales') {
@@ -30,10 +30,13 @@ class WarmLeadController extends Controller
         }
 
         return DataTables::of($claims)
-            ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn ($row) => $row->lead->name)
-            ->addColumn('segment_name', fn ($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn ($row) => $row->lead->source->name ?? '-')
+            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
+            ->addColumn('lead_name', fn($row) => $row->lead->name)
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
+            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('industry', function ($row) {
+                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
+            })
             ->addColumn('meeting_status', function ($row) {
                 $quotation = $row->lead->quotation;
 
@@ -45,12 +48,13 @@ class WarmLeadController extends Controller
                 $badgeClass = match ($status) {
                     'draft'     => 'bg-secondary',
                     'review'    => 'bg-warning',
+                    'pending_finance' => 'bg-warning',
                     'published' => 'bg-success',
                     'rejected'  => 'bg-danger',
                     default     => 'bg-light text-dark',
                 };
 
-                return '<span class="badge '.$badgeClass.'">'.ucfirst($status).'</span>';
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($status) . '</span>';
             })
             ->addColumn('actions', function ($row) {
                 $quotation = $row->lead->quotation;
@@ -69,7 +73,7 @@ class WarmLeadController extends Controller
                 $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
                 $html .= '  </button>';
                 $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">' 
+                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">'
                     . '      <i class="bi bi-eye mr-2"></i> View Lead</a>';
                 $activityUrl = route('leads.activity.logs', $row->lead->id);
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
@@ -160,19 +164,24 @@ class WarmLeadController extends Controller
 
         $userRole = $request->user()->role?->code;
         $isEditable = true;
+
         if ($quotation) {
-            $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-            $allApproved = $bmApproved && $dirApproved;
+            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $allApproved = $bmApproved && $financeApproved; // Both must approve
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                 $q->where('quotation_id', $quotation->id);
             })->exists();
 
-            if (! $allApproved) {
-                $isEditable = $userRole === 'sales';
+            // Updated editability logic for BM → Finance workflow
+            if ($quotation->status === 'published') {
+                // Published quotations can only be edited by BM if no payments exist
+                $isEditable = in_array($userRole, ['branch_manager']) && !$hasPayment;
             } else {
-                $isEditable = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                // Draft, review, or pending_finance can be edited by sales
+                $editableStatuses = ['draft', 'review', 'pending_finance'];
+                $isEditable = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
             }
         }
 
@@ -198,7 +207,7 @@ class WarmLeadController extends Controller
             'priceField'    => $priceField,
             'segmentName'   => $segmentName,
             'segments'      => $segments,
-            'defaultSegment'=> $claim->lead->segment->name ?? '',
+            'defaultSegment' => $claim->lead->segment->name ?? '',
             'rejection'     => $rejection,
             'approval'      => $approval,
         ]);
@@ -212,23 +221,23 @@ class WarmLeadController extends Controller
             $quotation = $claim->lead->quotation;
             $userRole   = $request->user()->role?->code;
             $canEdit    = true;
-
             if ($quotation) {
-                $bmApproved  = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-                $dirApproved = $quotation->reviews()->where('role', 'SD')->where('decision', 'approve')->exists();
-                $allApproved = $bmApproved && $dirApproved;
+                $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+                $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+                $allApproved = $bmApproved && $financeApproved; // Both must approve
 
                 $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
                     $q->where('quotation_id', $quotation->id);
                 })->exists();
 
-                if (! $allApproved) {
-                    $canEdit = $userRole === 'sales';
+                if ($quotation->status === 'published') {
+                    $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
                 } else {
-                    $canEdit = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                    $editableStatuses = ['draft', 'review', 'pending_finance'];
+                    $canEdit = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
                 }
             } else {
-                $canEdit = $userRole === 'sales';
+                $canEdit = in_array($userRole, ['sales', 'branch_manager']);
             }
 
             abort_unless($canEdit, 403);
@@ -245,6 +254,8 @@ class WarmLeadController extends Controller
                 'term_description.*' => 'nullable|string',
                 'payment_type'      => 'required|in:booking_fee,down_payment',
                 'booking_fee'       => 'nullable|numeric|min:0',
+                'is_visible_pdf.*'  => 'nullable|boolean',
+                'merge_into_item_id.*' => 'nullable',
             ];
 
             // 2. Custom messages
@@ -257,30 +268,30 @@ class WarmLeadController extends Controller
                 'discount_pct.*.max'       => 'Discount cannot exceed 100%.',
                 'tax_pct.required'         => 'Tax percentage is required.',
                 'tax_pct.numeric'          => 'Tax percentage must be a number.',
-                'term_percentage.*.required'=> 'Each payment term needs a percentage.',
+                'term_percentage.*.required' => 'Each payment term needs a percentage.',
                 'term_percentage.*.min'    => 'Term percentage cannot be negative.',
                 'term_percentage.*.max'    => 'Term percentage cannot exceed 100%.',
                 'payment_type.required'    => 'Please choose a payment type.',
                 'payment_type.in'          => 'Invalid payment type selected.',
                 'booking_fee.min'          => 'Booking fee cannot be negative.',
+                'is_visible_pdf.*.boolean' => 'is_visible_pdf must be true or false.',
+                'merge_into_item_id.*.exists' => 'Selected merge item does not exist.',
             ];
-            
+
             // 3. Run validator
             $validator = Validator::make($request->all(), $rules, $messages);
 
             if ($validator->fails()) {
-                // grab the first error message
                 $firstError = $validator->errors()->first();
-                // include all errors in the payload if you want
                 return $this->setJsonResponse(
                     $firstError,
                     ['errors' => $validator->errors()->toArray()],
                     422
                 );
             }
-            
+
             $totalTerm = collect($request->term_percentage)->sum();
-            
+
             if (round($totalTerm, 2) !== 100.00) {
                 return $this->setJsonResponse('Total Term of Payment must be exactly 100%', [], 422);
             }
@@ -299,6 +310,12 @@ class WarmLeadController extends Controller
                 $line = ($price - ($price * $discount / 100)) * $qty;
                 $subtotal += $line;
 
+                $isVisible = isset($request->is_visible_pdf[$idx]) ?
+                    (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
+
+                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ?
+                    (int)$request->merge_into_item_id[$idx] : null;
+
                 $items[] = [
                     'product_id' => $pid,
                     'qty' => $qty,
@@ -306,6 +323,8 @@ class WarmLeadController extends Controller
                     'unit_price' => $price,
                     'discount_pct' => $discount,
                     'line_total' => $line,
+                    'is_visible_pdf' => $isVisible,
+                    'merge_into_index' => $mergeIntoIndex,
                 ];
             }
 
@@ -314,7 +333,7 @@ class WarmLeadController extends Controller
             $bookingFee = $request->payment_type === 'booking_fee'
                 ? ($request->booking_fee ?? 0)
                 : null;
-                
+
             if ($bookingFee > $grandTotal) {
                 return $this->setJsonResponse('Booking fee cannot be greater than Grand Total.', [], 422);
             }
@@ -376,13 +395,25 @@ class WarmLeadController extends Controller
                 ]);
             }
 
-            // Save items
-            foreach ($items as $item) {
-                QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $item));
+            $savedItems = [];
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                unset($itemData['merge_into_index']);
+
+                $savedItem = QuotationItems::create(array_merge(['quotation_id' => $quotation->id], $itemData));
+                $savedItems[$index] = $savedItem;
+            }
+
+            // Second pass: update merge relationships
+            foreach ($items as $index => $itemData) {
+                $mergeIndex = $itemData['merge_into_index'] ?? null;
+                if ($mergeIndex !== null && isset($savedItems[$mergeIndex]) && isset($savedItems[$index])) {
+                    $savedItems[$index]->update(['merge_into_item_id' => $savedItems[$mergeIndex]->id]);
+                }
             }
 
             // Save payment terms
-           foreach ($request->term_percentage as $idx => $pct) {
+            foreach ($request->term_percentage as $idx => $pct) {
                 if ($pct !== null) {
                     QuotationPaymentTerm::create([
                         'quotation_id' => $quotation->id,

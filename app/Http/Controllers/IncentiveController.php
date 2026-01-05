@@ -14,7 +14,7 @@ class IncentiveController extends Controller
         if (! $user->hasPermission('incentives.view')) {
             abort(403);
         }
-      
+
         $balance = UserBalance::firstOrCreate(['user_id' => $user->id], ['total_balance' => 0]);
         $logs = UserBalanceLog::where('user_id', $user->id)->orderByDesc('created_at')->get();
 
