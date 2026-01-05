@@ -590,10 +590,17 @@ class LeadController extends Controller
             abort(403);
         }
 
+        $user = $request->user();
         $leads = Lead::query();
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
+        // Auto-apply user's branch_id for branch managers and similar roles
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+        if (!$branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
+            $branchId = $user->branch_id;
+        }
+
+        if ($branchId) {
+            $leads->whereHas('region.branch', fn($q) => $q->where('id', $branchId));
         }
 
         if ($request->filled('region_id')) {
@@ -610,12 +617,19 @@ class LeadController extends Controller
         $start = $request->input('start_date');
         $end   = $request->input('end_date');
 
-        $cold = (clone $leads)
-            ->where('status_id', LeadStatus::COLD)
-            ->count();
+        // Apply branch_id filter specifically for each status lead if provided
+        $coldQuery = (clone $leads)
+            ->where('status_id', LeadStatus::COLD);
+        if ($branchId) {
+            $coldQuery->where('branch_id', $branchId);
+        }
+        $cold = $coldQuery->count();
 
         $warmQuery = (clone $leads)
             ->where('status_id', LeadStatus::WARM);
+        if ($branchId) {
+            $warmQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $warmQuery->whereHas('quotation', fn($q) => $q->firstApprovalBetween($start, $end));
         }
@@ -623,6 +637,9 @@ class LeadController extends Controller
 
         $hotQuery = (clone $leads)
             ->where('status_id', LeadStatus::HOT);
+        if ($branchId) {
+            $hotQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $hotQuery->whereHas('quotation', fn($q) => $q->bookingFeeBetween($start, $end));
         }
@@ -630,6 +647,9 @@ class LeadController extends Controller
 
         $dealQuery = (clone $leads)
             ->where('status_id', LeadStatus::DEAL);
+        if ($branchId) {
+            $dealQuery->where('branch_id', $branchId);
+        }
         if ($start && $end) {
             $dealQuery->whereHas('quotation', fn($q) => $q->firstTermPaidBetween($start, $end));
         }
@@ -645,7 +665,8 @@ class LeadController extends Controller
 
     public function manage()
     {
-        $userRole = request()->user()->role?->code;
+        $user = request()->user();
+        $userRole = $user->role?->code;
         if ($userRole === 'sales') {
             abort(403);
         }
@@ -653,15 +674,23 @@ class LeadController extends Controller
         $branches = Branch::all();
         $regions  = Region::all();
 
-        $counts = Lead::select('status_id', DB::raw('COUNT(*) as cnt'))
+
+        $userBranchId = $user->branch_id && in_array($userRole, ['branch_manager', 'finance', 'accountant', 'purchasing']) 
+            ? $user->branch_id : null;
+
+        $countsQuery = Lead::select('status_id', DB::raw('COUNT(*) as cnt'))
             ->whereIn('status_id', [
                 LeadStatus::COLD,
                 LeadStatus::WARM,
                 LeadStatus::HOT,
                 LeadStatus::DEAL,
-            ])
-            ->groupBy('status_id')
-            ->pluck('cnt', 'status_id');
+            ]);
+
+        if ($userBranchId) {
+            $countsQuery->where('branch_id', $userBranchId);
+        }
+
+        $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
         $leadCounts = [
             'cold' => $counts[LeadStatus::COLD] ?? 0,
@@ -672,7 +701,7 @@ class LeadController extends Controller
 
         $activities = \App\Models\Leads\LeadActivityList::all();
 
-        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities'));
+        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId'));
     }
 
     public function manageList(Request $request)
@@ -696,9 +725,18 @@ class LeadController extends Controller
             }
         ]);
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', function ($q) use ($request) {
-                $q->where('id', $request->branch_id);
+
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+        if (!$branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
+            $branchId = $user->branch_id;
+        }
+
+        if ($branchId) {
+            $leads->where(function($q) use ($branchId) {
+                $q->whereHas('region.branch', function ($subq) use ($branchId) {
+                    $subq->where('id', $branchId);
+                })
+                ->orWhere('branch_id', $branchId);
             });
         }
 
@@ -715,6 +753,15 @@ class LeadController extends Controller
 
         if ($request->filled('status_id')) {
             $leads->where('status_id', $request->status_id);
+        }
+
+        if ($branchId && $request->filled('status_id')) {
+            $statusId = (int) $request->status_id;
+            $branchIdInt = (int) $branchId;
+            
+            if (in_array($statusId, [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])) {
+                $leads->where('branch_id', $branchIdInt);
+            }
         }
 
         if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
