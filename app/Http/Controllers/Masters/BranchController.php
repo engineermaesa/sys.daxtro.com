@@ -22,13 +22,14 @@ class BranchController extends Controller
         return DataTables::of(Branch::with('company'))
             ->addColumn('company_name', fn($row) => $row->company->name ?? '')
             ->addColumn('address', fn($row) => $row->address ?? '')
+            ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.branches.form', $row->id);
                 $del  = route('masters.branches.delete', $row->id);
 
                 return '
-                    <a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="'.$del.'" data-id="'.$row->id.'" data-table="branchesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
+                    <a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
+                    <a href="' . $del . '" data-id="' . $row->id . '" data-table="branchesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
                 ';
             })
             ->rawColumns(['actions'])
@@ -49,6 +50,7 @@ class BranchController extends Controller
             'name'       => 'required',
             'code'       => 'required',
             'address'    => 'nullable',
+            'target'     => 'nullable|numeric|min:0',
         ]);
 
         $branch = $id ? Branch::findOrFail($id) : new Branch();
@@ -58,6 +60,7 @@ class BranchController extends Controller
         $branch->name = $request->name;
         $branch->code = $request->code;
         $branch->address = $request->address;
+        $branch->target = $request->target;
         $branch->save();
 
         $after = $branch->fresh()->toArray();

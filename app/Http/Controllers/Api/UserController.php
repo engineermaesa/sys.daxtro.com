@@ -12,14 +12,16 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        return response()->json(User::with('role')->get());
+        return response()->json(
+            User::with(['role', 'branch', 'created_by', 'updated_by'])->get()
+        );
     }
 
     public function show(User $user)
     {
         $this->authorize('view', $user);
 
-        return response()->json($user->load('role'));
+        return response()->json($user->load(['role', 'branch', 'created_by', 'updated_by']));
     }
 
     public function store(Request $request)
@@ -32,12 +34,13 @@ class UserController extends Controller
 
         $data = $request->validate([
             'role_id'   => 'required|exists:user_roles,id',
-            'branch_id' => ($branchReq ? 'required|' : 'nullable|').'exists:ref_branches,id',
+            'branch_id' => ($branchReq ? 'required|' : 'nullable|') . 'exists:ref_branches,id',
             'name'      => 'required',
             'nip'       => 'required|unique:users,nip',
             'email'     => 'required|email',
             'phone'     => 'nullable',
             'password'  => 'required',
+            'target' => 'nullable|numeric|min:0'
         ]);
 
         $data['password'] = bcrypt($data['password']);
@@ -57,12 +60,13 @@ class UserController extends Controller
 
         $data = $request->validate([
             'role_id'   => 'sometimes|exists:user_roles,id',
-            'branch_id' => ($branchReq ? 'required|' : 'nullable|').'exists:ref_branches,id',
+            'branch_id' => ($branchReq ? 'required|' : 'nullable|') . 'exists:ref_branches,id',
             'name'      => 'sometimes',
-            'nip'       => 'sometimes|unique:users,nip,'.$user->id,
+            'nip'       => 'sometimes|unique:users,nip,' . $user->id,
             'email'     => 'sometimes|email',
             'phone'     => 'nullable',
             'password'  => 'sometimes',
+            'target' => 'nullable|numeric|min:0'
         ]);
 
         if (isset($data['password'])) {

@@ -63,6 +63,7 @@
               <th>Name</th>
               <th>NIP</th>
               <th>Email</th>
+              <th>Target</th>
               <th>Registered At</th>
               <th class="text-center">Actions</th>
             </tr>
@@ -89,6 +90,7 @@
       { data: 'name', name: 'name' },
       { data: 'nip', name: 'nip' },
       { data: 'email', name: 'email' },
+      { data: 'target', render: function(data) { return data ? 'Rp' + data : '-'; } },
       { data: 'created_at', render: function (data) { if(!data) return ''; return new Date(data).toLocaleString('en-GB', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}); } },
       { data: 'actions', orderable: false, searchable: false, className: 'text-center' }
     ];

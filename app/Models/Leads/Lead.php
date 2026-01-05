@@ -22,6 +22,11 @@ class Lead extends Model
         'branch_id',
         'first_sales_id',
         'industry_id',
+        'industry_remark',
+        'factory_city_id',
+        'factory_province',
+        'factory_industry_id',
+        'other_factory_industry',
         'other_industry',
         'jabatan_id',
         'province',
@@ -29,11 +34,18 @@ class Lead extends Model
         'product_id',
         'company',
         'customer_type',
+        'contact_reason',
+        'business_reason',
+        'competitor_offer',
+        'agent_title',
+        'agent_name',
+        'spk_canvassing',
         'name',
         'phone',
         'email',
         'needs',
         'tonase',
+        'tonage_remark',
         'published_at',
     ];
 
@@ -85,6 +97,17 @@ class Lead extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
+    public function factoryCity()
+    {
+        \Log::debug('Accessing factoryCity relation');
+        return $this->belongsTo(\App\Models\Masters\Region::class, 'factory_city_id');
+    }
+
+    public function factoryIndustry()
+    {
+        return $this->belongsTo(\App\Models\Masters\Industry::class, 'factory_industry_id');
     }
 
     public function firstSales()

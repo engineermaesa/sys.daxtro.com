@@ -10,30 +10,25 @@
                         {{ $rejection->decided_at ? \Carbon\Carbon::parse($rejection->decided_at)->format('d M Y') : '' }}
                         <strong>Notes:</strong> {{ $rejection->notes }}
                     </div>
-                @elseif($quotation->status === 'review')
+                @elseif(in_array($quotation->status, ['review', 'pending_finance']))
                     @php
                         $roleCode = auth()->user()->role?->code;
-                    @endphp
-
-                    @php
                         $bmReview = $quotation->reviews->where('role', 'BM')->sortByDesc('decided_at')->first();
-                        $dirReview = $quotation->reviews
-                            ->where('role', 'SD')
-                            ->sortByDesc('decided_at')
-                            ->first();
+                        $financeReview = $quotation->reviews->where('role', 'finance')->sortByDesc('decided_at')->first();
                     @endphp
                     <div class="alert alert-warning">
                         This quotation is currently under review.<br>
                         Branch Manager: <strong>{{ $bmReview ? ucfirst($bmReview->decision) : 'Pending' }}</strong><br>
-                        Sales Director: <strong>{{ $dirReview ? ucfirst($dirReview->decision) : 'Pending' }}</strong><br>
-                        @if (in_array($roleCode, ['branch_manager', 'sales_director']) &&
-                                !(($roleCode === 'branch_manager' && $bmReview) ||
-                                  ($roleCode === 'sales_director' && $dirReview)) &&
-                                !($roleCode === 'sales_director' && !$bmReview))
-                            You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons in
-                            the bottom of the page.
-                        @else
-                            Please wait for approval from Branch Manager then Sales Director.
+                        Finance: <strong>{{ $financeReview ? ucfirst($financeReview->decision) : 'Pending' }}</strong><br>
+                        
+                        @if ($roleCode === 'branch_manager' && !$bmReview && $quotation->status === 'review')
+                            You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons at the bottom of the page.
+                        @elseif ($roleCode === 'finance' && $bmReview && $bmReview->decision === 'approve' && !$financeReview && $quotation->status === 'pending_finance')
+                            You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons at the bottom of the page.
+                        @elseif ($quotation->status === 'review')
+                            Please wait for Branch Manager approval.
+                        @elseif ($quotation->status === 'pending_finance')
+                            Please wait for Finance approval.
                         @endif
                     </div>
                 @elseif($quotation && $quotation->status === 'published' && $quotation->reviews->count())
@@ -57,20 +52,23 @@
                     <tr>
                         <th>No</th>
                         <td>{{ $quotation->quotation_no }}</td>
-                    </tr>
                     <tr>
                         <th>Status</th>
                         <td>
                             @php
-                                $statusClass =
-                                    [
-                                        'draft' => 'secondary',
-                                        'review' => 'warning',
-                                        'published' => 'success',
-                                        'rejected' => 'danger',
-                                    ][$quotation->status] ?? 'light';
+                                $statusClass = [
+                                    'draft' => 'secondary',
+                                    'review' => 'warning',
+                                    'pending_finance' => 'info',
+                                    'published' => 'success',
+                                    'rejected' => 'danger',
+                                ][$quotation->status] ?? 'light';
+                                
+                                $statusLabel = [
+                                    'pending_finance' => 'Pending Finance',
+                                ][$quotation->status] ?? ucfirst($quotation->status);
                             @endphp
-                            <span class="badge bg-{{ $statusClass }}">{{ ucfirst($quotation->status) }}</span>
+                            <span class="badge bg-{{ $statusClass }}">{{ $statusLabel }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -145,6 +143,10 @@
                             <th colspan="4" class="text-end">Sub Total</th>
                             <th class="text-end">Rp{{ number_format($quotation->subtotal, 0, ',', '.') }}</th>
                         </tr>
+                        {{-- <tr>
+                            <th colspan="4" class="text-end">Discount</th>
+                            <th class="text-end">{{ number_format($quotation->discount, 0, ',', '.') }}</th>
+                        </tr> --}}
                         <tr>
                             <th colspan="4" class="text-end">Tax ({{ $quotation->tax_pct }}%)</th>
                             <th class="text-end">Rp{{ number_format($quotation->tax_total, 0, ',', '.') }}</th>
@@ -178,9 +180,21 @@
                             <tr>
                                 <td>{{ $term->term_no }}</td>
                                 <td>{{ $term->percentage }}%</td>
-                                <td>
-                                    Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
-                                </td>
+                                @if($quotation->booking_fee)
+                                    @if( $term->term_no === 1 )
+                                        <td>
+                                            Rp{{ number_format(((($quotation->grand_total * $term->percentage)  / 100) - $quotation->booking_fee), 0, ',', '.') }}
+                                        </td>
+                                    @else
+                                        <td>
+                                            Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
+                                        </td>
+                                    @endif
+                                @else
+                                    <td>
+                                        Rp{{ number_format(($quotation->grand_total * $term->percentage) / 100, 0, ',', '.') }}
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
@@ -363,37 +377,101 @@
                             <i class="bi bi-download"></i> Download Quotation
                         </a>
                         @php
-                            $userRole   = auth()->user()->role?->code;
+                            // $userRole   = auth()->user()->role?->code;
+                            // $bmApproved = $quotation->reviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
+                            // // $dirApproved = $quotation->reviews->where('role', 'SD')->where('decision', 'approve')->isNotEmpty();
+                            // $financeApproved = $quotation->reviews->where('role', 'finance')->where('decision', 'approve')->isNotEmpty();
+                            // $allApproved = $bmApproved && $financeApproved;
+                            // $hasPayment = $quotation->proformas->contains(function ($p) {
+                            //     return $p->paymentConfirmation !== null;
+                            // });
+
+                            // if ($quotation->status === 'published') {
+                            //     $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
+                            // } else {
+                            //     $canEdit = $userRole === 'sales' && isset($claim) && in_array($quotation->status, ['draft', 'review', 'pending_finance']);
+                            // }
+
+                            // dd([
+                            //     'userRole' => $userRole,
+                            //     'hasClaim' => isset($claim),
+                            //     'claimData' => $claim,
+                            //     'quotationStatus' => $quotation->status,
+                            //     'canEdit' => $canEdit,
+                            //     'statusCheck' => in_array($quotation->status, ['draft', 'review', 'pending_finance']),
+                            // ]);
+
+                            $userRole = auth()->user()->role?->code;
                             $bmApproved = $quotation->reviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
-                            $dirApproved = $quotation->reviews->where('role', 'SD')->where('decision', 'approve')->isNotEmpty();
-                            $allApproved = $bmApproved && $dirApproved;
+                            $financeApproved = $quotation->reviews->where('role', 'finance')->where('decision', 'approve')->isNotEmpty();
+                            $allApproved = $bmApproved && $financeApproved;
                             $hasPayment = $quotation->proformas->contains(function ($p) {
                                 return $p->paymentConfirmation !== null;
                             });
 
-                            if (! $allApproved) {
-                                $canEdit = $userRole === 'sales' && isset($claim);
-                            } else {
-                                $canEdit = in_array($userRole, ['branch_manager', 'sales_director']) && ! $hasPayment;
+                            // Explicit editability rules - allow both sales and BM to edit before finance approval
+                            $canEdit = false;
+                            
+                            if (in_array($userRole, ['sales', 'branch_manager']) && isset($claim)) {
+                                // Sales OR BM can edit if quotation is not yet fully approved by finance
+                                $editableStatuses = ['draft', 'review', 'pending_finance'];
+                                $canEdit = in_array($quotation->status, $editableStatuses);
+                            } elseif ($userRole === 'branch_manager' && $quotation->status === 'published' && !$hasPayment) {
+                                // BM can edit published quotations if no payments exist
+                                $canEdit = true;
                             }
                         @endphp
-                        @if ($canEdit && $claim)
+
+                        {{-- <div class="alert alert-info">
+                            <strong>Debug Info:</strong><br>
+                            User Role: {{ $userRole }}<br>
+                            Has Claim: {{ isset($claim) ? 'Yes' : 'No' }}<br>
+                            Quotation Status: {{ $quotation->status }}<br>
+                            Can Edit: {{ $canEdit ? 'Yes' : 'No' }}<br>
+                            BM Approved: {{ $bmApproved ? 'Yes' : 'No' }}<br>
+                            Finance Approved: {{ $financeApproved ? 'Yes' : 'No' }}
+                        </div> --}}
+
+                        @if ($canEdit && isset($claim))
                             <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="btn btn-primary ms-2">Edit Quotation</a>
                         @endif
                     </div>
                     @php
-                        $userRole   = auth()->user()->role?->code;
-                        $bmApproved = $quotation->reviews
-                            ->where('role', 'BM')
-                            ->where('decision', 'approve')
-                            ->isNotEmpty();
-                        $reviewed = $userRole === 'branch_manager'
-                            ? $quotation->reviews->where('role', 'BM')->isNotEmpty()
-                            : ($userRole === 'sales_director' ? $quotation->reviews->where('role', 'SD')->isNotEmpty() : false);
-                        $canReview = ($userRole === 'branch_manager' && !$reviewed) ||
-                            ($userRole === 'sales_director' && $bmApproved && !$reviewed);
+                        // $userRole   = auth()->user()->role?->code;
+                        // $bmApproved = $quotation->reviews
+                        //     ->where('role', 'BM')
+                        //     ->where('decision', 'approve')
+                        //     ->isNotEmpty();
+                        // $reviewed = $userRole === 'branch_manager'
+                        //     ? $quotation->reviews->where('role', 'BM')->isNotEmpty()
+                        //     : ($userRole === 'sales_director' ? $quotation->reviews->where('role', 'SD')->isNotEmpty() : false);
+                        // $canReview = ($userRole === 'branch_manager' && !$reviewed) ||
+                        //     ($userRole === 'sales_director' && $bmApproved && !$reviewed);
+                        // $userRole   = auth()->user()->role?->code;
+                        // $bmApproved = $quotation->reviews
+                        //     ->where('role', 'BM')
+                        //     ->where('decision', 'approve')
+                        //     ->isNotEmpty();
+                        // $reviewed = $userRole === 'branch_manager'
+                        //     ? $quotation->reviews->where('role', 'BM')->isNotEmpty()
+                        //     : false;
+                        // $canReview = ($userRole === 'branch_manager' && !$reviewed);
+                        $userRole = auth()->user()->role?->code;
+                        $bmReview = $quotation->reviews->where('role', 'BM')->first();
+                        $financeReview = $quotation->reviews->where('role', 'finance')->first();
+                        
+                        // Determine who can review based on current status and role
+                        $canReview = false;
+                        
+                        if ($quotation->status === 'review') {
+                            // BM can review if they haven't reviewed yet
+                            $canReview = ($userRole === 'branch_manager' && !$bmReview);
+                        } elseif ($quotation->status === 'pending_finance') {
+                            // Finance can review if BM approved and finance hasn't reviewed yet
+                            $canReview = ($userRole === 'finance' && $bmReview && $bmReview->decision === 'approve' && !$financeReview);
+                        }
                     @endphp
-                    @if($quotation->status === 'review' && $canReview)
+                    @if($canReview)
                         <div class="d-flex flex-column align-items-end" style="gap: 0.5rem;">
                             <div class="d-flex align-items-end" style="gap: 0.5rem;">
                                 <form method="POST" id="approve"
@@ -401,7 +479,9 @@
                                     class="d-flex align-items-end" style="gap: 0.5rem;">
                                     @csrf
                                     <textarea name="notes" class="form-control form-control-sm" rows="1" placeholder="Enter notes..." required style="min-width: 220px;"></textarea>
-                                    <button class="btn btn-success">Approve</button>
+                                    <button class="btn btn-success">
+                                        Approve{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
+                                    </button>
                                 </form>
 
                                 <form method="POST" id="reject"
@@ -409,7 +489,9 @@
                                     class="d-flex align-items-end" style="gap: 0.5rem;">
                                     @csrf
                                     <textarea name="notes" class="form-control form-control-sm" rows="1" placeholder="Enter notes..." required style="min-width: 220px;"></textarea>
-                                    <button class="btn btn-danger">Reject</button>
+                                    <button class="btn btn-danger">
+                                        Reject{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
+                                    </button>
                                 </form>
                             </div>
                         </div>
