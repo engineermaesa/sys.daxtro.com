@@ -2550,13 +2550,14 @@
 @section('content')
     {{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
 
-    {{-- MARKETING DASHBOARD HEADER --}}
-    <div class="col-md-12 mb-4">
+    {{-- MARKETING DASHBOARD HEADER OLD--}}
+    {{-- <div class="col-md-12 mb-4">
         <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
             <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">MARKETING DASHBOARD</h2>
         </div>
-    </div>
+    </div> --}}
 
+    {{-- PROCESS FLOW --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
         <div class="row" id="process-flow-container">
@@ -2818,6 +2819,7 @@
         </div>
     </div>
 
+    {{-- SALES SEGMENT PERFORMANCE --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
         
@@ -3270,6 +3272,7 @@
         </div>
     </div>
 
+    {{-- SAKES ACHIEVEMENT VS TARGET --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
         
@@ -3483,6 +3486,7 @@
         </div>
     </div>
 
+    {{-- TARGET VS SALES --}}
     <div class="col-md-12 mb-4">
         <div class="row">
           <div class="col-lg-6 col-md-12 mb-4">
@@ -3541,7 +3545,8 @@
       </div>
     </div>
 
-    <!-- SLS DEALING Section -->
+
+    {{-- SALES DEALING --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
         
@@ -3672,7 +3677,7 @@
         </div>
     </div>
 
-    <!-- SALES POTENTIAL DEALING BRANCH Section -->
+    {{-- SALES POTENTIAL DEALING BRANCH --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
         
@@ -3767,7 +3772,7 @@
         </div>
     </div>
 
-    <!-- SALES POTENTIAL DEALING LIST Section -->
+    {{-- SALES POTENTIAL DEALING TEST --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING LIST</h2>
         
@@ -3869,7 +3874,7 @@
     
 
     
-
+        
     {{-- <div class="row"> --}}
         {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
@@ -3906,7 +3911,7 @@
         </div> --}}
 
         <div class="col-md-12 mb-4 d-none">
-  <div class="card shadow">
+    <div class="card shadow">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
       <h6 class="m-0 font-weight-bold text-primary">Trend Total Penjualan per Branch</h6>
       <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#branchSalesBody" aria-expanded="true">

@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Finance\FinanceRequestController;
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -189,17 +190,18 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
     });
 
-    Route::group([
-        'prefix' => 'finance-requests',
-        'as' => 'finance-requests.',
-        'namespace' => 'App\\Http\\Controllers\\Finance',
-    ], function () {
-        Route::get('/', 'FinanceRequestController@index')->name('index');
-        Route::post('/list', 'FinanceRequestController@list')->name('list');
-        Route::post('/{id}/approve', 'FinanceRequestController@approve')->name('approve');
-        Route::post('/{id}/reject', 'FinanceRequestController@reject')->name('reject');
-        Route::get('/{id}', 'FinanceRequestController@form')->name('form');
+    Route::prefix('finance-requests')
+        ->name('finance-requests.')
+        ->group(function () {
+
+            Route::get('/', [FinanceRequestController::class, 'index'])->name('index');
+            Route::post('/list', [FinanceRequestController::class, 'list'])->name('list');
+            Route::post('/{id}/approve', [FinanceRequestController::class, 'approve'])->name('approve');
+            Route::post('/{id}/reject', [FinanceRequestController::class, 'reject'])->name('reject');
+            Route::get('/{id}', [FinanceRequestController::class, 'form'])->name('form');
+
     });
+
 
     Route::get('api/expense-types', function() {
         return \App\Models\Masters\ExpenseType::all();

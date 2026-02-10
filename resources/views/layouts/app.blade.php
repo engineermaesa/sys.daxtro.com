@@ -14,6 +14,8 @@
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/sweetalert2.min.css') }}?ver=1.0.4">
 	<link rel="stylesheet" type="text/css" href="{{ asset('assets/css/main.css') }}?ver=1.0.4">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    @vite('resources/css/app.css')
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Fixed Header Styling -->
@@ -105,16 +107,17 @@
 </head>
 <body id="page-top">
 	<div id="loader" class="loader hidden"></div>
-    <div id="wrapper">
-        @include('partials.sidebar')
-        <div id="content-wrapper" class="d-flex flex-column">
+    <div class="flex">
+        <div class="w-1/6">
+            @include('partials.sidebar')
+        </div>
+        <div class="flex flex-col w-5/6">
             <div id="content">
-                @include('partials.header')
-                <div class="container-fluid">
+                <div class="bg-[#E8EFEC] px-6">
                     @yield('content')
                 </div>
             </div>
-            @include('partials.footer')
+            {{-- @include('partials.footer') --}}
         </div>
     </div>
     <script src="{{ asset('sb-admin-2/vendor/jquery/jquery.min.js') }}?ver=1.0.4"></script>
@@ -126,6 +129,7 @@
 	<script src="{{ asset('assets/js/notyf.min.js') }}?ver=1.0.4"></script>
     <script src="{{ asset('assets/js/sweetalert2.min.js') }}?ver=1.0.4"></script>
 	<script src="{{ asset('assets/js/main.js') }}?ver=1.0.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         var notyf = new Notyf({
             position: {

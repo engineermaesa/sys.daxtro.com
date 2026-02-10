@@ -1,4 +1,4 @@
-<footer class="sticky-footer bg-white mt-5 full-width-footer" style="padding:1rem 0;background-color:#1F1F1F;background-image:linear-gradient(180deg, #033224 80%, #115641 300%)!important;color:white;">
+<footer class="sticky-footer bg-white mt-5 full-width-footer z-10" style="padding:1rem 0;background-color:#1F1F1F;background-image:linear-gradient(180deg, #033224 80%, #115641 300%)!important;color:white;">
     <div class="container my-auto">
         <div class="copyright text-center my-auto">
             <span>&copy; DAXTRO {{ date('Y') }}</span>

@@ -69,15 +69,16 @@ class LeadController extends Controller
 
                 $btnId = 'availableActionsDropdown' . $row->id;
 
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
-                $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
-                $html .= '  </div>';
-                $html .= '</div>';
+                // $html  = '<div class="dropdown">';
+                // $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+                // $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
+                // $html .= '  </button>';
+                // $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
+                // $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                // $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
+                // $html .= '  </div>';
+                // $html .= '</div>';
+                $html = '    <a class="text-[#115640] font-semibold" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
 
                 return $html;
             })
@@ -709,10 +710,10 @@ class LeadController extends Controller
         $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
         $leadCounts = [
-            'cold' => $coldCount,
-            'warm' => $warmCount,
-            'hot'  => $hotCount,
-            'deal' => $dealCount,
+            'cold' => $counts[LeadStatus::COLD] ?? 0,
+            'warm' => $counts[LeadStatus::WARM] ?? 0,
+            'hot'  => $counts[LeadStatus::HOT]  ?? 0,
+            'deal' => $counts[LeadStatus::DEAL] ?? 0,
         ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();

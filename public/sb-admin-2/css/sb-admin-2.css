@@ -6420,16 +6420,6 @@ button.bg-primary:focus {
   background-color: #2653d4 !important;
 }
 
-.bg-secondary {
-  background-color: #858796 !important;
-}
-
-a.bg-secondary:hover, a.bg-secondary:focus,
-button.bg-secondary:hover,
-button.bg-secondary:focus {
-  background-color: #6b6d7d !important;
-}
-
 .bg-success {
   background-color: #1cc88a !important;
 }
@@ -7841,20 +7831,12 @@ button.bg-dark:focus {
   padding: 0.5rem !important;
 }
 
-.pt-2,
-.py-2 {
-  padding-top: 0.5rem !important;
-}
 
 .pr-2,
 .px-2 {
   padding-right: 0.5rem !important;
 }
 
-.pb-2,
-.py-2 {
-  padding-bottom: 0.5rem !important;
-}
 
 .pl-2,
 .px-2 {

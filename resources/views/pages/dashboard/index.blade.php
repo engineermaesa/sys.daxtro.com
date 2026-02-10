@@ -2550,390 +2550,428 @@
 @section('content')
     {{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
 
-    {{-- MARKETING DASHBOARD HEADER --}}
-    <div class="col-md-12 mb-4">
+    {{-- MARKETING DASHBOARD HEADER OLD--}}
+    {{-- <div class="col-md-12 mb-4">
         <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
             <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">MARKETING DASHBOARD</h2>
         </div>
-    </div>
+    </div> --}}
 
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
-        <div class="row" id="process-flow-container">
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-clipboard-list"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">All Leads In</div>
-                        <div class="process-flow-count" id="all-leads-qty">-</div>
-                        {{-- <div class="process-flow-atr" id="all-leads-time">Loading...</div> --}}
+    {{-- MARKETING DASHBOARD HEADER NEW --}}
+   @include('pages.templates.main-headers')
+    
+    {{-- PROCESS FLOW NEW --}}
+    <div>
+        <h1 class="text-xl font-semibold text-[#115640] uppercase">Process Flow</h1>
+        <div id="process-flow-container" class="mt-2">
+            {{-- DROPDOWN PROCESS FLOW  FILTERS --}}
+            <div>
+
+            </div>
+
+            {{-- CARDS PROCESS FLOW  --}}
+            <div class="grid grid-cols-5 gap-4">
+                {{-- ALL LEADS CARD --}}
+                <div class="bg-white rounded-2xl px-4 pt-4">
+                    <h1 class="font-semibold text-lg text-black">All Leads In</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <p class="text-3xl font-bold" id="all-leads-qty-new">-</p>
+                        <div class="bg-[#DEF9EC] p-1 rounded-xl px-3 py-1">
+                            <div class="flex items-center gap-2.5 pr-3">
+                                <p class="text-xs font-bold text-[#115640] " id="all-leads-pct-new">-</p>
+                                <p class="text-xs font-medium">Source Coverage</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            {{-- Acquisition --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-user-check"></i>
+
+                {{-- Acquisition  CARD --}}
+                <div class="bg-white rounded-2xl px-4 pt-4 pb-4">
+                    <h1 class="font-semibold text-lg text-black">Acquistion</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <p class="text-3xl font-bold" id="acquisition-qty-new">-</p>
+                        <div class="bg-[#DEF9EC] p-1 rounded-xl px-3 py-1">
+                            <div class="flex items-center gap-2.5 pr-3">
+                                <p class="text-xs font-bold text-[#115640] " id="acquisition-pct-new">-</p>
+                                <p class="text-xs font-medium">Conversion</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Acquisition</div>
-                        <div class="process-flow-count" id="acquisition-qty">-</div>
-                        <div class="process-flow-atr" id="acquisition-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Meeting --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-calendar-check"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting</div>
-                        <div class="process-flow-count" id="meeting-qty">-</div>
-                        <div class="process-flow-atr" id="meeting-time">Loading...</div>
+                    <div class="mt-8">
+                        <p class="opacity-50 text-black font-semibold uppercase" id="acquisition-time-new">
+                        -
+                        </p>
                     </div>
                 </div>
-            </div>
-            
-            {{-- Quotation --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-file-invoice-dollar"></i>
+
+                {{-- MEETING CARD --}}
+                <div class="bg-white rounded-2xl px-4 pt-4 pb-4">
+                    <h1 class="font-semibold text-lg text-black">Meeting</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <p class="text-3xl font-bold" id="meeting-qty-new">-</p>
+                        <div class="bg-[#DEF9EC] p-1 rounded-xl px-3 py-1">
+                            <div class="flex items-center gap-2.5 pr-3">
+                                <p class="text-xs font-bold text-[#115640] " id="meeting-pct-new">-</p>
+                                <p class="text-xs font-medium">Conversion</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation</div>
-                        <div class="process-flow-count" id="quotation-qty">-</div>
-                        <div class="process-flow-atr" id="quotation-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Invoice --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-receipt"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Invoice</div>
-                        <div class="process-flow-count" id="invoice-qty">-</div>
-                        <div class="process-flow-atr" id="invoice-time">Loading...</div>
+                    <div class="mt-8">
+                        <p class="opacity-50 text-black font-semibold uppercase" id="meeting-time-new">
+                        -
+                        </p>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="row" id="process-flow-row2">
-            {{-- All Leads In - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
+
+                {{-- Quotation CARD --}}
+                <div class="bg-white rounded-2xl px-4 pt-4 pb-4">
+                    <h1 class="font-semibold text-lg text-black">Quotation</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <p class="text-3xl font-bold" id="quotation-qty-new">-</p>
+                        <div class="bg-[#DEF9EC] p-1 rounded-xl px-3 py-1 flex items-center gap-2">
+                            <p class="text-xs font-bold text-[#115640] " id="quotation-pct-new">-</p>
+                            <div class="px-3">
+                                <p class="text-xs font-medium">Conversion</p>
+                                <p class="text-xs font-bold text-[#115640]" id="quotation-amount-new">-</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">All Leads In %</div>
-                        <div class="process-flow-count" id="all-leads-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="all-leads-acq-pct">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Acquisition - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Acquisition %</div>
-                        <div class="process-flow-count" id="acquisition-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="acquisition-cvr">Loading...</div> --}}
+                    <div class="mt-8">
+                        <p class="opacity-50 text-black font-semibold uppercase">
+                            <span id="quotation-time-new">
+                                -
+                            </span>
+                        </p>
                     </div>
                 </div>
-            </div>
-            
-            {{-- Meeting - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
+                {{-- INVOICE CARD --}}
+                <div class="bg-white rounded-2xl px-4 pt-4 pb-4">
+                    <h1 class="font-semibold text-lg text-black">Invoice</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <p class="text-3xl font-bold" id="invoice-qty-new">-</p>
+                        <div class="bg-[#DEF9EC] p-1 rounded-xl px-3 py-1 flex items-center gap-2">
+                            <p class="text-xs font-bold text-[#115640] " id="invoice-pct-new">-</p>
+                            <div class="px-3">
+                                <p class="text-xs font-medium">Conversion</p>
+                                <p class="text-xs font-bold text-[#115640]" id="invoice-amount-new">-</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting %</div>
-                        <div class="process-flow-count" id="meeting-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="meeting-my">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Quotation - Percentage & Amount --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation %</div>
-                        <div class="process-flow-count" id="quotation-pct">-</div>
-                        <div class="process-flow-atr" id="quotation-amount">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Invoice - Percentage & Amount --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Invoice %</div>
-                        <div class="process-flow-count" id="invoice-pct">-</div>
-                        <div class="process-flow-atr" id="invoice-amount">Loading...</div>
+                    <div class="mt-8">
+                        <p class="opacity-50 text-black font-semibold uppercase">
+                            <span id="invoice-time-new">
+                                -
+                            </span>
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- SOURCE CONVERSION LISTS Section --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE CONVERSION LISTS</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="source-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
+    {{-- SOURCE CONVERSION LISTS NEW --}}
+    <div class="mt-4">
+        <p class="text-xl font-semibold text-[#115640] uppercase">Source Conversion Lists</p>
+        <div class="mt-2 bg-white rounded-lg">
+            {{-- FILTERS SOURCE CONVERSION --}}
+            <div class="flex px-3 py-4 gap-3">
+                {{-- FILTERS SEARCH --}}
+                <div class="w-1/4 border border-gray-300 rounded-lg flex items-center p-2">
+                    <div class="px-2">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
+                        </svg>
                     </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
+                    <input type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
                 </div>
+                {{-- FILTERS MENUS --}}
+                <div class="w-3/4 grid grid-cols-4 items-center border border-gray-300 rounded-lg">
+                    {{-- FILTERS BY --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full">                        
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7.02059 16C6.73725 16 6.49975 15.9042 6.30809 15.7125C6.11642 15.5208 6.02059 15.2833 6.02059 15V9L0.220588 1.6C-0.0294118 1.26667 -0.0669118 0.916667 0.108088 0.55C0.283088 0.183333 0.587255 0 1.02059 0H15.0206C15.4539 0 15.7581 0.183333 15.9331 0.55C16.1081 0.916667 16.0706 1.26667 15.8206 1.6L10.0206 9V15C10.0206 15.2833 9.92476 15.5208 9.73309 15.7125C9.54142 15.9042 9.30392 16 9.02059 16H7.02059ZM8.02059 8.3L12.9706 2H3.07059L8.02059 8.3Z" fill="#0D0F11"/>
+                        </svg>
+                        <p class="font-medium">Filter By</p>
+                    </div>
+                    {{-- SOURCES --}}
+                    <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
+                        <select id="source-filter-new"
+                        class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">All Source</option>
+                            @foreach($leadSources as $source)
+                                <option value="{{ $source->name }}">{{ $source->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    {{-- DATES --}}
+                    <div
+                        class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
 
-                <div class="source-conversion-responsive" id="source-conversion-container">
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="source-conversion-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="source-conversion-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="source-conversion-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cum">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cold">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="total-all">0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                        {{-- TOGGLE --}}
+                        <div id="openDateDropdown" class="flex justify-center items-center gap-2">
+                            <p id="dateLabel" class="font-medium text-black">Date</p>
+                            <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                        </div>
+
+                        {{-- DATE DROPDOWN --}}
+                        <div id="dateDropdown"
+                            class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top ">
+
+                            <h3 class="font-semibold mb-2">Select Date Range</h3>
+
+                            <div class="flex justify-center items-center">
+                                <input type="text" id="source-date-range" class="hidden shadow-none">
+                            </div>
+
+                            <div class="flex justify-end gap-2 mt-3">
+
+                                <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                                    Cancel
+                                </button>
+
+                                <button id="applyDate"
+                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg">
+                                    Apply
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- RESET FILTER --}}
+                    <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
+                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-red-600 -scale-x-100   " style="font-size: 12px;"></i>
+                        <p class="font-medium text-red-600">Reset Filter</p>
                     </div>
                 </div>
+            </div>
+
+            {{-- SOURCE CONVERSION TABLE --}}
+            <div class="border-t border-t-[#CFD5DC]">
+                <table class="w-full table-fixed">
+                    {{-- HEADER TABLE --}}
+                    <thead>
+                        <tr class="border-b border-b-[#CFD5DC]">
+                            <th class="font-bold text-left p-3">
+                                Source
+                            </th>
+                            <th class="font-bold text-left">
+                                Cum
+                            </th>
+                            <th class="font-bold text-left">
+                                Cold
+                            </th>
+                            <th class="font-bold text-left">
+                                Warm
+                            </th>
+                            <th class="font-bold text-left">
+                                Hot
+                            </th>
+                            <th class="font-bold text-left">
+                                Deal
+                            </th>
+                            <th class="font-bold text-left">
+                                Total
+                            </th>
+                        </tr>
+                    </thead>
+                    {{-- BODY TABLE --}}
+                    <tbody id="source-conversion-tbody-new">
+
+                    </tbody>
+                    {{-- FOOTER TABLE --}}
+                    <tfooter>
+                        <tr class="border-t border-t-[#CFD5DC]">
+                            <td class="text-sm font-bold p-3">
+                                Total
+                            </td>
+                            <td class="text-sm" id="total-cum-new">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-cold-new">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-warm-new">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-hot-new">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-deal-new">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-all-new">
+                                0
+                            </td>
+                        </tr>
+                    </tfooter>
+                </table>
             </div>
         </div>
     </div>
 
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="segment-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
+    {{-- SALES SEGMENT PERFORMANCE NEW --}}
+    <div class="mt-4">
+        <h2 class="text-xl font-semibold text-[#115640] uppercase">SALES SEGMENT PERFORMANCE</h2>
 
-                <div class="source-conversion-responsive" id="source-conversion-container">
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="source-conversion-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="source-conversion-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="source-conversion-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cum">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cold">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="total-all">0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+        <div class="mt-2 bg-white rounded-lg">
+            {{-- FILTERS SALES SEGMENT PERFORMANCE --}}
+            <div class="flex px-3 py-4 gap-3">
+                {{-- FILTERS SEARCH --}}
+                <div class="w-1/4 border border-gray-300 rounded-lg flex items-center p-2">
+                    <div class="px-2">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
+                        </svg>
+                    </div>
+                    <input type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
+                </div>
+                {{-- FILTERS MENUS --}}
+                <div class="w-3/4 grid grid-cols-4 items-center border border-gray-300 rounded-lg">
+                    {{-- FILTERS BY --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full">                        
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7.02059 16C6.73725 16 6.49975 15.9042 6.30809 15.7125C6.11642 15.5208 6.02059 15.2833 6.02059 15V9L0.220588 1.6C-0.0294118 1.26667 -0.0669118 0.916667 0.108088 0.55C0.283088 0.183333 0.587255 0 1.02059 0H15.0206C15.4539 0 15.7581 0.183333 15.9331 0.55C16.1081 0.916667 16.0706 1.26667 15.8206 1.6L10.0206 9V15C10.0206 15.2833 9.92476 15.5208 9.73309 15.7125C9.54142 15.9042 9.30392 16 9.02059 16H7.02059ZM8.02059 8.3L12.9706 2H3.07059L8.02059 8.3Z" fill="#0D0F11"/>
+                        </svg>
+                        <p class="font-medium">Filter By</p>
+                    </div>
+                    {{-- SOURCES --}}
+                    <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
+                        <select id="source-filter-new"
+                        class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">All Source</option>
+                            @foreach($leadSources as $source)
+                                <option value="{{ $source->name }}">{{ $source->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    {{-- DATES --}}
+                    <div
+                        class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+
+                        {{-- TOGGLE --}}
+                        <div id="openDateDropdown" class="flex justify-center items-center gap-2">
+                            <p id="dateLabel" class="font-medium text-black">Date</p>
+                            <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                        </div>
+
+                        {{-- DATE DROPDOWN --}}
+                        <div id="dateDropdown"
+                            class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top ">
+
+                            <h3 class="font-semibold mb-2">Select Date Range</h3>
+
+                            <div class="flex justify-center items-center">
+                                <input type="text" id="source-date-range" class="hidden shadow-none">
+                            </div>
+
+                            <div class="flex justify-end gap-2 mt-3">
+
+                                <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                                    Cancel
+                                </button>
+
+                                <button id="applyDate"
+                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg">
+                                    Apply
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                    {{-- SCRIPTS FOR DATE TOGGLE --}}
+                    <script>
+                       document.addEventListener('DOMContentLoaded', () => {
+
+                        const toggle = document.getElementById('salesSegmentPerformanceDateToggle');
+                        const dropdown = document.getElementById('salesSegmentPerformanceDateDropdown');
+                        const chevron = document.getElementById('chevronSalesSegmentPerformanceFiltersDate');
+
+                        toggle.addEventListener('click', () => {
+                            dropdown.classList.toggle('hidden');
+                            chevron.classList.toggle('rotate-180');
+                        });
+
+                        dropdown.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                        });
+
+                    });
+                    </script>
+
+
+                    {{-- RESET FILTER --}}
+                    <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
+                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-red-600 -scale-x-100   " style="font-size: 12px;"></i>
+                        <p class="font-medium text-red-600">Reset Filter</p>
                     </div>
                 </div>
+            </div>
+            {{-- TABLE SALES SEGMENT PERFORMANCES --}}
+            <div class="border-t border-t-[#CFD5DC]">
+                <table class="w-full table-fixed">
+                    {{-- HEADER TABLE --}}
+                    <thead>
+                        <tr class="border-b border-b-[#CFD5DC]">
+                            <th class="font-bold text-left p-3">
+                                Source
+                            </th>
+                            <th class="font-bold text-left">
+                                Cum
+                            </th>
+                            <th class="font-bold text-left">
+                                Cold
+                            </th>
+                            <th class="font-bold text-left">
+                                Warm
+                            </th>
+                            <th class="font-bold text-left">
+                                Hot
+                            </th>
+                            <th class="font-bold text-left">
+                                Deal
+                            </th>
+                            <th class="font-bold text-left">
+                                Total
+                            </th>
+                        </tr>
+                    </thead>
+                    {{-- BODY TABLE --}}
+                    <tbody id="source-conversion-tbody-sales-performance">
+
+                    </tbody>
+                    {{-- FOOTER TABLE --}}
+                    <tfooter>
+                        <tr class="border-t border-t-[#CFD5DC]">
+                            <td class="text-sm font-bold p-3">
+                                Total
+                            </td>
+                            <td class="text-sm" id="total-cum-sales-segment">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-cold-sales-segment">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-warm-sales-segment">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-hot-sales-segment">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-deal-sales-segment">
+                                0
+                            </td>
+                            <td class="text-sm" id="total-all-sales-segment">
+                                0
+                            </td>
+                        </tr>
+                    </tfooter>
+                </table>
             </div>
         </div>
     </div>
 
-
-    <!-- SOURCE MONITORING Section -->
+    {{-- SOURCE MONITORING OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
         <div class="row source-monitoring-mobile-stack">
@@ -3078,8 +3116,6 @@
         </div>
     </div>
 
-    
-    
 {{-- <div class="col-md-12 mb-4">
   <div class="card shadow border-left-info">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -3254,13 +3290,19 @@
         @endif
     </div> --}}
 
-    {{-- SALES DASHBOARD HEADER --}}
+    {{-- SOURCE MONITORING NEW --}}
+    <div class="mt-4">
+        <h1 class="text-xl font-semibold text-[#115640] uppercase">Source Monitoring</h1>
+    </div>
+
+    {{-- SALES DASHBOARD HEADER OLD --}}
     <div class="col-md-12 mb-4">
         <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
             <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">SALES DASHBOARD</h2>
         </div>
     </div>
 
+    {{-- SALES ACHIEVEMNT VS TARGET --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
         
@@ -3474,6 +3516,7 @@
         </div>
     </div>
 
+    {{-- TARGET VS SALES OLD --}}
     <div class="col-md-12 mb-4">
         <div class="row">
           <div class="col-lg-6 col-md-12 mb-4">
@@ -3532,7 +3575,7 @@
       </div>
     </div>
 
-    <!-- SLS DEALING Section -->
+    {{-- SALES DEALING OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
         
@@ -3663,7 +3706,7 @@
         </div>
     </div>
 
-    <!-- SALES POTENTIAL DEALING BRANCH Section -->
+    {{-- SALES POTENTIAL DEALING BRANCH OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
         
@@ -3758,6 +3801,7 @@
         </div>
     </div>
 
+    {{-- TARGET VS SALES OLD --}}
     <div class="col-md-12 mb-4">
         <div class="row">
           <div class="col-lg-6 col-md-12 mb-4">
@@ -3816,7 +3860,7 @@
       </div>
     </div>
 
-    <!-- SLS DEALING Section -->
+    {{-- SALES DEALING OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
         
@@ -3947,7 +3991,7 @@
         </div>
     </div>
 
-    <!-- SALES POTENTIAL DEALING BRANCH Section -->
+    {{-- SALES POTENTION DEALING BRANCH OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
         
@@ -4042,7 +4086,7 @@
         </div>
     </div>
 
-    <!-- SALES POTENTIAL DEALING LIST Section -->
+    {{-- SALES POTENTIAL DEALING LIST --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING LIST</h2>
         
@@ -4180,47 +4224,48 @@
             </div>
         </div> --}}
 
-        <div class="col-md-12 mb-4 d-none">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Trend Total Penjualan per Branch</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#branchSalesBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="branchSalesBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <select id="branch_sales_branches" class="form-select form-select-sm select2" multiple>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="branch_sales_start" class="form-control form-control-sm"
-                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="branch_sales_end" class="form-control form-control-sm"
-                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="branch_sales_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
+    {{-- TREND TOTAL PENJUALAN OLD --}}
+    <div class="col-md-12 mb-4 d-none">
+        <div class="card shadow">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Trend Total Penjualan per Branch</h6>
+        <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#branchSalesBody" aria-expanded="true">
+            <i class="fas fa-angle-down"></i>
+        </button>
         </div>
+        <div id="branchSalesBody" class="collapse show">
+        <div class="card-body">
+            <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <select id="branch_sales_branches" class="form-select form-select-sm select2" multiple>
+                @foreach ($branches as $branch)
+                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                @endforeach
+                </select>
+                <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
+            </div>
+            <div class="col-md-3">
+                <input type="date" id="branch_sales_start" class="form-control form-control-sm"
+                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+            </div>
+            <div class="col-md-3">
+                <input type="date" id="branch_sales_end" class="form-control form-control-sm"
+                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="branch_sales_apply">
+                <i class="bi bi-search me-1"></i> Apply
+                </button>
+            </div>
+            </div>
 
-        <div style="height: 360px;">
-          <canvas id="branch_sales_chart"></canvas>
+            <div style="height: 360px;">
+            <canvas id="branch_sales_chart"></canvas>
+            </div>
         </div>
-      </div>
+        </div>
     </div>
-  </div>
-</div>
+    </div>
 
 {{-- <div class="col-md-12 mb-4">
   <div class="card shadow">
@@ -4353,7 +4398,7 @@
   </div>
 </div> --}}
 
-    <!-- SALES PERFORMANCE -->
+    {{-- SALES PERFORMANCE OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES PERFORMANCE</h2>
         
@@ -4426,7 +4471,7 @@
         </div>
     </div>
 
-    <!-- TREND ORDERS BULANAN (YTD) -->
+    {{-- TREND ORDERS BULANAN OLD --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">TREND ORDERS BULANAN (YTD)</h2>
         
@@ -5613,34 +5658,51 @@ function loadOrdersMonthly() {
                 $.get('/api/dashboard/mkt5a', params)
                     .done(function(response) {
                         $('#all-leads-qty').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
+                        $('#all-leads-qty-new').text(number_format(response.aware.all_leads_qty, 0, ',', '.'));
                         $('#all-leads-time').text('ATR ' + formatTime(response.aware.all_leads_time_avg_hours || 0));
                         
                         $('#acquisition-qty').text(number_format(response.aware.acquisition_in_qty, 0, ',', '.'));
+                        $('#acquisition-qty-new').text(number_format(response.aware.acquisition_in_qty, 0, ',', '.'));
                         $('#acquisition-time').text('ATR ' + formatTime(response.aware.acquisition_time_avg_hours));
+                        $('#acquisition-time-new').text('ATR ' + formatTime(response.aware.acquisition_time_avg_hours));
                          
                         $('#meeting-qty').text(number_format(response.appeal.meeting_in_qty, 0, ',', '.'));
+                        $('#meeting-qty-new').text(number_format(response.appeal.meeting_in_qty, 0, ',', '.'));
                         $('#meeting-time').text('ATR ' + formatTime(response.appeal.meeting_time_avg_hours));
+                        $('#meeting-time-new').text('ATR ' + formatTime(response.appeal.meeting_time_avg_hours));
                         
                         $('#quotation-qty').text(number_format(response.quotation.quotation_in_qty, 0, ',', '.'));
+                        $('#quotation-qty-new').text(number_format(response.quotation.quotation_in_qty, 0, ',', '.'));
                         $('#quotation-time').text('ATR ' + formatTime(response.quotation.quotation_time_avg_hours));
+                        $('#quotation-time-new').text('ATR ' + formatTime(response.quotation.quotation_time_avg_hours));
 
                         $('#invoice-qty').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
+                        $('#invoice-qty-new').text(number_format(response.act.invoice_in_qty, 0, ',', '.'));
                         $('#invoice-time').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
+                        $('#invoice-time-new').text('ATR ' + formatTime(response.act.invoice_time_avg_hours));
 
                         $('#all-leads-pct').text(response.aware.all_leads_percentage + '%');
+                        $('#all-leads-pct-new').text(response.aware.all_leads_percentage + '%');
                         $('#all-leads-acq-pct').text('Total: ' + number_format(response.aware.all_leads_qty, 0, ',', '.'));
                         
                         $('#acquisition-pct').text(response.aware.acquisition_in_percentage + '%');
+                        $('#acquisition-pct-new').text(response.aware.acquisition_in_percentage + '%');
                         $('#acquisition-cvr').text('Cvr: ' + response.aware.acquisition_conversion_rate + '%');
+                        $('#acquisition-cvr-new').text('Cvr: ' + response.aware.acquisition_conversion_rate + '%');
                         
                         $('#meeting-pct').text(response.appeal.meeting_in_percentage + '%');
+                        $('#meeting-pct-new').text(response.appeal.meeting_in_percentage + '%');
                         $('#meeting-my').text('My Leads: ' + number_format(response.appeal.my_leads, 0, ',', '.'));
                         
                         $('#quotation-pct').text(response.quotation.quotation_in_percentage + '%');
+                        $('#quotation-pct-new').text(response.quotation.quotation_in_percentage + '%');
                         $('#quotation-amount').text('Rp ' + formatAmount(response.quotation.quotation_in_amount));
+                        $('#quotation-amount-new').text('Rp ' + formatAmount(response.quotation.quotation_in_amount));
                         
                         $('#invoice-pct').text(response.act.invoice_in_percentage + '%');
+                        $('#invoice-pct-new').text(response.act.invoice_in_percentage + '%');
                         $('#invoice-amount').text('Rp ' + formatAmount(response.act.invoice_in_amount));
+                        $('#invoice-amount-new').text('Rp ' + formatAmount(response.act.invoice_in_amount));
                     })
                     .fail(function() {
                         $('#all-leads-qty, #acquisition-qty, #meeting-qty, #quotation-qty, #invoice-qty').text('0');
@@ -6006,6 +6068,7 @@ loadBranchSalesTrend();
                     @endif
                     
                     const sourceFilter = $('#source-filter').val();
+                    const sourceFilterNew = $('#source-filter-new').val();
                     const startDate = $('#source-start-date').val();
                     const endDate = $('#source-end-date').val();
                     
@@ -6025,16 +6088,113 @@ loadBranchSalesTrend();
                         </tr>
                     `);
 
+                    const tbodySalesPerformance = $('#source-conversion-tbody-sales-performance');
+                    tbody.html(`
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                            </td>
+                        </tr>
+                    `);
+
                     console.log('Loading source conversion with params:', params);
 
-                    console.log('Also updating PROCESS FLOW with filters - Branch:', params.branch_id, 'Date range:', startDate, 'to', endDate);
-                    loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
+                    // RANGE DATE
+                    // console.log('Also updating PROCESS FLOW with filters - Branch:', params.branch_id, 'Date range:', startDate, 'to', endDate);
+                    // loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
+
+                    // RANGE DATE 
+                    let selectedStart = null;
+                    let selectedEnd = null;
+
+                    const fp = flatpickr("#source-date-range", {
+                        mode: "range",
+                        inline: true,
+                        dateFormat: "Y-m-d",
+                        defaultDate: [
+                            "{{ now()->startOfYear()->format('Y-m-d') }}",
+                            "{{ now()->endOfYear()->format('Y-m-d') }}"
+                        ],
+                        onReady: function(selectedDates) {
+                            if (selectedDates.length === 2) {
+                                selectedStart = selectedDates[0];
+                                selectedEnd = selectedDates[1];
+
+                                let startDate = selectedStart.toISOString().split('T')[0];
+                                let endDate = selectedEnd.toISOString().split('T')[0];
+
+                                document.getElementById('dateLabel').innerText =
+                                    `${startDate} → ${endDate}`;
+
+                                // AUTO FILTER FIRST LOAD
+                                loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
+
+                                if (startDate) params.start_date = startDate;
+                                if (endDate) params.end_date = endDate;
+                            }
+                        },
+                        onChange: function(dates) {
+                            if (dates.length === 2) {
+                                selectedStart = dates[0];
+                                selectedEnd = dates[1];
+                            }
+                        }
+                    });
+
+                    const openBtn = document.getElementById('openDateDropdown');
+                    const dropdown = document.getElementById('dateDropdown');
+                    const chevron = document.getElementById('iconDate');
+
                     
+                    openBtn.onclick = () => {
+                        dropdown.classList.toggle('opacity-0');
+                        dropdown.classList.toggle('scale-95');
+                        dropdown.classList.toggle('pointer-events-none');
+                        chevron.classList.toggle('rotate-180');
+                    };
+
+                    document.getElementById('cancelDate').onclick = closeDropdown;
+
+                    function closeDropdown() {
+                        dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+                    }
+
+
+                    document.getElementById('applyDate').onclick = () => {
+
+                    if (!selectedStart || !selectedEnd) return;
+
+                    let startDate = selectedStart.toISOString().split('T')[0];
+                    let endDate = selectedEnd.toISOString().split('T')[0];
+
+                    // Update label toggle
+                    document.getElementById('dateLabel').innerText =
+                        `${startDate} → ${endDate}`;
+
+                    console.log(
+                        'Also updating PROCESS FLOW with filters - Branch:',
+                        params.branch_id,
+                        'Date range:',
+                        startDate,
+                        'to',
+                        endDate
+                    );
+
+                    loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
+
+                    closeModal();
+                };	
+
                     $.get('/api/dashboard/source-conversion-stats', params)
                         .done(function(response) {
                             console.log('Source conversion response:', response);
                             if (response.data && response.data.length > 0) {
                                 renderSourceConversionTable(response.data);
+                                renderSourceConversionTableNew(response.data);
+                                renderSalesSegmentPerformanceTable(response.data);
                             } else {
                                 tbody.html(`
                                     <tr>
@@ -6167,6 +6327,7 @@ loadBranchSalesTrend();
 
                     const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
                     $('#total-cum').text(totals.cum.toLocaleString()); // Footer: Cumulative dijumlahkan
+                    $('#total-cum-new').text(totals.cum.toLocaleString()); // Footer: Cumulative dijumlahkan
                     $('#total-cold').text(totals.cold.toLocaleString());
                     $('#total-warm').text(totals.warm.toLocaleString());
                     $('#total-hot').text(totals.hot.toLocaleString());
@@ -6175,7 +6336,146 @@ loadBranchSalesTrend();
                     
                     adjustSourceConversionHeight(data.length);
                 }
-                
+
+                function renderSourceConversionTableNew(data) {
+                    const tbody = $('#source-conversion-tbody-new');
+                    tbody.empty();
+
+                    let totals = {
+                        cum: 0,
+                        cold: 0,
+                        warm: 0,
+                        hot: 0,
+                        deal: 0
+                    };
+
+                    data.forEach(function(item) {
+                        // Jumlahkan semua kolom termasuk cumulative untuk footer
+                        totals.cum += item.cumulative || 0;
+                        totals.cold += item.cold || 0;
+                        totals.warm += item.warm || 0;
+                        totals.hot += item.hot || 0;
+                        totals.deal += item.deal || 0;
+                    });
+
+                    data.forEach(function(item) {
+                        // Total per row tidak termasuk cumulative karena itu persentase, bukan nilai absolut
+                        const rowTotal = (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        
+                        const row = $(`
+                            <tr class="border-b border-b-[#CFD5DC]">
+                                <td class="p-3">
+                                    <span class="text-sm">${item.source}</span>
+                                </td>
+                                <td>
+                                    ${(item.cumulative || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cumulative_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.cold || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cold_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.warm || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.warm_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.hot || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.hot_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="">
+                                    ${(item.deal || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="">
+                                    ${rowTotal.toLocaleString()}
+                                </td>
+                            </tr>
+                        `);
+                        tbody.append(row);
+                    });
+
+                    const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
+                    // Footer: Cumulative dijumlahkan
+                    $('#total-cum-new').text(totals.cum.toLocaleString()); 
+                    $('#total-cold-new').text(totals.cold.toLocaleString());
+                    $('#total-warm-new').text(totals.warm.toLocaleString());
+                    $('#total-hot-new').text(totals.hot.toLocaleString());
+                    $('#total-deal-new').text(totals.deal.toLocaleString());
+                    $('#total-all-new').text(grandTotal.toLocaleString());
+                    
+                    adjustSourceConversionHeight(data.length);
+                }
+
+                function renderSalesSegmentPerformanceTable(data) {
+                    const tbody = $('#source-conversion-tbody-sales-performance');
+                    tbody.empty();
+
+                    let totals = {
+                        cum: 0,
+                        cold: 0,
+                        warm: 0,
+                        hot: 0,
+                        deal: 0
+                    };
+
+                    data.forEach(function(item) {
+                        // Jumlahkan semua kolom termasuk cumulative untuk footer
+                        totals.cum += item.cumulative || 0;
+                        totals.cold += item.cold || 0;
+                        totals.warm += item.warm || 0;
+                        totals.hot += item.hot || 0;
+                        totals.deal += item.deal || 0;
+                    });
+
+                    data.forEach(function(item) {
+                        // Total per row tidak termasuk cumulative karena itu persentase, bukan nilai absolut
+                        const rowTotal = (item.cold || 0) + (item.warm || 0) + (item.hot || 0) + (item.deal || 0);
+                        
+                        const row = $(`
+                            <tr class="border-b border-b-[#CFD5DC]">
+                                <td class="p-3">
+                                    <span class="text-sm">${item.source}</span>
+                                </td>
+                                <td>
+                                    ${(item.cumulative || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cumulative_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.cold || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.cold_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.warm || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.warm_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td>
+                                    ${(item.hot || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.hot_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="">
+                                    ${(item.deal || 0).toLocaleString()} 
+                                    <span class="cumulative-percentage">(${(item.deal_percentage || 0).toFixed(1)}%)</span>
+                                </td>
+                                <td class="">
+                                    ${rowTotal.toLocaleString()}
+                                </td>
+                            </tr>
+                        `);
+                        tbody.append(row);
+                    });
+
+                    const grandTotal = totals.cold + totals.warm + totals.hot + totals.deal;
+                    $('#total-cum-sales-segment').text(totals.cum.toLocaleString()); // Footer: Cumulative dijumlahkan
+                    $('#total-cold-sales-segment').text(totals.cold.toLocaleString());
+                    $('#total-warm-sales-segment').text(totals.warm.toLocaleString());
+                    $('#total-hot-sales-segment').text(totals.hot.toLocaleString());
+                    $('#total-deal-sales-segment').text(totals.deal.toLocaleString());
+                    $('#total-all-sales-segment').text(grandTotal.toLocaleString());
+                    
+                    adjustSourceConversionHeight(data.length);
+                }
+
                 function adjustSourceConversionHeight(rowCount) {
                     const container = $('#source-conversion-container');
 
