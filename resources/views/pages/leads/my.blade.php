@@ -313,7 +313,7 @@
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z" fill="#E7F3EE"/>
                         </svg>
-                        <p class="text-white text-lg font-medium">Leads Manually</p>
+                        <p class="text-white font-medium">Leads Manually</p>
                     </a>
                 </div>
             </div>
@@ -322,9 +322,9 @@
             <div class="">
                 @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
                     <div>
-                        <table id="{{ $tab }}LeadsTableNew" class="w-full table-fixed">
+                        <table id="{{ $tab }}LeadsTableNew" class="w-full">
                             {{-- HEADER TABLE --}}
-                            <thead>
+                            <thead class="text-[#1E1E1E]">
                                 <tr class="border-b border-b-[#CFD5DC]">
                                     <th class="hidden">ID (hidden)</th>
                                     @if ($tab === 'cold')
@@ -333,12 +333,12 @@
                                         <th>Telephone</th>
                                         <th>Source</th>
                                         <th>Needs</th>
-                                        <th>Industry</th>
+                                        <th>Customer Type</th>
                                         <th>City</th>
                                         <th>Regional</th>
                                         <th class="text-center">Status</th>
                                     @else
-                                        <th>Claimed At</th>
+                                        <th class="p-3">Claimed At</th>
                                         <th>Lead Name</th>
                                         <th>Industry</th>
                                         <th class="text-center">Status</th>
@@ -393,7 +393,7 @@
             tbody.innerHTML += `
                 <tr class="border-b">
                     <td class="hidden">${row.id}</td>
-                    <td class="px-3">${row.name}</td>
+                    <td class="p-3">${row.name}</td>
                     <td>${row.sales_name}</td>
                     <td>${row.phone}</td>
                     <td>${row.source}</td>
@@ -407,8 +407,52 @@
             `;
         });
     }
+        loadColdLeads();
 
-    loadColdLeads();
+        async function loadWarmLeads() {
+
+        const response = await fetch("{{ route('leads.my.warm.list') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            },
+            body: JSON.stringify({
+                start_date: document.getElementById('filter_start')?.value,
+                end_date: document.getElementById('filter_end')?.value
+            })
+        });
+
+        const result = await response.json();
+
+        const tbody = document.getElementById('warmBody');
+
+        tbody.innerHTML = '';
+
+        result.data.forEach(row => {
+
+            let industry = 'Belum Diisi';
+
+            if (row.industry?.trim()) {
+                industry = row.industry;
+            } else if (row.lead?.other_industry?.trim()) {
+                industry = row.lead.other_industry;
+            }
+
+            tbody.innerHTML += `
+                <tr class="border-b">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${industry}</td>
+                    <td>${row.meeting_status}</td>
+                    <td>${row.actions}</td>
+                </tr>
+            `;
+        });
+    }
+        loadWarmLeads();
+        
         function initLeadTable(selector, route, type = 'default') {
             let columns;
             if (type === 'cold') {
