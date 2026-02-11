@@ -1,0 +1,23 @@
+.span-all{
+    @apply text-[#083224] font-bold;
+}
+
+.span-cold{
+    @apply text-[#183057] bg-[#E1EBFA] p-1 rounded-sm ml-1 font-bold;
+}
+
+.span-warm{
+    @apply text-[#522504] bg-[#FFF1C2] p-1 rounded-sm ml-1 font-bold;
+}
+
+.span-hot{
+    @apply text-[#900B09] bg-[#FDD3D0] p-1 rounded-sm ml-1 font-bold
+}
+
+.span-deal{
+    @apply text-[#05261B] bg-[#CFE7DE] p-1 rounded-sm ml-1 font-bold;
+}
+
+.nav-leads-active{
+    @apply border-b-4 border-b-[#115640];
+}

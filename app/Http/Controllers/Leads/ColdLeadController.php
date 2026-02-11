@@ -19,6 +19,7 @@ class ColdLeadController extends Controller
         AutoTrashService::triggerIfNeeded();
         
         $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
+        $roleCode = $request->user()->role?->code;
 
         $claims = LeadClaim::with([
             'lead.status',

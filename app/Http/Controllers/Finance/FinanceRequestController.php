@@ -476,14 +476,14 @@ class FinanceRequestController extends Controller
         // Copy items to order_items
         foreach ($quotation->items as $item) {
             $order->orderItems()->create([
-                'product_id'   => $item->product_id,
-                'description'  => $item->description,
-                'qty'          => $item->qty,
-                'unit_price'   => $item->unit_price,
-                'discount_pct' => $item->discount_pct,
-                'tax_pct'      => $quotation->tax_pct,
-                'total_discount'=> $item->total_discount,
-                'line_total'   => $item->line_total,
+                'product_id'    => $item->product_id,
+                'description'   => $item->description,
+                'qty'           => $item->qty,
+                'unit_price'    => $item->unit_price,
+                'discount_pct'  => $item->discount_pct,
+                'tax_pct'       => $quotation->tax_pct,
+                'total_discount'=> isset($item->total_discount) ? (float) $item->total_discount : 0.0,
+                'line_total'    => $item->line_total,
             ]);
         }
 

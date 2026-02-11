@@ -7,7 +7,7 @@ use App\Http\Classes\ActivityLogger;
 use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
-use App\Models\Leads\{Lead, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
+use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
 use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
 use Illuminate\Support\Facades\DB;
 
@@ -522,9 +522,8 @@ class LeadController extends Controller
 
     public function my()
     {
-        // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
-        
+            
         $user = auth()->user();
 
         $claims = LeadClaim::whereNull('released_at')
@@ -538,16 +537,24 @@ class LeadController extends Controller
             ->groupBy(fn($claim) => $claim->lead->status_id)
             ->map->count();
 
+        $cold = $counts[LeadStatus::COLD] ?? 0;
+        $warm = $counts[LeadStatus::WARM] ?? 0;
+        $hot  = $counts[LeadStatus::HOT] ?? 0;
+        $deal = $counts[LeadStatus::DEAL] ?? 0;
+
+        $all = $cold + $warm + $hot + $deal;
         return view('pages.leads.my', [
             'leadCounts' => [
+                'all'  => $all,
                 'cold' => $counts[LeadStatus::COLD] ?? 0,
                 'warm' => $counts[LeadStatus::WARM] ?? 0,
                 'hot'  => $counts[LeadStatus::HOT] ?? 0,
                 'deal' => $counts[LeadStatus::DEAL] ?? 0,
             ],
-            'activities' => \App\Models\Leads\LeadActivityList::all(),
+            'activities' => LeadActivityList::all(),
         ]);
     }
+    
 
     public function myCounts(Request $request)
     {
@@ -710,11 +717,11 @@ class LeadController extends Controller
         $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
         $leadCounts = [
-            'cold' => $counts[LeadStatus::COLD] ?? 0,
-            'warm' => $counts[LeadStatus::WARM] ?? 0,
-            'hot'  => $counts[LeadStatus::HOT]  ?? 0,
-            'deal' => $counts[LeadStatus::DEAL] ?? 0,
-        ];
+        'cold' => $counts[LeadStatus::COLD] ?? 0,
+        'warm' => $counts[LeadStatus::WARM] ?? 0,
+        'hot'  => $counts[LeadStatus::HOT]  ?? 0,
+        'deal' => $counts[LeadStatus::DEAL] ?? 0,
+    ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();
 

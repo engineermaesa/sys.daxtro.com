@@ -2730,7 +2730,7 @@
                                 </button>
 
                                 <button id="applyDate"
-                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg">
+                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
                                     Apply
                                 </button>
 
@@ -2740,8 +2740,8 @@
 
                     {{-- RESET FILTER --}}
                     <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
-                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-red-600 -scale-x-100   " style="font-size: 12px;"></i>
-                        <p class="font-medium text-red-600">Reset Filter</p>
+                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100" style="font-size: 12px;"></i>
+                        <p class="font-medium text-[#900B09]">Reset Filter</p>
                     </div>
                 </div>
             </div>
@@ -2846,64 +2846,40 @@
                         </select>
                     </div>
                     {{-- DATES --}}
-                    <div
+                    <div id="salesSegmentPerformanceDateToggle"
                         class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
 
                         {{-- TOGGLE --}}
-                        <div id="openDateDropdown" class="flex justify-center items-center gap-2">
-                            <p id="dateLabel" class="font-medium text-black">Date</p>
-                            <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                        <div class="flex justify-center items-center gap-2">
+                            <p class="font-medium">Date</p>
+                            <i id="chevronSalesSegmentPerformanceFiltersDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
                         </div>
+                        
+                        {{-- DROPDOWN DATE --}}
+                        <div 
+                            id="salesSegmentPerformanceDateDropdown"
+                            class="hidden absolute top-full left-0 w-full bg-white border border-[#CFD5DC] p-3 z-20">
 
-                        {{-- DATE DROPDOWN --}}
-                        <div id="dateDropdown"
-                            class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top ">
-
-                            <h3 class="font-semibold mb-2">Select Date Range</h3>
-
-                            <div class="flex justify-center items-center">
-                                <input type="text" id="source-date-range" class="hidden shadow-none">
-                            </div>
-
-                            <div class="flex justify-end gap-2 mt-3">
-
-                                <button id="cancelDate" class="px-3 py-1 text-[#303030]">
-                                    Cancel
-                                </button>
-
-                                <button id="applyDate"
-                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg">
-                                    Apply
-                                </button>
-
+                            <div class="w-full flex gap-3">
+                            {{-- FOR START DATE --}}
+                                <div class="w-1/2">
+                                    <label class="block text-sm mb-1">Start Date</label>
+                                    <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                                </div>
+                                {{-- FOR END DATE --}}
+                                <div class="w-1/2">
+                                    <label class="block text-sm mb-1">End Date</label>
+                                    <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                                </div>
                             </div>
                         </div>
                     </div>
-                    {{-- SCRIPTS FOR DATE TOGGLE --}}
-                    <script>
-                       document.addEventListener('DOMContentLoaded', () => {
-
-                        const toggle = document.getElementById('salesSegmentPerformanceDateToggle');
-                        const dropdown = document.getElementById('salesSegmentPerformanceDateDropdown');
-                        const chevron = document.getElementById('chevronSalesSegmentPerformanceFiltersDate');
-
-                        toggle.addEventListener('click', () => {
-                            dropdown.classList.toggle('hidden');
-                            chevron.classList.toggle('rotate-180');
-                        });
-
-                        dropdown.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                        });
-
-                    });
-                    </script>
 
 
                     {{-- RESET FILTER --}}
                     <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
-                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-red-600 -scale-x-100   " style="font-size: 12px;"></i>
-                        <p class="font-medium text-red-600">Reset Filter</p>
+                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
+                        <p class="font-medium text-[#900B09]">Reset Filter</p>
                     </div>
                 </div>
             </div>
@@ -6165,27 +6141,19 @@ loadBranchSalesTrend();
 
                     document.getElementById('applyDate').onclick = () => {
 
-                    if (!selectedStart || !selectedEnd) return;
+                    const dates = fp.selectedDates;
 
-                    let startDate = selectedStart.toISOString().split('T')[0];
-                    let endDate = selectedEnd.toISOString().split('T')[0];
+                    if (dates.length !== 2) return;
 
-                    // Update label toggle
+                    let startDate = dates[0].toISOString().split('T')[0];
+                    let endDate   = dates[1].toISOString().split('T')[0];
+
                     document.getElementById('dateLabel').innerText =
                         `${startDate} → ${endDate}`;
 
-                    console.log(
-                        'Also updating PROCESS FLOW with filters - Branch:',
-                        params.branch_id,
-                        'Date range:',
-                        startDate,
-                        'to',
-                        endDate
-                    );
-
                     loadProcessFlowMkt5a(startDate, endDate, params.branch_id);
 
-                    closeModal();
+                    closeDropdown();
                 };	
 
                     $.get('/api/dashboard/source-conversion-stats', params)

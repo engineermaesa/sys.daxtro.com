@@ -108,6 +108,7 @@
             request()->is('leads/available*') ||
             request()->is('leads/manage*') ||
             request()->is('leads/import*') ||
+            request()->is('leads/my*') ||
             request()->is('trash-leads*');
             // request()->is('quotations*') ||
             // request()->is('payment-confirmation*') ||

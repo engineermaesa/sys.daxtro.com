@@ -16,6 +16,7 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
+        $roleCode = $request->user()->role?->code;
         $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
