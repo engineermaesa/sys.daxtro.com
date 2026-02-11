@@ -25,19 +25,19 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     // routes/web.php
-  // routes/web.php
-  Route::post('dashboard/sales-achievement-donut', [DashboardController::class, 'salesAchievementDonut'])
-    ->name('dashboard.sales-achievement-donut');
-Route::post('dashboard/sales-performance-bar', [DashboardController::class, 'salesPerformanceBar'])
-    ->name('dashboard.sales-performance-bar');
-
-Route::post('dashboard/sales-achievement-monthly-percent', [DashboardController::class, 'salesAchievementMonthlyPercent'])->name('dashboard.sales-achievement-monthly-percent');
     // routes/web.php
-Route::post('dashboard/target-vs-sales-monthly', [DashboardController::class, 'targetVsSalesMonthly'])
-    ->name('dashboard.target-vs-sales-monthly');
+    Route::post('dashboard/sales-achievement-donut', [DashboardController::class, 'salesAchievementDonut'])
+        ->name('dashboard.sales-achievement-donut');
+    Route::post('dashboard/sales-performance-bar', [DashboardController::class, 'salesPerformanceBar'])
+        ->name('dashboard.sales-performance-bar');
 
-Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 'salesAchievementTrend'])->name('dashboard.sales-achievement-trend');
-        Route::post('dashboard/leads-branch-trend', [DashboardController::class, 'leadsBranchTrend'])->name('dashboard.leads-branch-trend');
+    Route::post('dashboard/sales-achievement-monthly-percent', [DashboardController::class, 'salesAchievementMonthlyPercent'])->name('dashboard.sales-achievement-monthly-percent');
+    // routes/web.php
+    Route::post('dashboard/target-vs-sales-monthly', [DashboardController::class, 'targetVsSalesMonthly'])
+        ->name('dashboard.target-vs-sales-monthly');
+
+    Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 'salesAchievementTrend'])->name('dashboard.sales-achievement-trend');
+    Route::post('dashboard/leads-branch-trend', [DashboardController::class, 'leadsBranchTrend'])->name('dashboard.leads-branch-trend');
     Route::post('dashboard/branch-sales-trend', [DashboardController::class, 'branchSalesTrend'])->name('dashboard.branch-sales-trend');
     Route::post('dashboard/group4/cold-warm', [DashboardController::class, 'coldToWarmStats'])->name('dashboard.group4.cold-warm');
     Route::post('dashboard/group4/warm-hot', [DashboardController::class, 'warmToHotStats'])->name('dashboard.group4.warm-hot');
@@ -77,7 +77,7 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::get('/import/template', 'ImportLeadController@template')->name('leads.import.template');
         Route::post('/import/preview', 'ImportLeadController@preview')->name('leads.import.preview');
         Route::post('/import/submit', 'ImportLeadController@store')->name('leads.import.store');
-        
+
         Route::prefix('my')->group(function () {
             Route::get('/', 'LeadController@my')->name('leads.my');
             Route::get('/form/{id?}', 'LeadController@form')->name('leads.my.form');
@@ -156,11 +156,11 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::post('/{id}/submit', 'ExpenseRealizationController@submit')->name('submit');
     });
 
-    Route::get('/debug/expense-realizations', function() {
+    Route::get('/debug/expense-realizations', function () {
         $count = \App\Models\Orders\ExpenseRealization::count();
         $meetingExpenseCount = \App\Models\Orders\MeetingExpense::where('status', 'approved')->count();
         $data = \App\Models\Orders\ExpenseRealization::with(['sales', 'meetingExpense.meeting.lead'])->get();
-        
+
         return response()->json([
             'expense_realization_count' => $count,
             'approved_meeting_expense_count' => $meetingExpenseCount,
@@ -199,15 +199,14 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
             Route::post('/{id}/approve', [FinanceRequestController::class, 'approve'])->name('approve');
             Route::post('/{id}/reject', [FinanceRequestController::class, 'reject'])->name('reject');
             Route::get('/{id}', [FinanceRequestController::class, 'form'])->name('form');
+        });
 
-    });
 
-
-    Route::get('api/expense-types', function() {
+    Route::get('api/expense-types', function () {
         return \App\Models\Masters\ExpenseType::all();
     })->name('api.expense-types');
 
-    Route::get('api/meeting-expense-details/{id}', function($id) {
+    Route::get('api/meeting-expense-details/{id}', function ($id) {
         return \App\Models\Orders\MeetingExpenseDetail::where('meeting_expense_id', $id)
             ->with('expenseType')
             ->get();
@@ -321,7 +320,7 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::get('branches-by-company/{companyId}', 'AdminController@branchesByCompany')->name('branches.by-company');
         Route::get('regions-by-branch/{branchId}', 'AdminController@regionsByBranch')->name('regions.by-branch');
         Route::get('sales-by-branch/{branchId}', 'AdminController@salesByBranch')->name('sales.by-branch');
-        
+
         Route::get('/', 'AdminController@index')->name('index');
         Route::post('/list', 'AdminController@list')->name('list');
         Route::get('/form/{id?}', 'AdminController@form')->name('form');
@@ -338,8 +337,8 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::post('permissions/list', 'PermissionController@list')->name('permissions.list');
         Route::get('permissions/form/{id?}', 'PermissionController@form')->name('permissions.form');
         Route::post('permissions/save/{id?}', 'PermissionController@save')->name('permissions.save');
-        Route::delete('permissions/delete/{id}', 'PermissionController@delete')->name('permissions.delete');        
-    });    
+        Route::delete('permissions/delete/{id}', 'PermissionController@delete')->name('permissions.delete');
+    });
 
     Route::group([
         'prefix' => 'api',
@@ -364,4 +363,3 @@ Route::post('dashboard/sales-achievement-trend', [DashboardController::class, 's
         Route::get('seeder', 'SeederController@run')->name('seeder.run');
     });
 });
-

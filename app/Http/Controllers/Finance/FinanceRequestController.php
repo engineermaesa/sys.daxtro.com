@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 
 class FinanceRequestController extends Controller
@@ -31,27 +33,37 @@ class FinanceRequestController extends Controller
     public function index()
     {
         $this->pageTitle = 'Finance Requests';
-        return $this->render('pages.finance.requests.index');
+        $counts = [
+            'meeting-expense' => \App\Models\Orders\FinanceRequest::where('request_type', 'meeting-expense')->count(),
+            'payment-confirmation' => \App\Models\Orders\FinanceRequest::where('request_type', 'payment-confirmation')->count(),
+            'expense-realization' => Schema::hasTable('expense_realizations') ? \App\Models\Orders\ExpenseRealization::count() : 0,
+        ];
+
+        return $this->render('pages.finance.requests.index', compact('counts'));
     }
 
     public function list(Request $request)
     {
         $type = $request->input('type');
-        
+
         if ($type === 'expense-realization') {
+            if (!Schema::hasTable('expense_realizations')) {
+                return DataTables::of(collect([]))->make(true);
+            }
+
             $query = \App\Models\Orders\ExpenseRealization::with([
-                'sales', 
+                'sales',
                 'meetingExpense.meeting',
                 'meetingExpense.sales',
                 'meetingExpense.meeting.lead',
                 'meetingExpense.financeRequest.approver'
             ]);
-            
+
             return DataTables::of($query)
                 ->addColumn('status_badge', function ($row) {
                     $colors = [
                         'pending' => 'warning',
-                        'submitted' => 'info', 
+                        'submitted' => 'info',
                         'approved' => 'success',
                         'rejected' => 'danger'
                     ];
@@ -66,7 +78,7 @@ class FinanceRequestController extends Controller
                     return '<span class="badge bg-' . $color . '">' . $label . '</span>';
                 })
                 ->addColumn('requester_name', fn($row) => $row->sales->name ?? '-')
-                ->addColumn('approver_name', function($row) {
+                ->addColumn('approver_name', function ($row) {
                     // Get approver from the meeting expense's finance request
                     return $row->meetingExpense?->financeRequest?->approver?->name ?? '-';
                 })
@@ -87,15 +99,15 @@ class FinanceRequestController extends Controller
                 })
                 ->addColumn('actions', function ($row) use ($type) {
                     if ($type === 'expense-realization') {
-                        return '<a href="'.route('expense-realizations.index', $row->id).'" class="btn btn-sm btn-primary">View Details</a>';
+                        return '<a href="' . route('expense-realizations.index', $row->id) . '" class="btn btn-sm btn-primary">View Details</a>';
                     } else {
-                        return '<a href="'.route('finance-requests.form', $row->id).'" class="btn btn-sm btn-primary">Review</a>';
+                        return '<a href="' . route('finance-requests.form', $row->id) . '" class="btn btn-sm btn-primary">Review</a>';
                     }
                 })
                 ->rawColumns(['actions', 'status_badge'])
                 ->make(true);
         }
-        
+
         $query = FinanceRequest::with('requester');
         if ($request->filled('type')) {
             $query->where('request_type', $request->input('type'));
@@ -132,7 +144,7 @@ class FinanceRequestController extends Controller
             })
             ->addColumn('actions', function ($row) {
                 $url = route('finance-requests.form', $row->id);
-                return '<a href="'.$url.'" class="btn btn-sm btn-primary">View Detail</a>';
+                return '<a href="' . $url . '" class="btn btn-sm btn-primary">View Detail</a>';
             })
             ->rawColumns(['actions', 'request_type_badge', 'status_badge'])
             ->make(true);
@@ -144,19 +156,20 @@ class FinanceRequestController extends Controller
             case 'meeting-expense':
                 $expense = MeetingExpense::find(id: $financeRequest->reference_id);
                 return $expense ? 'Rp ' . number_format($expense->amount, 0, ',', '.') : '-';
-            
+
             case 'expense-realization':
-            $realization = \App\Models\Orders\ExpenseRealization::find($financeRequest->reference_id);
-            return $realization ? 'Rp ' . number_format($realization->realized_amount, 0, ',', '.') : '-';
+                if (!Schema::hasTable('expense_realizations')) return '-';
+                $realization = \App\Models\Orders\ExpenseRealization::find($financeRequest->reference_id);
+                return $realization ? 'Rp ' . number_format($realization->realized_amount, 0, ',', '.') : '-';
 
             case 'payment-confirmation':
                 $payment = PaymentConfirmation::find($financeRequest->reference_id);
                 return $payment ? 'Rp ' . number_format($payment->amount, 0, ',', '.') : '-';
-            
+
             case 'proforma':
                 $proforma = Proforma::find($financeRequest->reference_id);
                 return $proforma ? 'Rp ' . number_format($proforma->amount, 0, ',', '.') : '-';
-            
+
             case 'invoice':
                 $parts = explode('-', $financeRequest->reference_id);
                 if (count($parts) >= 2) {
@@ -172,7 +185,7 @@ class FinanceRequestController extends Controller
                     }
                 }
                 return '-';
-            
+
             default:
                 return '-';
         }
@@ -183,8 +196,8 @@ class FinanceRequestController extends Controller
         if ($financeRequest->request_type === 'meeting-expense') {
             $expense = MeetingExpense::with('meeting.lead')->find($financeRequest->reference_id);
             return $expense?->meeting?->lead?->name ?? '-';
-        }
-        elseif ($financeRequest->request_type === 'expense-realization') {
+        } elseif ($financeRequest->request_type === 'expense-realization') {
+            if (!Schema::hasTable('expense_realizations')) return '-';
             $realization = \App\Models\Orders\ExpenseRealization::with('meetingExpense.meeting.lead')->find($financeRequest->reference_id);
             return $realization?->meetingExpense?->meeting?->lead?->name ?? '-';
         }
@@ -197,6 +210,7 @@ class FinanceRequestController extends Controller
             $expense = MeetingExpense::with('meeting')->find($financeRequest->reference_id);
             return $expense?->meeting?->scheduled_start_at ?? null;
         } elseif ($financeRequest->request_type === 'expense-realization') {
+            if (!Schema::hasTable('expense_realizations')) return null;
             $realization = \App\Models\Orders\ExpenseRealization::with('meetingExpense.meeting')->find($financeRequest->reference_id);
             return $realization?->meetingExpense?->meeting?->scheduled_start_at ?? null;
         }
@@ -210,7 +224,7 @@ class FinanceRequestController extends Controller
         $termNo = null;
         $meetingExpense = null;
         $proforma = null;
-        
+
         if ($financeRequest->request_type === 'payment-confirmation') {
             $paymentConfirmation = \App\Models\Orders\PaymentConfirmation::with('proforma.quotation.order.orderItems', 'proforma.quotation.order.paymentTerms', 'proforma.quotation.order.lead', 'attachment')
                 ->find($financeRequest->reference_id);
@@ -265,10 +279,71 @@ class FinanceRequestController extends Controller
 
             DB::commit();
             return redirect()->route('finance-requests.index')->with('success', 'Request approved successfully.');
-
         } catch (\Exception $e) {
             DB::rollback();
             return back()->with('error', 'Failed to approve request: ' . $e->getMessage());
+        }
+    }
+
+    public function approveWithRealization(Request $request)
+    {
+        $data = $request->validate([
+            'finance_request_id' => 'required|integer',
+            'meeting_expense_id' => 'required|integer',
+            'realization_expenses' => 'required|array|min:1',
+            'notes' => 'nullable|string',
+        ]);
+
+        if (!Schema::hasTable('expense_realizations')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Database table "expense_realizations" is missing. Please run migrations.'
+            ], 200);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $financeRequest = FinanceRequest::findOrFail($data['finance_request_id']);
+            $meetingExpense = MeetingExpense::findOrFail($data['meeting_expense_id']);
+
+            $total = 0;
+            foreach ($data['realization_expenses'] as $exp) {
+                $amount = isset($exp['amount']) ? (float) $exp['amount'] : 0;
+                $total += $amount;
+            }
+
+            $realization = \App\Models\Orders\ExpenseRealization::create([
+                'meeting_expense_id' => $meetingExpense->id,
+                'sales_id' => $meetingExpense->sales_id ?? $financeRequest->requester_id,
+                'realized_amount' => $total,
+                'status' => 'submitted',
+                'notes' => $data['notes'] ?? 'Created from finance approval',
+            ]);
+
+            if (!empty($data['realization_expenses']) && method_exists($realization, 'details')) {
+                foreach ($data['realization_expenses'] as $exp) {
+                    $realization->details()->create([
+                        'expense_type_id' => $exp['expense_type_id'] ?? null,
+                        'notes' => $exp['notes'] ?? null,
+                        'amount' => $exp['amount'] ?? 0,
+                    ]);
+                }
+            }
+
+            $financeRequest->update([
+                'status' => 'approved',
+                'approver_id' => Auth::id(),
+                'decided_at' => now(),
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Expense realization created and request approved.']);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['success' => false, 'message' => 'Failed to process: ' . $e->getMessage()], 500);
         }
     }
 
@@ -472,7 +547,7 @@ class FinanceRequestController extends Controller
             'total_billing' => $quotation->grand_total,
             'order_status'  => 'publish',
         ]);
-        
+
         // Copy items to order_items
         foreach ($quotation->items as $item) {
             $order->orderItems()->create([
@@ -482,7 +557,7 @@ class FinanceRequestController extends Controller
                 'unit_price'    => $item->unit_price,
                 'discount_pct'  => $item->discount_pct,
                 'tax_pct'       => $quotation->tax_pct,
-                'total_discount'=> isset($item->total_discount) ? (float) $item->total_discount : 0.0,
+                'total_discount' => isset($item->total_discount) ? (float) $item->total_discount : 0.0,
                 'line_total'    => $item->line_total,
             ]);
         }
@@ -511,7 +586,7 @@ class FinanceRequestController extends Controller
         if (!$lead) return;
 
         $type = $payment->proforma->proforma_type;
-        
+
         if ($type === 'booking_fee' && $lead->status_id != LeadStatus::DEAL) {
             $lead->update(['status_id' => LeadStatus::HOT]);
             LeadStatusLog::create(['lead_id' => $lead->id, 'status_id' => LeadStatus::HOT]);
@@ -528,7 +603,8 @@ class FinanceRequestController extends Controller
 
         $quotation = $payment->proforma->quotation->load('proformas.paymentConfirmation', 'reviews');
 
-        $allPaid = $quotation->proformas->every(fn($p) =>
+        $allPaid = $quotation->proformas->every(
+            fn($p) =>
             $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at
         );
 
@@ -574,15 +650,23 @@ class FinanceRequestController extends Controller
         $expense = MeetingExpense::find($request->reference_id);
         if ($expense) {
             $expense->update(['status' => 'approved']);
-            
+
             // Create expense realization with 'pending' status - waiting for sales to fill details
-            \App\Models\Orders\ExpenseRealization::create([
-                'meeting_expense_id' => $expense->id,
-                'sales_id' => $expense->sales_id,
-                'realized_amount' => 0,
-                'status' => 'pending', // Sales needs to fill amount and submit
-                'notes' => 'Auto-created from approved meeting expense #' . $expense->id,
-            ]);
+            if (Schema::hasTable('expense_realizations')) {
+                try {
+                    \App\Models\Orders\ExpenseRealization::create([
+                        'meeting_expense_id' => $expense->id,
+                        'sales_id' => $expense->sales_id,
+                        'realized_amount' => 0,
+                        'status' => 'pending', // Sales needs to fill amount and submit
+                        'notes' => 'Auto-created from approved meeting expense #' . $expense->id,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::warning('Failed to create expense_realization: ' . $e->getMessage(), ['expense_id' => $expense->id]);
+                }
+            } else {
+                Log::warning('Table expense_realizations does not exist; skipping realization creation', ['expense_id' => $expense->id]);
+            }
         }
     }
 

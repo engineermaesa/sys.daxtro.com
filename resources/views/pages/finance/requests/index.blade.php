@@ -16,11 +16,6 @@
               'payment-confirmation' => 'warning',
               'expense-realization' => 'secondary',
             ];
-            $counts = [
-              'meeting-expense' => \App\Models\Orders\FinanceRequest::where('request_type', 'meeting-expense')->count(),
-              'payment-confirmation' => \App\Models\Orders\FinanceRequest::where('request_type', 'payment-confirmation')->count(),
-              'expense-realization' => \App\Models\Orders\ExpenseRealization::count(),
-            ];
           @endphp
           @foreach($types as $t)
             <li class="nav-item flex-fill text-center" role="presentation">
