@@ -410,7 +410,6 @@
         loadColdLeads();
 
         async function loadWarmLeads() {
-
         const response = await fetch("{{ route('leads.my.warm.list') }}", {
             method: "POST",
             headers: {
@@ -453,6 +452,94 @@
     }
         loadWarmLeads();
         
+        async function loadHotLeads() {
+        const response = await fetch("{{ route('leads.my.hot.list') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            },
+            body: JSON.stringify({
+                start_date: document.getElementById('filter_start')?.value,
+                end_date: document.getElementById('filter_end')?.value
+            })
+        });
+
+        const result = await response.json();
+
+        const tbody = document.getElementById('hotBody');
+
+        tbody.innerHTML = '';
+
+        result.data.forEach(row => {
+
+            let industry = 'Belum Diisi';
+
+            if (row.industry?.trim()) {
+                industry = row.industry;
+            } else if (row.lead?.other_industry?.trim()) {
+                industry = row.lead.other_industry;
+            }
+
+            tbody.innerHTML += `
+                <tr class="border-b">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${industry}</td>
+                    <td>${row.meeting_status}</td>
+                    <td>${row.actions}</td>
+                </tr>
+            `;
+        });
+        }
+
+        loadHotLeads();
+
+        async function loadDealLeads() {
+        const response = await fetch("{{ route('leads.my.hot.list') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            },
+            body: JSON.stringify({
+                start_date: document.getElementById('filter_start')?.value,
+                end_date: document.getElementById('filter_end')?.value
+            })
+        });
+
+        const result = await response.json();
+
+        const tbody = document.getElementById('dealBody');
+
+        tbody.innerHTML = '';
+
+        result.data.forEach(row => {
+
+            let industry = 'Belum Diisi';
+
+            if (row.industry?.trim()) {
+                industry = row.industry;
+            } else if (row.lead?.other_industry?.trim()) {
+                industry = row.lead.other_industry;
+            }
+
+            tbody.innerHTML += `
+                <tr class="border-b">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${industry}</td>
+                    <td>${row.meeting_status}</td>
+                    <td>${row.actions}</td>
+                </tr>
+            `;
+        });
+        }
+
+        loadDealLeads();
+
         function initLeadTable(selector, route, type = 'default') {
             let columns;
             if (type === 'cold') {
