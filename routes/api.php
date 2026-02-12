@@ -17,3 +17,25 @@ Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sour
 Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList']);
 Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList']);
 Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
+
+Route::group([
+        'prefix' => 'leads',
+        'as' => '',
+        'namespace' => 'App\\Http\\Controllers\\Leads',
+], function () {
+    // FOR AVAILABLE LEADS
+    Route::get('/available', 'LeadController@available')->name('api.leads.available');
+    Route::post('/available/list', 'LeadController@availableList')->name('api.leads.available.list');
+    Route::get('/available/export', 'LeadController@availableExport')->name('api.leads.available.export');
+
+    // FOR AVAILABLE LEAD FORM AND SAVE
+    Route::get('/available/form/{id?}', 'LeadController@form')->name('api.leads.form');
+    Route::post('/available/save/{id?}', 'LeadController@save')->name('api.leads.save');
+
+    // FOR CLAIMING LEADS
+    Route::post('/{id}/claim', 'LeadController@claim')->name('api.leads.claim');
+
+    // FOR ACTIVITY LOGS
+    Route::get('/{id}/activity-logs', 'LeadActivityController@logs')->name('api.leads.activity.logs');
+    Route::post('/{id}/activity-logs', 'LeadActivityController@save')->name('api.leads.activity.save');
+});

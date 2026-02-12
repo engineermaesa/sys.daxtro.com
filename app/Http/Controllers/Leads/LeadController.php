@@ -13,11 +13,20 @@ use Illuminate\Support\Facades\DB;
 
 class LeadController extends Controller
 {
-    public function available()
+    public function available(Request $request)
     {
         $branches = Branch::all();
         $regions  = Region::with('province:id,name')
             ->get(['id', 'name', 'province_id', 'branch_id']);
+
+        // If request comes from API (route starting with /api/) or expects JSON, return JSON
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'branches' => $branches,
+                'regions' => $regions
+            ]);
+        }
+
         return view('pages.leads.available', compact('branches', 'regions'));
     }
 
@@ -86,7 +95,7 @@ class LeadController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id
             ? Lead::with([
@@ -121,6 +130,24 @@ class LeadController extends Controller
         $meetings  = $id ? $form_data->meetings->sortByDesc('scheduled_start_at') : collect();
         $quotation = $id ? $form_data->quotation : null;
         $order     = $quotation?->order;
+
+        // If called via API or expects JSON, return structured JSON payload suitable for Postman
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'form_data' => $form_data ? $form_data->toArray() : null,
+                'sources' => $sources,
+                'segments' => $segments,
+                'customerTypes' => $customerTypes,
+                'industries' => $industries,
+                'jabatans' => $jabatans,
+                'regions' => $regions,
+                'products' => $products,
+                'provinces' => $provinces,
+                'meetings' => $meetings,
+                'quotation' => $quotation,
+                'order' => $order,
+            ]);
+        }
 
         return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order'));
     }
