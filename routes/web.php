@@ -26,7 +26,9 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // routes/web.php
+    // =====================================
+    // DASHBOARD 
+    // =====================================
     Route::post('dashboard/sales-achievement-donut', [DashboardController::class, 'salesAchievementDonut'])
         ->name('dashboard.sales-achievement-donut');
     Route::post('dashboard/sales-performance-bar', [DashboardController::class, 'salesPerformanceBar'])
@@ -122,9 +124,10 @@ Route::middleware('auth')->group(function () {
         Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
     });
 
-    // Orders moved to routes/api.php
 
-    // Web routes for Orders (render HTML pages with session/auth)
+    // =====================================
+    // ORDERS 
+    // =====================================
     Route::group([
         'prefix' => 'orders',
         'as' => 'orders.',
@@ -161,6 +164,9 @@ Route::middleware('auth')->group(function () {
         ]);
     });
 
+    // =====================================
+    // PAYMENT CONFIRMATION
+    // =====================================
     Route::group([
         'prefix' => 'payment-confirmation',
         'as' => 'payment-confirmation.',
@@ -170,6 +176,10 @@ Route::middleware('auth')->group(function () {
         Route::post('lead/{lead}/terms/{term}/confirm-payment', 'PaymentConfirmationController@confirmPayment')->name('terms.payment.confirm');
     });
 
+
+    // =====================================
+    // QUOTATIONS
+    // =====================================
     Route::group([
         'prefix' => 'quotations',
         'as' => 'quotations.',
@@ -183,14 +193,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
     });
 
+    // =====================================
+    // FINANCE REQUEST (API)
+    // =====================================
     Route::prefix('finance-requests')
         ->name('finance-requests.')
         ->group(function () {
-
             Route::get('/', [FinanceRequestController::class, 'index'])->name('index');
-            Route::post('/list', [FinanceRequestController::class, 'list'])->name('list');
-            Route::post('/{id}/approve', [FinanceRequestController::class, 'approve'])->name('approve');
-            Route::post('/{id}/reject', [FinanceRequestController::class, 'reject'])->name('reject');
             Route::get('/{id}', [FinanceRequestController::class, 'form'])->name('form');
         });
 
@@ -205,11 +214,10 @@ Route::middleware('auth')->group(function () {
             ->get();
     })->name('api.meeting-expense-details');
 
-    Route::post('finance-requests/approve-with-realization', [FinanceRequestController::class, 'approveWithRealization'])
-        ->name('finance-requests.approve-with-realization');
 
-
-    // Masters
+    // =====================================
+    // MASTERS
+    // =====================================
     Route::group([
         'prefix' => 'masters',
         'as' => 'masters.',
@@ -305,7 +313,9 @@ Route::middleware('auth')->group(function () {
         });
     });
 
-    // Users
+    // =====================================
+    // USERS
+    // =====================================
     Route::group([
         'prefix' => 'users',
         'as' => 'users.',
@@ -334,6 +344,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('permissions/delete/{id}', 'PermissionController@delete')->name('permissions.delete');
     });
 
+
+    // =====================================
+    // API
+    // =====================================
     Route::group([
         'prefix' => 'api',
         'as' => 'api.',
@@ -344,7 +358,9 @@ Route::middleware('auth')->group(function () {
         Route::apiResource('permissions', 'PermissionController');
     });
 
-    // Settings
+    // =====================================
+    // SETTINGS
+    // =====================================
     Route::group([
         'prefix' => 'settings',
         'as' => 'settings.',

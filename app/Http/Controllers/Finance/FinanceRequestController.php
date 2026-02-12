@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Log;
 
 class FinanceRequestController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->pageTitle = 'Finance Requests';
         $counts = [
@@ -38,6 +38,10 @@ class FinanceRequestController extends Controller
             'payment-confirmation' => \App\Models\Orders\FinanceRequest::where('request_type', 'payment-confirmation')->count(),
             'expense-realization' => Schema::hasTable('expense_realizations') ? \App\Models\Orders\ExpenseRealization::count() : 0,
         ];
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['counts' => $counts, 'pageTitle' => $this->pageTitle]);
+        }
 
         return $this->render('pages.finance.requests.index', compact('counts'));
     }
@@ -217,7 +221,7 @@ class FinanceRequestController extends Controller
         return null;
     }
 
-    public function form($id)
+    public function form(Request $request, $id)
     {
         $financeRequest = FinanceRequest::with(['requester', 'approver'])->findOrFail($id);
         $order = null;
@@ -239,6 +243,10 @@ class FinanceRequestController extends Controller
             $order = Order::with('orderItems', 'paymentTerms', 'lead')->find($orderId);
         } elseif ($financeRequest->request_type === 'meeting-expense') {
             $meetingExpense = MeetingExpense::with(['details.expenseType', 'meeting.lead'])->find($financeRequest->reference_id);
+        }
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(compact('financeRequest', 'order', 'termNo', 'meetingExpense', 'proforma'));
         }
 
         return $this->render('pages.finance.requests.form', compact('financeRequest', 'order', 'termNo', 'meetingExpense', 'proforma'));
@@ -278,9 +286,17 @@ class FinanceRequestController extends Controller
             }
 
             DB::commit();
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => true, 'message' => 'Request approved successfully.']);
+            }
+
             return redirect()->route('finance-requests.index')->with('success', 'Request approved successfully.');
         } catch (\Exception $e) {
             DB::rollback();
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => 'Failed to approve request: ' . $e->getMessage()], 500);
+            }
+
             return back()->with('error', 'Failed to approve request: ' . $e->getMessage());
         }
     }
@@ -373,14 +389,14 @@ class FinanceRequestController extends Controller
             'file_path'   => 'storage/proformas/PROFORMA_' . $proforma->id . '.pdf',
             'mime_type'   => 'application/pdf',
             'size'        => 0,
-            'uploaded_by' => auth()->id(),
+            'uploaded_by' => Auth::id(),
         ]);
 
         PaymentLog::create([
             'quotation_id' => $proforma->quotation_id,
             'proforma_id'  => $proforma->id,
             'type'         => 'proforma',
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'logged_at'    => now(),
         ]);
     }
@@ -411,7 +427,7 @@ class FinanceRequestController extends Controller
                 'file_path'   => 'storage/proformas/PROFORMA_' . $proforma->id . '.pdf',
                 'mime_type'   => 'application/pdf',
                 'size'        => 0,
-                'uploaded_by' => auth()->id(),
+                'uploaded_by' => Auth::id(),
             ]);
         }
 
@@ -430,21 +446,21 @@ class FinanceRequestController extends Controller
             'file_path'   => 'storage/invoices/' . $invoice->invoice_no . '.pdf',
             'mime_type'   => 'application/pdf',
             'size'        => 0,
-            'uploaded_by' => auth()->id(),
+            'uploaded_by' => Auth::id(),
         ]);
 
         PaymentLog::create([
             'quotation_id' => $quotation->id,
             'invoice_id'   => $invoice->id,
             'type'         => 'invoice',
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'logged_at'    => now(),
         ]);
 
         QuotationLog::create([
             'quotation_id' => $quotation->id,
             'action'       => 'invoice_created',
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'logged_at'    => now(),
         ]);
     }
@@ -492,7 +508,7 @@ class FinanceRequestController extends Controller
             'file_path'   => 'storage/' . $filePath,
             'mime_type'   => 'application/pdf',
             'size'        => strlen($pdf->output()),
-            'uploaded_by' => auth()->id(),
+            'uploaded_by' => Auth::id(),
         ]);
 
         $invoice->update(['attachment_id' => $attachment->id]);
@@ -502,14 +518,14 @@ class FinanceRequestController extends Controller
             'proforma_id'  => $payment->proforma->id,
             'invoice_id'   => $invoice->id,
             'type'         => 'invoice',
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'logged_at'    => now(),
         ]);
 
         QuotationLog::create([
             'quotation_id' => $payment->proforma->quotation->id,
             'action'       => 'invoice_created',
-            'user_id'      => auth()->id(),
+            'user_id'      => Auth::id(),
             'logged_at'    => now(),
         ]);
 
@@ -685,10 +701,14 @@ class FinanceRequestController extends Controller
 
         $financeRequest->update([
             'status' => 'rejected',
-            'approver_id' => auth()->id(),
+            'approver_id' => Auth::id(),
             'decided_at' => now(),
             'notes' => $request->input('notes'),
         ]);
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['success' => true, 'message' => 'Request rejected']);
+        }
 
         return back()->with('status', 'Request rejected');
     }

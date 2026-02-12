@@ -23,7 +23,6 @@ Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potenti
 
 
 // Authentication (API)
-
 Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('api.login');
 Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.logout')->middleware('auth');
 
@@ -32,7 +31,6 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 // =====================================
 // ORDERS (API)
 // =====================================
-
 Route::group([
     'prefix' => 'orders',
     'as' => 'orders.',
@@ -54,5 +52,18 @@ Route::group([
 });
 
 // =====================================
-// FINANCE (API)
+// FINANCE REQUEST (API)
 // =====================================
+Route::group([
+    'prefix' => 'finance-requests',
+    'as' => 'finance-requests.',
+    'namespace' => 'App\\Http\\Controllers\\Finance',
+    'middleware' => ['api'],
+], function () {
+    Route::get('/', 'FinanceRequestController@index')->name('index');
+    Route::post('/list', 'FinanceRequestController@list')->name('list');
+    Route::post('/{id}/approve', 'FinanceRequestController@approve')->name('approve');
+    Route::post('/{id}/reject', 'FinanceRequestController@reject')->name('reject');
+    Route::get('/{id}', 'FinanceRequestController@form')->name('form');
+    Route::post('/approve-with-realization', 'FinanceRequestController@approveWithRealization')->name('approve-with-realization');
+});

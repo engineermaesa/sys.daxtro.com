@@ -53,11 +53,11 @@ class OrderController extends Controller
             'paymentTerms',
             'progressLogs.user',
         ])
-        ->select('orders.*')
-        ->join('leads', 'orders.lead_id', '=', 'leads.id')
-        ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
-        ->leftJoin('ref_branches', 'ref_regions.branch_id', '=', 'ref_branches.id')
-        ->leftJoin('quotations', 'quotations.lead_id', '=', 'leads.id');
+            ->select('orders.*')
+            ->join('leads', 'orders.lead_id', '=', 'leads.id')
+            ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
+            ->leftJoin('ref_branches', 'ref_regions.branch_id', '=', 'ref_branches.id')
+            ->leftJoin('quotations', 'quotations.lead_id', '=', 'leads.id');
 
         if ($request->filled('segment_id')) {
             $query->whereHas('lead', fn($q) => $q->where('segment_id', $request->segment_id));
@@ -158,7 +158,7 @@ class OrderController extends Controller
 
                 return $html;
             })
-            ->rawColumns(['actions','status'])
+            ->rawColumns(['actions', 'status'])
             ->make(true);
     }
 
@@ -167,8 +167,8 @@ class OrderController extends Controller
         $order = Order::with('lead.quotation.proformas.invoice.payments', 'lead.quotation.proformas.paymentConfirmation', 'paymentTerms', 'progressLogs.user')->findOrFail($id);
 
         $quotation = Quotation::with(['proformas' => function ($q) {
-                $q->orderBy('term_no');
-            }, 'proformas.paymentConfirmation.attachment'])
+            $q->orderBy('term_no');
+        }, 'proformas.paymentConfirmation.attachment'])
             ->where('lead_id', $order->lead_id)
             ->first();
 
@@ -196,7 +196,7 @@ class OrderController extends Controller
         foreach ($order->paymentTerms as $paymentTerm) {
             $termNo   = $paymentTerm->term_no;
             $proforma = $quotation?->proformas->firstWhere('term_no', $termNo);
-            $invoiceRef = $order->id.'-'.$termNo;
+            $invoiceRef = $order->id . '-' . $termNo;
 
             $invoiceDecision = $invoiceDecisions[$invoiceRef] ?? null;
             $proformaDecision = $proforma ? ($proformaDecisions[$proforma->id] ?? null) : null;
@@ -252,10 +252,10 @@ class OrderController extends Controller
         ]);
 
         if ($request->expectsJson() || $request->is('api/*')) {
-            return response()->json(['message' => 'Proforma requested for term '.$term, 'proforma' => $proforma], 200);
+            return response()->json(['message' => 'Proforma requested for term ' . $term, 'proforma' => $proforma], 200);
         }
 
-        return back()->with('status', 'Proforma requested for term '.$term);
+        return back()->with('status', 'Proforma requested for term ' . $term);
     }
 
     public function paymentConfirmationForm(Request $request, $orderId, $term)
@@ -312,10 +312,10 @@ class OrderController extends Controller
         ]);
 
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['message' => 'Payment confirmation submitted for term '.$term, 'payment_id' => $payment->id], 200);
+            return response()->json(['message' => 'Payment confirmation submitted for term ' . $term, 'payment_id' => $payment->id], 200);
         }
 
-        return redirect()->route('orders.show', $orderId)->with('status', 'Payment confirmation submitted for term '.$term);
+        return redirect()->route('orders.show', $orderId)->with('status', 'Payment confirmation submitted for term ' . $term);
     }
 
     public function requestInvoice(Request $request, $orderId, $term)
@@ -324,16 +324,16 @@ class OrderController extends Controller
 
         FinanceRequest::create([
             'request_type' => 'invoice',
-            'reference_id' => $orderId.'-'.$term,
+            'reference_id' => $orderId . '-' . $term,
             'requester_id' => Auth::user()->id,
             'status'       => 'pending',
         ]);
 
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['message' => 'Invoice requested for term '.$term], 200);
+            return response()->json(['message' => 'Invoice requested for term ' . $term], 200);
         }
 
-        return back()->with('status', 'Invoice requested for term '.$term);
+        return back()->with('status', 'Invoice requested for term ' . $term);
     }
 
     public function export(Request $request)
@@ -449,7 +449,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Export ready', 'count' => $orders->count()]);
         }
 
-        return response()->download($file, 'orders_'.date('Ymd_His').'.xlsx')->deleteFileAfterSend(true);
+        return response()->download($file, 'orders_' . date('Ymd_His') . '.xlsx')->deleteFileAfterSend(true);
     }
 
     public function counts(Request $request)
@@ -520,10 +520,10 @@ class OrderController extends Controller
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
         foreach ($rows as $rIndex => $row) {
-            $xml .= '<row r="'.($rIndex + 1).'">';
+            $xml .= '<row r="' . ($rIndex + 1) . '">';
             foreach ($row as $cIndex => $value) {
                 $cell = $this->columnLetter($cIndex + 1) . ($rIndex + 1);
-                $xml  .= '<c r="'.$cell.'" t="inlineStr"><is><t>'.htmlspecialchars((string) $value).'</t></is></c>';
+                $xml  .= '<c r="' . $cell . '" t="inlineStr"><is><t>' . htmlspecialchars((string) $value) . '</t></is></c>';
             }
             $xml .= '</row>';
         }
