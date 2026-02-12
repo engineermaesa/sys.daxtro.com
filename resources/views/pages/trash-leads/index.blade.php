@@ -193,7 +193,7 @@
 @section('scripts')
 <script>
   async function loadColdTrashLeads(){
-    const response = await fetch("{{ route('cold.list') }}", {
+    const response = await fetch("{{ route('trash-leads.cold.list') }}", {
       method: "POST",
       headers: {
           "Content-Type": "application/json",
