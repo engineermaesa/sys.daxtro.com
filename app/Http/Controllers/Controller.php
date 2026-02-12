@@ -69,4 +69,47 @@ class Controller extends BaseController
 
         return response()->json($result, $status);
     }
+
+    /**
+     * Respond depending on request preference or explicit format.
+     * - format can be: null|'json'|'view'|'plain'
+     * - if format is null, we detect by: query param `format`, wantsJson(), ajax(), or `api/*` path
+     * - $view may be null when not returning a blade view
+     */
+    public function respondWith($request, $view = null, array $data = [], $plain = null, $format = null)
+    {
+        // determine format
+        if (! $format) {
+            if ($request->query('format')) {
+                $format = $request->query('format');
+            } elseif (
+                $request->wantsJson() ||
+                $request->ajax() ||
+                str_contains($request->header('Accept', ''), 'application/json') ||
+                str_contains(strtolower($request->header('User-Agent', '')), 'postman') ||
+                $request->header('X-Requested-With') === 'XMLHttpRequest'
+            ) {
+                $format = 'json';
+            } else {
+                $format = 'view';
+            }
+        }
+
+        if ($format === 'json') {
+            return response()->json($data);
+        }
+
+        if ($format === 'plain') {
+            $body = $plain ?? json_encode($data);
+            return response($body, 200)->header('Content-Type', 'text/plain');
+        }
+
+        // view (blade)
+        if ($view) {
+            return $this->render($view, $data);
+        }
+
+        // fallback to json
+        return response()->json($data);
+    }
 }

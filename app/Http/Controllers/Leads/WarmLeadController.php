@@ -24,8 +24,8 @@ class WarmLeadController extends Controller
         if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
         } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) {
-                $q->where('branch_id', auth()->user()->branch_id);
+            $claims->whereHas('sales', function ($q) use ($request) {
+                $q->where('branch_id', $request->user()->branch_id);
             });
         }
 
@@ -34,6 +34,34 @@ class WarmLeadController extends Controller
             $claims->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->firstApprovalBetween($request->start_date, $request->end_date);
             });
+        }
+
+        // If called via API (Postman), return plain JSON payload
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $items = $claims->get()->map(function ($row) {
+                $quotation = $row->lead->quotation;
+                return [
+                    'id' => $row->id,
+                    'lead_id' => $row->lead_id ?? ($row->lead->id ?? null),
+                    'claimed_at' => $row->claimed_at,
+                    'lead_name' => $row->lead->name ?? null,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'needs' => $row->lead->needs ?? null,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
+                    'quotation' => $quotation ? [
+                        'id' => $quotation->id,
+                        'status' => $quotation->status,
+                        'grand_total' => $quotation->grand_total ?? null,
+                    ] : null,
+                ];
+            });
+
+            return response()->json(['data' => $items]);
         }
 
         return DataTables::of($claims)
@@ -210,6 +238,21 @@ class WarmLeadController extends Controller
                 ->where('decision', 'approve')
                 ->latest('decided_at')
                 ->first();
+        }
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'claim' => $claim,
+                'products' => $products,
+                'quotation' => $quotation,
+                'isEditable' => $isEditable,
+                'priceField' => $priceField,
+                'segmentName' => $segmentName,
+                'segments' => $segments,
+                'defaultSegment' => $claim->lead->segment->name ?? '',
+                'rejection' => $rejection,
+                'approval' => $approval,
+            ]);
         }
 
         return $this->render('pages.leads.warm.generate-quotation', [

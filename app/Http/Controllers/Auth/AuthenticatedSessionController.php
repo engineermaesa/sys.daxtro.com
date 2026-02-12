@@ -24,7 +24,22 @@ class AuthenticatedSessionController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Authenticated',
+                    'user' => Auth::user(),
+                ], 200);
+            }
+
             return redirect()->intended(route('dashboard'));
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'errors' => [
+                    'email' => __('auth.failed'),
+                ],
+            ], 422);
         }
 
         return back()->withErrors([
@@ -37,6 +52,11 @@ class AuthenticatedSessionController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Logged out',
+            ], 200);
+        }
 
         return redirect()->route('login');
     }

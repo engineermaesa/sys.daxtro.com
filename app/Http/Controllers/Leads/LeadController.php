@@ -547,11 +547,11 @@ class LeadController extends Controller
         return $this->setJsonResponse('Lead moved to trash');
     }
 
-    public function my()
+    public function my(Request $request)
     {
         AutoTrashService::triggerIfNeeded();
-            
-        $user = auth()->user();
+        
+        $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
             ->with('lead');
@@ -570,6 +570,20 @@ class LeadController extends Controller
         $deal = $counts[LeadStatus::DEAL] ?? 0;
 
         $all = $cold + $warm + $hot + $deal;
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'leadCounts' => [
+                    'all'  => $all,
+                    'cold' => $counts[LeadStatus::COLD] ?? 0,
+                    'warm' => $counts[LeadStatus::WARM] ?? 0,
+                    'hot'  => $counts[LeadStatus::HOT] ?? 0,
+                    'deal' => $counts[LeadStatus::DEAL] ?? 0,
+                ],
+                'activities' => LeadActivityList::all(),
+            ]);
+        }
+
         return view('pages.leads.my', [
             'leadCounts' => [
                 'all'  => $all,
@@ -711,7 +725,7 @@ class LeadController extends Controller
         ]);
     }
 
-    public function manage()
+    public function manage(Request $request)
     {
         $user = request()->user();
         $userRole = $user->role?->code;
@@ -751,6 +765,17 @@ class LeadController extends Controller
     ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'branches' => $branches,
+                'regions' => $regions,
+                'leadCounts' => $leadCounts,
+                'activities' => $activities,
+                'user' => $user,
+                'userBranchId' => $userBranchId,
+            ]);
+        }
 
         return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId'));
     }
@@ -992,7 +1017,7 @@ class LeadController extends Controller
             ->make(true);
     }
 
-    public function delete($id)
+    public function delete(Request $request, $id)
     {
         $lead = Lead::with(['claims', 'statusLogs'])->findOrFail($id);
 
@@ -1159,6 +1184,16 @@ class LeadController extends Controller
         }
 
         $file = $this->createXlsx($rows);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $content = file_get_contents($file);
+            $base64 = base64_encode($content);
+            @unlink($file);
+            return response()->json([
+                'filename' => 'leads_' . date('Ymd_His') . '.xlsx',
+                'content_base64' => $base64,
+            ]);
+        }
 
         return response()->download($file, 'leads_' . date('Ymd_His') . '.xlsx')->deleteFileAfterSend(true);
     }
