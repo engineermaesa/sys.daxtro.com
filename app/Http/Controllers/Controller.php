@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\Http\Controllers;
 
@@ -11,7 +11,7 @@ class Controller extends BaseController
     public $pageTitle;
     public $breadCrumbs = [];
     public $user;
-  
+
     const INTERNAL_SERVER_ERROR_MESSAGE = 'An unexpected error occurred. Please try again later.';
 
     public function __construct()
@@ -30,22 +30,24 @@ class Controller extends BaseController
      * @param array $data The data to pass to the view.
      * @return \Illuminate\View\View The rendered view.
      */
-    public function render($view, $data = []) {
+    public function render($view, $data = [])
+    {
         $user = Auth::user();
-        
+
         $data['page_title']     = $this->pageTitle ?? 'PSSI';
         $data['bread_crumbs']   = $this->breadCrumbs;
         $data['assets_version'] = env('ASSETS_VERSION', '1.0.0');
 
         if ($user) {
-            $data['user'] = $user;            
+            $data['user'] = $user;
         }
 
         return view($view, $data);
     }
 
-    
-    public function setJsonResponse($message, $data = [], $status = 200, $errors = null) {
+
+    public function setJsonResponse($message, $data = [], $status = 200, $errors = null)
+    {
         $result = [
             'message' => $message
         ];
@@ -63,7 +65,7 @@ class Controller extends BaseController
                 'result'  => $result,
                 'errors'  => $errors,
             ];
-    
+
             Log::channel('custom_error')->error($errors->getMessage(), $logData);
         }
 
@@ -76,7 +78,7 @@ class Controller extends BaseController
      * - if format is null, we detect by: query param `format`, wantsJson(), ajax(), or `api/*` path
      * - $view may be null when not returning a blade view
      */
-    public function respondWith($request, $view = null, array $data = [], $plain = null, $format = null)
+    public function respondWith($request, $view = null, array $data = [], $plain = null, $format = null, $status = 200)
     {
         // determine format
         if (! $format) {
@@ -85,6 +87,7 @@ class Controller extends BaseController
             } elseif (
                 $request->wantsJson() ||
                 $request->ajax() ||
+                $request->is('api/*') ||
                 str_contains($request->header('Accept', ''), 'application/json') ||
                 str_contains(strtolower($request->header('User-Agent', '')), 'postman') ||
                 $request->header('X-Requested-With') === 'XMLHttpRequest'

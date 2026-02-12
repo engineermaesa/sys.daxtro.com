@@ -29,21 +29,21 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 
 // Orders (API)
 Route::group([
-	'prefix' => 'orders',
-	'as' => 'orders.',
-	'namespace' => 'App\\Http\\Controllers\\Orders',
-	'middleware' => ['web'],
+    'prefix' => 'orders',
+    'as' => 'orders.',
+    'namespace' => 'App\\Http\\Controllers\\Orders',
+    'middleware' => ['api'],
 ], function () {
-	Route::get('/', 'OrderController@index')->name('index');
-	Route::post('/list', 'OrderController@list')->name('list');
-	Route::post('/counts', 'OrderController@counts')->name('counts');
-	Route::get('/export', 'OrderController@export')->name('export');
-	Route::get('/{id}', 'OrderController@show')->name('show');
-	Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
-	Route::post('/{id}/progress', 'OrderProgressController@save')->name('progress.save');
-	Route::get('/{id}/progress-logs', 'OrderProgressController@logs')->name('progress.logs');
-	Route::get('/{id}/activity-logs', 'OrderController@activityLogs')->name('activity.logs');
-	Route::post('/{order}/terms/{term}/request-proforma', 'OrderController@requestProforma')->name('terms.proforma.request');
-	Route::post('/{order}/terms/{term}/request-invoice', 'OrderController@requestInvoice')->name('terms.invoice.request');
-	Route::get('/file/{type}/{file}', 'OrderController@downloadFile')->name('file.download');
+    Route::get('/', 'OrderController@index')->name('index');
+    Route::post('/list', 'OrderController@list')->name('list');
+    Route::post('/counts', 'OrderController@counts')->name('counts');
+    Route::get('/export', 'OrderController@export')->name('export');
+    Route::get('/{id}', 'OrderController@show')->name('show');
+    Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
+    Route::post('/{id}/progress', 'OrderProgressController@save')->name('progress.save');
+    Route::get('/{id}/progress-logs', 'OrderProgressController@logs')->name('progress.logs');
+    Route::get('/{id}/activity-logs', 'OrderController@activityLogs')->name('activity.logs');
+    Route::post('/{order}/terms/{term}/request-proforma', 'OrderController@requestProforma')->name('terms.proforma.request');
+    Route::post('/{order}/terms/{term}/request-invoice', 'OrderController@requestInvoice')->name('terms.invoice.request');
+    Route::get('/file/{type}/{file}', 'OrderController@downloadFile')->name('file.download');
 });

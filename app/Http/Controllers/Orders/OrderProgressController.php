@@ -12,11 +12,7 @@ class OrderProgressController extends Controller
     public function form(Request $request, $orderId)
     {
         $order = Order::findOrFail($orderId);
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['order' => $order]);
-        }
-
-        return $this->render('pages.orders.progress-form', compact('order'));
+        return $this->respondWith($request, 'pages.orders.progress-form', compact('order'));
     }
 
     public function save(Request $request, $orderId)

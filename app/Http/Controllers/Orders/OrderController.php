@@ -306,7 +306,7 @@ class OrderController extends Controller
         FinanceRequest::create([
             'request_type' => 'payment-confirmation',
             'reference_id' => $payment->id,
-            'requester_id' => auth()->id(),
+            'requester_id' => auth()->user()->id,
             'status' => 'pending',
         ]);
 
@@ -324,7 +324,7 @@ class OrderController extends Controller
         FinanceRequest::create([
             'request_type' => 'invoice',
             'reference_id' => $orderId.'-'.$term,
-            'requester_id' => auth()->id(),
+            'requester_id' => auth()->user()->id,
             'status'       => 'pending',
         ]);
 
