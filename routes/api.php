@@ -27,7 +27,12 @@ Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potenti
 Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('api.login');
 Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.logout')->middleware('auth');
 
-// Orders (API)
+
+
+// =====================================
+// ORDERS (API)
+// =====================================
+
 Route::group([
     'prefix' => 'orders',
     'as' => 'orders.',
@@ -47,3 +52,7 @@ Route::group([
     Route::post('/{order}/terms/{term}/request-invoice', 'OrderController@requestInvoice')->name('terms.invoice.request');
     Route::get('/file/{type}/{file}', 'OrderController@downloadFile')->name('file.download');
 });
+
+// =====================================
+// FINANCE (API)
+// =====================================

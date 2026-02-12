@@ -208,8 +208,8 @@ Route::middleware('auth')->group(function () {
     Route::post('finance-requests/approve-with-realization', [FinanceRequestController::class, 'approveWithRealization'])
         ->name('finance-requests.approve-with-realization');
 
-    
-        // Masters
+
+    // Masters
     Route::group([
         'prefix' => 'masters',
         'as' => 'masters.',
