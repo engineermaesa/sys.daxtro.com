@@ -17,3 +17,5 @@ Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sour
 Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList']);
 Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList']);
 Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
+
+

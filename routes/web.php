@@ -115,7 +115,7 @@ Route::middleware('auth')->group(function () {
     ], function () {
         Route::get('/', 'TrashLeadController@index')->name('index');
         Route::get('form/{id}', 'TrashLeadController@form')->name('form');
-        Route::post('cold/list', 'TrashLeadController@coldList')->name('cold.list');
+        Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
         Route::post('warm/list', 'TrashLeadController@warmList')->name('warm.list');
         Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
         Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');

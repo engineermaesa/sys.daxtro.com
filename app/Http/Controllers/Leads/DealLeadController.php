@@ -11,7 +11,7 @@ class DealLeadController extends Controller
 {
     public function myDealList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry'])
+        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
             ->whereNull('released_at');
 
@@ -34,8 +34,13 @@ class DealLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name)
+            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
+            ->addColumn('phone', fn($row) => $row->lead->phone)
+            ->addColumn('needs', fn($row) => $row->lead->needs)
             ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
             ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
+            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
             ->addColumn('meeting_status', fn() => '<span class="badge bg-success">Deal</span>')
             ->addColumn('industry', function ($row) {
                 return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');

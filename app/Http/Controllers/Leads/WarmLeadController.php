@@ -17,7 +17,7 @@ class WarmLeadController extends Controller
     public function myWarmList(Request $request)
     {
         $roleCode = $request->user()->role?->code;
-        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry'])
+        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
@@ -39,8 +39,14 @@ class WarmLeadController extends Controller
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
+            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
+            ->addColumn('phone', fn($row) => $row->lead->phone)
             ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
+            ->addColumn('needs', fn($row) => $row->lead->needs ?: '-')
+            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
+            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
+            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
+            
             ->addColumn('industry', function ($row) {
                 return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
             })

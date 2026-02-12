@@ -270,4 +270,6 @@ class TrashLeadController extends Controller
 
         return $this->setJsonResponse('Lead assigned successfully');
     }
+
+    
 }
