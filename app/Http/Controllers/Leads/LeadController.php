@@ -10,14 +10,24 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
 use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LeadController extends Controller
 {
-    public function available()
+    public function available(Request $request)
     {
         $branches = Branch::all();
         $regions  = Region::with('province:id,name')
             ->get(['id', 'name', 'province_id', 'branch_id']);
+
+        // If request comes from API (route starting with /api/) or expects JSON, return JSON
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'branches' => $branches,
+                'regions' => $regions
+            ]);
+        }
+
         return view('pages.leads.available', compact('branches', 'regions'));
     }
 
@@ -86,7 +96,7 @@ class LeadController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id
             ? Lead::with([
@@ -121,6 +131,24 @@ class LeadController extends Controller
         $meetings  = $id ? $form_data->meetings->sortByDesc('scheduled_start_at') : collect();
         $quotation = $id ? $form_data->quotation : null;
         $order     = $quotation?->order;
+
+        // If called via API or expects JSON, return structured JSON payload suitable for Postman
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'form_data' => $form_data ? $form_data->toArray() : null,
+                'sources' => $sources,
+                'segments' => $segments,
+                'customerTypes' => $customerTypes,
+                'industries' => $industries,
+                'jabatans' => $jabatans,
+                'regions' => $regions,
+                'products' => $products,
+                'provinces' => $provinces,
+                'meetings' => $meetings,
+                'quotation' => $quotation,
+                'order' => $order,
+            ]);
+        }
 
         return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order'));
     }
@@ -471,7 +499,7 @@ class LeadController extends Controller
 
             return $this->setJsonResponse('Lead saved successfully');
         } catch (\Exception $e) {
-            \Log::error('Lead Save Error:', [
+            Log::error('Lead Save Error:', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -520,11 +548,11 @@ class LeadController extends Controller
         return $this->setJsonResponse('Lead moved to trash');
     }
 
-    public function my()
+    public function my(Request $request)
     {
         AutoTrashService::triggerIfNeeded();
-            
-        $user = auth()->user();
+        
+        $user = $request->user();
 
         $claims = LeadClaim::whereNull('released_at')
             ->with('lead');
@@ -543,6 +571,20 @@ class LeadController extends Controller
         $deal = $counts[LeadStatus::DEAL] ?? 0;
 
         $all = $cold + $warm + $hot + $deal;
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'leadCounts' => [
+                    'all'  => $all,
+                    'cold' => $counts[LeadStatus::COLD] ?? 0,
+                    'warm' => $counts[LeadStatus::WARM] ?? 0,
+                    'hot'  => $counts[LeadStatus::HOT] ?? 0,
+                    'deal' => $counts[LeadStatus::DEAL] ?? 0,
+                ],
+                'activities' => LeadActivityList::all(),
+            ]);
+        }
+
         return view('pages.leads.my', [
             'leadCounts' => [
                 'all'  => $all,
@@ -684,7 +726,7 @@ class LeadController extends Controller
         ]);
     }
 
-    public function manage()
+    public function manage(Request $request)
     {
         $user = request()->user();
         $userRole = $user->role?->code;
@@ -724,6 +766,17 @@ class LeadController extends Controller
     ];
 
         $activities = \App\Models\Leads\LeadActivityList::all();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'branches' => $branches,
+                'regions' => $regions,
+                'leadCounts' => $leadCounts,
+                'activities' => $activities,
+                'user' => $user,
+                'userBranchId' => $userBranchId,
+            ]);
+        }
 
         return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId'));
     }
@@ -965,7 +1018,7 @@ class LeadController extends Controller
             ->make(true);
     }
 
-    public function delete($id)
+    public function delete(Request $request, $id)
     {
         $lead = Lead::with(['claims', 'statusLogs'])->findOrFail($id);
 
@@ -1132,6 +1185,16 @@ class LeadController extends Controller
         }
 
         $file = $this->createXlsx($rows);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $content = file_get_contents($file);
+            $base64 = base64_encode($content);
+            @unlink($file);
+            return response()->json([
+                'filename' => 'leads_' . date('Ymd_His') . '.xlsx',
+                'content_base64' => $base64,
+            ]);
+        }
 
         return response()->download($file, 'leads_' . date('Ymd_His') . '.xlsx')->deleteFileAfterSend(true);
     }

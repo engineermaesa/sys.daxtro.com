@@ -60,12 +60,15 @@ Route::middleware('auth')->group(function () {
         'as' => '',
         'namespace' => 'App\\Http\\Controllers\\Leads',
     ], function () {
+        
         Route::get('/available', 'LeadController@available')->name('leads.available');
         Route::post('/available/list', 'LeadController@availableList')->name('leads.available.list');
         Route::get('/available/export', 'LeadController@availableExport')->name('leads.available.export');
         Route::get('/available/form/{id?}', 'LeadController@form')->name('leads.form');
         Route::post('/available/save/{id?}', 'LeadController@save')->name('leads.save');
+
         Route::post('/{id}/claim', 'LeadController@claim')->name('leads.claim');
+
         Route::get('/{id}/activity-logs', 'LeadActivityController@logs')->name('leads.activity.logs');
         Route::post('/{id}/activity-logs', 'LeadActivityController@save')->name('leads.activity.save');
 
@@ -118,7 +121,7 @@ Route::middleware('auth')->group(function () {
     ], function () {
         Route::get('/', 'TrashLeadController@index')->name('index');
         Route::get('form/{id}', 'TrashLeadController@form')->name('form');
-        Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
+        Route::post('cold/list', 'TrashLeadController@coldList')->name('cold.list');
         Route::post('warm/list', 'TrashLeadController@warmList')->name('warm.list');
         Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
         Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');

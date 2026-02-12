@@ -370,7 +370,7 @@
                     <tbody id="allBody"></tbody>
                 </table>
 
-                <div class="d-flex justify-content-between align-items-center my-2">
+                <div class="d-flex justify-content-between align-items-center my-2 px-3">
                     <div>
                         Show
                         <select id="allPageSizeSelect" class="form-select form-select-sm d-inline-block w-auto ms-2" onchange="changePageSize('all', this.value)">

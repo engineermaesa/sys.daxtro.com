@@ -26,14 +26,18 @@ class ImportLeadController extends Controller
         }
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeSuperAdmin();
         $this->pageTitle = 'Import Leads';
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json(['pageTitle' => 'Import Leads']);
+        }
+
         return $this->render('pages.leads.import');
     }
 
-    public function template()
+    public function template(Request $request)
     {
         $this->authorizeSuperAdmin();
 
@@ -110,9 +114,22 @@ class ImportLeadController extends Controller
 
         $this->addMasterSheet($spreadsheet, 'Sales NIP', ['nip', 'name'], $users);
 
-        // Download response
+        // Download response or return base64 for API
         $spreadsheet->setActiveSheetIndex(0);
         $writer = new Xlsx($spreadsheet);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $tmp = tempnam(sys_get_temp_dir(), 'lead_import_') . '.xlsx';
+            $writer->save($tmp);
+            $content = file_get_contents($tmp);
+            $base64 = base64_encode($content);
+            @unlink($tmp);
+            return response()->json([
+                'filename' => 'lead_import_template.xlsx',
+                'content_base64' => $base64,
+            ]);
+        }
+
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
         }, 'lead_import_template.xlsx');
@@ -220,6 +237,18 @@ class ImportLeadController extends Controller
 
         session(['import_lead_rows' => $validRows]);
 
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'rows' => $rows,
+                'hasError' => $hasError,
+                'valid_count' => count($validRows),
+                'sources' => $sources,
+                'segments' => $segments,
+                'regions' => $regions,
+                'users' => $users,
+            ]);
+        }
+
         $this->pageTitle = 'Import Leads';
         return $this->render('pages.leads.import', [
             'rows'     => $rows,
@@ -237,6 +266,8 @@ class ImportLeadController extends Controller
 
         $rows = $request->input('rows', session('import_lead_rows', []));
 
+        $imported = 0;
+
         foreach ($rows as $row) {
             // skip invalid rows
             if (! LeadSource::where('id', $row['source_id'])->exists()
@@ -247,7 +278,7 @@ class ImportLeadController extends Controller
                 continue;
             }
 
-            DB::transaction(function () use ($row) {
+            DB::transaction(function () use ($row, &$imported) {
                 /* ----------------------------------------------------------
                 * status:  ― nip_sales present  →  LeadStatus::COLD
                 *          ― nip_sales null     →  LeadStatus::PUBLISHED
@@ -279,10 +310,18 @@ class ImportLeadController extends Controller
                         ]);
                     }
                 }
+                $imported++;
             });
         }
 
         session()->forget('import_lead_rows');
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'imported' => $imported,
+            ]);
+        }
 
         return redirect()
             ->route('leads.import')

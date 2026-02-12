@@ -42,6 +42,37 @@ class ColdLeadController extends Controller
         }
 
 
+        // If called via API (Postman), return plain JSON payload
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $items = $claims->get()->map(function ($row) {
+                $meeting = $row->lead->meetings()->latest()->first();
+
+                return [
+                    'id' => $row->id,
+                    'lead_id' => $row->lead_id,
+                    'name' => $row->lead->name,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone,
+                    'source' => $row->lead->source->name ?? null,
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
+                    'meeting' => $meeting ? [
+                        'id' => $meeting->id,
+                        'scheduled_end_at' => $meeting->scheduled_end_at,
+                        'is_online' => $meeting->is_online,
+                        'expense_status' => $meeting->expense->status ?? null,
+                        'reschedules_count' => $meeting->reschedules()->count(),
+                        'result' => $meeting->result,
+                    ] : null,
+                ];
+            });
+
+            return response()->json(['data' => $items]);
+        }
+
         return DataTables::of($claims)
             ->addColumn('name', fn($row) => $row->lead->name)
             ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
@@ -159,13 +190,13 @@ class ColdLeadController extends Controller
             ->make(true);
     }
 
-    public function meeting($claimId)
+    public function meeting(Request $request, $claimId)
     {
         $claim = LeadClaim::with('lead')->findOrFail($claimId);
         $meeting = $claim->lead->meetings()->latest()->first();
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
-        
+
         // Get products with default segment pricing
         $segmentName = strtolower($claim->lead->segment->name ?? '');
         $priceField = match ($segmentName) {
@@ -193,6 +224,21 @@ class ColdLeadController extends Controller
             $canReschedule = false;
         }
 
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'data' => $meeting,
+                'lead_id' => $claim->lead_id,
+                'expenseTypes' => $expenseTypes,
+                'meetingTypes' => $meetingTypes,
+                'products' => $products,
+                'regions' => $regions,
+                'isViewOnly' => $isViewOnly,
+                'canReschedule' => $canReschedule,
+                'rescheduleCount' => $rescheduleCount,
+                'cities' => config('cities'),
+            ]);
+        }
+
         return $this->render('pages.leads.cold.meeting', [
             'data'          => $meeting,
             'lead_id'       => $claim->lead_id,
@@ -207,7 +253,7 @@ class ColdLeadController extends Controller
     }
 
 
-    public function reschedule($meetingId)
+    public function reschedule(Request $request, $meetingId)
     {
         $meeting = LeadMeeting::with('reschedules', 'lead.segment')->findOrFail($meetingId);
         $expenseTypes = ExpenseType::all();
@@ -230,6 +276,21 @@ class ColdLeadController extends Controller
 
         $regions = Region::with('province:id,name')
             ->get(['id', 'name', 'province_id', 'branch_id']);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'data' => $meeting,
+                'lead_id' => $meeting->lead_id,
+                'expenseTypes' => $expenseTypes,
+                'meetingTypes' => $meetingTypes,
+                'products' => $products,
+                'regions' => $regions,
+                'isReschedule' => true,
+                'isViewOnly' => false,
+                'canReschedule' => false,
+                'cities' => config('cities'),
+            ]);
+        }
 
         return $this->render('pages.leads.cold.meeting', [
             'data' => $meeting,

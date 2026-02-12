@@ -144,6 +144,13 @@ class MeetingController extends Controller
                 }
 
                 DB::commit();
+                if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'message' => 'Meeting rescheduled successfully',
+                        'data' => $meeting,
+                    ]);
+                }
+
                 return $this->setJsonResponse('Meeting rescheduled successfully');
             }
 
@@ -166,6 +173,13 @@ class MeetingController extends Controller
             }
 
             DB::commit();
+            if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Meeting created successfully',
+                    'data' => $meeting,
+                ]);
+            }
+
             return $this->setJsonResponse('Meeting created successfully');
 
         } catch (\Exception $e) {
@@ -305,7 +319,7 @@ class MeetingController extends Controller
         }
     }
 
-    public function resultForm($id)
+    public function resultForm(Request $request, $id)
     {
         $meeting = LeadMeeting::with('expense')->findOrFail($id);
 
@@ -317,6 +331,10 @@ class MeetingController extends Controller
 
         if ($data->result && $data->result !== 'waiting') {
             abort(403, 'Meeting result already submitted.');
+        }
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json(['data' => $data]);
         }
 
         return view('pages.leads.cold.meeting-result', compact('data'));
@@ -388,10 +406,17 @@ class MeetingController extends Controller
             ]);
         }
 
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'message' => 'Meeting result saved successfully',
+                'meeting' => $meeting,
+            ]);
+        }
+
         return $this->setJsonResponse('Meeting result saved successfully');
     }
 
-    public function cancel($id)
+    public function cancel(Request $request, $id)
     {
         $meeting = LeadMeeting::with([
             'expense.details',
@@ -410,6 +435,10 @@ class MeetingController extends Controller
 
             $meeting->delete();
         });
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Meeting canceled']);
+        }
 
         return $this->setJsonResponse('Meeting canceled');
     }
