@@ -83,7 +83,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/form/{id?}', 'LeadController@form')->name('leads.my.form');
 
             Route::prefix('cold')->name('leads.my.cold.')->group(function () {
-                Route::post('/list', 'ColdLeadController@myColdList')->name('list');
+                // Route::post('/list', 'ColdLeadController@myColdList')->name('list');
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
                 Route::get('meeting/{claim}', 'ColdLeadController@meeting')->name('meeting');
                 Route::get('meeting/{id}/reschedule', 'ColdLeadController@reschedule')->name('meeting.reschedule');

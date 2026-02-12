@@ -7,7 +7,6 @@
       <strong>Finance Requests</strong>
     </div>
     <div class="card-body pt-4">
-
       <ul class="nav nav-tabs mb-3 w-100 no-border full-clean" id="financeTabs" role="tablist">
           @php
             $types = ['meeting-expense','payment-confirmation', 'expense-realization'];

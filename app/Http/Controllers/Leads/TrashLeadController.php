@@ -39,10 +39,19 @@ class TrashLeadController extends Controller
 
         $branches = Branch::all();
 
+        $cold = $counts[LeadStatus::TRASH_COLD] ?? 0;
+        $warm = $counts[LeadStatus::TRASH_WARM] ?? 0;
+        // NANTI JADI TRASH HOT
+        $hot = $counts[LeadStatus::HOT] ?? 0;
+
+        $all = $cold + $warm + $hot;
+
         return view('pages.trash-leads.index', [
             'leadCounts' => [
                 'cold' => $counts[LeadStatus::TRASH_COLD] ?? 0,
                 'warm' => $counts[LeadStatus::TRASH_WARM] ?? 0,
+                'hot' => $counts[LeadStatus::HOT] ?? 0,
+                'all'  => $all,
             ],
             'branches' => $branches,
         ]);
