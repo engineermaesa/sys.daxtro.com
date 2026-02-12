@@ -632,10 +632,10 @@
             {{-- USER NAME & ROLE --}}
             <div class="flex flex-col">
                 <span class="text-lg font-semibold text-black">
-                    {{ auth()->user()->name ?? 'User' }}
+                    {{ auth()->user()?->name ?? 'User' }}
                 </span>
                 <small class="text-sm text-black">
-                    {{ auth()->user()->role?->name ?? 'User' }}
+                    {{ auth()->user()?->role?->name ?? 'User' }}
                 </small>
             </div>
             {{-- ICON CHEVRON --}}
@@ -653,11 +653,11 @@
                 </div>
 
                 <span class="block mt-2 font-semibold">
-                    {{ auth()->user()->name }}
+                    {{ auth()->user()?->name ?? 'User' }}
                 </span>
 
                 <span class="block mt-2text-gray-500">
-                    {{ auth()->user()->email }}
+                    {{ auth()->user()?->email ?? '' }}
                 </span>
             </div>
 

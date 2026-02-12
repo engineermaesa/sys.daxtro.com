@@ -24,8 +24,8 @@ class WarmLeadController extends Controller
         if ($roleCode === 'sales') {
             $claims->where('sales_id', $request->user()->id);
         } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) {
-                $q->where('branch_id', auth()->user()->branch_id);
+            $claims->whereHas('sales', function ($q) use ($request) {
+                $q->where('branch_id', $request->user()->branch_id);
             });
         }
 

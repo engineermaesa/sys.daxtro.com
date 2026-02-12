@@ -20,7 +20,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->pageTitle = 'Orders';
 
@@ -28,16 +28,17 @@ class OrderController extends Controller
         $sources  = LeadSource::all();
         $branches = Branch::all();
 
-        $roleCode = auth()->user()->role?->code;
+        $user = auth()->user();
+        $roleCode = $user?->role?->code ?? null;
         if ($roleCode === 'branch_manager') {
-            $regions = Region::where('branch_id', auth()->user()->branch_id)->get();
+            $regions = Region::where('branch_id', $user?->branch_id)->get();
         } else {
             $regions = Region::all();
         }
 
         $counts   = $this->calculateCounts([]);
 
-        return $this->render('pages.orders.index', compact('segments', 'sources', 'regions', 'roleCode', 'branches', 'counts')); 
+        return $this->respondWith($request, 'pages.orders.index', compact('segments', 'sources', 'regions', 'roleCode', 'branches', 'counts'));
     }
 
     public function list(Request $request)
@@ -160,7 +161,7 @@ class OrderController extends Controller
             ->make(true);
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $order = Order::with('lead.quotation.proformas.invoice.payments', 'lead.quotation.proformas.paymentConfirmation', 'paymentTerms', 'progressLogs.user')->findOrFail($id);
 
@@ -216,10 +217,10 @@ class OrderController extends Controller
             $terms[] = $termData;
         }
 
-        return $this->render('pages.orders.show', compact('order', 'quotation', 'terms'));
+        return $this->respondWith($request, 'pages.orders.show', compact('order', 'quotation', 'terms'));
     }
 
-    public function requestProforma($orderId, $term)
+    public function requestProforma(Request $request, $orderId, $term)
     {
         $order = Order::with('paymentTerms')->findOrFail($orderId);
         $quotation = Quotation::where('lead_id', $order->lead_id)->firstOrFail();
@@ -249,16 +250,19 @@ class OrderController extends Controller
             'status'       => 'pending',
         ]);
 
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['message' => 'Proforma requested for term '.$term, 'proforma' => $proforma], 200);
+        }
+
         return back()->with('status', 'Proforma requested for term '.$term);
     }
 
-    public function paymentConfirmationForm($orderId, $term)
+    public function paymentConfirmationForm(Request $request, $orderId, $term)
     {
         $order = Order::findOrFail($orderId);
         $quotation = Quotation::where('lead_id', $order->lead_id)->firstOrFail();
         $proforma = $quotation->proformas()->where('term_no', $term)->firstOrFail();
-
-        return $this->render('pages.orders.payment-confirmation-form', compact('order', 'proforma', 'term'));
+        return $this->respondWith($request, 'pages.orders.payment-confirmation-form', compact('order', 'proforma', 'term'));
     }
 
     public function confirmPayment(Request $request, $orderId, $term)
@@ -306,10 +310,14 @@ class OrderController extends Controller
             'status' => 'pending',
         ]);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Payment confirmation submitted for term '.$term, 'payment_id' => $payment->id], 200);
+        }
+
         return redirect()->route('orders.show', $orderId)->with('status', 'Payment confirmation submitted for term '.$term);
     }
 
-    public function requestInvoice($orderId, $term)
+    public function requestInvoice(Request $request, $orderId, $term)
     {
         $order = Order::findOrFail($orderId);
 
@@ -319,6 +327,10 @@ class OrderController extends Controller
             'requester_id' => auth()->id(),
             'status'       => 'pending',
         ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Invoice requested for term '.$term], 200);
+        }
 
         return back()->with('status', 'Invoice requested for term '.$term);
     }
@@ -370,7 +382,8 @@ class OrderController extends Controller
 
         $orders = $query->orderByDesc('id')->get();
 
-        $roleCode = auth()->user()->role?->code;
+        $user = auth()->user();
+        $roleCode = $user?->role?->code ?? null;
         $showRegion = $roleCode !== 'sales';
 
         $columns = [
@@ -430,6 +443,10 @@ class OrderController extends Controller
         }
 
         $file = $this->createXlsx($rows);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Export ready', 'count' => $orders->count()]);
+        }
 
         return response()->download($file, 'orders_'.date('Ymd_His').'.xlsx')->deleteFileAfterSend(true);
     }

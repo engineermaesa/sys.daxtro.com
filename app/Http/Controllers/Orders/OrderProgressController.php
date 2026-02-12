@@ -9,9 +9,13 @@ use Illuminate\Http\Request;
 
 class OrderProgressController extends Controller
 {
-    public function form($orderId)
+    public function form(Request $request, $orderId)
     {
         $order = Order::findOrFail($orderId);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['order' => $order]);
+        }
+
         return $this->render('pages.orders.progress-form', compact('order'));
     }
 
