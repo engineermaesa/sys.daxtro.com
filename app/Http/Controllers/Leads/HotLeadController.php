@@ -13,7 +13,7 @@ class HotLeadController extends Controller
     {
         $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
-            ->whereNull('released_at');
+        ->whereNull('released_at');
             
         $roleCode = $request->user()->role?->code;
 
@@ -32,6 +32,37 @@ class HotLeadController extends Controller
             });
         }
 
+        // If the request expects JSON (API / Postman), return a plain JSON payload.
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $items = $claims->get()->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'claimed_at' => $row->claimed_at,
+                    'lead_id' => $row->lead->id,
+                    'lead_name' => $row->lead->name,
+                    'sales_id' => $row->sales->id ?? null,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone,
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'meeting_status' => 'Hot',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                    'quotation' => $row->lead->quotation ? [
+                        'id' => $row->lead->quotation->id,
+                    ] : null,
+                ];
+            });
+
+            return response()->json([
+                'data' => $items,
+                'count' => $items->count(),
+            ], 200);
+        }
+
+        // Fallback to original DataTables response for web UI
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name)

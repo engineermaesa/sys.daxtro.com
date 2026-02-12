@@ -10,6 +10,7 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
 use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LeadController extends Controller
 {
@@ -498,7 +499,7 @@ class LeadController extends Controller
 
             return $this->setJsonResponse('Lead saved successfully');
         } catch (\Exception $e) {
-            \Log::error('Lead Save Error:', [
+            Log::error('Lead Save Error:', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),

@@ -27,14 +27,25 @@ Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList'
 Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList']);
 Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
 
-// Leads (API)
+// =====================================
+// Authentication (API)
+// =====================================
+
+Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('api.login');
+Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.logout')->middleware('auth');
+
+
+// =====================================
+// LEADS (API)
+// =====================================
 Route::group([
     'prefix' => 'leads',
     'as' => '',
     'namespace' => 'App\\Http\\Controllers\\Leads',
     'middleware' => ['web'],
 ], function () {
-    // FOR AVAILABLE LEADS
+    
+    // FOR AVAILABLE LEADS (API)
     Route::prefix('available')->group(function () {
 
         Route::get('/', [LeadController::class, 'available'])
@@ -51,6 +62,49 @@ Route::group([
 
         Route::post('/save/{id?}', [LeadController::class, 'save'])
             ->name('api.leads.save');
+    });
+
+    // FOR CLAIMING LEADS
+    Route::post('/{id}/claim', 'LeadController@claim')->name('api.leads.claim');
+
+    // FOR ACTIVITY LOGS
+    Route::prefix('{id}/activity-logs')->group(function () {
+
+        Route::get('/', [LeadActivityController::class, 'logs'])
+            ->name('api.leads.activity.logs');
+
+        Route::post('/', [LeadActivityController::class, 'save'])
+            ->name('api.leads.activity.save');
+    });
+
+	// FOR MANAGE / ADMIN LEADS (API)
+	Route::prefix('manage')->group(function () {
+
+        Route::get('/', [LeadController::class, 'manage'])
+            ->name('api.leads.manage');
+
+        Route::post('/list', [LeadController::class, 'manageList'])
+            ->name('api.leads.manage.list');
+
+        Route::get('/counts', [LeadController::class, 'manageCounts'])
+            ->name('api.leads.manage.counts');
+
+        Route::get('/export', [LeadController::class, 'manageExport'])
+            ->name('api.leads.manage.export');
+
+        Route::get('/form/{id?}', [LeadController::class, 'form'])
+            ->name('api.leads.manage.form');
+
+        Route::delete('/delete/{id}', [LeadController::class, 'delete'])
+            ->name('api.leads.manage.delete');
+    });
+    
+    // FOR IMPORT (API)
+    Route::prefix('import')->group(function () {
+        Route::get('/', [ImportLeadController::class, 'index'])->name('api.leads.import');
+        Route::get('/template', [ImportLeadController::class, 'template'])->name('api.leads.import.template');
+        Route::post('/preview', [ImportLeadController::class, 'preview'])->name('api.leads.import.preview');
+        Route::post('/submit', [ImportLeadController::class, 'store'])->name('api.leads.import.store');
     });
 
     // FOR MY LEADS (API)
@@ -90,65 +144,31 @@ Route::group([
             Route::post('trash/{claim}', [WarmLeadController::class, 'trash'])->name('api.leads.my.warm.trash');
         });
 
-        Route::post('hot/list', [HotLeadController::class, 'myHotList'])->name('api.leads.my.hot.list');
-        Route::post('deal/list', [DealLeadController::class, 'myDealList'])->name('api.leads.my.deal.list');
+        Route::get('hot/list', [HotLeadController::class, 'myHotList'])->name('api.leads.my.hot.list');
+
+        Route::get('deal/list', [DealLeadController::class, 'myDealList'])->name('api.leads.my.deal.list');
+
         Route::post('counts', [LeadController::class, 'myCounts'])->name('api.leads.my.counts');
     });
-
-    // FOR IMPORT (API)
-    Route::prefix('import')->group(function () {
-        Route::get('/', [ImportLeadController::class, 'index'])->name('api.leads.import');
-        Route::get('/template', [ImportLeadController::class, 'template'])->name('api.leads.import.template');
-        Route::post('/preview', [ImportLeadController::class, 'preview'])->name('api.leads.import.preview');
-        Route::post('/submit', [ImportLeadController::class, 'store'])->name('api.leads.import.store');
-    });
-
-
-    // FOR CLAIMING LEADS
-    Route::post('/{id}/claim', 'LeadController@claim')->name('api.leads.claim');
-
-    // FOR ACTIVITY LOGS
-    Route::prefix('{id}/activity-logs')->group(function () {
-
-        Route::get('/', [LeadActivityController::class, 'logs'])
-            ->name('api.leads.activity.logs');
-
-        Route::post('/', [LeadActivityController::class, 'save'])
-            ->name('api.leads.activity.save');
-    });
-
-	// FOR MANAGE / ADMIN LEADS (API)
-	Route::prefix('manage')->group(function () {
-
-        Route::get('/', [LeadController::class, 'manage'])
-            ->name('api.leads.manage');
-
-        Route::post('/list', [LeadController::class, 'manageList'])
-            ->name('api.leads.manage.list');
-
-        Route::get('/counts', [LeadController::class, 'manageCounts'])
-            ->name('api.leads.manage.counts');
-
-        Route::get('/export', [LeadController::class, 'manageExport'])
-            ->name('api.leads.manage.export');
-
-        Route::get('/form/{id?}', [LeadController::class, 'form'])
-            ->name('api.leads.manage.form');
-
-        Route::delete('/delete/{id}', [LeadController::class, 'delete'])
-            ->name('api.leads.manage.delete');
-    });
-
-    
-    
 });
 
-// Authentication (API)
+// =====================================
+// TRASH-LEADS (API)
+// =====================================
 
-Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('api.login');
-Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.logout')->middleware('auth');
-
-
+Route::group([
+    'prefix' => 'trash-leads',
+    'as' => 'trash-leads.',
+    'namespace' => 'App\\Http\\Controllers\\Leads',
+    'middleware' => ['web'],
+], function () {
+    Route::get('/', 'TrashLeadController@index')->name('index');
+    Route::get('form/{id}', 'TrashLeadController@form')->name('form');
+    Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
+    Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
+    Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
+    Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
+});
 
 // =====================================
 // ORDERS (API)

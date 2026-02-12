@@ -31,6 +31,36 @@ class DealLeadController extends Controller
             });
         }
 
+        // Return JSON for API/Postman when requested, otherwise DataTables for web UI
+        if ($request->wantsJson() || $request->get('api') == '1') {
+            $items = $claims->get()->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'claimed_at' => $row->claimed_at,
+                    'lead_id' => $row->lead->id,
+                    'lead_name' => $row->lead->name,
+                    'sales_id' => $row->sales->id ?? null,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone,
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'meeting_status' => 'Deal',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                    'quotation' => $row->lead->quotation ? [
+                        'id' => $row->lead->quotation->id,
+                    ] : null,
+                ];
+            });
+
+            return response()->json([
+                'data' => $items,
+                'count' => $items->count(),
+            ], 200);
+        }
+
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn($row) => $row->claimed_at)
             ->addColumn('lead_name', fn($row) => $row->lead->name)

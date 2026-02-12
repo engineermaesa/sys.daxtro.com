@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class TrashLeadController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user  = auth()->user();
 
@@ -45,6 +45,17 @@ class TrashLeadController extends Controller
         $hot = $counts[LeadStatus::HOT] ?? 0;
 
         $all = $cold + $warm + $hot;
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'leadCounts' => [
+                    'cold' => $counts[LeadStatus::TRASH_COLD] ?? 0,
+                    'warm' => $counts[LeadStatus::TRASH_WARM] ?? 0,
+                    'hot' => $counts[LeadStatus::HOT] ?? 0,
+                    'all'  => $all,
+                ],
+                'branches' => $branches->toArray(),
+            ], 200);
+        }
 
         return view('pages.trash-leads.index', [
             'leadCounts' => [
@@ -75,6 +86,26 @@ class TrashLeadController extends Controller
                     $r->where('branch_id', $request->user()->branch_id)
                 );
             });
+        }
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $items = $claims->get()->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'claimed_at' => $row->claimed_at,
+                    'lead_id' => $row->lead->id,
+                    'lead_name' => $row->lead->name,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'first_sales_name' => $row->lead->firstSales->name ?? null,
+                    'meeting_status' => 'Trash Cold',
+                ];
+            });
+
+            return response()->json([
+                'data' => $items,
+                'count' => $items->count(),
+            ], 200);
         }
 
         return DataTables::of($claims)
@@ -139,6 +170,26 @@ class TrashLeadController extends Controller
             });
         }
 
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $items = $claims->get()->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'claimed_at' => $row->claimed_at,
+                    'lead_id' => $row->lead->id,
+                    'lead_name' => $row->lead->name,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'first_sales_name' => $row->lead->firstSales->name ?? null,
+                    'meeting_status' => 'Trash Warm',
+                ];
+            });
+
+            return response()->json([
+                'data' => $items,
+                'count' => $items->count(),
+            ], 200);
+        }
+
         return DataTables::of($claims)
             ->addColumn('claimed_at', fn ($row) => $row->claimed_at)
             ->addColumn('lead_name', fn ($row) => $row->lead->name)
@@ -181,7 +232,7 @@ class TrashLeadController extends Controller
             ->make(true);
     }
 
-    public function form($id)
+    public function form(Request $request, $id)
     {
         $lead = \App\Models\Leads\Lead::with([
             'status',
@@ -200,6 +251,14 @@ class TrashLeadController extends Controller
         $meeting = $lead->meetings->sortByDesc('scheduled_start_at')->first();
 
         $claim   = $lead->claims()->first();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'lead' => $lead->toArray(),
+                'meeting' => $meeting ? $meeting->toArray() : null,
+                'claim' => $claim ? $claim->toArray() : null,
+            ], 200);
+        }
 
         return view('pages.trash-leads.form', compact('lead', 'meeting', 'claim'));
     }
