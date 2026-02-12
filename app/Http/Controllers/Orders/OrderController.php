@@ -13,6 +13,7 @@ use App\Models\Leads\LeadSource;
 use App\Models\Masters\Region;
 use App\Models\Masters\Branch;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Attachment;
 use App\Models\Leads\LeadActivityLog;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class OrderController extends Controller
         $sources  = LeadSource::all();
         $branches = Branch::all();
 
-        $user = auth()->user();
+        $user = Auth::user();
         $roleCode = $user?->role?->code ?? null;
         if ($roleCode === 'branch_manager') {
             $regions = Region::where('branch_id', $user?->branch_id)->get();
@@ -246,7 +247,7 @@ class OrderController extends Controller
         FinanceRequest::create([
             'request_type' => 'proforma',
             'reference_id' => $proforma->id,
-            'requester_id' => auth()->id(),
+            'requester_id' => Auth::user()->id,
             'status'       => 'pending',
         ]);
 
@@ -306,7 +307,7 @@ class OrderController extends Controller
         FinanceRequest::create([
             'request_type' => 'payment-confirmation',
             'reference_id' => $payment->id,
-            'requester_id' => auth()->id(),
+            'requester_id' => Auth::user()->id,
             'status' => 'pending',
         ]);
 
@@ -324,7 +325,7 @@ class OrderController extends Controller
         FinanceRequest::create([
             'request_type' => 'invoice',
             'reference_id' => $orderId.'-'.$term,
-            'requester_id' => auth()->id(),
+            'requester_id' => Auth::user()->id,
             'status'       => 'pending',
         ]);
 
@@ -382,7 +383,7 @@ class OrderController extends Controller
 
         $orders = $query->orderByDesc('id')->get();
 
-        $user = auth()->user();
+        $user = Auth::user();
         $roleCode = $user?->role?->code ?? null;
         $showRegion = $roleCode !== 'sales';
 

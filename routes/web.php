@@ -22,9 +22,10 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout')->middleware('auth');
 
+
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    // routes/web.php
+
     // routes/web.php
     Route::post('dashboard/sales-achievement-donut', [DashboardController::class, 'salesAchievementDonut'])
         ->name('dashboard.sales-achievement-donut');
@@ -32,7 +33,7 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.sales-performance-bar');
 
     Route::post('dashboard/sales-achievement-monthly-percent', [DashboardController::class, 'salesAchievementMonthlyPercent'])->name('dashboard.sales-achievement-monthly-percent');
-    // routes/web.php
+
     Route::post('dashboard/target-vs-sales-monthly', [DashboardController::class, 'targetVsSalesMonthly'])
         ->name('dashboard.target-vs-sales-monthly');
 
@@ -123,6 +124,16 @@ Route::middleware('auth')->group(function () {
 
     // Orders moved to routes/api.php
 
+    // Web routes for Orders (render HTML pages with session/auth)
+    Route::group([
+        'prefix' => 'orders',
+        'as' => 'orders.',
+        'namespace' => 'App\\Http\\Controllers\\Orders',
+    ], function () {
+        Route::get('/', 'OrderController@index')->name('index');
+        Route::get('/{id}', 'OrderController@show')->name('show');
+    });
+
     Route::group([
         'prefix' => 'expense-realizations',
         'as' => 'expense-realizations.',
@@ -197,8 +208,8 @@ Route::middleware('auth')->group(function () {
     Route::post('finance-requests/approve-with-realization', [FinanceRequestController::class, 'approveWithRealization'])
         ->name('finance-requests.approve-with-realization');
 
-    
-        // Masters
+
+    // Masters
     Route::group([
         'prefix' => 'masters',
         'as' => 'masters.',
