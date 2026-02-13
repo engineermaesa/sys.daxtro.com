@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\LeadRegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+
+// LEADS (API)
 use App\Http\Controllers\Leads\LeadActivityController;
 use App\Http\Controllers\Leads\LeadController;
 use App\Http\Controllers\Leads\ImportLeadController;
@@ -12,6 +14,21 @@ use App\Http\Controllers\Leads\WarmLeadController;
 use App\Http\Controllers\Leads\HotLeadController;
 use App\Http\Controllers\Leads\DealLeadController;
 use App\Http\Controllers\Leads\MeetingController;
+
+// MASTERS (API)
+use App\Http\Controllers\Masters\AccountController;
+use App\Http\Controllers\Masters\BankController;
+use App\Http\Controllers\Masters\BranchController;
+use App\Http\Controllers\Masters\CompanyController;
+use App\Http\Controllers\Masters\CustomerTypeController;
+use App\Http\Controllers\Masters\ExpenseTypeController;
+use App\Http\Controllers\Masters\PartController;
+use App\Http\Controllers\Masters\ProductCategoryController;
+use App\Http\Controllers\Masters\ProductController;
+use App\Http\Controllers\Masters\ProvinceController;
+use App\Http\Controllers\Masters\RegionController;
+use App\Http\Controllers\Users\AdminController;
+use App\Http\Controllers\Users\UserRoleController;
 
 Route::post('leads/register', [LeadRegisterController::class, 'store'])->name('api.leads.register');
 Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('api.leads.sources');
@@ -39,9 +56,9 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 // =====================================
 Route::group([
     'prefix' => 'leads',
-    'as' => '',
+    'as' => 'leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-    'middleware' => ['web'],
+    'middleware' => ['api'],
 ], function () {
 
     // FOR AVAILABLE LEADS (API)
@@ -159,7 +176,7 @@ Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-    'middleware' => ['web'],
+    'middleware' => ['api'],
 ], function () {
     Route::get('/', 'TrashLeadController@index')->name('index');
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
@@ -208,3 +225,170 @@ Route::group([
     Route::get('/{id}', 'FinanceRequestController@form')->name('form');
     Route::post('/approve-with-realization', 'FinanceRequestController@approveWithRealization')->name('approve-with-realization');
 });
+
+// =====================================
+// MASTERS (API)
+// =====================================
+Route::group([
+    'prefix' => 'masters',
+    'as' => 'masters.',
+    'middleware' => ['api'],
+], function () {
+
+    // BANKS (API)
+    Route::prefix('banks')->name('banks.')->group(function () {
+
+        Route::get('/list', [BankController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [BankController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [BankController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [BankController::class, 'delete'])->name('delete');
+
+    });
+
+    // ACCOUNTS (API)
+    Route::prefix('accounts')->name('accounts.')->group(function () {
+        Route::get('/list', [AccountController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [AccountController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [AccountController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [AccountController::class, 'delete'])->name('delete');
+
+    });
+    
+    // PRODUCT CATEGORIES (API)
+    Route::prefix('product-categories')->name('product-categories.')->group(function () {
+        Route::get('/list', [ProductCategoryController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [ProductCategoryController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [ProductCategoryController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [ProductCategoryController::class, 'delete'])->name('delete');
+
+    });
+
+    // PRODUCTS (API)
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::get('/list', [ProductController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [ProductController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [ProductController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('delete');
+    });
+
+    // PARTS (API)
+    Route::prefix('parts')->name('parts.')->group(function () {
+        Route::get('/list', [PartController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [PartController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [PartController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [PartController::class, 'delete'])->name('delete');
+    });
+
+    // COMPANIES (API)
+    Route::prefix('companies')->name('companies.')->group(function () {
+        Route::get('/list', [CompanyController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [CompanyController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [CompanyController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('delete');
+    });
+
+    //  PROVICENS (API)
+    Route::prefix('provinces')->name(value: 'provinces.')->group(function () {
+        Route::get('/list', [ProvinceController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [ProvinceController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [ProvinceController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [ProvinceController::class, 'delete'])->name('delete');
+    });
+
+    //  REGIONS (API)
+    Route::prefix('regions')->name(value: 'regions.')->group(function () {
+        Route::get('/list', [RegionController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [RegionController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [RegionController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [RegionController::class, 'delete'])->name('delete');
+    });
+
+    // BRANCHES (API)
+    Route::prefix('branches')->name(value: 'branches.')->group(function () {
+        Route::get('/list', [BranchController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [BranchController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [BranchController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [BranchController::class, 'delete'])->name('delete');
+    });
+
+    // EXPENSES-TYPE (API)
+    Route::prefix('expense-types')->name(value: 'expense-types.')->group(function () {
+        Route::get('/list', [ExpenseTypeController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [ExpenseTypeController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [ExpenseTypeController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [ExpenseTypeController::class, 'delete'])->name('delete');
+    });
+
+    // CUSTOMER-TYPE (API)
+    Route::prefix('customer-types')->name(value: 'customer-types.')->group(function () {
+        Route::get('/list', [CustomerTypeController::class, 'list'])->name('list');
+
+        Route::get('/form/{id?}', [CustomerTypeController::class, 'form'])->name('form');
+
+        Route::post('/save/{id?}', [CustomerTypeController::class, 'save'])->name('save');
+
+        Route::delete('/delete/{id}', [CustomerTypeController::class, 'delete'])->name('delete');
+    });
+});
+
+// =====================================
+// USERS (API)
+// =====================================
+Route::group([
+    'prefix' => 'users',
+    'as' => 'users.',
+    'namespace' => 'App\\Http\\Controllers\\Users',
+    'middleware' => ['api'],
+], function () {
+    Route::get('branches-by-company/{companyId}', [AdminController::class, 'branchesByCompany'])->name('branches.by-company');
+    Route::get('regions-by-branch/{branchId}', [AdminController::class, 'regionByBranch'])->name('regions.by-branch');
+    Route::get('sales-by-branch/{branchId}', [AdminController::class, 'salesByBranch'])->name('sales.by-branch');
+    
+    // USER (API)
+    Route::get('/list', [AdminController::class, 'list'])->name('list');
+    Route::get('/form/{id?}', [AdminController::class, 'form'])->name('form');
+    Route::post('/save/{id?}', [AdminController::class, 'save'])->name('save');
+    Route::delete('/delete/{id}', [AdminController::class, 'delete'])->name('delete');
+
+    // ROLES (API)
+    Route::prefix('roles')->name('roles.')->group(function () {
+        Route::get('/list', [UserRoleController::class, 'list'])->name('list');
+        Route::get('/form/{id?}', [UserRoleController::class, 'form'])->name('form');
+        Route::post('/save/{id?}', [UserRoleController::class, 'save'])->name('save');
+        Route::delete('/delete/{id}', [UserRoleController::class, 'delete'])->name('delete');
+    });
+});
+
+// =====================================
+// PERMISSIONS (API)
+// =====================================

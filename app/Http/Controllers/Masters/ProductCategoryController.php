@@ -18,7 +18,17 @@ class ProductCategoryController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(ProductCategory::query())
+        $query = ProductCategory::query();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $categories = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $categories,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.product-categories.form', $row->id);
                 $del  = route('masters.product-categories.delete', $row->id);
@@ -32,9 +42,19 @@ class ProductCategoryController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? ProductCategory::findOrFail($id) : new ProductCategory();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.product-categories.form', compact('form_data'));
     }
 

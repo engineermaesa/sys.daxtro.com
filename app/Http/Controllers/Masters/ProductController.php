@@ -21,7 +21,17 @@ class ProductController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Product::with('categories'))
+        $query = Product::with(['categories', 'type']);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $products = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $products,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('product_type_name', function ($row) {
                 return $row->type->name ?? '-';
             })
@@ -41,7 +51,7 @@ class ProductController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $types = ProductType::all();
         $form_data = $id ? Product::with(['categories', 'parts'])->findOrFail($id) : new Product();
@@ -51,6 +61,20 @@ class ProductController extends Controller
         $selectedParts = $form_data->parts->pluck('id')->toArray();
         $selectedType = $form_data->product_type_id;
 
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                    'categories' => $categories,
+                    'parts' => $parts,
+                    'selectedCategories' => $selectedCategories,
+                    'selectedParts' => $selectedParts,
+                    'selectedType' => $selectedType,
+                    'types' => $types,
+                ],
+            ]);
+        }
 
         return $this->render('pages.masters.products.form', compact('form_data', 'categories', 'parts', 'selectedCategories', 'selectedParts', 'selectedType', 'types'));
     }

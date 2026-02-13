@@ -21,47 +21,60 @@ class RegionController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Region::with(['regional', 'province', 'branch']))
-            ->addColumn('regional_name', fn($r) => $r->regional->name ?? '')
-            ->addColumn('province_name', fn($r) => $r->province->name ?? '')
-            ->addColumn('branch_name', fn($r) => $r->branch->name ?? '')
-            ->addColumn('actions', function ($r) {
-                $edit = route('masters.regions.form', $r->id);
-                $del  = route('masters.regions.delete', $r->id);
-                return "
-                  <a href=\"{$edit}\" class=\"btn btn-sm btn-primary\">
-                    <i class=\"bi bi-pencil\"></i> Edit
-                  </a>
-                  <a href=\"{$del}\" 
-                     data-id=\"{$r->id}\" 
-                     data-table=\"regionsTable\" 
-                     class=\"btn btn-sm btn-danger delete-data\">
-                    <i class=\"bi bi-trash\"></i> Delete
-                  </a>
-                ";
-            })
-            ->rawColumns(['actions'])
-            ->make(true);
+                $query = Region::with(['regional', 'province', 'branch']);
+
+                if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                        $regions = $query->get();
+                        return response()->json([
+                                'status' => true,
+                                'data' => $regions,
+                        ]);
+                }
+
+                return DataTables::of($query)
+                        ->addColumn('regional_name', fn($r) => $r->regional->name ?? '')
+                        ->addColumn('province_name', fn($r) => $r->province->name ?? '')
+                        ->addColumn('branch_name', fn($r) => $r->branch->name ?? '')
+                        ->addColumn('actions', function ($r) {
+                                $edit = route('masters.regions.form', $r->id);
+                                $del  = route('masters.regions.delete', $r->id);
+                                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
+                                             " <a href='".$del."' data-id='".$r->id."' data-table='regionsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                        })
+                        ->rawColumns(['actions'])
+                        ->make(true);
     }
 
-    public function form($id = null)
-    {
-        $form_data = $id
-          ? Region::findOrFail($id)
-          : new Region();
+        public function form(Request $request, $id = null)
+        {
+                $form_data = $id
+                    ? Region::findOrFail($id)
+                    : new Region();
 
-        $regionals = Regional::orderBy('name')->get();
-        // if editing: load only provinces for selected regional, else empty
-        $provinces = $form_data->regional_id
-          ? Province::where('regional_id', $form_data->regional_id)->orderBy('name')->get()
-          : collect();
+                $regionals = Regional::orderBy('name')->get();
+                // if editing: load only provinces for selected regional, else empty
+                $provinces = $form_data->regional_id
+                    ? Province::where('regional_id', $form_data->regional_id)->orderBy('name')->get()
+                    : collect();
 
-        $branches  = Branch::orderBy('name')->get();
+                $branches  = Branch::orderBy('name')->get();
 
-        return $this->render('pages.masters.regions.form', compact(
-          'form_data', 'regionals', 'provinces', 'branches'
-        ));
-    }
+                if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                        return response()->json([
+                                'status' => true,
+                                'data' => [
+                                        'form_data' => $form_data,
+                                        'regionals' => $regionals,
+                                        'provinces' => $provinces,
+                                        'branches' => $branches,
+                                ],
+                        ]);
+                }
+
+                return $this->render('pages.masters.regions.form', compact(
+                    'form_data', 'regionals', 'provinces', 'branches'
+                ));
+        }
 
     public function save(Request $request, $id = null)
     {

@@ -8,6 +8,7 @@ use App\Models\UserRole;
 use App\Models\Masters\Company;
 use App\Models\Masters\Branch;
 use App\Http\Classes\ActivityLogger;
+use App\Models\Masters\Region;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -36,6 +37,14 @@ class AdminController extends Controller
         $user = $request->user();
 
         $query = User::with(['role', 'branch.company']);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $types = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $types,
+            ]);
+        }
 
         if ($request->filled('role_id')) {
             $query->where('role_id', $request->role_id);
@@ -72,12 +81,25 @@ class AdminController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $data      = $id ? User::with(['branch.company'])->findOrFail($id) : new User();
         $roles     = UserRole::all();
         $companies = Company::all();
         $branches  = Branch::all();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $data,
+                    'roles' => $roles,
+                    'companies' => $companies,
+                    'branches' => $branches,
+                ],
+            ]);
+        }
+
         return $this->render('pages.users.admins.form', compact('data', 'roles', 'companies', 'branches'));
     }
 

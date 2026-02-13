@@ -228,6 +228,7 @@ Route::middleware('auth')->group(function () {
     ], function () {
         Route::name('banks.')->prefix('banks')->group(function () {
             Route::get('/', 'BankController@index')->name('index');
+            // OLD
             Route::post('/list', 'BankController@list')->name('list');
             Route::get('/form/{id?}', 'BankController@form')->name('form');
             Route::post('/save/{id?}', 'BankController@save')->name('save');
@@ -236,23 +237,32 @@ Route::middleware('auth')->group(function () {
 
         Route::name('accounts.')->prefix('accounts')->group(function () {
             Route::get('/', 'AccountController@index')->name('index');
+
+            // OLD
             Route::post('/list', 'AccountController@list')->name('list');
+
             Route::get('/form/{id?}', 'AccountController@form')->name('form');
+
             Route::post('/save/{id?}', 'AccountController@save')->name('save');
             Route::delete('/delete/{id}', 'AccountController@delete')->name('delete');
         });
 
         Route::name('product-categories.')->prefix('product-categories')->group(function () {
             Route::get('/', 'ProductCategoryController@index')->name('index');
+
             Route::post('/list', 'ProductCategoryController@list')->name('list');
+
             Route::get('/form/{id?}', 'ProductCategoryController@form')->name('form');
+
             Route::post('/save/{id?}', 'ProductCategoryController@save')->name('save');
             Route::delete('/delete/{id}', 'ProductCategoryController@delete')->name('delete');
         });
 
         Route::name('products.')->prefix('products')->group(function () {
             Route::get('/', 'ProductController@index')->name('index');
+
             Route::post('/list', 'ProductController@list')->name('list');
+
             Route::get('/form/{id?}', 'ProductController@form')->name('form');
             Route::post('/save/{id?}', 'ProductController@save')->name('save');
             Route::delete('/delete/{id}', 'ProductController@delete')->name('delete');
@@ -260,7 +270,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('parts.')->prefix('parts')->group(function () {
             Route::get('/', 'PartController@index')->name('index');
+
             Route::post('/list', 'PartController@list')->name('list');
+
             Route::get('/form/{id?}', 'PartController@form')->name('form');
             Route::post('/save/{id?}', 'PartController@save')->name('save');
             Route::delete('/delete/{id}', 'PartController@delete')->name('delete');
@@ -268,7 +280,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('companies.')->prefix('companies')->group(function () {
             Route::get('/', 'CompanyController@index')->name('index');
+
             Route::post('/list', 'CompanyController@list')->name('list');
+
             Route::get('/form/{id?}', 'CompanyController@form')->name('form');
             Route::post('/save/{id?}', 'CompanyController@save')->name('save');
             Route::delete('/delete/{id}', 'CompanyController@delete')->name('delete');
@@ -276,7 +290,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('provinces.')->prefix('provinces')->group(function () {
             Route::get('/', 'ProvinceController@index')->name('index');
+
             Route::post('/list', 'ProvinceController@list')->name('list');
+
             Route::get('/form/{id?}', 'ProvinceController@form')->name('form');
             Route::post('/save/{id?}', 'ProvinceController@save')->name('save');
             Route::delete('/delete/{id}', 'ProvinceController@delete')->name('delete');
@@ -284,7 +300,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('regions.')->prefix('regions')->group(function () {
             Route::get('/', 'RegionController@index')->name('index');
+
             Route::post('/list', 'RegionController@list')->name('list');
+
             Route::get('/form/{id?}', 'RegionController@form')->name('form');
             Route::post('/save/{id?}', 'RegionController@save')->name('save');
             Route::delete('/delete/{id}', 'RegionController@delete')->name('delete');
@@ -293,7 +311,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('branches.')->prefix('branches')->group(function () {
             Route::get('/', 'BranchController@index')->name('index');
+
             Route::post('/list', 'BranchController@list')->name('list');
+
             Route::get('/form/{id?}', 'BranchController@form')->name('form');
             Route::post('/save/{id?}', 'BranchController@save')->name('save');
             Route::delete('/delete/{id}', 'BranchController@delete')->name('delete');
@@ -301,7 +321,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('expense-types.')->prefix('expense-types')->group(function () {
             Route::get('/', 'ExpenseTypeController@index')->name('index');
+
             Route::post('/list', 'ExpenseTypeController@list')->name('list');
+
             Route::get('/form/{id?}', 'ExpenseTypeController@form')->name('form');
             Route::post('/save/{id?}', 'ExpenseTypeController@save')->name('save');
             Route::delete('/delete/{id}', 'ExpenseTypeController@delete')->name('delete');
@@ -309,7 +331,9 @@ Route::middleware('auth')->group(function () {
 
         Route::name('customer-types.')->prefix('customer-types')->group(function () {
             Route::get('/', 'CustomerTypeController@index')->name('index');
+
             Route::post('/list', 'CustomerTypeController@list')->name('list');
+            
             Route::get('/form/{id?}', 'CustomerTypeController@form')->name('form');
             Route::post('/save/{id?}', 'CustomerTypeController@save')->name('save');
             Route::delete('/delete/{id}', 'CustomerTypeController@delete')->name('delete');
@@ -324,23 +348,27 @@ Route::middleware('auth')->group(function () {
         'as' => 'users.',
         'namespace' => 'App\\Http\\Controllers\\Users',
     ], function () {
+        // API
         Route::get('branches-by-company/{companyId}', 'AdminController@branchesByCompany')->name('branches.by-company');
         Route::get('regions-by-branch/{branchId}', 'AdminController@regionsByBranch')->name('regions.by-branch');
         Route::get('sales-by-branch/{branchId}', 'AdminController@salesByBranch')->name('sales.by-branch');
 
         Route::get('/', 'AdminController@index')->name('index');
+
         Route::post('/list', 'AdminController@list')->name('list');
         Route::get('/form/{id?}', 'AdminController@form')->name('form');
         Route::post('/save/{id?}', 'AdminController@save')->name('save');
         Route::delete('/delete/{id}', 'AdminController@delete')->name('delete');
 
         Route::get('roles', 'UserRoleController@index')->name('roles.index');
+
         Route::post('roles/list', 'UserRoleController@list')->name('roles.list');
         Route::get('roles/form/{id?}', 'UserRoleController@form')->name('roles.form');
         Route::post('roles/save/{id?}', 'UserRoleController@save')->name('roles.save');
         Route::delete('roles/delete/{id}', 'UserRoleController@delete')->name('roles.delete');
 
         Route::get('permissions', 'PermissionController@index')->name('permissions.index');
+        
         Route::post('permissions/list', 'PermissionController@list')->name('permissions.list');
         Route::get('permissions/form/{id?}', 'PermissionController@form')->name('permissions.form');
         Route::post('permissions/save/{id?}', 'PermissionController@save')->name('permissions.save');

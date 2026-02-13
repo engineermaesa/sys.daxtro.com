@@ -18,7 +18,17 @@ class ExpenseTypeController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(ExpenseType::query())
+        $query = ExpenseType::query();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $types = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $types,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.expense-types.form', $row->id);
                 $del  = route('masters.expense-types.delete', $row->id);
@@ -32,9 +42,19 @@ class ExpenseTypeController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? ExpenseType::findOrFail($id) : new ExpenseType();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.expense-types.form', compact('form_data'));
     }
 

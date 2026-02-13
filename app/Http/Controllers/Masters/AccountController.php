@@ -20,7 +20,17 @@ class AccountController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Account::with(['company', 'bank']))
+        $query = Account::with(['company', 'bank']);
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $accounts = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $accounts,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('company_name', fn($row) => $row->company->name ?? '')
             ->addColumn('bank_name', fn($row) => $row->bank->name ?? '')
             ->addColumn('actions', function ($row) {
@@ -36,11 +46,23 @@ class AccountController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? Account::findOrFail($id) : new Account();
         $companies = Company::all();
         $banks = Bank::all();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                    'companies' => $companies,
+                    'banks' => $banks,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.accounts.form', compact('form_data', 'companies', 'banks'));
     }
 
@@ -80,7 +102,7 @@ class AccountController extends Controller
         $account = Account::findOrFail($id);
 
         ActivityLogger::writeLog(
-            'delete_account',
+        'delete_account',
             'Deleted account',
             $account,
             $account->toArray(),

@@ -19,7 +19,17 @@ class BranchController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Branch::with('company'))
+        $query = Branch::with('company');
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $branches = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $branches,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('company_name', fn($row) => $row->company->name ?? '')
             ->addColumn('address', fn($row) => $row->address ?? '')
             ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
@@ -27,19 +37,28 @@ class BranchController extends Controller
                 $edit = route('masters.branches.form', $row->id);
                 $del  = route('masters.branches.delete', $row->id);
 
-                return '
-                    <a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="' . $del . '" data-id="' . $row->id . '" data-table="branchesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
-                ';
+                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
+                       " <a href='".$del."' data-id='".$row->id."' data-table='branchesTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
             })
             ->rawColumns(['actions'])
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? Branch::findOrFail($id) : new Branch();
         $companies = Company::all();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                    'companies' => $companies,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.branches.form', compact('form_data', 'companies'));
     }
 

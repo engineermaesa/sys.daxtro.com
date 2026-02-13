@@ -19,22 +19,43 @@ class ProvinceController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Province::with('regional'))
+        $query = Province::with('regional');
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $provinces = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $provinces,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('regional_name', fn($row) => $row->regional->name ?? '')
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.provinces.form', $row->id);
                 $del  = route('masters.provinces.delete', $row->id);
-                return "<a href='{$edit}' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
-                       " <a href='{$del}' data-id='{$row->id}' data-table='provincesTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
+                       " <a href='".$del."' data-id='".$row->id."' data-table='provincesTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
             })
             ->rawColumns(['actions'])
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? Province::findOrFail($id) : new Province();
         $regionals = Regional::orderBy('name')->get();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                    'regionals' => $regionals,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.provinces.form', compact('form_data', 'regionals'));
     }
 

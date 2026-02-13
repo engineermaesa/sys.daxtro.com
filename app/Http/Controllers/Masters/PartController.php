@@ -18,21 +18,41 @@ class PartController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Part::query())
+        $query = Part::query();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $parts = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $parts,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.parts.form', $row->id);
                 $del  = route('masters.parts.delete', $row->id);
 
-                return "<a href='{$edit}' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
-                       " <a href='{$del}' data-id='{$row->id}' data-table='partsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
+                       " <a href='".$del."' data-id='".$row->id."' data-table='partsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
             })
             ->rawColumns(['actions'])
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? Part::findOrFail($id) : new Part();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.parts.form', compact('form_data'));
     }
 
