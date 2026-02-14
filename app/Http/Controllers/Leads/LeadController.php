@@ -595,6 +595,7 @@ class LeadController extends Controller
             ],
             'activities' => LeadActivityList::all(),
         ]);
+
     }
     
 

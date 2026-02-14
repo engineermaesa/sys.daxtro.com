@@ -18,7 +18,17 @@ class PermissionController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(UserPermission::query())
+        $query = UserPermission::query();
+
+        // if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        //     $perms = $query->get();
+        //     return response()->json([
+        //         'status' => true,
+        //         'data' => $perms,
+        //     ]);
+        // }
+
+        return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('users.permissions.form', $row->id);
                 $del  = route('users.permissions.delete', $row->id);
@@ -29,9 +39,19 @@ class PermissionController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? UserPermission::findOrFail($id) : new UserPermission();
+
+        // if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        //     return response()->json([
+        //         'status' => true,
+        //         'data' => [
+        //             'form_data' => $form_data,
+        //         ],
+        //     ]);
+        // }
+
         return $this->render('pages.users.permissions.form', compact('form_data'));
     }
 
