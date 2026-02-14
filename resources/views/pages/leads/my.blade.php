@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+
 <section class="section">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -304,16 +305,20 @@
                             fill="#6B7786" />
                     </svg>
                 </div>
-                <input type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                <input
+                    id="searchInput" 
+                    type="text" 
+                    placeholder="Search" 
+                    class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
             <div class="w-4/6 border border-[#D5D5D5] rounded-lg grid grid-cols-5">
                 @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
                 {{-- NAVIGATION STATUS --}}
                 <div data-tab="{{ $tab }}"
-                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active">
+                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
                     <p class="text-[#083224]">
-                        {{ $loop->first ? 'All Status' : ucfirst($tab) }}
+                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
                         <span class="{{ 
                                         $tab === 'all' 
                                             ? 'span-all' 
@@ -349,11 +354,12 @@
 
         {{-- CONTENTS TABLES --}}
         <div class="">
-            {{-- ALL combined table --}}
+            {{-- ALL STAGE TABLE --}}
             <div data-tab-container="all" class="leads-table-container">
                 <table id="allLeadsTableNew" class="w-full">
+                    {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#CFD5DC]">
+                        <tr class="border-b">
                             <th class="hidden">ID (hidden)</th>
                             <th class="font-bold text-left p-3">Nama</th>
                             <th>Sales Name</th>
@@ -391,12 +397,13 @@
                 </div>
             </div>
 
+            {{-- CONDITIONAL STAGE TABLE --}}
             @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
             <div data-tab-container="{{ $tab }}" class="leads-table-container">
                 <table id="{{ $tab }}LeadsTableNew" class="w-full">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#CFD5DC]">
+                        <tr class="border-b">
                             <th class="hidden">ID (hidden)</th>
                             @if ($tab === 'cold')
                             <th class="font-bold text-left p-3">Nama</th>
@@ -450,63 +457,131 @@
 
 @section('scripts')
 <script>
+    
     // LEADS
-        const DEFAULT_PAGE_SIZE = 10;
-        const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
-        const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
+    const DEFAULT_PAGE_SIZE = 10;
+    const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
+    const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
 
-        function updatePagerUI(tab, totalItems) {
-            const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
-            const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
-            const page = pageState[tab] || 1;
-            const prev = document.getElementById(tab + 'PrevBtn');
-            const next = document.getElementById(tab + 'NextBtn');
-            const showing = document.getElementById(tab + 'Showing');
-            const info = document.getElementById(tab + 'PageInfo');
-            if (prev) prev.disabled = page <= 1;
-            if (next) next.disabled = page >= totalPages;
-            const startIdx = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
-            const endIdx = Math.min(totalItems, (page - 1) * pageSize + pageSize);
-            if (showing) showing.innerText = `Showing ${startIdx}-${endIdx} of ${totalItems}`;
-            if (info) info.innerText = page + ' / ' + totalPages;
-        }
+    function updatePagerUI(tab, totalItems) {
+        const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
+        const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
+        const page = pageState[tab] || 1;
+        const prev = document.getElementById(tab + 'PrevBtn');
+        const next = document.getElementById(tab + 'NextBtn');
+        const showing = document.getElementById(tab + 'Showing');
+        const info = document.getElementById(tab + 'PageInfo');
+        if (prev) prev.disabled = page <= 1;
+        if (next) next.disabled = page >= totalPages;
+        const startIdx = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+        const endIdx = Math.min(totalItems, (page - 1) * pageSize + pageSize);
+        if (showing) showing.innerText = `Showing ${startIdx}-${endIdx} of ${totalItems}`;
+        if (info) info.innerText = page + ' / ' + totalPages;
+    }
 
-        function changePageSize(tab, value) {
-            const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
-            pageSizeState[tab] = size;
-            pageState[tab] = 1;
+    function changePageSize(tab, value) {
+        const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
+        pageSizeState[tab] = size;
+        pageState[tab] = 1;
+        reloadTab(tab);
+    }
+
+    function goPrev(tab) {
+        if ((pageState[tab] || 1) > 1) {
+            pageState[tab] = pageState[tab] - 1;
             reloadTab(tab);
         }
+    }
 
-        function goPrev(tab) {
-            if ((pageState[tab] || 1) > 1) {
-                pageState[tab] = pageState[tab] - 1;
-                reloadTab(tab);
-            }
+    function goNext(tab) {
+        const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
+        const totalEl = document.getElementById(tab + 'Showing');
+        // We rely on updatePagerUI to enable/disable next button correctly.
+        pageState[tab] = (pageState[tab] || 1) + 1;
+        reloadTab(tab);
+    }
+
+    function reloadTab(tab) {
+        if (tab === 'all') loadAllLeads();
+        if (tab === 'cold') loadColdLeads();
+        if (tab === 'warm') loadWarmLeads();
+        if (tab === 'hot') loadHotLeads();
+        if (tab === 'deal') loadDealLeads();
+    }
+    async function loadColdLeads() {
+
+    const response = await fetch("{{ route('leads.my.cold.list') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            start_date: document.getElementById('filter_start')?.value,
+            end_date: document.getElementById('filter_end')?.value,
+            start: 0,
+            length: 100000,
+            draw: 1
+        })
+    });
+
+
+    const result = await response.json();
+    console.log('loadColdLeads result:', result);
+
+    const tbody = document.getElementById('coldBody');
+
+    tbody.innerHTML = '';
+
+    const total = (result.data || []).length;
+    updatePagerUI('cold', total);
+    const start = (pageState.cold - 1) * (pageSizeState.cold || DEFAULT_PAGE_SIZE);
+    const pageData = (result.data || []).slice(start, start + (pageSizeState.cold || DEFAULT_PAGE_SIZE));
+
+    pageData.forEach(row => {
+
+        let industry = 'Belum Diisi';
+
+        if (row.industry?.trim()) {
+            industry = row.industry;
+        } else if (row.lead?.other_industry?.trim()) {
+            industry = row.lead.other_industry;
         }
 
-        function goNext(tab) {
-            const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
-            const totalEl = document.getElementById(tab + 'Showing');
-            // We rely on updatePagerUI to enable/disable next button correctly.
-            pageState[tab] = (pageState[tab] || 1) + 1;
-            reloadTab(tab);
-        }
+        tbody.innerHTML += `
+            <tr class="border-b">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3">${row.name}</td>
+                <td>${row.sales_name}</td>
+                <td>${row.phone}</td>
+                <td>${row.source}</td>
+                <td>${row.needs}</td>
+                <td>${industry}</td>
+                <td>${row.city_name}</td>
+                <td>${row.regional_name}</td>
+                <td class="text-center">${row.meeting_status}</td>
+                <td class="text-center">${row.actions}</td>
+            </tr>
+        `;
+    });
+}
 
-        function reloadTab(tab) {
-            if (tab === 'all') loadAllLeads();
-            if (tab === 'cold') loadColdLeads();
-            if (tab === 'warm') loadWarmLeads();
-            if (tab === 'hot') loadHotLeads();
-            if (tab === 'deal') loadDealLeads();
-        }
-        async function loadColdLeads() {
+    async function loadAllLeads() {
+    const endpoints = [
+        { url: "{{ route('leads.my.cold.list') }}", status: 'cold' },
+        { url: "{{ route('leads.my.warm.list') }}", status: 'warm' },
+        { url: "{{ route('leads.my.hot.list') }}", status: 'hot' },
+        { url: "{{ route('leads.my.deal.list') }}", status: 'deal' }
+    ];
 
-        const response = await fetch("{{ route('leads.my.cold.list') }}", {
-            method: "POST",
+    const token = '{{ csrf_token() }}';
+
+    const fetches = endpoints.map(e =>
+        fetch(e.url, {
+            method: 'POST',
             headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token
             },
             body: JSON.stringify({
                 start_date: document.getElementById('filter_start')?.value,
@@ -515,295 +590,230 @@
                 length: 100000,
                 draw: 1
             })
-        });
+        }).then(r => r.json()).then(json => ({ status: e.status, data: json.data || [] })).catch(() => ({ status: e.status, data: [] }))
+    );
 
+    const results = await Promise.all(fetches);
 
-        const result = await response.json();
-        console.log('loadColdLeads result:', result);
-
-        const tbody = document.getElementById('coldBody');
-
-        tbody.innerHTML = '';
-
-        const total = (result.data || []).length;
-        updatePagerUI('cold', total);
-        const start = (pageState.cold - 1) * (pageSizeState.cold || DEFAULT_PAGE_SIZE);
-        const pageData = (result.data || []).slice(start, start + (pageSizeState.cold || DEFAULT_PAGE_SIZE));
-
-        pageData.forEach(row => {
-
+    // normalize and merge
+    const merged = [];
+    results.forEach(result => {
+        result.data.forEach(row => {
             let industry = 'Belum Diisi';
-
-            if (row.industry?.trim()) {
+            if (row.industry && row.industry.trim() !== '' && row.industry.trim() !== '-') {
                 industry = row.industry;
-            } else if (row.lead?.other_industry?.trim()) {
+            } else if (row.lead && row.lead.other_industry && row.lead.other_industry.trim() !== '') {
                 industry = row.lead.other_industry;
             }
 
-            tbody.innerHTML += `
-                <tr class="border-b">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source}</td>
-                    <td>${row.needs}</td>
-                    <td>${industry}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-center">${row.meeting_status}</td>
-                    <td class="text-center">${row.actions}</td>
-                </tr>
-            `;
-        });
-    }
-        loadColdLeads();
-
-        async function loadAllLeads() {
-        const endpoints = [
-            { url: "{{ route('leads.my.cold.list') }}", status: 'cold' },
-            { url: "{{ route('leads.my.warm.list') }}", status: 'warm' },
-            { url: "{{ route('leads.my.hot.list') }}", status: 'hot' },
-            { url: "{{ route('leads.my.deal.list') }}", status: 'deal' }
-        ];
-
-        const token = '{{ csrf_token() }}';
-
-        const fetches = endpoints.map(e =>
-            fetch(e.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': token
-                },
-                body: JSON.stringify({
-                    start_date: document.getElementById('filter_start')?.value,
-                    end_date: document.getElementById('filter_end')?.value,
-                    start: 0,
-                    length: 100000,
-                    draw: 1
-                })
-            }).then(r => r.json()).then(json => ({ status: e.status, data: json.data || [] })).catch(() => ({ status: e.status, data: [] }))
-        );
-
-        const results = await Promise.all(fetches);
-
-        // normalize and merge
-        const merged = [];
-        results.forEach(result => {
-            result.data.forEach(row => {
-                let industry = 'Belum Diisi';
-                if (row.industry && row.industry.trim() !== '' && row.industry.trim() !== '-') {
-                    industry = row.industry;
-                } else if (row.lead && row.lead.other_industry && row.lead.other_industry.trim() !== '') {
-                    industry = row.lead.other_industry;
-                }
-
-                merged.push({
-                    id: row.id || 0,
-                    name: row.name || row.lead_name || '',
-                    sales_name: row.sales_name || '',
-                    phone: row.phone || '',
-                    source: row.source || row.source_name || '',
-                    needs: row.needs || '',
-                    customer_type: row.customer_type || '',
-                    industry: industry,
-                    city_name: row.city_name || '',
-                    regional_name: row.regional_name || '',
-                    status: result.status,
-                    actions: row.actions || ''
-                });
+            merged.push({
+                id: row.id || 0,
+                name: row.name || row.lead_name || '',
+                sales_name: row.sales_name || '',
+                phone: row.phone || '',
+                source: row.source || row.source_name || '',
+                needs: row.needs || '',
+                customer_type: row.customer_type || '',
+                industry: industry,
+                city_name: row.city_name || '',
+                regional_name: row.regional_name || '',
+                status: result.status,
+                actions: row.actions || ''
             });
         });
+    });
 
-        // sort by id desc
-        merged.sort((a, b) => (b.id || 0) - (a.id || 0));
+    // sort by id desc
+    merged.sort((a, b) => (b.id || 0) - (a.id || 0));
 
-        const total = merged.length;
-        updatePagerUI('all', total);
-        const start = (pageState.all - 1) * (pageSizeState.all || DEFAULT_PAGE_SIZE);
-        const pageData = merged.slice(start, start + (pageSizeState.all || DEFAULT_PAGE_SIZE));
+    const total = merged.length;
+    updatePagerUI('all', total);
+    const start = (pageState.all - 1) * (pageSizeState.all || DEFAULT_PAGE_SIZE);
+    const pageData = merged.slice(start, start + (pageSizeState.all || DEFAULT_PAGE_SIZE));
 
-        const tbody = document.getElementById('allBody');
-        tbody.innerHTML = '';
+    const tbody = document.getElementById('allBody');
+    tbody.innerHTML = '';
 
-        pageData.forEach(row => {
-            tbody.innerHTML += `
-                <tr class="border-b">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source}</td>
-                    <td>${row.needs}</td>
-                    <td>${row.customer_type || row.industry}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-center">${row.status}</td>
-                    <td class="text-center">${row.actions}</td>
-                </tr>
-            `;
-        });
-    }
+    pageData.forEach(row => {
+        tbody.innerHTML += `
+            <tr class="border-b">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3">${row.name}</td>
+                <td>${row.sales_name}</td>
+                <td>${row.phone}</td>
+                <td>${row.source}</td>
+                <td>${row.needs}</td>
+                <td>${row.customer_type || row.industry}</td>
+                <td>${row.city_name}</td>
+                <td>${row.regional_name}</td>
+                <td class="text-center capitalize">
+                    <span class="p-2 rounded-lg
+                    ${
+                        row.status === 'cold' ? 'status-cold' :
+                        row.status === 'warm' ? 'status-warm' :
+                        row.status === 'hot' ? 'status-hot' :
+                        'status-deal'
+                    }">
+                        ${row.status}
+                    </span>
+                </td>
+                <td class="text-center">${row.actions}</td>
+            </tr>
+        `;
+    });
+}
 
-        loadAllLeads();
+    async function loadWarmLeads() {
+    const response = await fetch("{{ route('leads.my.warm.list') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            start_date: document.getElementById('filter_start')?.value,
+            end_date: document.getElementById('filter_end')?.value,
+            start: 0,
+            length: 100000,
+            draw: 1
+        })
+    });
 
-        async function loadWarmLeads() {
-        const response = await fetch("{{ route('leads.my.warm.list') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            body: JSON.stringify({
-                start_date: document.getElementById('filter_start')?.value,
-                end_date: document.getElementById('filter_end')?.value,
-                start: 0,
-                length: 100000,
-                draw: 1
-            })
-        });
+    const result = await response.json();
 
-        const result = await response.json();
+    const tbody = document.getElementById('warmBody');
 
-        const tbody = document.getElementById('warmBody');
+    tbody.innerHTML = '';
 
-        tbody.innerHTML = '';
+    const total = (result.data || []).length;
+    updatePagerUI('warm', total);
+    const start = (pageState.warm - 1) * (pageSizeState.warm || DEFAULT_PAGE_SIZE);
+    const pageData = (result.data || []).slice(start, start + (pageSizeState.warm || DEFAULT_PAGE_SIZE));
 
-        const total = (result.data || []).length;
-        updatePagerUI('warm', total);
-        const start = (pageState.warm - 1) * (pageSizeState.warm || DEFAULT_PAGE_SIZE);
-        const pageData = (result.data || []).slice(start, start + (pageSizeState.warm || DEFAULT_PAGE_SIZE));
+    pageData.forEach(row => {
 
-        pageData.forEach(row => {
+        let industry = 'Belum Diisi';
 
-            let industry = 'Belum Diisi';
-
-            if (row.industry?.trim()) {
-                industry = row.industry;
-            } else if (row.lead?.other_industry?.trim()) {
-                industry = row.lead.other_industry;
-            }
-
-            tbody.innerHTML += `
-                <tr class="border-b">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${industry}</td>
-                    <td>${row.meeting_status}</td>
-                    <td>${row.actions}</td>
-                </tr>
-            `;
-        });
-    }
-        loadWarmLeads();
-        
-        async function loadHotLeads() {
-        const response = await fetch("{{ route('leads.my.hot.list') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            body: JSON.stringify({
-                start_date: document.getElementById('filter_start')?.value,
-                end_date: document.getElementById('filter_end')?.value,
-                start: 0,
-                length: 100000,
-                draw: 1
-            })
-        });
-
-        const result = await response.json();
-
-        const tbody = document.getElementById('hotBody');
-
-        tbody.innerHTML = '';
-
-        const total = (result.data || []).length;
-        updatePagerUI('hot', total);
-        const start = (pageState.hot - 1) * (pageSizeState.hot || DEFAULT_PAGE_SIZE);
-        const pageData = (result.data || []).slice(start, start + (pageSizeState.hot || DEFAULT_PAGE_SIZE));
-
-        pageData.forEach(row => {
-
-            let industry = 'Belum Diisi';
-
-            if (row.industry?.trim()) {
-                industry = row.industry;
-            } else if (row.lead?.other_industry?.trim()) {
-                industry = row.lead.other_industry;
-            }
-
-            tbody.innerHTML += `
-                <tr class="border-b">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${industry}</td>
-                    <td>${row.meeting_status}</td>
-                    <td>${row.actions}</td>
-                </tr>
-            `;
-        });
+        if (row.industry?.trim()) {
+            industry = row.industry;
+        } else if (row.lead?.other_industry?.trim()) {
+            industry = row.lead.other_industry;
         }
 
-        loadHotLeads();
+        tbody.innerHTML += `
+            <tr class="border-b">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3">${row.claimed_at}</td>
+                <td>${row.lead_name}</td>
+                <td>${industry}</td>
+                <td>${row.meeting_status}</td>
+                <td>${row.actions}</td>
+            </tr>
+        `;
+    });
+}
+    
+    async function loadHotLeads() {
+    const response = await fetch("{{ route('leads.my.hot.list') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            start_date: document.getElementById('filter_start')?.value,
+            end_date: document.getElementById('filter_end')?.value,
+            start: 0,
+            length: 100000,
+            draw: 1
+        })
+    });
 
-        async function loadDealLeads() {
-        const response = await fetch("{{ route('leads.my.deal.list') }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            body: JSON.stringify({
-                start_date: document.getElementById('filter_start')?.value,
-                end_date: document.getElementById('filter_end')?.value,
-                start: 0,
-                length: 100000,
-                draw: 1
-            })
-        });
+    const result = await response.json();
 
-        const result = await response.json();
+    const tbody = document.getElementById('hotBody');
 
-        const tbody = document.getElementById('dealBody');
+    tbody.innerHTML = '';
 
-        tbody.innerHTML = '';
+    const total = (result.data || []).length;
+    updatePagerUI('hot', total);
+    const start = (pageState.hot - 1) * (pageSizeState.hot || DEFAULT_PAGE_SIZE);
+    const pageData = (result.data || []).slice(start, start + (pageSizeState.hot || DEFAULT_PAGE_SIZE));
 
-        const total = (result.data || []).length;
-        updatePagerUI('deal', total);
-        const start = (pageState.deal - 1) * (pageSizeState.deal || DEFAULT_PAGE_SIZE);
-        const pageData = (result.data || []).slice(start, start + (pageSizeState.deal || DEFAULT_PAGE_SIZE));
+    pageData.forEach(row => {
 
-        pageData.forEach(row => {
+        let industry = 'Belum Diisi';
 
-            let industry = 'Belum Diisi';
-
-            if (row.industry?.trim()) {
-                industry = row.industry;
-            } else if (row.lead?.other_industry?.trim()) {
-                industry = row.lead.other_industry;
-            }
-
-            tbody.innerHTML += `
-                <tr class="border-b">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${industry}</td>
-                    <td>${row.meeting_status}</td>
-                    <td>${row.actions}</td>
-                </tr>
-            `;
-        });
+        if (row.industry?.trim()) {
+            industry = row.industry;
+        } else if (row.lead?.other_industry?.trim()) {
+            industry = row.lead.other_industry;
         }
 
-        loadDealLeads();
+        tbody.innerHTML += `
+            <tr class="border-b">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3">${row.claimed_at}</td>
+                <td>${row.lead_name}</td>
+                <td>${industry}</td>
+                <td>${row.meeting_status}</td>
+                <td>${row.actions}</td>
+            </tr>
+        `;
+    });
+    }
 
-        function initLeadTable(selector, route, type = 'default') {
+    async function loadDealLeads() {
+    const response = await fetch("{{ route('leads.my.deal.list') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            start_date: document.getElementById('filter_start')?.value,
+            end_date: document.getElementById('filter_end')?.value,
+            start: 0,
+            length: 100000,
+            draw: 1
+        })
+    });
+
+    const result = await response.json();
+
+    const tbody = document.getElementById('dealBody');
+
+    tbody.innerHTML = '';
+
+    const total = (result.data || []).length;
+    updatePagerUI('deal', total);
+    const start = (pageState.deal - 1) * (pageSizeState.deal || DEFAULT_PAGE_SIZE);
+    const pageData = (result.data || []).slice(start, start + (pageSizeState.deal || DEFAULT_PAGE_SIZE));
+
+    pageData.forEach(row => {
+
+        let industry = 'Belum Diisi';
+
+        if (row.industry?.trim()) {
+            industry = row.industry;
+        } else if (row.lead?.other_industry?.trim()) {
+            industry = row.lead.other_industry;
+        }
+
+        tbody.innerHTML += `
+            <tr class="border-b">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3">${row.claimed_at}</td>
+                <td>${row.lead_name}</td>
+                <td>${industry}</td>
+                <td>${row.meeting_status}</td>
+                <td>${row.actions}</td>
+            </tr>
+        `;
+    });
+    }
+
+    function initLeadTable(selector, route, type = 'default') {
             let columns;
             if (type === 'cold') {
                 columns = [{
@@ -998,26 +1008,27 @@
                 });
             }
 
-            // Status nav (tailwind area) - show/hide table containers based on clicked status
-            function setActiveNav(tab) {
-                $('.nav-leads-active').removeClass('active-nav');
-                $('.nav-leads-active[data-tab="' + tab + '"]').addClass('active-nav');
+                function setActiveNav(tab) {
+                    $('.nav-leads').removeClass('active-nav');
+                    $('.nav-leads[data-tab="' + tab + '"]').addClass('active-nav');
+                    
+                    if (tab === 'all') {
+                        $('.leads-table-container').hide();
+                        $('.leads-table-container[data-tab-container="all"]').show();
+                    } else {
+                        $('.leads-table-container').hide();
+                        $('.leads-table-container[data-tab-container="' + tab + '"]').show();
+                    }
 
-                if (tab === 'all') {
-                    $('.leads-table-container').hide();
-                    $('.leads-table-container[data-tab-container="all"]').show();
-                } else {
-                    $('.leads-table-container').hide();
-                    $('.leads-table-container[data-tab-container="' + tab + '"]').show();
+                    pageState[tab] = 1;
+                    reloadTab(tab);
                 }
-            }
 
             // init: default to 'all'
             setActiveNav('all');
 
-            $('.nav-leads-active').on('click', function() {
-                const tab = $(this).data('tab');
-                setActiveNav(tab);
+            $('.nav-leads').on('click', function() {
+                setActiveNav($(this).data('tab'));
             });
         });
 
@@ -1230,9 +1241,13 @@
     }
 
     /* Tailwind-style status nav active state */
-    .nav-leads-active.active-nav {
-        background-color: #115640;
-        color: #fff;
+    .nav-leads {
+    border-bottom: 4px solid transparent;
+    }
+
+    .nav-leads.active-nav {
+        border-bottom: 4px solid #115640;
+        color: white;
     }
 
     .leads-table-container {

@@ -18,7 +18,17 @@ class CompanyController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Company::query())
+        $query = Company::query();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $companies = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $companies,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.companies.form', $row->id);
@@ -33,9 +43,19 @@ class CompanyController extends Controller
             ->make(true);
     }
 
-    public function form($id = null)
+    public function form(Request $request, $id = null)
     {
         $form_data = $id ? Company::findOrFail($id) : new Company();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'form_data' => $form_data,
+                ],
+            ]);
+        }
+
         return $this->render('pages.masters.companies.form', compact('form_data'));
     }
 

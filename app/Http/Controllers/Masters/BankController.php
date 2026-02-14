@@ -19,7 +19,17 @@ class BankController extends Controller
 
     public function list(Request $request)
     {
-        return DataTables::of(Bank::query())
+        $query = Bank::query();
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            $banks = $query->get();
+            return response()->json([
+                'status' => true,
+                'data' => $banks,
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('masters.banks.form', $row->id);
                 $del  = route('masters.banks.delete', $row->id);

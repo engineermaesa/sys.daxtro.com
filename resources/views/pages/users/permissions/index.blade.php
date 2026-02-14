@@ -37,8 +37,8 @@ $(function () {
     serverSide: true,
     ajax: {
       url: '{{ route("users.permissions.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      type: 'GET',
+      // data: { _token: '{{ csrf_token() }}' }
     },
     columns: [
       { data: 'id', visible: false },
