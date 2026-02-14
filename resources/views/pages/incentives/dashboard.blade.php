@@ -1,3305 +1,3508 @@
 @extends('layouts.app')
 
 @section('styles')
-    <style>
-        .collapse-toggle i.fa-angle-down {
-            transition: transform .2s;
-        }
+<style>
+    .collapse-toggle i.fa-angle-down {
+        transition: transform .2s;
+    }
 
-        .collapse-toggle.collapsed i.fa-angle-down {
-            transform: rotate(-90deg);
-        }
+    .collapse-toggle.collapsed i.fa-angle-down {
+        transform: rotate(-90deg);
+    }
 
-        .card-header::after {
-            display: none !important;
-        }
+    .card-header::after {
+        display: none !important;
+    }
 
 
-        #process-flow-container, #process-flow-row2 {
-            margin-left: -8px;
-            margin-right: -8px;
-        }
-        
-        #process-flow-container > div, #process-flow-row2 > div {
-            padding-left: 8px;
-            padding-right: 8px;
-        }
-        
+    #process-flow-container,
+    #process-flow-row2 {
+        margin-left: -8px;
+        margin-right: -8px;
+    }
+
+    #process-flow-container>div,
+    #process-flow-row2>div {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .process-flow-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+        height: 77px;
+        display: flex;
+        align-items: center;
+        padding: 20px 16px;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        width: 100%;
+        margin-bottom: 16px;
+    }
+
+    .process-flow-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .process-flow-icon {
+        width: 46px;
+        height: 46px;
+        background-color: #F8F9FD;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 14px;
+        flex-shrink: 0;
+    }
+
+    .process-flow-icon i {
+        color: #115641;
+        font-size: 16px;
+    }
+
+    .process-flow-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .process-flow-title {
+        font-size: 12px;
+        font-weight: 500;
+        color: #115641;
+        margin: 0 0 3px 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .process-flow-count {
+        font-size: 20px;
+        font-weight: bold;
+        color: #115641;
+        margin: 0 0 3px 0;
+        line-height: 1;
+    }
+
+    .process-flow-atr {
+        font-size: 10px;
+        font-weight: 400;
+        color: #6B7280;
+        margin: 0;
+        line-height: 1;
+    }
+
+
+    @media (max-width: 1199px) {
         .process-flow-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
-            height: 77px;
-            display: flex;
-            align-items: center;
-            padding: 20px 16px;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            width: 100%;
-            margin-bottom: 16px;
-        }
-
-        .process-flow-card:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
+            height: 88px;
+            padding: 18px 14px;
         }
 
         .process-flow-icon {
-            width: 46px;
-            height: 46px;
-            background-color: #F8F9FD;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 14px;
-            flex-shrink: 0;
+            width: 42px;
+            height: 42px;
+            margin-right: 12px;
         }
 
         .process-flow-icon i {
-            color: #115641;
-            font-size: 16px;
+            font-size: 15px;
         }
 
-        .process-flow-content {
-            flex: 1;
-            min-width: 0;
+        .process-flow-count {
+            font-size: 18px;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .process-flow-card {
+            height: 85px;
+            padding: 16px 12px;
+        }
+
+        .process-flow-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+        }
+
+        .process-flow-icon i {
+            font-size: 14px;
+        }
+
+        .process-flow-count {
+            font-size: 17px;
         }
 
         .process-flow-title {
-            font-size: 12px;
-            font-weight: 500;
-            color: #115641;
-            margin: 0 0 3px 0;
-            line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 11px;
+        }
+
+        .process-flow-atr {
+            font-size: 9px;
+        }
+    }
+
+    @media (max-width: 575px) {
+        .process-flow-card {
+            height: auto;
+            min-height: 80px;
+            padding: 16px;
+        }
+
+        .process-flow-icon {
+            width: 44px;
+            height: 44px;
+            margin-right: 14px;
+        }
+
+        .process-flow-icon i {
+            font-size: 16px;
         }
 
         .process-flow-count {
             font-size: 20px;
-            font-weight: bold;
-            color: #115641;
-            margin: 0 0 3px 0;
-            line-height: 1;
+        }
+
+        .process-flow-title {
+            font-size: 13px;
         }
 
         .process-flow-atr {
-            font-size: 10px;
-            font-weight: 400;
-            color: #6B7280;
-            margin: 0;
-            line-height: 1;
+            font-size: 11px;
         }
+    }
 
-        
-        @media (max-width: 1199px) {
-            .process-flow-card {
-                height: 88px;
-                padding: 18px 14px;
-            }
-            
-            .process-flow-icon {
-                width: 42px;
-                height: 42px;
-                margin-right: 12px;
-            }
-            
-            .process-flow-icon i {
-                font-size: 15px;
-            }
-            
-            .process-flow-count {
-                font-size: 18px;
-            }
-        }
+    .col-xl-2-4 {
+        flex: 0 0 20%;
+        max-width: 20%;
+    }
 
-        @media (max-width: 991px) {
-            .process-flow-card {
-                height: 85px;
-                padding: 16px 12px;
-            }
-            
-            .process-flow-icon {
-                width: 40px;
-                height: 40px;
-                margin-right: 10px;
-            }
-            
-            .process-flow-icon i {
-                font-size: 14px;
-            }
-            
-            .process-flow-count {
-                font-size: 17px;
-            }
-            
-            .process-flow-title {
-                font-size: 11px;
-            }
-            
-            .process-flow-atr {
-                font-size: 9px;
-            }
-        }
-
-        @media (max-width: 575px) {
-            .process-flow-card {
-                height: auto;
-                min-height: 80px;
-                padding: 16px;
-            }
-            
-            .process-flow-icon {
-                width: 44px;
-                height: 44px;
-                margin-right: 14px;
-            }
-            
-            .process-flow-icon i {
-                font-size: 16px;
-            }
-            
-            .process-flow-count {
-                font-size: 20px;
-            }
-            
-            .process-flow-title {
-                font-size: 13px;
-            }
-            
-            .process-flow-atr {
-                font-size: 11px;
-            }
-        }
-
+    @media (max-width: 1199px) {
         .col-xl-2-4 {
-            flex: 0 0 20%;
-            max-width: 20%;
+            flex: 0 0 25%;
+            max-width: 25%;
         }
-        
-        @media (max-width: 1199px) {
-            .col-xl-2-4 {
-                flex: 0 0 25%;
-                max-width: 25%;
-            }
-        }
-        
-        @media (max-width: 991px) {
-            .col-xl-2-4 {
-                flex: 0 0 50%;
-                max-width: 50%;
-            }
-        }
-        
-        @media (max-width: 575px) {
-            .col-xl-2-4 {
-                flex: 0 0 100%;
-                max-width: 100%;
-            }
-        }
+    }
 
-        .chart-card {
-            border-radius: 16px;
-            background: #fff;
-            transition: all 0.3s ease;
+    @media (max-width: 991px) {
+        .col-xl-2-4 {
+            flex: 0 0 50%;
+            max-width: 50%;
         }
-        
-        .chart-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
-        }
+    }
 
-        .chart-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #115641;
-            margin: 0;
-            line-height: 1.3;
+    @media (max-width: 575px) {
+        .col-xl-2-4 {
+            flex: 0 0 100%;
+            max-width: 100%;
         }
+    }
 
-        .chart-subtitle {
-            font-size: 13px;
-            font-weight: 400;
-            color: #6B7280;
-            margin: 0;
-            line-height: 1.2;
-        }
+    .chart-card {
+        border-radius: 16px;
+        background: #fff;
+        transition: all 0.3s ease;
+    }
 
-        .chart-controls {
-            gap: 12px;
-        }
+    .chart-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+    }
 
-        .control-item {
-            flex: 0 0 auto;
-        }
+    .chart-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #115641;
+        margin: 0;
+        line-height: 1.3;
+    }
 
-        .modern-select,
-        .modern-input {
-            border: 1.5px solid #E5E7EB;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #374151;
-            background: #fff;
-            transition: all 0.2s ease;
-            min-width: 120px;
-            height: 40px; 
-            line-height: 1.5;
-            display: inline-flex;
-            align-items: center;
-        }
+    .chart-subtitle {
+        font-size: 13px;
+        font-weight: 400;
+        color: #6B7280;
+        margin: 0;
+        line-height: 1.2;
+    }
 
-        .modern-select:focus,
-        .modern-input:focus {
-            border-color: #115641;
-            box-shadow: 0 0 0 3px rgba(17, 86, 65, 0.1);
-            outline: none;
-        }
+    .chart-controls {
+        gap: 12px;
+    }
 
-        .modern-apply-btn {
-            background: #115641;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 20px;
-            font-size: 13px;
-            height: 40px; 
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            min-width: 80px;
-        }
+    .control-item {
+        flex: 0 0 auto;
+    }
 
-        .modern-apply-btn:hover {
-            background: #0F4A37;
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
-        }
+    .modern-select,
+    .modern-input {
+        border: 1.5px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+        background: #fff;
+        transition: all 0.2s ease;
+        min-width: 120px;
+        height: 40px;
+        line-height: 1.5;
+        display: inline-flex;
+        align-items: center;
+    }
 
-        .chart-container {
-            background: #FAFBFC;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid #F1F3F4;
-        }
+    .modern-select:focus,
+    .modern-input:focus {
+        border-color: #115641;
+        box-shadow: 0 0 0 3px rgba(17, 86, 65, 0.1);
+        outline: none;
+    }
 
+    .modern-apply-btn {
+        background: #115641;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-size: 13px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        min-width: 80px;
+    }
+
+    .modern-apply-btn:hover {
+        background: #0F4A37;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+    }
+
+    .chart-container {
+        background: #FAFBFC;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #F1F3F4;
+    }
+
+    .source-conversion-section {
+        background: #f8f9fa !important;
+        border-radius: 15px !important;
+    }
+
+    .source-conversion-section .form-label {
+        height: auto;
+        line-height: 1.4;
+        margin-bottom: 8px !important;
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        display: block;
+    }
+
+    .source-control-input {
+        height: 42px;
+        border: 1px solid #d1d3e2;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fff;
+        padding: 10px 12px;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .source-control-input:focus {
+        border-color: #115641;
+        box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+    }
+
+    #source-filter {
+        max-width: 160px;
+    }
+
+    #source-filter option {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 160px;
+    }
+
+    #source-monitoring-source-filter {
+        max-width: 140px;
+    }
+
+    #source-monitoring-source-filter option {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+
+    .source-apply-button {
+        height: 42px;
+        background: #115641;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .source-apply-button:hover {
+        background: #0d4133;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+    }
+
+    @media (max-width: 768px) {
         .source-conversion-section {
-            background: #f8f9fa !important;
-            border-radius: 15px !important;
-        }
-        
-        .source-conversion-section .form-label {
-            height: auto;
-            line-height: 1.4;
-            margin-bottom: 8px !important;
-            font-size: 13px;
-            font-weight: 600;
-            color: #495057;
-            display: block;
+            padding: 20px !important;
         }
 
-        .source-control-input {
-            height: 42px;
-            border: 1px solid #d1d3e2;
-            border-radius: 8px;
-            font-size: 14px;
-            background: #fff;
-            padding: 10px 12px;
-            transition: all 0.3s ease;
-            width: 100%;
+        .source-conversion-section .row {
+            margin-bottom: 15px !important;
         }
 
-        .source-control-input:focus {
-            border-color: #115641;
-            box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+        .source-conversion-section .row:last-child {
+            margin-bottom: 0 !important;
         }
 
-        #source-filter {
-            max-width: 160px;
-        }
-
-        #source-filter option {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 160px;
-        }
-
-        #source-monitoring-source-filter {
-            max-width: 140px;
-        }
-
-        #source-monitoring-source-filter option {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 140px;
+        .source-conversion-section .col-md-6 {
+            margin-bottom: 15px;
         }
 
         .source-apply-button {
-            height: 42px;
-            background: #115641;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .source-conversion-section {
+            padding: 15px !important;
         }
 
-        .source-apply-button:hover {
-            background: #0d4133;
-            color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(17, 86, 65, 0.3);
+        .source-conversion-section .form-label {
+            font-size: 12px;
+            margin-bottom: 6px !important;
         }
 
-        @media (max-width: 768px) {
-            .source-conversion-section {
-                padding: 20px !important;
-            }
-            
-            .source-conversion-section .row {
-                margin-bottom: 15px !important;
-            }
-            
-            .source-conversion-section .row:last-child {
-                margin-bottom: 0 !important;
-            }
-            
-            .source-conversion-section .col-md-6 {
-                margin-bottom: 15px;
-            }
-            
-            .source-apply-button {
-                margin-top: 10px;
-            }
-        }
-        
-        @media (max-width: 576px) {
-            .source-conversion-section {
-                padding: 15px !important;
-            }
-            
-            .source-conversion-section .form-label {
-                font-size: 12px;
-                margin-bottom: 6px !important;
-            }
-            
-            .source-control-input {
-                height: 40px;
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-            
-            .source-apply-button {
-                height: 40px;
-                font-size: 13px;
-            }
-        }
-
-        .table, .table-responsive, .source-conversion-responsive, .table-with-sticky-footer,
-        #source-conversion-table, #potential-branch-table, #potential-list-table,
-        .table *, .table-responsive *, .source-conversion-responsive *, 
-        .table-with-sticky-footer *, .potential-dealing-responsive * {
-            border-radius: 0 !important;
-            -webkit-border-radius: 0 !important;
-            -moz-border-radius: 0 !important;
-        }
-
-        .table th, .table td, thead th, tbody td, th, td,
-        .source-conversion-responsive th, .table-with-sticky-footer th,
-        .table thead th:first-child, .table thead th:last-child,
-        .table tbody td:first-child, .table tbody td:last-child {
-            border-radius: 0 !important;
-            -webkit-border-radius: 0 !important;
-            -moz-border-radius: 0 !important;
-        }
-
-        .source-conversion-table-container, .table-with-sticky-footer, 
-        .potential-dealing-responsive, .table-container,
-        .card .table, .card .table-responsive {
-            border-radius: 0 !important;
-            -webkit-border-radius: 0 !important;
-            -moz-border-radius: 0 !important;
-        }
-
-        .table-bordered, .table-bordered th, .table-bordered td,
-        .rounded, .rounded-top, .rounded-bottom, .rounded-left, .rounded-right {
-            border-radius: 0 !important;
-            -webkit-border-radius: 0 !important;
-            -moz-border-radius: 0 !important;
-        }
-
-        #source-conversion-table {
-            border-radius: 0 !important;
-            overflow: hidden;
-        }
-
-        #source-conversion-table thead th {
-            border: none;
-            font-size: 14px;
-            border-radius: 0 !important;
-        }
-
-        #source-conversion-table tbody td {
-            border-top: 1px solid #f1f3f4;
-            padding: 16px;
-            font-size: 14px;
-            vertical-align: middle;
-        }
-
-        #source-conversion-table tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        .source-conversion-table-container {
-            max-height: 350px;
-            overflow-y: auto;
-            overflow-x: auto;
-            border-radius: 0 !important;
-            border: 1px solid #e3e6f0;
-            background-color: #fff;
-        }
-
-        .source-conversion-table-container .table {
-            margin-bottom: 0;
-        }
-
-        .source-conversion-table-container thead th {
-            background-color: #115641 !important;
-            border: none;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        #source-conversion-table tbody td {
-            padding: 16px;
-            border-top: 1px solid #f1f3f4;
-            font-size: 14px;
-            vertical-align: middle;
-        }
-
-        .source-conversion-table-container::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        .source-conversion-table-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .source-conversion-table-container::-webkit-scrollbar-thumb {
-            background: #115641;
-            border-radius: 4px;
-        }
-
-        .source-conversion-table-container::-webkit-scrollbar-thumb:hover {
-            background: #0d4133;
-        }
-
-        .source-conversion-responsive {
-            position: relative;
-            min-height: 200px; 
-            max-height: 400px; 
-            overflow: auto; 
-            border-radius: 0 !important; 
-            border: 1px solid #e3e6f0;
-            background-color: #fff;
-            display: flex;
-            flex-direction: column;
-
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: #115641 #f1f1f1;
-        }
-
-        #potential-branch-container,
-        #potential-list-container {
-            position: relative;
-            min-height: 200px;
-            max-height: 400px;
-            overflow: auto;
-            border-radius: 0 !important;
-            border: 1px solid #e3e6f0;
-            background-color: #fff;
-            display: flex;
-            flex-direction: column;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: #115641 #f1f1f1;
-        }
-        
-        .source-conversion-scroll {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto; 
-            overflow-x: hidden;
-            position: relative;
-            height: 100%;
-        }
-        
-        .source-conversion-responsive::-webkit-scrollbar,
-        .source-conversion-scroll::-webkit-scrollbar,
-        #potential-branch-container::-webkit-scrollbar,
-        #potential-list-container::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        .source-conversion-responsive::-webkit-scrollbar-track,
-        .source-conversion-scroll::-webkit-scrollbar-track,
-        #potential-branch-container::-webkit-scrollbar-track,
-        #potential-list-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-        
-        .source-conversion-responsive::-webkit-scrollbar-thumb,
-        .source-conversion-scroll::-webkit-scrollbar-thumb,
-        #potential-branch-container::-webkit-scrollbar-thumb,
-        #potential-list-container::-webkit-scrollbar-thumb {
-            background: #115641;
-            border-radius: 4px;
-        }
-        
-        .source-conversion-responsive::-webkit-scrollbar-thumb:hover,
-        .source-conversion-scroll::-webkit-scrollbar-thumb:hover,
-        #potential-branch-container::-webkit-scrollbar-thumb:hover,
-        #potential-list-container::-webkit-scrollbar-thumb:hover {
-            background: #0d4133;
-        }
-
-        .source-conversion-responsive table {
-            width: 100%;
-            margin-bottom: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .source-conversion-responsive thead {
-            flex-shrink: 0;
-            position: relative;
-            z-index: 20;
-            background-color: #115641;
-            display: block;
-        }
-        
-        .source-conversion-responsive thead th {
-            background-color: #115641 !important;
-            border: none;
-        }
-
-        .source-conversion-responsive tbody {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            display: block;
-        }
-
-        .source-conversion-responsive tfoot {
-            flex-shrink: 0;
-            position: relative;
-            z-index: 15;
-            background-color: #115641;
-            display: block;
-        }
-        
-        .source-conversion-responsive tfoot td {
-            background-color: #115641 !important;
-            border: none;
-        }
-
-        .source-conversion-responsive tr {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        #potential-branch-container table,
-        #potential-list-container table {
-            width: 100%;
-            margin-bottom: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-        
-        #potential-branch-container thead,
-        #potential-list-container thead {
-            flex-shrink: 0;
-            position: relative;
-            z-index: 20;
-            background-color: #115641;
-            display: block;
-        }
-        
-        #potential-branch-container thead th,
-        #potential-list-container thead th {
-            background-color: #115641 !important;
-            border: none;
-        }
-        
-        #potential-branch-container tbody,
-        #potential-list-container tbody {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            display: block;
-        }
-        
-        #potential-branch-container tfoot,
-        #potential-list-container tfoot {
-            flex-shrink: 0;
-            position: relative;
-            z-index: 15;
-            background-color: #115641;
-            display: block;
-        }
-        
-        #potential-branch-container tfoot td,
-        #potential-list-container tfoot td {
-            background-color: #115641 !important;
-            border: none;
-        }
-        
-        #potential-branch-container tr,
-        #potential-list-container tr {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-        }
-
-        .source-conversion-responsive tbody td {
-            padding: 12px 16px;
-            border-top: 1px solid #f1f3f4;
+        .source-control-input {
+            height: 40px;
             font-size: 13px;
-            vertical-align: middle;
+            padding: 8px 10px;
         }
 
-        .source-conversion-responsive thead th,
-        .source-conversion-responsive tfoot td {
-            padding: 12px 16px;
-        }
-
-        #potential-branch-container tbody td,
-        #potential-list-container tbody td {
-            padding: 12px 16px;
-            border-top: 1px solid #f1f3f4;
+        .source-apply-button {
+            height: 40px;
             font-size: 13px;
-            vertical-align: middle;
         }
-        
-        #potential-branch-container thead th,
-        #potential-branch-container tfoot td,
-        #potential-list-container thead th,
-        #potential-list-container tfoot td {
-            padding: 12px 16px;
-        }
+    }
 
-        .source-conversion-responsive tfoot tr {
-            display: table !important;
-            width: 100% !important;
-            table-layout: fixed !important;
-        }
+    .table,
+    .table-responsive,
+    .source-conversion-responsive,
+    .table-with-sticky-footer,
+    #source-conversion-table,
+    #potential-branch-table,
+    #potential-list-table,
+    .table *,
+    .table-responsive *,
+    .source-conversion-responsive *,
+    .table-with-sticky-footer *,
+    .potential-dealing-responsive * {
+        border-radius: 0 !important;
+        -webkit-border-radius: 0 !important;
+        -moz-border-radius: 0 !important;
+    }
 
-        .source-conversion-responsive.compact {
-            height: auto !important;
-            min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important; 
-        }
-        
-        .source-conversion-responsive.compact .source-conversion-scroll {
-            height: auto !important;
-            max-height: 250px !important; 
-            overflow-y: auto !important;
-            overflow-x: hidden !important; 
-        }
-        
-        .source-conversion-responsive.compact table {
-            height: auto !important;
-        }
-        
-        .source-conversion-responsive.compact tbody {
-            overflow: visible !important;
-            height: auto !important;
-            max-height: none !important;
-        }
+    .table th,
+    .table td,
+    thead th,
+    tbody td,
+    th,
+    td,
+    .source-conversion-responsive th,
+    .table-with-sticky-footer th,
+    .table thead th:first-child,
+    .table thead th:last-child,
+    .table tbody td:first-child,
+    .table tbody td:last-child {
+        border-radius: 0 !important;
+        -webkit-border-radius: 0 !important;
+        -moz-border-radius: 0 !important;
+    }
 
-        .source-conversion-responsive.compact tfoot {
-            position: relative !important;
-            bottom: auto !important;
-        }
+    .source-conversion-table-container,
+    .table-with-sticky-footer,
+    .potential-dealing-responsive,
+    .table-container,
+    .card .table,
+    .card .table-responsive {
+        border-radius: 0 !important;
+        -webkit-border-radius: 0 !important;
+        -moz-border-radius: 0 !important;
+    }
 
-        .source-conversion-responsive:has(#source-conversion-table).compact {
-            height: auto !important;
-            min-height: auto !important;
-            max-height: none !important;
-        }
-        
-        .source-conversion-responsive:has(#source-conversion-table).compact .source-conversion-scroll {
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-        }
-        
-        .source-conversion-responsive:has(#source-conversion-table).compact tbody {
-            overflow: visible !important;
-            height: auto !important;
-            max-height: none !important;
-        }
+    .table-bordered,
+    .table-bordered th,
+    .table-bordered td,
+    .rounded,
+    .rounded-top,
+    .rounded-bottom,
+    .rounded-left,
+    .rounded-right {
+        border-radius: 0 !important;
+        -webkit-border-radius: 0 !important;
+        -moz-border-radius: 0 !important;
+    }
 
-        .source-conversion-responsive:has(#potential-branch-table).compact {
-            height: auto !important;
-            min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important; 
-        }
-        
-        .source-conversion-responsive:has(#potential-branch-table).compact .source-conversion-scroll {
-            height: auto !important;
-            max-height: 250px !important;
-            overflow-y: auto !important; 
-            overflow-x: hidden !important; 
-        }
-        
-        .source-conversion-responsive:has(#potential-branch-table).compact tbody {
-            overflow-y: auto !important; 
-            overflow-x: hidden !important;
-            height: auto !important;
-            max-height: 200px !important; 
-        }
+    #source-conversion-table {
+        border-radius: 0 !important;
+        overflow: hidden;
+    }
 
-        .source-conversion-responsive:has(#potential-list-table).compact {
-            height: auto !important;
-            min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important;
-        }
-        
-        .source-conversion-responsive:has(#potential-list-table).compact .source-conversion-scroll {
-            height: auto !important;
-            max-height: 250px !important;
-            overflow-y: auto !important; 
-            overflow-x: hidden !important; 
-        }
-        
-        .source-conversion-responsive:has(#potential-list-table).compact tbody {
-            overflow-y: auto !important; 
-            overflow-x: hidden !important;
-            height: auto !important;
-            max-height: 200px !important;
-        }
+    #source-conversion-table thead th {
+        border: none;
+        font-size: 14px;
+        border-radius: 0 !important;
+    }
 
-        @supports not (selector(:has())) {
-            #source-conversion-container.compact {
-                height: auto !important;
-                min-height: auto !important;
-                max-height: none !important;
-            }
-            
-            #source-conversion-container.compact .source-conversion-scroll {
-                height: auto !important;
-                max-height: 200px !important; 
-                overflow-y: auto !important; 
-                overflow-x: hidden !important; 
-            }
+    #source-conversion-table tbody td {
+        border-top: 1px solid #f1f3f4;
+        padding: 16px;
+        font-size: 14px;
+        vertical-align: middle;
+    }
 
-            #potential-branch-container.compact {
-                height: auto !important;
-                min-height: auto !important;  
-                max-height: 250px !important; 
-                overflow: auto !important; 
-            }
-            
-            #potential-branch-container.compact .source-conversion-scroll {
-                height: auto !important;
-                max-height: 200px !important; 
-                overflow-y: auto !important; 
-                overflow-x: hidden !important; 
-            }
+    #source-conversion-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
 
-            #potential-list-container.compact {
-                height: auto !important;
-                min-height: auto !important;
-                max-height: 250px !important; 
-                overflow: auto !important; 
-            }
-            
-            #potential-list-container.compact .source-conversion-scroll {
-                height: auto !important;
-                max-height: 200px !important;
-                overflow-y: auto !important;
-                overflow-x: hidden !important; 
-            }
-        }
+    .source-conversion-table-container {
+        max-height: 350px;
+        overflow-y: auto;
+        overflow-x: auto;
+        border-radius: 0 !important;
+        border: 1px solid #e3e6f0;
+        background-color: #fff;
+    }
 
-        #potential-branch-container:not(.compact),
-        #potential-list-container:not(.compact),
-        #source-conversion-container:not(.compact) {
-            overflow: auto !important;
-            max-height: 400px !important;
-            -webkit-overflow-scrolling: touch; 
-        }
-        
-        #potential-branch-container:not(.compact) .source-conversion-scroll,
-        #potential-list-container:not(.compact) .source-conversion-scroll,
-        #source-conversion-container:not(.compact) .source-conversion-scroll {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            height: 100% !important;
-            -webkit-overflow-scrolling: touch; 
-        }
+    .source-conversion-table-container .table {
+        margin-bottom: 0;
+    }
 
-        #potential-branch-table tbody,
-        #potential-list-table tbody {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            display: block !important;
-            max-height: 300px !important;
-        }
+    .source-conversion-table-container thead th {
+        background-color: #115641 !important;
+        border: none;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-        #potential-branch-table thead,
-        #potential-list-table thead {
-            display: block !important;
-        }
-        
-        #potential-branch-table tr,
-        #potential-list-table tr {
-            display: table !important;
-            width: 100% !important;
-            table-layout: fixed !important;
-        }
+    #source-conversion-table tbody td {
+        padding: 16px;
+        border-top: 1px solid #f1f3f4;
+        font-size: 14px;
+        vertical-align: middle;
+    }
 
+    .source-conversion-table-container::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .source-conversion-table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .source-conversion-table-container::-webkit-scrollbar-thumb {
+        background: #115641;
+        border-radius: 4px;
+    }
+
+    .source-conversion-table-container::-webkit-scrollbar-thumb:hover {
+        background: #0d4133;
+    }
+
+    .source-conversion-responsive {
+        position: relative;
+        min-height: 200px;
+        max-height: 400px;
+        overflow: auto;
+        border-radius: 0 !important;
+        border: 1px solid #e3e6f0;
+        background-color: #fff;
+        display: flex;
+        flex-direction: column;
+
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #115641 #f1f1f1;
+    }
+
+    #potential-branch-container,
+    #potential-list-container {
+        position: relative;
+        min-height: 200px;
+        max-height: 400px;
+        overflow: auto;
+        border-radius: 0 !important;
+        border: 1px solid #e3e6f0;
+        background-color: #fff;
+        display: flex;
+        flex-direction: column;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: #115641 #f1f1f1;
+    }
+
+    .source-conversion-scroll {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        position: relative;
+        height: 100%;
+    }
+
+    .source-conversion-responsive::-webkit-scrollbar,
+    .source-conversion-scroll::-webkit-scrollbar,
+    #potential-branch-container::-webkit-scrollbar,
+    #potential-list-container::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .source-conversion-responsive::-webkit-scrollbar-track,
+    .source-conversion-scroll::-webkit-scrollbar-track,
+    #potential-branch-container::-webkit-scrollbar-track,
+    #potential-list-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .source-conversion-responsive::-webkit-scrollbar-thumb,
+    .source-conversion-scroll::-webkit-scrollbar-thumb,
+    #potential-branch-container::-webkit-scrollbar-thumb,
+    #potential-list-container::-webkit-scrollbar-thumb {
+        background: #115641;
+        border-radius: 4px;
+    }
+
+    .source-conversion-responsive::-webkit-scrollbar-thumb:hover,
+    .source-conversion-scroll::-webkit-scrollbar-thumb:hover,
+    #potential-branch-container::-webkit-scrollbar-thumb:hover,
+    #potential-list-container::-webkit-scrollbar-thumb:hover {
+        background: #0d4133;
+    }
+
+    .source-conversion-responsive table {
+        width: 100%;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .source-conversion-responsive thead {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 20;
+        background-color: #115641;
+        display: block;
+    }
+
+    .source-conversion-responsive thead th {
+        background-color: #115641 !important;
+        border: none;
+    }
+
+    .source-conversion-responsive tbody {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: block;
+    }
+
+    .source-conversion-responsive tfoot {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 15;
+        background-color: #115641;
+        display: block;
+    }
+
+    .source-conversion-responsive tfoot td {
+        background-color: #115641 !important;
+        border: none;
+    }
+
+    .source-conversion-responsive tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #potential-branch-container table,
+    #potential-list-container table {
+        width: 100%;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    #potential-branch-container thead,
+    #potential-list-container thead {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 20;
+        background-color: #115641;
+        display: block;
+    }
+
+    #potential-branch-container thead th,
+    #potential-list-container thead th {
+        background-color: #115641 !important;
+        border: none;
+    }
+
+    #potential-branch-container tbody,
+    #potential-list-container tbody {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: block;
+    }
+
+    #potential-branch-container tfoot,
+    #potential-list-container tfoot {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 15;
+        background-color: #115641;
+        display: block;
+    }
+
+    #potential-branch-container tfoot td,
+    #potential-list-container tfoot td {
+        background-color: #115641 !important;
+        border: none;
+    }
+
+    #potential-branch-container tr,
+    #potential-list-container tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .source-conversion-responsive tbody td {
+        padding: 12px 16px;
+        border-top: 1px solid #f1f3f4;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .source-conversion-responsive thead th,
+    .source-conversion-responsive tfoot td {
+        padding: 12px 16px;
+    }
+
+    #potential-branch-container tbody td,
+    #potential-list-container tbody td {
+        padding: 12px 16px;
+        border-top: 1px solid #f1f3f4;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    #potential-branch-container thead th,
+    #potential-branch-container tfoot td,
+    #potential-list-container thead th,
+    #potential-list-container tfoot td {
+        padding: 12px 16px;
+    }
+
+    .source-conversion-responsive tfoot tr {
+        display: table !important;
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    .source-conversion-responsive.compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    .source-conversion-responsive.compact .source-conversion-scroll {
+        height: auto !important;
+        max-height: 250px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .source-conversion-responsive.compact table {
+        height: auto !important;
+    }
+
+    .source-conversion-responsive.compact tbody {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .source-conversion-responsive.compact tfoot {
+        position: relative !important;
+        bottom: auto !important;
+    }
+
+    .source-conversion-responsive:has(#source-conversion-table).compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+    }
+
+    .source-conversion-responsive:has(#source-conversion-table).compact .source-conversion-scroll {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .source-conversion-responsive:has(#source-conversion-table).compact tbody {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .source-conversion-responsive:has(#potential-branch-table).compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    .source-conversion-responsive:has(#potential-branch-table).compact .source-conversion-scroll {
+        height: auto !important;
+        max-height: 250px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .source-conversion-responsive:has(#potential-branch-table).compact tbody {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        max-height: 200px !important;
+    }
+
+    .source-conversion-responsive:has(#potential-list-table).compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    .source-conversion-responsive:has(#potential-list-table).compact .source-conversion-scroll {
+        height: auto !important;
+        max-height: 250px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .source-conversion-responsive:has(#potential-list-table).compact tbody {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        max-height: 200px !important;
+    }
+
+    @supports not (selector(:has())) {
         #source-conversion-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important; 
+            max-height: none !important;
         }
-        
+
+        #source-conversion-container.compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
         #potential-branch-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important; 
+            max-height: 250px !important;
+            overflow: auto !important;
         }
-        
+
+        #potential-branch-container.compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+
         #potential-list-container.compact {
             height: auto !important;
             min-height: auto !important;
-            max-height: 300px !important; 
-            overflow: auto !important; 
+            max-height: 250px !important;
+            overflow: auto !important;
         }
 
-        .source-conversion-responsive tbody::-webkit-scrollbar,
-        #potential-branch-container tbody::-webkit-scrollbar,
-        #potential-list-container tbody::-webkit-scrollbar {
-            width: 8px;
+        #potential-list-container.compact .source-conversion-scroll {
+            height: auto !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
         }
-        
-        .source-conversion-responsive tbody::-webkit-scrollbar-track,
-        #potential-branch-container tbody::-webkit-scrollbar-track,
-        #potential-list-container tbody::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-        
-        .source-conversion-responsive tbody::-webkit-scrollbar-thumb,
-        #potential-branch-container tbody::-webkit-scrollbar-thumb,
-        #potential-list-container tbody::-webkit-scrollbar-thumb {
-            background: #115641;
-            border-radius: 4px;
-        }
-        
-        .source-conversion-responsive tbody::-webkit-scrollbar-thumb:hover,
-        #potential-branch-container tbody::-webkit-scrollbar-thumb:hover,
-        #potential-list-container tbody::-webkit-scrollbar-thumb:hover {
-            background: #0d4133;
-        }
+    }
 
-        #source-conversion-table th:nth-child(1),
-        #source-conversion-table td:nth-child(1) { width: 20%; }
-        #source-conversion-table th:nth-child(2),
-        #source-conversion-table td:nth-child(2) { width: 13%; }
-        #source-conversion-table th:nth-child(3),
-        #source-conversion-table td:nth-child(3) { width: 13%; }
-        #source-conversion-table th:nth-child(4),
-        #source-conversion-table td:nth-child(4) { width: 13%; }
-        #source-conversion-table th:nth-child(5),
-        #source-conversion-table td:nth-child(5) { width: 13%; }
-        #source-conversion-table th:nth-child(6),
-        #source-conversion-table td:nth-child(6) { width: 13%; }
-        #source-conversion-table th:nth-child(7),
-        #source-conversion-table td:nth-child(7) { width: 15%; }
+    #potential-branch-container:not(.compact),
+    #potential-list-container:not(.compact),
+    #source-conversion-container:not(.compact) {
+        overflow: auto !important;
+        max-height: 400px !important;
+        -webkit-overflow-scrolling: touch;
+    }
 
-        #potential-branch-table th:nth-child(1),
-        #potential-branch-table td:nth-child(1) { width: 20%; } /* Nama Sales */
-        #potential-branch-table th:nth-child(2),
-        #potential-branch-table td:nth-child(2) { width: 12%; } /* Cold */
-        #potential-branch-table th:nth-child(3),
-        #potential-branch-table td:nth-child(3) { width: 12%; } /* Qty (W + H) */
-        #potential-branch-table th:nth-child(4),
-        #potential-branch-table td:nth-child(4) { width: 16%; } /* Warm + Hot Amount */
-        #potential-branch-table th:nth-child(5),
-        #potential-branch-table td:nth-child(5) { width: 12%; } /* Avg Discount */
-        #potential-branch-table th:nth-child(6),
-        #potential-branch-table td:nth-child(6) { width: 16%; } /* Branch */
-        #potential-branch-table th:nth-child(7),
-        #potential-branch-table td:nth-child(7) { width: 12%; } /* Periode */
+    #potential-branch-container:not(.compact) .source-conversion-scroll,
+    #potential-list-container:not(.compact) .source-conversion-scroll,
+    #source-conversion-container:not(.compact) .source-conversion-scroll {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: 100% !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #potential-branch-table tbody,
+    #potential-list-table tbody {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        display: block !important;
+        max-height: 300px !important;
+    }
+
+    #potential-branch-table thead,
+    #potential-list-table thead {
+        display: block !important;
+    }
+
+    #potential-branch-table tr,
+    #potential-list-table tr {
+        display: table !important;
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    #source-conversion-container.compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    #potential-branch-container.compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    #potential-list-container.compact {
+        height: auto !important;
+        min-height: auto !important;
+        max-height: 300px !important;
+        overflow: auto !important;
+    }
+
+    .source-conversion-responsive tbody::-webkit-scrollbar,
+    #potential-branch-container tbody::-webkit-scrollbar,
+    #potential-list-container tbody::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .source-conversion-responsive tbody::-webkit-scrollbar-track,
+    #potential-branch-container tbody::-webkit-scrollbar-track,
+    #potential-list-container tbody::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .source-conversion-responsive tbody::-webkit-scrollbar-thumb,
+    #potential-branch-container tbody::-webkit-scrollbar-thumb,
+    #potential-list-container tbody::-webkit-scrollbar-thumb {
+        background: #115641;
+        border-radius: 4px;
+    }
+
+    .source-conversion-responsive tbody::-webkit-scrollbar-thumb:hover,
+    #potential-branch-container tbody::-webkit-scrollbar-thumb:hover,
+    #potential-list-container tbody::-webkit-scrollbar-thumb:hover {
+        background: #0d4133;
+    }
+
+    #source-conversion-table th:nth-child(1),
+    #source-conversion-table td:nth-child(1) {
+        width: 20%;
+    }
+
+    #source-conversion-table th:nth-child(2),
+    #source-conversion-table td:nth-child(2) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(3),
+    #source-conversion-table td:nth-child(3) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(4),
+    #source-conversion-table td:nth-child(4) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(5),
+    #source-conversion-table td:nth-child(5) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(6),
+    #source-conversion-table td:nth-child(6) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(7),
+    #source-conversion-table td:nth-child(7) {
+        width: 15%;
+    }
+
+    #potential-branch-table th:nth-child(1),
+    #potential-branch-table td:nth-child(1) {
+        width: 20%;
+    }
+
+    /* Nama Sales */
+    #potential-branch-table th:nth-child(2),
+    #potential-branch-table td:nth-child(2) {
+        width: 12%;
+    }
+
+    /* Cold */
+    #potential-branch-table th:nth-child(3),
+    #potential-branch-table td:nth-child(3) {
+        width: 12%;
+    }
+
+    /* Qty (W + H) */
+    #potential-branch-table th:nth-child(4),
+    #potential-branch-table td:nth-child(4) {
+        width: 16%;
+    }
+
+    /* Warm + Hot Amount */
+    #potential-branch-table th:nth-child(5),
+    #potential-branch-table td:nth-child(5) {
+        width: 12%;
+    }
+
+    /* Avg Discount */
+    #potential-branch-table th:nth-child(6),
+    #potential-branch-table td:nth-child(6) {
+        width: 16%;
+    }
+
+    /* Branch */
+    #potential-branch-table th:nth-child(7),
+    #potential-branch-table td:nth-child(7) {
+        width: 12%;
+    }
+
+    /* Periode */
 
 
-        #potential-list-table th:nth-child(1),
-        #potential-list-table td:nth-child(1) { width: 16%; } /* Nama Customer */
-        #potential-list-table th:nth-child(2),
-        #potential-list-table td:nth-child(2) { width: 12%; } /* Sales Name */
-        #potential-list-table th:nth-child(3),
-        #potential-list-table td:nth-child(3) { width: 8%; } /* Status */
-        #potential-list-table th:nth-child(4),
-        #potential-list-table td:nth-child(4) { width: 12%; } /* Segment */
-        #potential-list-table th:nth-child(5),
-        #potential-list-table td:nth-child(5) { width: 12%; } /* Amount */
-        #potential-list-table th:nth-child(6),
-        #potential-list-table td:nth-child(6) { width: 12%; } /* Regional */
-        #potential-list-table th:nth-child(7),
-        #potential-list-table td:nth-child(7) { width: 10%; } /* Product */
-        #potential-list-table th:nth-child(8),
-        #potential-list-table td:nth-child(8) { width: 10%; } /* Last Activity */
-        #potential-list-table th:nth-child(9),
-        #potential-list-table td:nth-child(9) { width: 8%; } /* Data Validation */
+    #potential-list-table th:nth-child(1),
+    #potential-list-table td:nth-child(1) {
+        width: 16%;
+    }
 
-        .table-with-sticky-footer {
-            position: relative;
-            background: white;
-            border-radius: 0;
-            border: 1px solid #e3e6f0;
-        }
+    /* Nama Customer */
+    #potential-list-table th:nth-child(2),
+    #potential-list-table td:nth-child(2) {
+        width: 12%;
+    }
 
-        .table-body-scroll {
-            position: relative;
-            overflow-y: auto;
-            overflow-x: visible;
-        }
+    /* Sales Name */
+    #potential-list-table th:nth-child(3),
+    #potential-list-table td:nth-child(3) {
+        width: 8%;
+    }
 
-        .table-body-scroll::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
+    /* Status */
+    #potential-list-table th:nth-child(4),
+    #potential-list-table td:nth-child(4) {
+        width: 12%;
+    }
 
-        .table-body-scroll::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
+    /* Segment */
+    #potential-list-table th:nth-child(5),
+    #potential-list-table td:nth-child(5) {
+        width: 12%;
+    }
 
-        .table-body-scroll::-webkit-scrollbar-thumb {
-            background: #115641;
-            border-radius: 4px;
-        }
+    /* Amount */
+    #potential-list-table th:nth-child(6),
+    #potential-list-table td:nth-child(6) {
+        width: 12%;
+    }
 
-        .table-body-scroll::-webkit-scrollbar-thumb:hover {
-            background: #0d4133;
-        }
+    /* Regional */
+    #potential-list-table th:nth-child(7),
+    #potential-list-table td:nth-child(7) {
+        width: 10%;
+    }
 
-        .table-body-scroll {
-            position: relative;
-            z-index: 1;
-            -webkit-transform: translateZ(0);
-            transform: translateZ(0);
-            -webkit-overflow-scrolling: touch;
-        }
+    /* Product */
+    #potential-list-table th:nth-child(8),
+    #potential-list-table td:nth-child(8) {
+        width: 10%;
+    }
 
-        .table-footer-sticky {
-            background: #115641;
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-            border-top: 2px solid #0d4133;
-            border-radius: 0 !important;
-        }
+    /* Last Activity */
+    #potential-list-table th:nth-child(9),
+    #potential-list-table td:nth-child(9) {
+        width: 8%;
+    }
 
-        .table-footer-sticky td {
-            background: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            padding: 12px 16px !important;
-            border: none !important;
-            font-size: 15px !important;
-        }
+    /* Data Validation */
 
-        .table-footer-sticky.source-monitoring-footer {
-            background: #115641;
-            border-radius: 0;
-        }
+    .table-with-sticky-footer {
+        position: relative;
+        background: white;
+        border-radius: 0;
+        border: 1px solid #e3e6f0;
+    }
 
-        .table-footer-sticky.source-monitoring-footer td {
-            background: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            padding: 8px 4px !important;
-            border: none !important;
-            font-size: 10px !important;
-            line-height: 1.2 !important;
-            text-align: center !important;
-            vertical-align: middle !important;
-        }
+    .table-body-scroll {
+        position: relative;
+        overflow-y: auto;
+        overflow-x: visible;
+    }
 
-        .table-footer-sticky.source-monitoring-footer td:first-child {
-            text-align: left !important;
-            padding-left: 8px !important;
-        }
+    .table-body-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
 
-        .table-body-scroll table {
-            margin-bottom: 0;
-        }
+    .table-body-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
 
-        .table-body-scroll tbody tr:last-child td {
-            border-bottom: 1px solid #f1f3f4;
-        }
+    .table-body-scroll::-webkit-scrollbar-thumb {
+        background: #115641;
+        border-radius: 4px;
+    }
 
-        .source-link {
-            color: #007bff;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
+    .table-body-scroll::-webkit-scrollbar-thumb:hover {
+        background: #0d4133;
+    }
 
-        .source-link:hover {
-            color: #0056b3;
-            text-decoration: none;
-        }
+    .table-body-scroll {
+        position: relative;
+        z-index: 1;
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-overflow-scrolling: touch;
+    }
 
-        #source-monitoring-table {
-            border-radius: 20px;
-            overflow: hidden;
-        }
+    .table-footer-sticky {
+        background: #115641;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+        border-top: 2px solid #0d4133;
+        border-radius: 0 !important;
+    }
 
-        #source-monitoring-table thead th {
-            border: none;
-            font-size: 14px;
-        }
+    .table-footer-sticky td {
+        background: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        padding: 12px 16px !important;
+        border: none !important;
+        font-size: 15px !important;
+    }
 
-        #source-monitoring-table tbody td {
-            border-top: 1px solid #f1f3f4;
-            padding: 16px;
-            font-size: 14px;
-            vertical-align: middle;
-        }
+    .table-footer-sticky.source-monitoring-footer {
+        background: #115641;
+        border-radius: 0;
+    }
 
-        #source-monitoring-table tbody tr:hover {
-            background-color: #f8f9fa;
-        }
+    .table-footer-sticky.source-monitoring-footer td {
+        background: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        padding: 8px 4px !important;
+        border: none !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
 
-        @media (max-width: 768px) {
-            #source-conversion-table thead th,
-            #source-conversion-table tbody td {
-                padding: 12px 8px;
-                font-size: 13px;
-            }
-            
-            .source-badge {
-                font-size: 11px;
-                padding: 3px 8px;
-            }
+    .table-footer-sticky.source-monitoring-footer td:first-child {
+        text-align: left !important;
+        padding-left: 8px !important;
+    }
 
-            .source-conversion-table-container {
-                max-height: 300px;
-            }
+    .table-body-scroll table {
+        margin-bottom: 0;
+    }
 
-            #source-filter,
-            #source-monitoring-source-filter {
-                max-width: 100%;
-            }
-        }
-        
-        @media (max-width: 576px) {
-            #source-conversion-table thead th,
-            #source-conversion-table tbody td {
-                padding: 10px 6px;
-                font-size: 12px;
-            }
-            
-            .source-badge {
-                font-size: 10px;
-                padding: 2px 6px;
-            }
+    .table-body-scroll tbody tr:last-child td {
+        border-bottom: 1px solid #f1f3f4;
+    }
 
-            .source-conversion-table-container {
-                max-height: 280px;
-            }
+    .source-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
 
-            .source-conversion-section .row {
-                flex-direction: column;
-            }
+    .source-link:hover {
+        color: #0056b3;
+        text-decoration: none;
+    }
 
-            .source-conversion-section .col-lg-2,
-            .source-conversion-section .col-lg-3,
-            .source-conversion-section .col-md-6 {
-                width: 100%;
-                margin-bottom: 8px;
-            }
+    #source-monitoring-table {
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    #source-monitoring-table thead th {
+        border: none;
+        font-size: 14px;
+    }
+
+    #source-monitoring-table tbody td {
+        border-top: 1px solid #f1f3f4;
+        padding: 16px;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    #source-monitoring-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    @media (max-width: 768px) {
+
+        #source-conversion-table thead th,
+        #source-conversion-table tbody td {
+            padding: 12px 8px;
+            font-size: 13px;
         }
 
         .source-badge {
-            background: #e3f2fd;
-            color: #1976d2;
-            padding: 4px 12px;
-            border-radius: 16px;
+            font-size: 11px;
+            padding: 3px 8px;
+        }
+
+        .source-conversion-table-container {
+            max-height: 300px;
+        }
+
+        #source-filter,
+        #source-monitoring-source-filter {
+            max-width: 100%;
+        }
+    }
+
+    @media (max-width: 576px) {
+
+        #source-conversion-table thead th,
+        #source-conversion-table tbody td {
+            padding: 10px 6px;
             font-size: 12px;
-            font-weight: 500;
         }
 
-        .conversion-number {
-            font-weight: 600;
-            color: #115641;
-        }
-
-        .cumulative-percentage {
-            color: #6c757d !important;
-            font-weight: 400;
-            font-size: 0.9em;
-        }
-
-        #source-monitoring-table {
+        .source-badge {
             font-size: 10px;
-            background-color: transparent;
+            padding: 2px 6px;
+        }
+
+        .source-conversion-table-container {
+            max-height: 280px;
+        }
+
+        .source-conversion-section .row {
+            flex-direction: column;
+        }
+
+        .source-conversion-section .col-lg-2,
+        .source-conversion-section .col-lg-3,
+        .source-conversion-section .col-md-6 {
             width: 100%;
-            table-layout: fixed;
+            margin-bottom: 8px;
+        }
+    }
+
+    .source-badge {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .conversion-number {
+        font-weight: 600;
+        color: #115641;
+    }
+
+    .cumulative-percentage {
+        color: #6c757d !important;
+        font-weight: 400;
+        font-size: 0.9em;
+    }
+
+    #source-monitoring-table {
+        font-size: 10px;
+        background-color: transparent;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #source-monitoring-table th {
+        white-space: nowrap;
+        padding: 8px 4px !important;
+        vertical-align: middle;
+        border: none;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
+    #source-monitoring-table td {
+        white-space: nowrap;
+        padding: 6px 4px !important;
+        vertical-align: middle;
+        border-top: 1px solid #f1f3f4;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
+    #source-monitoring-table tbody tr:hover {
+        background-color: rgba(248, 249, 250, 0.5);
+    }
+
+    #source-monitoring-table th:first-child,
+    #source-monitoring-table td:first-child {
+        min-width: 120px;
+        max-width: 120px;
+    }
+
+    #source-monitoring-table th:not(:first-child):not(:last-child),
+    #source-monitoring-table td:not(:first-child):not(:last-child) {
+        width: 45px;
+        min-width: 45px;
+        max-width: 45px;
+    }
+
+    #source-monitoring-table th:last-child,
+    #source-monitoring-table td:last-child {
+        min-width: 60px;
+        max-width: 60px;
+    }
+
+    .source-monitoring-table-container {
+        background-color: transparent;
+        border: none;
+        border-radius: 12px;
+        box-shadow: none;
+        overflow: hidden;
+    }
+
+    @media (max-width: 1199px) {
+        #source-monitoring-table {
+            font-size: 9px !important;
         }
 
-        #source-monitoring-table th {
-            white-space: nowrap;
-            padding: 8px 4px !important;
-            vertical-align: middle;
-            border: none;
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-
+        #source-monitoring-table th,
         #source-monitoring-table td {
-            white-space: nowrap;
-            padding: 6px 4px !important;
-            vertical-align: middle;
-            border-top: 1px solid #f1f3f4;
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-
-        #source-monitoring-table tbody tr:hover {
-            background-color: rgba(248, 249, 250, 0.5);
+            padding: 6px 3px !important;
         }
 
         #source-monitoring-table th:first-child,
         #source-monitoring-table td:first-child {
-            min-width: 120px;
-            max-width: 120px;
+            min-width: 100px;
+            max-width: 100px;
         }
 
         #source-monitoring-table th:not(:first-child):not(:last-child),
         #source-monitoring-table td:not(:first-child):not(:last-child) {
-            width: 45px;
-            min-width: 45px;
-            max-width: 45px;
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+
+        .chart-container,
+        .table-responsive {
+            height: 320px !important;
+        }
+
+        .chart-title {
+            font-size: 16px !important;
+        }
+
+        .chart-subtitle {
+            font-size: 11px !important;
+        }
+    }
+
+    @media (max-width: 991px) {
+        #source-monitoring-table {
+            font-size: 8px !important;
+        }
+
+        #source-monitoring-table th,
+        #source-monitoring-table td {
+            padding: 5px 2px !important;
+        }
+
+        #source-monitoring-table th:first-child,
+        #source-monitoring-table td:first-child {
+            min-width: 80px;
+            max-width: 80px;
+        }
+
+        #source-monitoring-table th:not(:first-child):not(:last-child),
+        #source-monitoring-table td:not(:first-child):not(:last-child) {
+            width: 35px;
+            min-width: 35px;
+            max-width: 35px;
         }
 
         #source-monitoring-table th:last-child,
         #source-monitoring-table td:last-child {
-            min-width: 60px;
-            max-width: 60px;
+            min-width: 50px;
+            max-width: 50px;
         }
 
-        .source-monitoring-table-container {
-            background-color: transparent;
-            border: none;
-            border-radius: 12px;
-            box-shadow: none;
-            overflow: hidden;
+        .chart-container,
+        .table-responsive {
+            height: 280px !important;
         }
 
-        @media (max-width: 1199px) {
-            #source-monitoring-table {
-                font-size: 9px !important;
-            }
-            
-            #source-monitoring-table th,
-            #source-monitoring-table td {
-                padding: 6px 3px !important;
-            }
-            
-            #source-monitoring-table th:first-child,
-            #source-monitoring-table td:first-child {
-                min-width: 100px;
-                max-width: 100px;
-            }
-            
-            #source-monitoring-table th:not(:first-child):not(:last-child),
-            #source-monitoring-table td:not(:first-child):not(:last-child) {
-                width: 40px;
-                min-width: 40px;
-                max-width: 40px;
-            }
-            
-            .chart-container,
-            .table-responsive {
-                height: 320px !important;
-            }
-            
-            .chart-title {
-                font-size: 16px !important;
-            }
-            
-            .chart-subtitle {
-                font-size: 11px !important;
-            }
+        .chart-title {
+            font-size: 15px !important;
         }
 
-        @media (max-width: 991px) {
-            #source-monitoring-table {
-                font-size: 8px !important;
-            }
-            
-            #source-monitoring-table th,
-            #source-monitoring-table td {
-                padding: 5px 2px !important;
-            }
-            
-            #source-monitoring-table th:first-child,
-            #source-monitoring-table td:first-child {
-                min-width: 80px;
-                max-width: 80px;
-            }
-            
-            #source-monitoring-table th:not(:first-child):not(:last-child),
-            #source-monitoring-table td:not(:first-child):not(:last-child) {
-                width: 35px;
-                min-width: 35px;
-                max-width: 35px;
-            }
-            
-            #source-monitoring-table th:last-child,
-            #source-monitoring-table td:last-child {
-                min-width: 50px;
-                max-width: 50px;
-            }
-            
-            .chart-container,
-            .table-responsive {
-                height: 280px !important;
-            }
-            
-            .chart-title {
-                font-size: 15px !important;
-            }
-            
-            .chart-subtitle {
-                font-size: 10px !important;
-            }
+        .chart-subtitle {
+            font-size: 10px !important;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .source-monitoring-mobile-stack .col-lg-6 {
+            margin-bottom: 1rem !important;
         }
 
-        @media (max-width: 767px) {
-            .source-monitoring-mobile-stack .col-lg-6 {
-                margin-bottom: 1rem !important;
-            }
-            
-            #source-monitoring-table {
-                font-size: 7px !important;
-                min-width: 600px !important;
-            }
-            
-            #source-monitoring-table th,
-            #source-monitoring-table td {
-                padding: 4px 1px !important;
-            }
-            
-            #source-monitoring-table th:first-child,
-            #source-monitoring-table td:first-child {
-                min-width: 70px;
-                max-width: 70px;
-            }
-            
-            #source-monitoring-table th:not(:first-child):not(:last-child),
-            #source-monitoring-table td:not(:first-child):not(:last-child) {
-                width: 30px;
-                min-width: 30px;
-                max-width: 30px;
-            }
-            
-            #source-monitoring-table th:last-child,
-            #source-monitoring-table td:last-child {
-                min-width: 40px;
-                max-width: 40px;
-            }
-            
-            .chart-container,
-            .table-responsive {
-                height: 250px !important;
-            }
-            
-            .chart-title {
-                font-size: 14px !important;
-            }
-            
-            .chart-subtitle {
-                font-size: 9px !important;
-            }
+        #source-monitoring-table {
+            font-size: 7px !important;
+            min-width: 600px !important;
         }
 
-        @media (max-width: 1199px) {
-            .chart-title {
-                font-size: 17px;
-            }
-            
-            .chart-subtitle {
-                font-size: 12px;
-            }
-            
-            .modern-select,
-            .modern-input {
-                min-width: 110px;
-                padding: 7px 10px;
-                font-size: 12px;
-                height: 36px; 
-            }
-            
-            .modern-apply-btn {
-                padding: 7px 16px;
-                font-size: 12px;
-                min-width: 70px;
-                height: 36px; 
-            }
+        #source-monitoring-table th,
+        #source-monitoring-table td {
+            padding: 4px 1px !important;
         }
 
-        @media (max-width: 991px) {
-            .chart-title {
-                font-size: 16px;
-            }
-            
-            .chart-subtitle {
-                font-size: 11px;
-            }
-            
-            .chart-controls {
-                gap: 8px;
-            }
-            
-            .modern-select,
-            .modern-input {
-                min-width: 100px;
-                padding: 6px 8px;
-                font-size: 11px;
-                height: 32px; 
-            }
-            
-            .modern-apply-btn {
-                padding: 6px 14px;
-                font-size: 11px;
-                height: 32px;
-                min-width: 60px;
-            }
+        #source-monitoring-table th:first-child,
+        #source-monitoring-table td:first-child {
+            min-width: 70px;
+            max-width: 70px;
         }
 
-        @media (max-width: 575px) {
-            .chart-controls {
-                justify-content: center;
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-            
-            .control-item {
-                flex: 1 1 auto;
-                min-width: 0;
-            }
-            
-            .modern-select,
-            .modern-input {
-                width: 100%;
-                min-width: 0;
-                height: 32px;
-            }
-            
-            .modern-apply-btn {
-                width: 100%;
-                min-width: 0;
-                height: 32px; 
-            }
+        #source-monitoring-table th:not(:first-child):not(:last-child),
+        #source-monitoring-table td:not(:first-child):not(:last-child) {
+            width: 30px;
+            min-width: 30px;
+            max-width: 30px;
         }
 
-        .dashboard-section-header {
-            background: #115641 !important;
-            color: white !important;
-            padding: 15px 25px;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 20px !important;
-            box-shadow: 0 4px 8px rgba(17, 86, 65, 0.2);
-            transition: all 0.3s ease;
+        #source-monitoring-table th:last-child,
+        #source-monitoring-table td:last-child {
+            min-width: 40px;
+            max-width: 40px;
         }
 
-        .dashboard-section-header:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 12px rgba(17, 86, 65, 0.3);
+        .chart-container,
+        .table-responsive {
+            height: 250px !important;
         }
 
-        .dashboard-section-header h2 {
-            margin: 0 !important;
-            font-size: 28px !important;
-            font-weight: bold !important;
-            color: white !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        @media (max-width: 768px) {
-            .dashboard-section-header {
-                padding: 12px 20px;
-                margin-bottom: 15px !important;
-            }
-            
-            .dashboard-section-header h2 {
-                font-size: 24px !important;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .dashboard-section-header {
-                padding: 10px 15px;
-                margin-bottom: 15px !important;
-            }
-            
-            .dashboard-section-header h2 {
-                font-size: 20px !important;
-            }
-        }
-
-        .achievement-card {
-            background: #fff;
-            border-radius: 20px;
-            border: 1px solid #e3e6f0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            transition: all 0.3s ease;
-            height: 380px;
-            overflow: hidden;
-        }
-
-        .achievement-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .achievement-header {
-            background: #f8f9fa;
-            padding: 20px 24px;
-            border-bottom: 1px solid #e3e6f0;
-        }
-
-        .achievement-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #115641;
-            margin: 0;
-            text-align: center;
-        }
-
-        .achievement-body {
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: calc(100% - 70px);
-        }
-
-        .donut-container {
-            width: 200px;
-            height: 200px;
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .achievement-stats {
-            text-align: center;
-            width: 100%;
-        }
-
-        .stat-item {
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .stat-label {
-            font-size: 14px;
-            color: #6c757d;
-            font-weight: 500;
-        }
-
-        .stat-value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #115641;
-        }
-
-        .stat-separator {
-            font-size: 14px;
-            color: #6c757d;
-            margin: 0 4px;
-        }
-
-        .stat-target {
-            font-size: 14px;
-            color: #6c757d;
-            font-weight: 500;
-        }
-
-        .branch-list-container {
-            width: 100%;
-            max-height: 290px;
-            overflow-y: auto;
-            padding: 0;
-        }
-
-        .branch-item {
-            padding: 18px 20px;
-            border-bottom: 1px solid #f1f3f4;
-            transition: background-color 0.2s ease;
-        }
-
-        .branch-item:last-child {
-            border-bottom: none;
-        }
-
-        .branch-item:hover {
-            background-color: #f8f9fa;
-        }
-
-        .branch-info {
-            width: 100%;
-        }
-
-        .branch-name {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #115641;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .branch-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .branch-target {
-            font-size: 12px;
-            color: #6c757d;
-            font-weight: 500;
-        }
-
-        .branch-achievement {
-            font-size: 12px;
-            color: #115641;
-            font-weight: 600;
-        }
-
-        .branch-progress {
-            margin-top: 8px;
-        }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 8px;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 4px;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            background-color: #115641;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        .progress-percentage {
-            font-size: 11px;
-            color: #115641;
-            font-weight: 600;
-            text-align: right;
-        }
-
-        .branch-list-container::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .branch-list-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 2px;
-        }
-
-        .branch-list-container::-webkit-scrollbar-thumb {
-            background: #115641;
-            border-radius: 2px;
-        }
-
-        .branch-list-container::-webkit-scrollbar-thumb:hover {
-            background: #0d4133;
-        }
-
-        @media (max-width: 1199px) {
-            .achievement-card {
-                height: 350px;
-            }
-            
-            .donut-container {
-                width: 180px;
-                height: 180px;
-            }
-            
-            .achievement-title {
-                font-size: 16px;
-            }
-            
-            .stat-value {
-                font-size: 15px;
-            }
-        }
-
-        @media (max-width: 991px) {
-            .achievement-card {
-                height: 320px;
-                margin-bottom: 20px;
-            }
-            
-            .donut-container {
-                width: 160px;
-                height: 160px;
-                margin-bottom: 15px;
-            }
-            
-            .achievement-header {
-                padding: 16px 20px;
-            }
-            
-            .achievement-body {
-                padding: 20px;
-            }
-            
-            .achievement-title {
-                font-size: 15px;
-            }
-            
-            .stat-value {
-                font-size: 14px;
-            }
-            
-            .branch-item {
-                padding: 12px 16px;
-            }
-            
-            .branch-name {
-                font-size: 13px;
-            }
-            
-            .branch-target,
-            .branch-achievement {
-                font-size: 11px;
-            }
-            
-            .branch-list-container {
-                max-height: 240px;
-            }
-            
-            .progress-bar-container {
-                height: 6px;
-            }
-            
-            .progress-percentage {
-                font-size: 10px;
-            }
-        }
-
-        @media (max-width: 767px) {
-            .achievement-card {
-                height: auto;
-                min-height: 300px;
-            }
-            
-            .donut-container {
-                width: 150px;
-                height: 150px;
-            }
-            
-            .achievement-body {
-                height: auto;
-                min-height: 220px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .achievement-card {
-                margin-bottom: 15px;
-            }
-            
-            .donut-container {
-                width: 140px;
-                height: 140px;
-            }
-            
-            .achievement-header {
-                padding: 12px 16px;
-            }
-            
-            .achievement-body {
-                padding: 16px;
-                min-height: 200px;
-            }
-            
-            .achievement-title {
-                font-size: 14px;
-            }
-            
-            .stat-value {
-                font-size: 13px;
-            }
-            
-            .stat-label,
-            .stat-target {
-                font-size: 12px;
-            }
-
-            .d-flex.flex-column.flex-sm-row {
-                flex-direction: column !important;
-            }
-            
-            .d-flex.flex-column.flex-lg-row {
-                align-items: stretch !important;
-            }
-            
-            .modern-input {
-                min-width: 100% !important;
-                width: 100% !important;
-            }
-            
-            .modern-apply-btn {
-                width: 100%;
-            }
-        }
-
-        @media (max-width: 991px) {
-            .d-flex.flex-column.flex-lg-row h4 {
-                font-size: 20px !important;
-                margin-bottom: 0;
-            }
-        }
-
-        @media (max-width: 767px) {
-            .d-flex.flex-column.flex-lg-row h4 {
-                font-size: 18px !important;
-                text-align: center;
-            }
-            
-            .d-flex.flex-column.flex-lg-row {
-                text-align: center;
-            }
-        }
-
-        #sa_sales_ids {
-            min-height: 40px;
-        }
-
-        #sa_sales_ids[multiple] {
-            min-width: 200px;
-            max-width: 300px;
-        }
-
-        .chart-card .border-top {
-            border-color: #e5e7eb !important;
-            border-width: 1px !important;
-        }
-
-        .chart-container canvas {
-            border-radius: 8px;
-        }
-
-        .select2-container--default .select2-selection--single,
-        .select2-container--default .select2-selection--multiple {
-            border: 1px solid #d1d3e2;
-            border-radius: 8px;
-            height: 42px;
-            background: #fff;
-            transition: all 0.3s ease;
-            font-size: 14px;
-        }
-
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            color: #374151;
-            line-height: 40px;
-            padding-left: 12px;
-            font-size: 14px;
-            font-weight: 400;
-        }
-
-        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
-            padding: 6px 8px;
-        }
-
-        .select2-container--default.select2-container--focus .select2-selection--single,
-        .select2-container--default.select2-container--focus .select2-selection--multiple {
-            border-color: #115641;
-            box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
-        }
-
-        .select2-container--default .select2-selection--multiple .select2-selection__choice {
-            background-color: #115641;
-            border: 1px solid #115641;
-            color: white;
-            border-radius: 6px;
-            padding: 2px 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-            color: white;
-            font-weight: bold;
-        }
-
-        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
-            color: #fff;
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
-        #sa_sales_ids + .select2-container {
-            width: 100% !important;
-        }
-
-        .select2-container--default .select2-selection--multiple {
-            min-height: 42px !important;
-            max-height: 80px;
-            overflow-y: auto;
-            border: 1px solid #d1d3e2 !important;
-            border-radius: 8px !important;
-        }
-
-        .source-conversion-section .form-label {
-            margin-bottom: 8px !important;
-            font-size: 13px !important;
-            font-weight: 600 !important;
-            color: #495057 !important;
-            line-height: 1.4 !important;
-        }
-
-        .source-conversion-section .btn.source-apply-button {
-            height: 42px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
+        .chart-title {
             font-size: 14px !important;
-            font-weight: 600 !important;
-            border-radius: 8px !important;
         }
 
-        .source-conversion-section .d-flex.flex-column.justify-content-end {
-            min-height: 70px; 
-            padding-top: 25px;
+        .chart-subtitle {
+            font-size: 9px !important;
+        }
+    }
+
+    @media (max-width: 1199px) {
+        .chart-title {
+            font-size: 17px;
         }
 
-        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
-            padding: 6px 8px !important;
-            min-height: 30px !important;
+        .chart-subtitle {
+            font-size: 12px;
         }
 
-        .select2-container--default .select2-selection--multiple .select2-selection__choice {
-            margin: 2px 4px 2px 0 !important;
-            padding: 2px 8px !important;
-            font-size: 12px !important;
+        .modern-select,
+        .modern-input {
+            min-width: 110px;
+            padding: 7px 10px;
+            font-size: 12px;
+            height: 36px;
         }
 
-        .source-conversion-section small.text-muted {
-            font-size: 12px !important;
-            margin-top: 5px !important;
-            display: block !important;
+        .modern-apply-btn {
+            padding: 7px 16px;
+            font-size: 12px;
+            min-width: 70px;
+            height: 36px;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .chart-title {
+            font-size: 16px;
         }
 
-        @media (max-width: 991px) {
-            .source-conversion-section .d-flex.flex-column.justify-content-end {
-                min-height: auto !important;
-                padding-top: 0 !important;
-                margin-top: 10px !important;
-            }
-        }
-
-        @media (max-width: 767px) {
-            .source-conversion-section .col-sm-12 {
-                margin-bottom: 15px !important;
-            }
-            
-            .source-conversion-section .col-sm-12:last-child {
-                margin-bottom: 0 !important;
-            }
-        }
-
-        .select2-dropdown,
-        .select2-dropdown-modern {
-            border: 1px solid #E5E7EB;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            margin-top: 2px;
-        }
-
-        .select2-container--default .select2-results__option {
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #374151;
-        }
-
-        .select2-container--default .select2-results__option--highlighted[aria-selected] {
-            background-color: #115641;
-            color: white;
-        }
-
-        .select2-container--default .select2-results__option[aria-selected=true] {
-            background-color: #f3f4f6;
-            color: #115641;
-            font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-            .chart-container {
-                height: 300px !important;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .chart-container {
-                height: 280px !important;
-            }
-            
-            #sa_sales_ids[multiple] {
-                min-width: 100%;
-                max-width: 100%;
-            }
-
-            .select2-container {
-                width: 100% !important;
-            }
-        }
-
-        .sls-dealing-mobile-stack {
-        }
-
-        #sls-dealing-table {
-            font-size: 10px;
-            background-color: transparent;
-            width: 100%;
-            table-layout: fixed;
-            border-radius: 0 !important;
-        }
-
-        #sls-dealing-table th {
-            white-space: nowrap;
-            padding: 8px 4px !important;
-            vertical-align: middle;
-            border: none;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background-color: #115641 !important;
-        }
-
-        #sls-dealing-table td {
-            white-space: nowrap;
-            padding: 6px 4px !important;
-            vertical-align: middle;
-            border-top: 1px solid #f1f3f4;
-            text-overflow: ellipsis;
-            overflow: hidden;
-        }
-
-        #sls-dealing-table tbody tr:hover {
-            background-color: rgba(248, 249, 250, 0.5);
-        }
-
-        .table-with-sticky-footer {
-            border-radius: 0 !important;
-            position: relative;
-        }
-
-        .table-body-scroll {
-            border-radius: 0 !important;
-        }
-
-        .table, .table thead, .table tbody, .table tfoot, 
-        .table th, .table td, .table tr {
-            border-radius: 0 !important;
-        }
-
-        #source-monitoring-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-radius: 0 !important;
-            background-color: #115641;
-        }
-
-        #source-monitoring-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: #115641 !important;
-            border-radius: 0 !important;
-        }
-
-        #source-monitoring-table tfoot {
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-            background-color: #115641 !important;
-        }
-
-        #source-monitoring-table tfoot td {
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-            background-color: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-        }
-
-        #source-conversion-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-radius: 0 !important;
-            background-color: #115641;
-        }
-
-        #source-conversion-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: #115641 !important;
-            border-radius: 0 !important;
-        }
-
-        #source-conversion-table,
-        .table-footer-sticky {
-            table-layout: fixed;
-            width: 100%;
-        }
-
-        #source-conversion-table th:nth-child(1),
-        .table-footer-sticky td:nth-child(1) { width: 20%; }
-        #source-conversion-table th:nth-child(2),
-        .table-footer-sticky td:nth-child(2) { width: 13%; }
-        #source-conversion-table th:nth-child(3),
-        .table-footer-sticky td:nth-child(3) { width: 13%; }
-        #source-conversion-table th:nth-child(4),
-        .table-footer-sticky td:nth-child(4) { width: 13%; }
-        #source-conversion-table th:nth-child(5),
-        .table-footer-sticky td:nth-child(5) { width: 13%; }
-        #source-conversion-table th:nth-child(6),
-        .table-footer-sticky td:nth-child(6) { width: 13%; }
-        #source-conversion-table th:nth-child(7),
-        .table-footer-sticky td:nth-child(7) { width: 15%; }
-
-
-        #source-monitoring-table,
-        #sls-dealing-table,
-        #source-monitoring-table + .table-footer-sticky,
-        #sls-dealing-table + .table-footer-sticky {
-            table-layout: fixed;
-            width: 100%;
-        }
-
-        .table-footer-sticky td {
-            vertical-align: middle;
-            text-align: center !important;
-            padding: 8px 4px !important;
-        }
-
-        .table-footer-sticky td:first-child {
-            text-align: left !important;
-            padding-left: 8px !important;
-        }
-
-        #source-monitoring-table tfoot,
-        #sls-dealing-table tfoot,
-        #source-monitoring-table tfoot td,
-        #sls-dealing-table tfoot td {
-            -webkit-transform: translateZ(0) !important;
-            -moz-transform: translateZ(0) !important;
-            -ms-transform: translateZ(0) !important;
-            transform: translateZ(0) !important;
-            -webkit-backface-visibility: hidden !important;
-            backface-visibility: hidden !important;
-            will-change: transform !important;
-        }
-
-        .table-with-sticky-footer {
-            -webkit-overflow-scrolling: touch;
-            contain: layout style paint;
-        }
-
-        #source-monitoring-table tfoot,
-        #sls-dealing-table tfoot {
-            background-color: #115641 !important;
-            position: -webkit-sticky !important;
-            position: sticky !important;
-            bottom: 0 !important;
-            z-index: 15 !important;
-        }
-
-        #source-monitoring-table tfoot td,
-        #sls-dealing-table tfoot td {
-            background-color: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-            position: -webkit-sticky !important; 
-            position: sticky !important;
-            bottom: 0 !important;
-            z-index: 15 !important;
-        }
-
-        #source-monitoring-table tfoot td:first-child,
-        #sls-dealing-table tfoot td:first-child {
-            text-align: left !important;
-        }
-
-        #source-monitoring-table tfoot td:not(:first-child),
-        #sls-dealing-table tfoot td:not(:first-child) {
-            text-align: center !important;
-        }
-
-        #potential-branch-table thead,
-        #potential-dealing-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-radius: 0 !important;
-            background-color: #115641;
-        }
-
-        #potential-branch-table thead th,
-        #potential-dealing-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: #115641 !important;
-            border-radius: 0 !important;
-        }
-
-        #potential-branch-table tfoot,
-        #potential-dealing-table tfoot {
-            background-color: #115641 !important;
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-        }
-
-        #potential-branch-table tfoot td,
-        #potential-dealing-table tfoot td {
-            background-color: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-            position: sticky;
-            bottom: 0;
-        }
-
-        #potential-branch-table tfoot td:first-child,
-        #potential-dealing-table tfoot td:first-child {
-            text-align: left !important;
-        }
-
-        #potential-branch-table tfoot td:not(:first-child),
-        #potential-dealing-table tfoot td:not(:first-child) {
-            text-align: center !important;
+        .chart-subtitle {
+            font-size: 11px;
         }
 
         .chart-controls {
-            align-items: center !important;
+            gap: 8px;
         }
 
-        .chart-controls .control-item {
-            display: flex;
-            align-items: center;
-            min-height: 38px;
+        .modern-select,
+        .modern-input {
+            min-width: 100px;
+            padding: 6px 8px;
+            font-size: 11px;
+            height: 32px;
         }
 
-        .chart-controls .modern-select,
-        .chart-controls .modern-input,
-        .chart-controls .modern-apply-btn {
-            height: 38px;
-            min-width: auto;
+        .modern-apply-btn {
+            padding: 6px 14px;
+            font-size: 11px;
+            height: 32px;
+            min-width: 60px;
+        }
+    }
+
+    @media (max-width: 575px) {
+        .chart-controls {
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
-        #potential-branch-table th,
-        #potential-dealing-table th,
-        #potential-list-table th {
-            line-height: 1.2;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
-        }
-
-        #potential-branch-table,
-        #potential-list-table {
-            table-layout: fixed;
-            width: 100%;
-            min-width: 1200px; /* Minimum width untuk 9 kolom */
-        }
-
-        #potential-branch-table th,
-        #potential-branch-table td,
-        #potential-list-table th,
-        #potential-list-table td {
-            text-overflow: ellipsis;
-            overflow: hidden;
-            vertical-align: middle;
-            white-space: nowrap;
-        }
-
-        #potential-branch-table tfoot,
-        #potential-list-table tfoot {
-            background-color: #115641 !important;
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-        }
-
-        #potential-branch-table tfoot td,
-        #potential-list-table tfoot td {
-            background-color: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-            position: sticky;
-            bottom: 0;
-        }
-
-        #potential-branch-table tfoot td:first-child,
-        #potential-list-table tfoot td:first-child {
-            text-align: left !important;
-        }
-
-        #potential-branch-table tfoot td:not(:first-child),
-        #potential-list-table tfoot td:not(:first-child) {
-            text-align: center !important;
-        }
-
-        .potential-dealing-responsive {
-            min-height: auto;
-            max-height: 500px;
-            height: auto !important;
-            background: white;
-            border-radius: 0;
-            border: 1px solid #e3e6f0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .potential-dealing-scroll {
-            max-height: 400px;
-            overflow-y: auto;
-            overflow-x: visible;
-            flex: 1;
-            min-height: fit-content;
-        }
-
-        .potential-dealing-scroll::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        .potential-dealing-scroll::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .potential-dealing-scroll::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 10px;
-        }
-
-        .potential-dealing-scroll::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-
-        #potential-branch-table thead th,
-        #potential-list-table thead th {
-            padding: 10px 8px !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            line-height: 1.3 !important;
-        }
-
-        #potential-branch-table tbody td,
-        #potential-list-table tbody td {
-            padding: 10px 8px !important;
-            font-size: 12px !important;
-            line-height: 1.3 !important;
-        }
-
-        #potential-branch-table tfoot td,
-        #potential-list-table tfoot td {
-            padding: 10px 8px !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            line-height: 1.3 !important;
-        }
-
-        .potential-dealing-responsive {
-            transition: height 0.3s ease;
-        }
-
-        #potential-branch-table tr,
-        #potential-list-table tr,
-        #source-conversion-table tr {
-            height: auto;
-            min-height: 45px;
-        }
-
-        .potential-dealing-responsive:has(tbody tr:only-child),
-        .potential-dealing-responsive:has(tbody tr:nth-child(-n+2)) {
-            min-height: auto;
-        }
-
-        .potential-dealing-responsive .text-center.py-5 {
-            padding: 2rem 1rem !important;
-        }
-
-        .potential-dealing-responsive .text-center.py-4 {
-            padding: 1.5rem 1rem !important;
-        }
-
-        #source-conversion-table {
-            table-layout: fixed;
-            width: 100%;
-        }
-
-        #source-conversion-table th,
-        #source-conversion-table td {
-            text-overflow: ellipsis;
-            overflow: hidden;
-            vertical-align: middle;
-        }
-
-        #source-conversion-table thead th {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
-            font-weight: 600 !important;
-            line-height: 1.4 !important;
-        }
-
-        #source-conversion-table tbody td {
-            padding: 12px 16px !important;
-            font-size: 13px !important;
-            line-height: 1.4 !important;
-        }
-
-        #source-conversion-table tfoot {
-            background-color: #115641 !important;
-            position: sticky;
-            bottom: 0;
-            z-index: 15;
-        }
-
-        #source-conversion-table tfoot td {
-            background-color: #115641 !important;
-            color: white !important;
-            font-weight: bold !important;
-            border: none !important;
-            position: sticky;
-            bottom: 0;
-            padding: 12px 16px !important;
-            font-size: 13px !important;
-            line-height: 1.4 !important;
-        }
-
-        #source-conversion-table tfoot td:first-child {
-            text-align: left !important;
-        }
-
-        #source-conversion-table tfoot td:not(:first-child) {
-            text-align: center !important;
-        }
-
-        #source-conversion-table tr {
-            height: auto;
-            min-height: 45px;
-        }
-
-        .potential-dealing-responsive table {
-            height: auto;
-            min-height: fit-content;
-        }
-
-        .potential-dealing-responsive thead {
-            flex-shrink: 0;
-        }
-
-        .potential-dealing-responsive tfoot {
-            flex-shrink: 0;
-        }
-
-        .potential-dealing-responsive tbody {
+        .control-item {
             flex: 1 1 auto;
-            min-height: fit-content;
+            min-width: 0;
         }
 
-        #source-conversion-table .py-3 {
-            padding-top: 12px !important;
-            padding-bottom: 12px !important;
+        .modern-select,
+        .modern-input {
+            width: 100%;
+            min-width: 0;
+            height: 32px;
         }
 
-        #source-conversion-table .px-4 {
-            padding-left: 16px !important;
-            padding-right: 16px !important;
+        .modern-apply-btn {
+            width: 100%;
+            min-width: 0;
+            height: 32px;
+        }
+    }
+
+    .dashboard-section-header {
+        background: #115641 !important;
+        color: white !important;
+        padding: 15px 25px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 20px !important;
+        box-shadow: 0 4px 8px rgba(17, 86, 65, 0.2);
+        transition: all 0.3s ease;
+    }
+
+    .dashboard-section-header:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 12px rgba(17, 86, 65, 0.3);
+    }
+
+    .dashboard-section-header h2 {
+        margin: 0 !important;
+        font-size: 28px !important;
+        font-weight: bold !important;
+        color: white !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-section-header {
+            padding: 12px 20px;
+            margin-bottom: 15px !important;
         }
 
-        #source-conversion-table .text-center {
-            text-align: center !important;
+        .dashboard-section-header h2 {
+            font-size: 24px !important;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .dashboard-section-header {
+            padding: 10px 15px;
+            margin-bottom: 15px !important;
         }
 
-        #sls-dealing-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-radius: 0 !important;
-            background-color: #115641;
+        .dashboard-section-header h2 {
+            font-size: 20px !important;
+        }
+    }
+
+    .achievement-card {
+        background: #fff;
+        border-radius: 20px;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        height: 380px;
+        overflow: hidden;
+    }
+
+    .achievement-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .achievement-header {
+        background: #f8f9fa;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e3e6f0;
+    }
+
+    .achievement-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #115641;
+        margin: 0;
+        text-align: center;
+    }
+
+    .achievement-body {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: calc(100% - 70px);
+    }
+
+    .donut-container {
+        width: 200px;
+        height: 200px;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .achievement-stats {
+        text-align: center;
+        width: 100%;
+    }
+
+    .stat-item {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .stat-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #115641;
+    }
+
+    .stat-separator {
+        font-size: 14px;
+        color: #6c757d;
+        margin: 0 4px;
+    }
+
+    .stat-target {
+        font-size: 14px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .branch-list-container {
+        width: 100%;
+        max-height: 290px;
+        overflow-y: auto;
+        padding: 0;
+    }
+
+    .branch-item {
+        padding: 18px 20px;
+        border-bottom: 1px solid #f1f3f4;
+        transition: background-color 0.2s ease;
+    }
+
+    .branch-item:last-child {
+        border-bottom: none;
+    }
+
+    .branch-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .branch-info {
+        width: 100%;
+    }
+
+    .branch-name {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #115641;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .branch-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .branch-target {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .branch-achievement {
+        font-size: 12px;
+        color: #115641;
+        font-weight: 600;
+    }
+
+    .branch-progress {
+        margin-top: 8px;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 4px;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background-color: #115641;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .progress-percentage {
+        font-size: 11px;
+        color: #115641;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .branch-list-container::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .branch-list-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 2px;
+    }
+
+    .branch-list-container::-webkit-scrollbar-thumb {
+        background: #115641;
+        border-radius: 2px;
+    }
+
+    .branch-list-container::-webkit-scrollbar-thumb:hover {
+        background: #0d4133;
+    }
+
+    @media (max-width: 1199px) {
+        .achievement-card {
+            height: 350px;
         }
 
-        #sls-dealing-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background-color: #115641 !important;
-            border-radius: 0 !important;
+        .donut-container {
+            width: 180px;
+            height: 180px;
         }
 
-        #sls-dealing-table thead th:first-child {
-            border-top-left-radius: 0 !important;
+        .achievement-title {
+            font-size: 16px;
         }
 
-        #sls-dealing-table thead th:last-child {
-            border-top-right-radius: 0 !important;
+        .stat-value {
+            font-size: 15px;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .achievement-card {
+            height: 320px;
+            margin-bottom: 20px;
         }
 
-        .table-footer-sticky.source-monitoring-footer {
-            border-radius: 0 !important;
+        .donut-container {
+            width: 160px;
+            height: 160px;
+            margin-bottom: 15px;
         }
 
-        @media (max-width: 1199px) {
-            #sls-dealing-table {
-                font-size: 9px !important;
-            }
-            
-            #sls-dealing-table th,
-            #sls-dealing-table td {
-                padding: 6px 3px !important;
-            }
+        .achievement-header {
+            padding: 16px 20px;
         }
 
-        @media (max-width: 991px) {
-            #sls-dealing-table {
-                font-size: 8px !important;
-            }
-            
-            #sls-dealing-table th,
-            #sls-dealing-table td {
-                padding: 5px 2px !important;
-            }
+        .achievement-body {
+            padding: 20px;
         }
 
-        @media (max-width: 767px) {
-            .sls-dealing-mobile-stack .col-lg-6 {
-                margin-bottom: 1rem !important;
-            }
-            
-            #sls-dealing-table {
-                font-size: 7px !important;
-                min-width: 800px !important;
-            }
-            
-            #sls-dealing-table th,
-            #sls-dealing-table td {
-                padding: 4px 1px !important;
-            }
+        .achievement-title {
+            font-size: 15px;
         }
-    </style>
+
+        .stat-value {
+            font-size: 14px;
+        }
+
+        .branch-item {
+            padding: 12px 16px;
+        }
+
+        .branch-name {
+            font-size: 13px;
+        }
+
+        .branch-target,
+        .branch-achievement {
+            font-size: 11px;
+        }
+
+        .branch-list-container {
+            max-height: 240px;
+        }
+
+        .progress-bar-container {
+            height: 6px;
+        }
+
+        .progress-percentage {
+            font-size: 10px;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .achievement-card {
+            height: auto;
+            min-height: 300px;
+        }
+
+        .donut-container {
+            width: 150px;
+            height: 150px;
+        }
+
+        .achievement-body {
+            height: auto;
+            min-height: 220px;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .achievement-card {
+            margin-bottom: 15px;
+        }
+
+        .donut-container {
+            width: 140px;
+            height: 140px;
+        }
+
+        .achievement-header {
+            padding: 12px 16px;
+        }
+
+        .achievement-body {
+            padding: 16px;
+            min-height: 200px;
+        }
+
+        .achievement-title {
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-size: 13px;
+        }
+
+        .stat-label,
+        .stat-target {
+            font-size: 12px;
+        }
+
+        .d-flex.flex-column.flex-sm-row {
+            flex-direction: column !important;
+        }
+
+        .d-flex.flex-column.flex-lg-row {
+            align-items: stretch !important;
+        }
+
+        .modern-input {
+            min-width: 100% !important;
+            width: 100% !important;
+        }
+
+        .modern-apply-btn {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .d-flex.flex-column.flex-lg-row h4 {
+            font-size: 20px !important;
+            margin-bottom: 0;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .d-flex.flex-column.flex-lg-row h4 {
+            font-size: 18px !important;
+            text-align: center;
+        }
+
+        .d-flex.flex-column.flex-lg-row {
+            text-align: center;
+        }
+    }
+
+    #sa_sales_ids {
+        min-height: 40px;
+    }
+
+    #sa_sales_ids[multiple] {
+        min-width: 200px;
+        max-width: 300px;
+    }
+
+    .chart-card .border-top {
+        border-color: #e5e7eb !important;
+        border-width: 1px !important;
+    }
+
+    .chart-container canvas {
+        border-radius: 8px;
+    }
+
+    .select2-container--default .select2-selection--single,
+    .select2-container--default .select2-selection--multiple {
+        border: 1px solid #d1d3e2;
+        border-radius: 8px;
+        height: 42px;
+        background: #fff;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: #374151;
+        line-height: 40px;
+        padding-left: 12px;
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+        padding: 6px 8px;
+    }
+
+    .select2-container--default.select2-container--focus .select2-selection--single,
+    .select2-container--default.select2-container--focus .select2-selection--multiple {
+        border-color: #115641;
+        box-shadow: 0 0 0 0.2rem rgba(17, 86, 65, 0.25);
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #115641;
+        border: 1px solid #115641;
+        color: white;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: white;
+        font-weight: bold;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+        color: #fff;
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    #sa_sales_ids+.select2-container {
+        width: 100% !important;
+    }
+
+    .select2-container--default .select2-selection--multiple {
+        min-height: 42px !important;
+        max-height: 80px;
+        overflow-y: auto;
+        border: 1px solid #d1d3e2 !important;
+        border-radius: 8px !important;
+    }
+
+    .source-conversion-section .form-label {
+        margin-bottom: 8px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        line-height: 1.4 !important;
+    }
+
+    .source-conversion-section .btn.source-apply-button {
+        height: 42px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+    }
+
+    .source-conversion-section .d-flex.flex-column.justify-content-end {
+        min-height: 70px;
+        padding-top: 25px;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+        padding: 6px 8px !important;
+        min-height: 30px !important;
+    }
+
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        margin: 2px 4px 2px 0 !important;
+        padding: 2px 8px !important;
+        font-size: 12px !important;
+    }
+
+    .source-conversion-section small.text-muted {
+        font-size: 12px !important;
+        margin-top: 5px !important;
+        display: block !important;
+    }
+
+    @media (max-width: 991px) {
+        .source-conversion-section .d-flex.flex-column.justify-content-end {
+            min-height: auto !important;
+            padding-top: 0 !important;
+            margin-top: 10px !important;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .source-conversion-section .col-sm-12 {
+            margin-bottom: 15px !important;
+        }
+
+        .source-conversion-section .col-sm-12:last-child {
+            margin-bottom: 0 !important;
+        }
+    }
+
+    .select2-dropdown,
+    .select2-dropdown-modern {
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-top: 2px;
+    }
+
+    .select2-container--default .select2-results__option {
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #115641;
+        color: white;
+    }
+
+    .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: #f3f4f6;
+        color: #115641;
+        font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+        .chart-container {
+            height: 300px !important;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .chart-container {
+            height: 280px !important;
+        }
+
+        #sa_sales_ids[multiple] {
+            min-width: 100%;
+            max-width: 100%;
+        }
+
+        .select2-container {
+            width: 100% !important;
+        }
+    }
+
+    .sls-dealing-mobile-stack {}
+
+    #sls-dealing-table {
+        font-size: 10px;
+        background-color: transparent;
+        width: 100%;
+        table-layout: fixed;
+        border-radius: 0 !important;
+    }
+
+    #sls-dealing-table th {
+        white-space: nowrap;
+        padding: 8px 4px !important;
+        vertical-align: middle;
+        border: none;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #115641 !important;
+    }
+
+    #sls-dealing-table td {
+        white-space: nowrap;
+        padding: 6px 4px !important;
+        vertical-align: middle;
+        border-top: 1px solid #f1f3f4;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
+    #sls-dealing-table tbody tr:hover {
+        background-color: rgba(248, 249, 250, 0.5);
+    }
+
+    .table-with-sticky-footer {
+        border-radius: 0 !important;
+        position: relative;
+    }
+
+    .table-body-scroll {
+        border-radius: 0 !important;
+    }
+
+    .table,
+    .table thead,
+    .table tbody,
+    .table tfoot,
+    .table th,
+    .table td,
+    .table tr {
+        border-radius: 0 !important;
+    }
+
+    #source-monitoring-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-radius: 0 !important;
+        background-color: #115641;
+    }
+
+    #source-monitoring-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background-color: #115641 !important;
+        border-radius: 0 !important;
+    }
+
+    #source-monitoring-table tfoot {
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+        background-color: #115641 !important;
+    }
+
+    #source-monitoring-table tfoot td {
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+        background-color: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+    }
+
+    #source-conversion-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-radius: 0 !important;
+        background-color: #115641;
+    }
+
+    #source-conversion-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background-color: #115641 !important;
+        border-radius: 0 !important;
+    }
+
+    #source-conversion-table,
+    .table-footer-sticky {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    #source-conversion-table th:nth-child(1),
+    .table-footer-sticky td:nth-child(1) {
+        width: 20%;
+    }
+
+    #source-conversion-table th:nth-child(2),
+    .table-footer-sticky td:nth-child(2) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(3),
+    .table-footer-sticky td:nth-child(3) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(4),
+    .table-footer-sticky td:nth-child(4) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(5),
+    .table-footer-sticky td:nth-child(5) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(6),
+    .table-footer-sticky td:nth-child(6) {
+        width: 13%;
+    }
+
+    #source-conversion-table th:nth-child(7),
+    .table-footer-sticky td:nth-child(7) {
+        width: 15%;
+    }
+
+
+    #source-monitoring-table,
+    #sls-dealing-table,
+    #source-monitoring-table+.table-footer-sticky,
+    #sls-dealing-table+.table-footer-sticky {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .table-footer-sticky td {
+        vertical-align: middle;
+        text-align: center !important;
+        padding: 8px 4px !important;
+    }
+
+    .table-footer-sticky td:first-child {
+        text-align: left !important;
+        padding-left: 8px !important;
+    }
+
+    #source-monitoring-table tfoot,
+    #sls-dealing-table tfoot,
+    #source-monitoring-table tfoot td,
+    #sls-dealing-table tfoot td {
+        -webkit-transform: translateZ(0) !important;
+        -moz-transform: translateZ(0) !important;
+        -ms-transform: translateZ(0) !important;
+        transform: translateZ(0) !important;
+        -webkit-backface-visibility: hidden !important;
+        backface-visibility: hidden !important;
+        will-change: transform !important;
+    }
+
+    .table-with-sticky-footer {
+        -webkit-overflow-scrolling: touch;
+        contain: layout style paint;
+    }
+
+    #source-monitoring-table tfoot,
+    #sls-dealing-table tfoot {
+        background-color: #115641 !important;
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 15 !important;
+    }
+
+    #source-monitoring-table tfoot td,
+    #sls-dealing-table tfoot td {
+        background-color: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 15 !important;
+    }
+
+    #source-monitoring-table tfoot td:first-child,
+    #sls-dealing-table tfoot td:first-child {
+        text-align: left !important;
+    }
+
+    #source-monitoring-table tfoot td:not(:first-child),
+    #sls-dealing-table tfoot td:not(:first-child) {
+        text-align: center !important;
+    }
+
+    #potential-branch-table thead,
+    #potential-dealing-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-radius: 0 !important;
+        background-color: #115641;
+    }
+
+    #potential-branch-table thead th,
+    #potential-dealing-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background-color: #115641 !important;
+        border-radius: 0 !important;
+    }
+
+    #potential-branch-table tfoot,
+    #potential-dealing-table tfoot {
+        background-color: #115641 !important;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+    }
+
+    #potential-branch-table tfoot td,
+    #potential-dealing-table tfoot td {
+        background-color: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        position: sticky;
+        bottom: 0;
+    }
+
+    #potential-branch-table tfoot td:first-child,
+    #potential-dealing-table tfoot td:first-child {
+        text-align: left !important;
+    }
+
+    #potential-branch-table tfoot td:not(:first-child),
+    #potential-dealing-table tfoot td:not(:first-child) {
+        text-align: center !important;
+    }
+
+    .chart-controls {
+        align-items: center !important;
+    }
+
+    .chart-controls .control-item {
+        display: flex;
+        align-items: center;
+        min-height: 38px;
+    }
+
+    .chart-controls .modern-select,
+    .chart-controls .modern-input,
+    .chart-controls .modern-apply-btn {
+        height: 38px;
+        min-width: auto;
+    }
+
+    #potential-branch-table th,
+    #potential-dealing-table th,
+    #potential-list-table th {
+        line-height: 1.2;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    #potential-branch-table,
+    #potential-list-table {
+        table-layout: fixed;
+        width: 100%;
+        min-width: 1200px;
+        /* Minimum width untuk 9 kolom */
+    }
+
+    #potential-branch-table th,
+    #potential-branch-table td,
+    #potential-list-table th,
+    #potential-list-table td {
+        text-overflow: ellipsis;
+        overflow: hidden;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    #potential-branch-table tfoot,
+    #potential-list-table tfoot {
+        background-color: #115641 !important;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+    }
+
+    #potential-branch-table tfoot td,
+    #potential-list-table tfoot td {
+        background-color: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        position: sticky;
+        bottom: 0;
+    }
+
+    #potential-branch-table tfoot td:first-child,
+    #potential-list-table tfoot td:first-child {
+        text-align: left !important;
+    }
+
+    #potential-branch-table tfoot td:not(:first-child),
+    #potential-list-table tfoot td:not(:first-child) {
+        text-align: center !important;
+    }
+
+    .potential-dealing-responsive {
+        min-height: auto;
+        max-height: 500px;
+        height: auto !important;
+        background: white;
+        border-radius: 0;
+        border: 1px solid #e3e6f0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .potential-dealing-scroll {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: visible;
+        flex: 1;
+        min-height: fit-content;
+    }
+
+    .potential-dealing-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .potential-dealing-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .potential-dealing-scroll::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+
+    .potential-dealing-scroll::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    #potential-branch-table thead th,
+    #potential-list-table thead th {
+        padding: 10px 8px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+    }
+
+    #potential-branch-table tbody td,
+    #potential-list-table tbody td {
+        padding: 10px 8px !important;
+        font-size: 12px !important;
+        line-height: 1.3 !important;
+    }
+
+    #potential-branch-table tfoot td,
+    #potential-list-table tfoot td {
+        padding: 10px 8px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+    }
+
+    .potential-dealing-responsive {
+        transition: height 0.3s ease;
+    }
+
+    #potential-branch-table tr,
+    #potential-list-table tr,
+    #source-conversion-table tr {
+        height: auto;
+        min-height: 45px;
+    }
+
+    .potential-dealing-responsive:has(tbody tr:only-child),
+    .potential-dealing-responsive:has(tbody tr:nth-child(-n+2)) {
+        min-height: auto;
+    }
+
+    .potential-dealing-responsive .text-center.py-5 {
+        padding: 2rem 1rem !important;
+    }
+
+    .potential-dealing-responsive .text-center.py-4 {
+        padding: 1.5rem 1rem !important;
+    }
+
+    #source-conversion-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    #source-conversion-table th,
+    #source-conversion-table td {
+        text-overflow: ellipsis;
+        overflow: hidden;
+        vertical-align: middle;
+    }
+
+    #source-conversion-table thead th {
+        padding: 12px 16px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        line-height: 1.4 !important;
+    }
+
+    #source-conversion-table tbody td {
+        padding: 12px 16px !important;
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+    }
+
+    #source-conversion-table tfoot {
+        background-color: #115641 !important;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+    }
+
+    #source-conversion-table tfoot td {
+        background-color: #115641 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        position: sticky;
+        bottom: 0;
+        padding: 12px 16px !important;
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+    }
+
+    #source-conversion-table tfoot td:first-child {
+        text-align: left !important;
+    }
+
+    #source-conversion-table tfoot td:not(:first-child) {
+        text-align: center !important;
+    }
+
+    #source-conversion-table tr {
+        height: auto;
+        min-height: 45px;
+    }
+
+    .potential-dealing-responsive table {
+        height: auto;
+        min-height: fit-content;
+    }
+
+    .potential-dealing-responsive thead {
+        flex-shrink: 0;
+    }
+
+    .potential-dealing-responsive tfoot {
+        flex-shrink: 0;
+    }
+
+    .potential-dealing-responsive tbody {
+        flex: 1 1 auto;
+        min-height: fit-content;
+    }
+
+    #source-conversion-table .py-3 {
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+
+    #source-conversion-table .px-4 {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    #source-conversion-table .text-center {
+        text-align: center !important;
+    }
+
+    #sls-dealing-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-radius: 0 !important;
+        background-color: #115641;
+    }
+
+    #sls-dealing-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background-color: #115641 !important;
+        border-radius: 0 !important;
+    }
+
+    #sls-dealing-table thead th:first-child {
+        border-top-left-radius: 0 !important;
+    }
+
+    #sls-dealing-table thead th:last-child {
+        border-top-right-radius: 0 !important;
+    }
+
+    .table-footer-sticky.source-monitoring-footer {
+        border-radius: 0 !important;
+    }
+
+    @media (max-width: 1199px) {
+        #sls-dealing-table {
+            font-size: 9px !important;
+        }
+
+        #sls-dealing-table th,
+        #sls-dealing-table td {
+            padding: 6px 3px !important;
+        }
+    }
+
+    @media (max-width: 991px) {
+        #sls-dealing-table {
+            font-size: 8px !important;
+        }
+
+        #sls-dealing-table th,
+        #sls-dealing-table td {
+            padding: 5px 2px !important;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .sls-dealing-mobile-stack .col-lg-6 {
+            margin-bottom: 1rem !important;
+        }
+
+        #sls-dealing-table {
+            font-size: 7px !important;
+            min-width: 800px !important;
+        }
+
+        #sls-dealing-table th,
+        #sls-dealing-table td {
+            padding: 4px 1px !important;
+        }
+    }
+</style>
 @endsection
 
 @section('content')
-    {{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
+{{-- <h1 class="h3 mb-4 text-gray-800">Dashboard</h1> --}}
 
-    {{-- MARKETING DASHBOARD HEADER OLD--}}
+{{-- MARKETING DASHBOARD HEADER OLD--}}
+{{-- <div class="col-md-12 mb-4">
+    <div class="dashboard-section-header"
+        style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">MARKETING DASHBOARD</h2>
+    </div>
+</div> --}}
+
+{{-- PROCESS FLOW --}}
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
+    <div class="row" id="process-flow-container">
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">All Leads In</div>
+                    <div class="process-flow-count" id="all-leads-qty">-</div>
+                    {{-- <div class="process-flow-atr" id="all-leads-time">Loading...</div> --}}
+                </div>
+            </div>
+        </div>
+
+        {{-- Acquisition --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Acquisition</div>
+                    <div class="process-flow-count" id="acquisition-qty">-</div>
+                    <div class="process-flow-atr" id="acquisition-time">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Meeting --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Meeting</div>
+                    <div class="process-flow-count" id="meeting-qty">-</div>
+                    <div class="process-flow-atr" id="meeting-time">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Quotation --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Quotation</div>
+                    <div class="process-flow-count" id="quotation-qty">-</div>
+                    <div class="process-flow-atr" id="quotation-time">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Invoice --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-receipt"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Invoice</div>
+                    <div class="process-flow-count" id="invoice-qty">-</div>
+                    <div class="process-flow-atr" id="invoice-time">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="process-flow-row2">
+        {{-- All Leads In - Percentage --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">All Leads In %</div>
+                    <div class="process-flow-count" id="all-leads-pct">-</div>
+                    {{-- <div class="process-flow-atr" id="all-leads-acq-pct">Loading...</div> --}}
+                </div>
+            </div>
+        </div>
+
+        {{-- Acquisition - Percentage --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Acquisition %</div>
+                    <div class="process-flow-count" id="acquisition-pct">-</div>
+                    {{-- <div class="process-flow-atr" id="acquisition-cvr">Loading...</div> --}}
+                </div>
+            </div>
+        </div>
+
+        {{-- Meeting - Percentage --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Meeting %</div>
+                    <div class="process-flow-count" id="meeting-pct">-</div>
+                    {{-- <div class="process-flow-atr" id="meeting-my">Loading...</div> --}}
+                </div>
+            </div>
+        </div>
+
+        {{-- Quotation - Percentage & Amount --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Quotation %</div>
+                    <div class="process-flow-count" id="quotation-pct">-</div>
+                    <div class="process-flow-atr" id="quotation-amount">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Invoice - Percentage & Amount --}}
+        <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
+            <div class="process-flow-card">
+                <div class="process-flow-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
+                <div class="process-flow-content">
+                    <div class="process-flow-title">Invoice %</div>
+                    <div class="process-flow-count" id="invoice-pct">-</div>
+                    <div class="process-flow-atr" id="invoice-amount">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- SOURCE CONVERSION LISTS Section --}}
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE CONVERSION LISTS</h2>
+
+    <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="p-4 bg-light source-conversion-section">
+                @if(auth()->user()->role?->code === 'super_admin')
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <label class="form-label">Branch</label>
+                        <select id="source-branch" class="form-select source-control-input">
+                            <option value="">All Branch</option>
+                            @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <label class="form-label">Source</label>
+                        <select id="source-filter" class="form-select source-control-input">
+                            <option value="">All Source</option>
+                            @foreach($leadSources as $source)
+                            <option value="{{ $source->name }}">{{ $source->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" id="source-start-date" class="form-control source-control-input"
+                            value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <label class="form-label">End Date</label>
+                        <input type="date" id="source-end-date" class="form-control source-control-input"
+                            value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-lg-2 col-md-4 col-sm-6">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn source-apply-button w-100" id="source-apply">
+                            <i class="fas fa-filter me-1"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+                @else
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-3 col-md-3 col-sm-6">
+                        <label class="form-label">Source</label>
+                        <select id="source-filter" class="form-select source-control-input">
+                            <option value="">All Source</option>
+                            @foreach($leadSources as $source)
+                            <option value="{{ $source->name }}">{{ $source->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg-3 col-md-3 col-sm-6">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" id="source-start-date" class="form-control source-control-input"
+                            value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-lg-3 col-md-3 col-sm-6">
+                        <label class="form-label">End Date</label>
+                        <input type="date" id="source-end-date" class="form-control source-control-input"
+                            value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                    </div>
+                    <div class="col-lg-3 col-md-3 col-sm-6">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn source-apply-button w-100" id="source-apply">
+                            <i class="fas fa-filter me-1"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+                @endif
+            </div>
+
+            <div class="source-conversion-responsive" id="source-conversion-container">
+                <div class="source-conversion-scroll">
+                    <table class="table table-hover mb-0" id="source-conversion-table">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Source</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="source-conversion-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                            <tr id="source-conversion-total-row">
+                                <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-cum">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-cold">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"
+                                    id="total-all">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- SALES SEGMENT PERFORMANCE --}}
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
+
+    <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="p-4 bg-light source-conversion-section">
+                @if(auth()->user()->role?->code === 'super_admin')
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label class="form-label">Branch</label>
+                        <select id="segment-branch" class="form-select source-control-input">
+                            <option value="">All Branch</option>
+                            @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label class="form-label">Year</label>
+                        <input type="number" id="segment-year" class="form-control source-control-input"
+                            value="{{ now()->year }}" min="2000" max="2100">
+                    </div>
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label class="form-label">Month</label>
+                        <select id="segment-month" class="form-select source-control-input">
+                            <option value="">All Months</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                            <i class="fas fa-filter me-1"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+                @else
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-4 col-md-4 col-sm-6">
+                        <label class="form-label">Year</label>
+                        <input type="number" id="segment-year" class="form-control source-control-input"
+                            value="{{ now()->year }}" min="2000" max="2100">
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-6">
+                        <label class="form-label">Month</label>
+                        <select id="segment-month" class="form-select source-control-input">
+                            <option value="">All Months</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-4 col-md-4 col-sm-6">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn source-apply-button w-100" id="segment-apply">
+                            <i class="fas fa-filter me-1"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+                @endif
+            </div>
+
+            <div class="source-conversion-responsive" id="segment-container">
+                <div class="source-conversion-scroll">
+                    <table class="table table-hover mb-0" id="segment-table">
+                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                            <tr>
+                                <th class="text-white fw-bold py-3 px-4"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Segment</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="segment-tbody">
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="text-success">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0 text-muted">Loading segment performance data...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                            <tr id="segment-total-row">
+                                <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cum">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cold">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-warm">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-hot">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-deal">0</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"
+                                    id="segment-total-all">0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SOURCE MONITORING Section -->
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
+    <div class="row source-monitoring-mobile-stack">
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card chart-card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="chart-title mb-0">Source Monitoring Chart</h5>
+                            {{-- <p class="chart-subtitle text-muted mb-0">Monthly Lead Source Tracking</p> --}}
+                        </div>
+                    </div>
+
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="control-item">
+                            <select id="source-monitoring-branch" class="form-select modern-select">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        <div class="control-item">
+                            <input type="number" id="source-monitoring-year" class="form-control modern-input"
+                                value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="source-monitoring-apply">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" style="height: 350px; position: relative;">
+                        <canvas id="source-monitoring-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Source Monitoring Table (Right) -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card chart-card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="chart-title mb-0">Source Monitoring List</h5>
+                            {{-- <p class="chart-subtitle text-muted mb-0">Monthly Data Summary</p> --}}
+                        </div>
+                    </div>
+
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="control-item">
+                            <select id="source-monitoring-table-branch" class="form-select modern-select">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        <div class="control-item">
+                            <select id="source-monitoring-source-filter" class="form-select modern-select">
+                                <option value="">All Source</option>
+                                @foreach($leadSources as $source)
+                                <option value="{{ $source->name }}">{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="control-item">
+                            <input type="number" id="source-monitoring-table-year" class="form-control modern-input"
+                                value="{{ now()->year }}" min="2000" max="2100">
+                        </div>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="source-monitoring-table-apply">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-with-sticky-footer"
+                        style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
+                        <div style="min-width: 900px;">
+                            <div class="table-body-scroll" style="overflow: visible;">
+                                <table class="table table-hover table-sm mb-0" id="source-monitoring-table">
+                                    <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th class="text-white fw-bold py-2 px-2"
+                                                style="font-size: 11px; min-width: 120px;">Source</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Jan</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Feb</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Mar</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Apr</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">May</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Jun</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Jul</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Aug</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Sep</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Oct</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Nov</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 45px;">Dec</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; min-width: 60px; background-color: #0d4534;">
+                                                Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="source-monitoring-tbody">
+                                        <tr>
+                                            <td colspan="14" class="text-center py-4">
+                                                <div class="text-success">
+                                                    <div class="spinner-border text-success" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
+                                                    </div>
+                                                    <p class="mt-3 mb-0 text-muted">Loading source monitoring data...
+                                                    </p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                        <tr id="source-monitoring-total-row">
+                                            <td class="text-white fw-bold py-2 px-2"
+                                                style="font-size: 11px; border-radius: 0;">TOTAL</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-jan">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-feb">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-mar">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-apr">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-may">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-jun">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-jul">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-aug">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-sep">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-oct">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-nov">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-dec">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; background-color: #0d4534;" id="total-year">0
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
     {{-- <div class="col-md-12 mb-4">
-        <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-            <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">MARKETING DASHBOARD</h2>
+        <div class="card shadow border-left-info">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    Ringkasan Dashboard & Cara Baca
+                </h6>
+                <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#summaryBody" aria-expanded="true">
+                    <i class="fas fa-angle-down"></i>
+                </button>
+            </div>
+
+            <div id="summaryBody" class="collapse show">
+                <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Gambaran singkat seluruh laporan di dashboard ini. Gunakan tautan untuk melompat ke bagiannya.
+                    </p>
+
+                    <ul class="list-group list-group-flush">
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Kartu</span>
+                            <strong>Status Quotation (Draft/Review/Published/Rejected/Expired)</strong> —
+                            menampilkan <em>jumlah</em> dokumen dan <em>total nominal</em> per status. Warna border
+                            mengikuti status untuk memudahkan pemindaian cepat.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-warning mr-2">Line</span>
+                            <a href="#tvsmBody" class="font-weight-bold">Target vs Sales (Bulanan - 1 Tahun)</a> —
+                            perbandingan target dan realisasi penjualan per bulan. Filter:
+                            <em>scope</em> (Global/Jakarta/Makassar/Surabaya) & <em>tahun</em>. Tooltips menampilkan
+                            nilai rupiah.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-success mr-2">Donut</span>
+                            <a href="#donutBody" class="font-weight-bold">Sales Achievement vs Target</a> —
+                            ringkasan pencapaian terhadap target dalam periode terpilih.
+                            Terdiri dari: <em>Global Achievement</em>, <em>All Branch Target (Plan)</em>, dan
+                            <em>Achievement per Branch</em>. Caption menampilkan persentase & nominal
+                            <code>Achieved/Target</code>.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-primary mr-2">Bar</span>
+                            <a href="#svtPctBody" class="font-weight-bold">Achievement vs Target per Branch (Monthly
+                                %)</a> —
+                            persentase pencapaian per cabang tiap bulan dalam setahun (filter tahun).
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-info mr-2">Line</span>
+                            <a href="#ordersMonthlyBody" class="font-weight-bold">Trend Orders Bulanan (YTD)</a> —
+                            dua seri: <em>Jumlah Order</em> & <em>Nominal Order</em> (sumbu ganda).
+                            Filter: cabang & rentang tanggal.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-dark mr-2">Bar + Line</span>
+                            <a href="#salesPerfBody" class="font-weight-bold">Sales Performance</a> —
+                            (1) Bar: distribusi Cold/Warm/Hot/Deal per sales; (2) Line: tren %
+                            achievement untuk Top 3/pilihan sales. Filter: cabang & periode.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
+                            <a href="#group3Body" class="font-weight-bold">Lead Overview</a> —
+                            ringkasan agregat leads pada periode & cabang terpilih (komposisi/fokus funnel).
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Pie</span>
+                            <strong>Konversi Leads (Cold→Warm & Warm→Hot)</strong> —
+                            dua pie chart yang menunjukkan rasio konversi antar level kualitas leads.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
+                            <a href="#group5Body" class="font-weight-bold">Jumlah Leads Total</a> —
+                            total leads per status (Cold/Warm/Hot) pada periode & cabang terpilih.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
+                            <a href="#group6Body" class="font-weight-bold">Jumlah Quotation</a> —
+                            total quotation per status (Review/Published/Rejected) dengan filter cabang & tanggal.
+                        </li>
+
+                        <li class="list-group-item">
+                            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
+                            <a href="#group7Body" class="font-weight-bold">Leads Berdasarkan Source</a> —
+                            tiga bagian (Cold/Warm/Hot) yang menampilkan jumlah leads per sumber masuk.
+                            Filter cabang & periode; cocok untuk evaluasi efektivitas kanal akuisisi.
+                        </li>
+
+                    </ul>
+
+                    <hr class="my-3">
+
+                    <div class="small text-muted">
+                        <strong>Tips cepat:</strong>
+                        <ul class="mb-0 pl-3">
+                            <li>Pakai tombol <em>Apply</em> di tiap kartu untuk memuat data sesuai filter.</li>
+                            <li>Tooltip di chart menampilkan nilai & format (Rp/%). Arahkan kursor ke titik/batang.</li>
+                            <li>Donut menampilkan <em>Achieved</em> vs <em>Remaining</em> dengan caption persentase.
+                            </li>
+                            <li>Grafik Leads per Branch memiliki garis <em>Target</em> (putus-putus) bila tersedia.</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div> --}}
-
-    {{-- PROCESS FLOW --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">PROCESS FLOW</h2>
-        <div class="row" id="process-flow-container">
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-clipboard-list"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">All Leads In</div>
-                        <div class="process-flow-count" id="all-leads-qty">-</div>
-                        {{-- <div class="process-flow-atr" id="all-leads-time">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Acquisition --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-user-check"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Acquisition</div>
-                        <div class="process-flow-count" id="acquisition-qty">-</div>
-                        <div class="process-flow-atr" id="acquisition-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Meeting --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-calendar-check"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting</div>
-                        <div class="process-flow-count" id="meeting-qty">-</div>
-                        <div class="process-flow-atr" id="meeting-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Quotation --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation</div>
-                        <div class="process-flow-count" id="quotation-qty">-</div>
-                        <div class="process-flow-atr" id="quotation-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Invoice --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-receipt"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Invoice</div>
-                        <div class="process-flow-count" id="invoice-qty">-</div>
-                        <div class="process-flow-atr" id="invoice-time">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row" id="process-flow-row2">
-            {{-- All Leads In - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">All Leads In %</div>
-                        <div class="process-flow-count" id="all-leads-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="all-leads-acq-pct">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Acquisition - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Acquisition %</div>
-                        <div class="process-flow-count" id="acquisition-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="acquisition-cvr">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Meeting - Percentage --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-percentage"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Meeting %</div>
-                        <div class="process-flow-count" id="meeting-pct">-</div>
-                        {{-- <div class="process-flow-atr" id="meeting-my">Loading...</div> --}}
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Quotation - Percentage & Amount --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Quotation %</div>
-                        <div class="process-flow-count" id="quotation-pct">-</div>
-                        <div class="process-flow-atr" id="quotation-amount">Loading...</div>
-                    </div>
-                </div>
-            </div>
-            
-            {{-- Invoice - Percentage & Amount --}}
-            <div class="col-xl-2-4 col-lg-4 col-md-6 col-sm-6 col-12">
-                <div class="process-flow-card">
-                    <div class="process-flow-icon">
-                        <i class="fas fa-money-bill-wave"></i>
-                    </div>
-                    <div class="process-flow-content">
-                        <div class="process-flow-title">Invoice %</div>
-                        <div class="process-flow-count" id="invoice-pct">-</div>
-                        <div class="process-flow-atr" id="invoice-amount">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- SOURCE CONVERSION LISTS Section --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE CONVERSION LISTS</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="source-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-2 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Source</label>
-                            <select id="source-filter" class="form-select source-control-input">
-                                <option value="">All Source</option>
-                                @foreach($leadSources as $source)
-                                    <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
-                        <div class="col-lg-3 col-md-3 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="source-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-
-                <div class="source-conversion-responsive" id="source-conversion-container">
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="source-conversion-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Source</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="source-conversion-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading source conversion data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="source-conversion-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cum">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-cold">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-warm">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-hot">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="total-deal">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="total-all">0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- SALES SEGMENT PERFORMANCE --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES SEGMENT PERFORMANCE</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="segment-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="segment-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Month</label>
-                            <select id="segment-month" class="form-select source-control-input">
-                                <option value="">All Months</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="segment-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Month</label>
-                            <select id="segment-month" class="form-select source-control-input">
-                                <option value="">All Months</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="segment-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-
-                <div class="source-conversion-responsive" id="segment-container">
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="segment-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Segment</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="segment-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading segment performance data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="segment-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cum">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-cold">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-warm">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-hot">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="segment-total-deal">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="segment-total-all">0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SOURCE MONITORING Section -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SOURCE MONITORING</h2>
-        <div class="row source-monitoring-mobile-stack">
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Source Monitoring Chart</h5>
-                                {{-- <p class="chart-subtitle text-muted mb-0">Monthly Lead Source Tracking</p> --}}
-                            </div>
-                        </div>
-
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="source-monitoring-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <input type="number" id="source-monitoring-year" class="form-control modern-input" 
-                                       value="{{ now()->year }}" min="2000" max="2100">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="source-monitoring-apply">
-                                    Apply
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="chart-container" style="height: 350px; position: relative;">
-                            <canvas id="source-monitoring-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Source Monitoring Table (Right) -->
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Source Monitoring List</h5>
-                                {{-- <p class="chart-subtitle text-muted mb-0">Monthly Data Summary</p> --}}
-                            </div>
-                        </div>
-
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="source-monitoring-table-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <select id="source-monitoring-source-filter" class="form-select modern-select">
-                                    <option value="">All Source</option>
-                                    @foreach($leadSources as $source)
-                                        <option value="{{ $source->name }}">{{ $source->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="control-item">
-                                <input type="number" id="source-monitoring-table-year" class="form-control modern-input" 
-                                       value="{{ now()->year }}" min="2000" max="2100">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="source-monitoring-table-apply">
-                                    Apply
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
-                            <div style="min-width: 900px;">
-                                <div class="table-body-scroll" style="overflow: visible;">
-                                    <table class="table table-hover table-sm mb-0" id="source-monitoring-table">
-                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
-                                            <tr>
-                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Source</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jan</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Feb</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Mar</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Apr</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">May</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jun</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Jul</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Aug</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Sep</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Oct</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Nov</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 45px;">Dec</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 60px; background-color: #0d4534;">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="source-monitoring-tbody">
-                                            <tr>
-                                                <td colspan="14" class="text-center py-4">
-                                                    <div class="text-success">
-                                                        <div class="spinner-border text-success" role="status">
-                                                            <span class="visually-hidden">Loading...</span>
-                                                        </div>
-                                                        <p class="mt-3 mb-0 text-muted">Loading source monitoring data...</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                            <tr id="source-monitoring-total-row">
-                                                <td class="text-white fw-bold py-2 px-2" style="font-size: 11px; border-radius: 0;">TOTAL</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-jan">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-feb">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-mar">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-apr">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-may">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-jun">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-jul">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-aug">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-sep">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-oct">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-nov">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-dec">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; background-color: #0d4534;" id="total-year">0</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    
-    
-{{-- <div class="col-md-12 mb-4">
-  <div class="card shadow border-left-info">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">
-        Ringkasan Dashboard & Cara Baca
-      </h6>
-      <button class="btn btn-link collapse-toggle" type="button"
-              data-bs-toggle="collapse" data-bs-target="#summaryBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-
-    <div id="summaryBody" class="collapse show">
-      <div class="card-body">
-        <p class="small text-muted mb-3">
-          Gambaran singkat seluruh laporan di dashboard ini. Gunakan tautan untuk melompat ke bagiannya.
-        </p>
-
-        <ul class="list-group list-group-flush">
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Kartu</span>
-            <strong>Status Quotation (Draft/Review/Published/Rejected/Expired)</strong> —
-            menampilkan <em>jumlah</em> dokumen dan <em>total nominal</em> per status. Warna border
-            mengikuti status untuk memudahkan pemindaian cepat.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-warning mr-2">Line</span>
-            <a href="#tvsmBody" class="font-weight-bold">Target vs Sales (Bulanan - 1 Tahun)</a> —
-            perbandingan target dan realisasi penjualan per bulan. Filter:
-            <em>scope</em> (Global/Jakarta/Makassar/Surabaya) & <em>tahun</em>. Tooltips menampilkan nilai rupiah.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-success mr-2">Donut</span>
-            <a href="#donutBody" class="font-weight-bold">Sales Achievement vs Target</a> —
-            ringkasan pencapaian terhadap target dalam periode terpilih.
-            Terdiri dari: <em>Global Achievement</em>, <em>All Branch Target (Plan)</em>, dan
-            <em>Achievement per Branch</em>. Caption menampilkan persentase & nominal
-            <code>Achieved/Target</code>.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-primary mr-2">Bar</span>
-            <a href="#svtPctBody" class="font-weight-bold">Achievement vs Target per Branch (Monthly %)</a> —
-            persentase pencapaian per cabang tiap bulan dalam setahun (filter tahun).
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-info mr-2">Line</span>
-            <a href="#ordersMonthlyBody" class="font-weight-bold">Trend Orders Bulanan (YTD)</a> —
-            dua seri: <em>Jumlah Order</em> & <em>Nominal Order</em> (sumbu ganda).
-            Filter: cabang & rentang tanggal.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-dark mr-2">Bar + Line</span>
-            <a href="#salesPerfBody" class="font-weight-bold">Sales Performance</a> —
-            (1) Bar: distribusi Cold/Warm/Hot/Deal per sales; (2) Line: tren %
-            achievement untuk Top 3/pilihan sales. Filter: cabang & periode.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
-            <a href="#group3Body" class="font-weight-bold">Lead Overview</a> —
-            ringkasan agregat leads pada periode & cabang terpilih (komposisi/fokus funnel).
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Pie</span>
-            <strong>Konversi Leads (Cold→Warm & Warm→Hot)</strong> —
-            dua pie chart yang menunjukkan rasio konversi antar level kualitas leads.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
-            <a href="#group5Body" class="font-weight-bold">Jumlah Leads Total</a> —
-            total leads per status (Cold/Warm/Hot) pada periode & cabang terpilih.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
-            <a href="#group6Body" class="font-weight-bold">Jumlah Quotation</a> —
-            total quotation per status (Review/Published/Rejected) dengan filter cabang & tanggal.
-          </li>
-
-          <li class="list-group-item">
-            <span class="badge badge-pill badge-secondary mr-2">Bar</span>
-            <a href="#group7Body" class="font-weight-bold">Leads Berdasarkan Source</a> —
-            tiga bagian (Cold/Warm/Hot) yang menampilkan jumlah leads per sumber masuk.
-            Filter cabang & periode; cocok untuk evaluasi efektivitas kanal akuisisi.
-          </li>
-
-        </ul>
-
-        <hr class="my-3">
-
-        <div class="small text-muted">
-          <strong>Tips cepat:</strong>
-          <ul class="mb-0 pl-3">
-            <li>Pakai tombol <em>Apply</em> di tiap kartu untuk memuat data sesuai filter.</li>
-            <li>Tooltip di chart menampilkan nilai & format (Rp/%). Arahkan kursor ke titik/batang.</li>
-            <li>Donut menampilkan <em>Achieved</em> vs <em>Remaining</em> dengan caption persentase.</li>
-            <li>Grafik Leads per Branch memiliki garis <em>Target</em> (putus-putus) bila tersedia.</li>
-          </ul>
-        </div>
-
-      </div>
-    </div>
-  </div>
-</div> --}}
 
 
     {{-- <div class="col-md-12 mb-2">
         @if ($showOrders)
-            @php
-                $statusColors = [
-                    'draft' => 'secondary',
-                    'review' => 'warning',
-                    'published' => 'success',
-                    'rejected' => 'danger',
-                    'expired' => 'dark',
-                ];
-                $keys = array_keys($quotationStatusStats);
-            @endphp
+        @php
+        $statusColors = [
+        'draft' => 'secondary',
+        'review' => 'warning',
+        'published' => 'success',
+        'rejected' => 'danger',
+        'expired' => 'dark',
+        ];
+        $keys = array_keys($quotationStatusStats);
+        @endphp
 
-          
-            <div class="row justify-content-center">
-                @for ($i = 0; $i < 3; $i++)
-                    @php
-                        $status = $keys[$i];
-                        $stats = $quotationStatusStats[$status];
-                        $color = $statusColors[$status] ?? 'primary';
-                    @endphp
-                    <div class="col-md-4 mb-4 d-flex justify-content-center">
-                        <div class="card border-left-{{ $color }} shadow h-100 py-2 w-100">
-                            <div class="card-body text-center">
-                                <div class="text-xs font-weight-bold text-{{ $color }} text-uppercase mb-1">
-                                    {{ ucfirst($status) }} Quotations
-                                </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total'] }}</div>
-                                <div class="text-xs text-gray-700">Rp{{ number_format($stats['amount'], 0, ',', '.') }}</div>
-                            </div>
-                        </div>
-                    </div>
-                @endfor
-            </div>
 
-        
-            <div class="row justify-content-center">
-                @for ($i = 3; $i < 5; $i++)
-                    @php
-                        $status = $keys[$i];
-                        $stats = $quotationStatusStats[$status];
-                        $color = $statusColors[$status] ?? 'primary';
-                    @endphp
-                    <div class="col-md-6 mb-4 d-flex justify-content-center">
-                        <div class="card border-left-{{ $color }} shadow h-100 py-2 w-100">
-                            <div class="card-body text-center">
-                                <div class="text-xs font-weight-bold text-{{ $color }} text-uppercase mb-1">
-                                    {{ ucfirst($status) }} Quotations
-                                </div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total'] }}</div>
-                                <div class="text-xs text-gray-700">Rp{{ number_format($stats['amount'], 0, ',', '.') }}
-                                </div>
-                            </div>
+        <div class="row justify-content-center">
+            @for ($i = 0; $i < 3; $i++) @php $status=$keys[$i]; $stats=$quotationStatusStats[$status];
+                $color=$statusColors[$status] ?? 'primary' ; @endphp <div
+                class="col-md-4 mb-4 d-flex justify-content-center">
+                <div class="card border-left-{{ $color }} shadow h-100 py-2 w-100">
+                    <div class="card-body text-center">
+                        <div class="text-xs font-weight-bold text-{{ $color }} text-uppercase mb-1">
+                            {{ ucfirst($status) }} Quotations
                         </div>
-                    </div>
-                @endfor
-            </div>
-        @endif
-    </div> --}}
-
-    {{-- SALES DASHBOARD HEADER --}}
-    <div class="col-md-12 mb-4">
-        <div class="dashboard-section-header" style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-            <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">SALES DASHBOARD</h2>
-        </div>
-    </div>
-
-    {{-- SAKES ACHIEVEMENT VS TARGET --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light">
-                    <div class="row g-3 align-items-end justify-content-start">
-                        <div class="col-md-3 ms-auto">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="donut_start" class="form-control source-control-input"
-                                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="donut_end" class="form-control source-control-input"
-                                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="donut_apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total'] }}</div>
+                        <div class="text-xs text-gray-700">Rp{{ number_format($stats['amount'], 0, ',', '.') }}</div>
                     </div>
                 </div>
+        </div>
+        @endfor
+    </div>
 
-                <div class="p-4">                @if(auth()->user()->role?->code === 'super_admin')
+
+    <div class="row justify-content-center">
+        @for ($i = 3; $i < 5; $i++) @php $status=$keys[$i]; $stats=$quotationStatusStats[$status];
+            $color=$statusColors[$status] ?? 'primary' ; @endphp <div
+            class="col-md-6 mb-4 d-flex justify-content-center">
+            <div class="card border-left-{{ $color }} shadow h-100 py-2 w-100">
+                <div class="card-body text-center">
+                    <div class="text-xs font-weight-bold text-{{ $color }} text-uppercase mb-1">
+                        {{ ucfirst($status) }} Quotations
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $stats['total'] }}</div>
+                    <div class="text-xs text-gray-700">Rp{{ number_format($stats['amount'], 0, ',', '.') }}
+                    </div>
+                </div>
+            </div>
+    </div>
+    @endfor
+</div>
+@endif
+</div> --}}
+
+{{-- SALES DASHBOARD HEADER --}}
+<div class="col-md-12 mb-4">
+    <div class="dashboard-section-header"
+        style="background: #115641; color: white; padding: 15px 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+        <h2 class="mb-0" style="font-size: 28px; font-weight: bold;">SALES DASHBOARD</h2>
+    </div>
+</div>
+
+{{-- SAKES ACHIEVEMENT VS TARGET --}}
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES ACHIEVEMENT VS TARGET</h2>
+
+    <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+        <div class="card-body p-0">
+            <div class="p-4 bg-light">
+                <div class="row g-3 align-items-end justify-content-start">
+                    <div class="col-md-3 ms-auto">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" id="donut_start" class="form-control source-control-input"
+                            value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Date</label>
+                        <input type="date" id="donut_end" class="form-control source-control-input"
+                            value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn source-apply-button w-100" id="donut_apply">
+                            <i class="fas fa-filter me-1"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4"> @if(auth()->user()->role?->code === 'super_admin')
                 <div class="row g-4">
                     <div class="col-lg-4 col-md-6">
                         <div class="achievement-card">
@@ -3361,7 +3564,8 @@
                                             <span class="branch-name">BRANCH JAKARTA</span>
                                             <div class="branch-stats">
                                                 <span class="branch-target">Target: Rp. 61.813.125.000</span>
-                                                <span class="branch-achievement">Achievement: 5% - Rp2.925.728.437</span>
+                                                <span class="branch-achievement">Achievement: 5% -
+                                                    Rp2.925.728.437</span>
                                             </div>
                                             <div class="branch-progress">
                                                 <div class="progress-bar-container">
@@ -3423,9 +3627,11 @@
                                         <span class="stat-value" id="global_branch_achievement_pct">17%</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span class="stat-value" id="global_branch_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-value"
+                                            id="global_branch_achievement_amount">Rp3.137.440.149</span>
                                         <span class="stat-separator">/</span>
-                                        <span class="stat-target" id="global_branch_target_amount">Rp18.150.000.000</span>
+                                        <span class="stat-target"
+                                            id="global_branch_target_amount">Rp18.150.000.000</span>
                                     </div>
                                 </div>
                             </div>
@@ -3447,7 +3653,8 @@
                                         <span class="stat-value" id="all_branch_achievement_pct">17%</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span class="stat-value" id="all_branch_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-value"
+                                            id="all_branch_achievement_amount">Rp3.137.440.149</span>
                                         <span class="stat-separator">/</span>
                                         <span class="stat-target" id="all_branch_target_amount">Rp18.150.000.000</span>
                                     </div>
@@ -3471,9 +3678,11 @@
                                         <span class="stat-value" id="branch_single_achievement_pct">17%</span>
                                     </div>
                                     <div class="stat-item">
-                                        <span class="stat-value" id="branch_single_achievement_amount">Rp3.137.440.149</span>
+                                        <span class="stat-value"
+                                            id="branch_single_achievement_amount">Rp3.137.440.149</span>
                                         <span class="stat-separator">/</span>
-                                        <span class="stat-target" id="branch_single_target_amount">Rp18.150.000.000</span>
+                                        <span class="stat-target"
+                                            id="branch_single_target_amount">Rp18.150.000.000</span>
                                     </div>
                                 </div>
                             </div>
@@ -3481,194 +3690,211 @@
                     </div>
                 </div>
                 @endif
-                </div>
             </div>
         </div>
     </div>
+</div>
 
-    {{-- TARGET VS SALES --}}
-    <div class="col-md-12 mb-4">
-        <div class="row">
-          <div class="col-lg-6 col-md-12 mb-4">
+{{-- TARGET VS SALES --}}
+<div class="col-md-12 mb-4">
+    <div class="row">
+        <div class="col-lg-6 col-md-12 mb-4">
             <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">TARGET VS SALES</h2>
             <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-              <div class="card-body p-4">
+                <div class="card-body p-4">
 
-            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-              <div class="control-item">
-                <select id="tvsm_scope" class="form-select modern-select">
-                  <option value="global">Global</option>
-                  <option value="jakarta">Branch Jakarta</option>
-                  <option value="makassar">Branch Makassar</option>
-                  <option value="surabaya">Branch Surabaya</option>
-                </select>
-              </div>
-              <div class="control-item">
-                <input type="number" id="tvsm_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
-              </div>
-              <div class="control-item">
-                <button type="button" class="btn modern-apply-btn" id="tvsm_apply">
-                  Apply
-                </button>
-              </div>
-            </div>
-
-            <div class="chart-container" style="height: 300px; position: relative;">
-              <canvas id="tvsm_chart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-
-          <div class="col-lg-6 col-md-12 mb-4">
-            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">ACHIEVEMENT VS TARGET</h2>
-            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-              <div class="card-body p-4">
-
-            <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-              <div class="control-item">
-                <input type="number" id="svt_year" class="form-control modern-input" value="{{ now()->year }}" min="2000" max="2100">
-              </div>
-              <div class="control-item">
-                <button type="button" class="btn modern-apply-btn" id="svt_apply">
-                  Apply
-                </button>
-              </div>
-            </div>
-
-            <div class="chart-container" style="height: 300px; position: relative;">
-              <canvas id="svt_percent_chart"></canvas>
-            </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-
-    {{-- SALES DEALING --}}
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
-        
-        <div class="row sls-dealing-mobile-stack">
-            <!-- SLS Dealing Chart (Left) -->
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Dealing Chart</h5>
-                            </div>
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        <div class="control-item">
+                            <select id="tvsm_scope" class="form-select modern-select">
+                                <option value="global">Global</option>
+                                <option value="jakarta">Branch Jakarta</option>
+                                <option value="makassar">Branch Makassar</option>
+                                <option value="surabaya">Branch Surabaya</option>
+                            </select>
                         </div>
-
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="sls-dealing-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-start-date" class="form-control modern-input" 
-                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-end-date" class="form-control modern-input" 
-                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-apply">
-                                    Apply
-                                </button>
-                            </div>
+                        <div class="control-item">
+                            <input type="number" id="tvsm_year" class="form-control modern-input"
+                                value="{{ now()->year }}" min="2000" max="2100">
                         </div>
-
-                        <div class="chart-container" style="height: 350px; position: relative;">
-                            <canvas id="sls-dealing-chart"></canvas>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="tvsm_apply">
+                                Apply
+                            </button>
                         </div>
+                    </div>
+
+                    <div class="chart-container" style="height: 300px; position: relative;">
+                        <canvas id="tvsm_chart"></canvas>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- SLS Dealing Table (Right) -->
-            <div class="col-lg-6 col-md-12 mb-4">
-                <div class="card chart-card shadow-sm border-0">
-                    <div class="card-body p-4">
-                        <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="chart-title mb-0">Dealing List</h5>
-                            </div>
+        <div class="col-lg-6 col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-3" style="font-size: 30px; color: #115641;">ACHIEVEMENT VS TARGET</h2>
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+                <div class="card-body p-4">
+
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        <div class="control-item">
+                            <input type="number" id="svt_year" class="form-control modern-input"
+                                value="{{ now()->year }}" min="2000" max="2100">
                         </div>
-
-                        <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
-                            @if(auth()->user()->role?->code === 'super_admin')
-                            <div class="control-item">
-                                <select id="sls-dealing-table-branch" class="form-select modern-select">
-                                    <option value="">All Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            @endif
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-table-start-date" class="form-control modern-input" 
-                                       value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <input type="date" id="sls-dealing-table-end-date" class="form-control modern-input" 
-                                       value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                            </div>
-                            <div class="control-item">
-                                <button type="button" class="btn modern-apply-btn" id="sls-dealing-table-apply">
-                                    Apply
-                                </button>
-                            </div>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="svt_apply">
+                                Apply
+                            </button>
                         </div>
+                    </div>
 
-                        <div class="table-with-sticky-footer" style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
-                            <div style="min-width: 900px;">
-                                <div class="table-body-scroll" style="overflow: visible;">
-                                    <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
-                                        <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
-                                            <tr>
-                                                <th class="text-white fw-bold py-2 px-2" style="font-size: 11px; min-width: 120px;">Nama Sales</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Target Amount</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">ACV Amount</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">% (ACV/Target)</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 80px;">Unit Sales</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; width: 100px;">Branch</th>
-                                                <th class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px; min-width: 120px;">Periode</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="sls-dealing-tbody">
-                                            <tr>
-                                                <td colspan="7" class="text-center py-4">
-                                                    <div class="text-success">
-                                                        <div class="spinner-border text-success" role="status">
-                                                            <span class="visually-hidden">Loading...</span>
-                                                        </div>
-                                                        <p class="mt-3 mb-0 text-muted">Loading SLS dealing data...</p>
+                    <div class="chart-container" style="height: 300px; position: relative;">
+                        <canvas id="svt_percent_chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{{-- SALES DEALING --}}
+<div class="col-md-12 mb-4">
+    <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES DEALING</h2>
+
+    <div class="row sls-dealing-mobile-stack">
+        <!-- SLS Dealing Chart (Left) -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card chart-card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="chart-title mb-0">Dealing Chart</h5>
+                        </div>
+                    </div>
+
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="control-item">
+                            <select id="sls-dealing-branch" class="form-select modern-select">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        <div class="control-item">
+                            <input type="date" id="sls-dealing-start-date" class="form-control modern-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="control-item">
+                            <input type="date" id="sls-dealing-end-date" class="form-control modern-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="sls-dealing-apply">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" style="height: 350px; position: relative;">
+                        <canvas id="sls-dealing-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLS Dealing Table (Right) -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card chart-card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <div class="chart-title-section d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="chart-title mb-0">Dealing List</h5>
+                        </div>
+                    </div>
+
+                    <div class="chart-controls d-flex flex-wrap gap-2 mb-4">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="control-item">
+                            <select id="sls-dealing-table-branch" class="form-select modern-select">
+                                <option value="">All Branch</option>
+                                @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        <div class="control-item">
+                            <input type="date" id="sls-dealing-table-start-date" class="form-control modern-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="control-item">
+                            <input type="date" id="sls-dealing-table-end-date" class="form-control modern-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                        </div>
+                        <div class="control-item">
+                            <button type="button" class="btn modern-apply-btn" id="sls-dealing-table-apply">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-with-sticky-footer"
+                        style="height: 350px; overflow: auto; border: 1px solid #e3e6f0; border-radius: 0;">
+                        <div style="min-width: 900px;">
+                            <div class="table-body-scroll" style="overflow: visible;">
+                                <table class="table table-hover table-sm mb-0" id="sls-dealing-table">
+                                    <thead style="background-color: #115641; position: sticky; top: 0; z-index: 10;">
+                                        <tr>
+                                            <th class="text-white fw-bold py-2 px-2"
+                                                style="font-size: 11px; min-width: 120px;">Nama Sales</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 100px;">Target Amount</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 100px;">ACV Amount</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 80px;">% (ACV/Target)</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 80px;">Unit Sales</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; width: 100px;">Branch</th>
+                                            <th class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px; min-width: 120px;">Periode</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sls-dealing-tbody">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4">
+                                                <div class="text-success">
+                                                    <div class="spinner-border text-success" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                        <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                            <tr id="sls-dealing-total-row">
-                                                <td class="text-white fw-bold py-2 px-2" style="font-size: 11px; border-radius: 0;">TOTAL</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-target-amount">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-acv-amount">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-percentage">0%</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;" id="total-unit-sales">0</td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
-                                                <td class="text-white fw-bold py-2 px-1 text-center" style="font-size: 10px;"></td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                                    <p class="mt-3 mb-0 text-muted">Loading SLS dealing data...</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                        <tr id="sls-dealing-total-row">
+                                            <td class="text-white fw-bold py-2 px-2"
+                                                style="font-size: 11px; border-radius: 0;">TOTAL</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-target-amount">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-acv-amount">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-percentage">0%</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;" id="total-unit-sales">0</td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;"></td>
+                                            <td class="text-white fw-bold py-2 px-1 text-center"
+                                                style="font-size: 10px;"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -3680,7 +3906,7 @@
     {{-- SALES POTENTIAL DEALING BRANCH --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING BRANCH</h2>
-        
+
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
                 <div class="p-4 bg-light potential-dealing-section">
@@ -3691,17 +3917,20 @@
                             <select id="potential-branch-branch" class="form-select source-control-input">
                                 <option value="">All Branch</option>
                                 @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-branch-start-date"
+                                class="form-control source-control-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">End Date</label>
-                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6">
                             <label class="form-label">&nbsp;</label>
@@ -3714,11 +3943,14 @@
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-branch-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-branch-start-date"
+                                class="form-control source-control-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">End Date</label>
-                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-branch-end-date" class="form-control source-control-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">&nbsp;</label>
@@ -3734,13 +3966,27 @@
                     <table class="table table-hover mb-0" id="potential-branch-table">
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
                             <tr>
-                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Sales</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty (W + H)</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm + Hot Amount</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg Discount</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Branch</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Periode</th>
+                                <th class="text-white fw-bold py-3 px-4"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama
+                                    Sales</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold
+                                </th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Qty
+                                    (W + H)</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm
+                                    + Hot Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Avg
+                                    Discount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Branch</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">
+                                    Periode</th>
                             </tr>
                         </thead>
                         <tbody id="potential-branch-tbody">
@@ -3759,11 +4005,15 @@
                             <tr id="potential-branch-total-row">
                                 <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
                                 <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-cold">0</td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0</td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0</td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%</td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-qty">0
+                                </td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-warm-hot-amount">0
+                                </td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" id="total-branch-avg-discount">0%
+                                </td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;">
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
@@ -3775,7 +4025,7 @@
     {{-- SALES POTENTIAL DEALING TEST --}}
     <div class="col-md-12 mb-4">
         <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES POTENTIAL DEALING LIST</h2>
-        
+
         <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
             <div class="card-body p-0">
                 <div class="p-4 bg-light potential-dealing-section">
@@ -3786,17 +4036,19 @@
                             <select id="potential-list-branch" class="form-select source-control-input">
                                 <option value="">All Branch</option>
                                 @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-lg-3 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-list-start-date" class="form-control source-control-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-3 col-md-4 col-sm-6">
                             <label class="form-label">End Date</label>
-                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-list-end-date" class="form-control source-control-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-3 col-md-4 col-sm-6">
                             <label class="form-label">&nbsp;</label>
@@ -3809,11 +4061,13 @@
                     <div class="row g-3 align-items-end">
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">Start Date</label>
-                            <input type="date" id="potential-list-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-list-start-date" class="form-control source-control-input"
+                                value="{{ now()->startOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">End Date</label>
-                            <input type="date" id="potential-list-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
+                            <input type="date" id="potential-list-end-date" class="form-control source-control-input"
+                                value="{{ now()->endOfYear()->format('Y-m-d') }}">
                         </div>
                         <div class="col-lg-4 col-md-4 col-sm-6">
                             <label class="form-label">&nbsp;</label>
@@ -3829,15 +4083,33 @@
                     <table class="table table-hover mb-0" id="potential-list-table">
                         <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
                             <tr>
-                                <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama Customer</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Sales Name</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Status</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Segment</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Amount</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Regional</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Product</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Last Activity</th>
-                                <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; background-color: #0d4534; position: sticky; top: 0;">Data Validation</th>
+                                <th class="text-white fw-bold py-3 px-4"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Nama
+                                    Customer</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Sales
+                                    Name</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Status</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Segment</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Amount</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Regional</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                    Product</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Last
+                                    Activity</th>
+                                <th class="text-white fw-bold py-3 px-4 text-center"
+                                    style="border-radius: 0; background-color: #0d4534; position: sticky; top: 0;">Data
+                                    Validation</th>
                             </tr>
                         </thead>
                         <tbody id="potential-list-tbody">
@@ -3862,7 +4134,8 @@
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
                                 <td class="text-white fw-bold py-3 px-4 text-center"></td>
-                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;"></td>
+                                <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;">
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
@@ -3871,10 +4144,10 @@
         </div>
     </div>
 
-    
 
-    
-        
+
+
+
     {{-- <div class="row"> --}}
         {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
@@ -3911,420 +4184,461 @@
         </div> --}}
 
         <div class="col-md-12 mb-4 d-none">
-    <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Trend Total Penjualan per Branch</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#branchSalesBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="branchSalesBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <select id="branch_sales_branches" class="form-select form-select-sm select2" multiple>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="branch_sales_start" class="form-control form-control-sm"
-                   value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="branch_sales_end" class="form-control form-control-sm"
-                   value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="branch_sales_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
-        </div>
-
-        <div style="height: 360px;">
-          <canvas id="branch_sales_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{{-- <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Cold Leads per Branch (Count & Nominal)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#coldLeadsBranchBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="coldLeadsBranchBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <select id="cl_branch_ids" class="form-select form-select-sm select2" multiple>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="cl_start" class="form-control form-control-sm" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="cl_end" class="form-control form-control-sm" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="cl_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
-        </div>
-
-        <div class="mb-4" style="height: 320px;">
-          <canvas id="cl_count_chart"></canvas>
-        </div>
-        <div style="height: 320px;">
-          <canvas id="cl_amount_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div> --}}
-
-<!-- WARM Leads per Branch -->
-{{-- <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Warm Leads per Branch (Count & Nominal)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#warmLeadsBranchBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="warmLeadsBranchBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <select id="wl_branch_ids" class="form-select form-select-sm select2" multiple>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="wl_start" class="form-control form-control-sm" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="wl_end" class="form-control form-control-sm" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="wl_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
-        </div>
-
-        <div class="mb-4" style="height: 320px;">
-          <canvas id="wl_count_chart"></canvas>
-        </div>
-        <div style="height: 320px;">
-          <canvas id="wl_amount_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div> --}}
-
-<!-- HOT Leads per Branch -->
-{{-- <div class="col-md-12 mb-4">
-  <div class="card shadow">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary">Hot Leads per Branch (Count & Nominal)</h6>
-      <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#hotLeadsBranchBody" aria-expanded="true">
-        <i class="fas fa-angle-down"></i>
-      </button>
-    </div>
-    <div id="hotLeadsBranchBody" class="collapse show">
-      <div class="card-body">
-        <div class="row g-2 mb-3">
-          <div class="col-md-4">
-            <select id="hl_branch_ids" class="form-select form-select-sm select2" multiple>
-              @foreach ($branches as $branch)
-                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-              @endforeach
-            </select>
-            <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="hl_start" class="form-control form-control-sm" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-3">
-            <input type="date" id="hl_end" class="form-control form-control-sm" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-          </div>
-          <div class="col-md-2 d-grid">
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="hl_apply">
-              <i class="bi bi-search me-1"></i> Apply
-            </button>
-          </div>
-        </div>
-
-        <div class="mb-4" style="height: 320px;">
-          <canvas id="hl_count_chart"></canvas>
-        </div>
-        <div style="height: 320px;">
-          <canvas id="hl_amount_chart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-</div> --}}
-
-    <!-- SALES PERFORMANCE -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES PERFORMANCE</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="sp_branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach ($branches as $branch)
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Trend Total Penjualan per Branch</h6>
+                    <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#branchSalesBody" aria-expanded="true">
+                        <i class="fas fa-angle-down"></i>
+                    </button>
+                </div>
+                <div id="branchSalesBody" class="collapse show">
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <select id="branch_sales_branches" class="form-select form-select-sm select2" multiple>
+                                    @foreach ($branches as $branch)
                                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="branch_sales_start" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="branch_sales_end" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="branch_sales_apply">
+                                    <i class="bi bi-search me-1"></i> Apply
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="sp_start" class="form-control source-control-input" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="sp_end" class="form-control source-control-input" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="sp_apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
+
+                        <div style="height: 360px;">
+                            <canvas id="branch_sales_chart"></canvas>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
-                    <div style="height: 380px;">
-                        <canvas id="sp_bar"></canvas>
+        {{-- <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Cold Leads per Branch (Count & Nominal)</h6>
+                    <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#coldLeadsBranchBody" aria-expanded="true">
+                        <i class="fas fa-angle-down"></i>
+                    </button>
+                </div>
+                <div id="coldLeadsBranchBody" class="collapse show">
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <select id="cl_branch_ids" class="form-select form-select-sm select2" multiple>
+                                    @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="cl_start" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="cl_end" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="cl_apply">
+                                    <i class="bi bi-search me-1"></i> Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4" style="height: 320px;">
+                            <canvas id="cl_count_chart"></canvas>
+                        </div>
+                        <div style="height: 320px;">
+                            <canvas id="cl_amount_chart"></canvas>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div> --}}
 
-                <!-- Achievement Trend Section -->
-                <div class="p-4 bg-light source-conversion-section" style="border-top: 1px solid #e5e7eb;">
-                    <div class="row g-3">
-                        <div class="col-lg-9 col-md-8 col-sm-12">
-                            <label class="form-label">Select Sales (max 3)</label>
-                            <select id="sa_sales_ids" class="form-select source-control-input" multiple>
-                                @foreach ($salesUsers as $s)
+        <!-- WARM Leads per Branch -->
+        {{-- <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Warm Leads per Branch (Count & Nominal)</h6>
+                    <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#warmLeadsBranchBody" aria-expanded="true">
+                        <i class="fas fa-angle-down"></i>
+                    </button>
+                </div>
+                <div id="warmLeadsBranchBody" class="collapse show">
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <select id="wl_branch_ids" class="form-select form-select-sm select2" multiple>
+                                    @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="wl_start" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="wl_end" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="wl_apply">
+                                    <i class="bi bi-search me-1"></i> Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4" style="height: 320px;">
+                            <canvas id="wl_count_chart"></canvas>
+                        </div>
+                        <div style="height: 320px;">
+                            <canvas id="wl_amount_chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> --}}
+
+        <!-- HOT Leads per Branch -->
+        {{-- <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Hot Leads per Branch (Count & Nominal)</h6>
+                    <button class="btn btn-link collapse-toggle" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#hotLeadsBranchBody" aria-expanded="true">
+                        <i class="fas fa-angle-down"></i>
+                    </button>
+                </div>
+                <div id="hotLeadsBranchBody" class="collapse show">
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <select id="hl_branch_ids" class="form-select form-select-sm select2" multiple>
+                                    @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Pilih maks. 3 branch, kosongkan untuk Top 3 otomatis</small>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="hl_start" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="date" id="hl_end" class="form-control form-control-sm"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="hl_apply">
+                                    <i class="bi bi-search me-1"></i> Apply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4" style="height: 320px;">
+                            <canvas id="hl_count_chart"></canvas>
+                        </div>
+                        <div style="height: 320px;">
+                            <canvas id="hl_amount_chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> --}}
+
+        <!-- SALES PERFORMANCE -->
+        <div class="col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">SALES PERFORMANCE</h2>
+
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+                <div class="card-body p-0">
+                    <div class="p-4 bg-light source-conversion-section">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Branch</label>
+                                <select id="sp_branch" class="form-select source-control-input">
+                                    <option value="">All Branch</option>
+                                    @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" id="sp_start" class="form-control source-control-input"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">End Date</label>
+                                <input type="date" id="sp_end" class="form-control source-control-input"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn source-apply-button w-100" id="sp_apply">
+                                    <i class="fas fa-filter me-1"></i> Apply Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4"
+                        style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                        <div style="height: 380px;">
+                            <canvas id="sp_bar"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Achievement Trend Section -->
+                    <div class="p-4 bg-light source-conversion-section" style="border-top: 1px solid #e5e7eb;">
+                        <div class="row g-3">
+                            <div class="col-lg-9 col-md-8 col-sm-12">
+                                <label class="form-label">Select Sales (max 3)</label>
+                                <select id="sa_sales_ids" class="form-select source-control-input" multiple>
+                                    @foreach ($salesUsers as $s)
                                     <option value="{{ $s->id }}">{{ $s->name }}</option>
-                                @endforeach
-                            </select>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-12 d-flex flex-column justify-content-end">
+                                <button type="button" class="btn source-apply-button w-100" id="sa_apply"
+                                    style="height: 42px;">
+                                    <i class="fas fa-filter me-1"></i> Refresh Trend
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-lg-3 col-md-4 col-sm-12 d-flex flex-column justify-content-end">
-                            <button type="button" class="btn source-apply-button w-100" id="sa_apply" style="height: 42px;">
-                                <i class="fas fa-filter me-1"></i> Refresh Trend
-                            </button>
+                        <div class="row">
+                            <div class="col-12">
+                                <small class="text-muted">Select max 3 sales for trend (empty = Top 3 auto)</small>
+                            </div>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <small class="text-muted">Select max 3 sales for trend (empty = Top 3 auto)</small>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
-                    <div style="height: 380px;">
-                        <canvas id="sa_line"></canvas>
+                    <div class="p-4"
+                        style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                        <div style="height: 380px;">
+                            <canvas id="sa_line"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">REGIONAL PERFORMANCE</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    @if(auth()->user()->role?->code === 'super_admin')
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="regional-branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach($branches as $branch)
+        <div class="col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">REGIONAL PERFORMANCE</h2>
+
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+                <div class="card-body p-0">
+                    <div class="p-4 bg-light source-conversion-section">
+                        @if(auth()->user()->role?->code === 'super_admin')
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Branch</label>
+                                <select id="regional-branch" class="form-select source-control-input">
+                                    <option value="">All Branch</option>
+                                    @foreach($branches as $branch)
                                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Year</label>
+                                <input type="number" id="regional-year" class="form-control source-control-input"
+                                    value="{{ now()->year }}" min="2000" max="2100">
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Month</label>
+                                <select id="regional-month" class="form-select source-control-input">
+                                    <option value="">All Months</option>
+                                    <option value="1">January</option>
+                                    <option value="2">February</option>
+                                    <option value="3">March</option>
+                                    <option value="4">April</option>
+                                    <option value="5">May</option>
+                                    <option value="6">June</option>
+                                    <option value="7">July</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">October</option>
+                                    <option value="11">November</option>
+                                    <option value="12">December</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn source-apply-button w-100" id="regional-apply">
+                                    <i class="fas fa-filter me-1"></i> Apply Filter
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="regional-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
+                        @else
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-4 col-md-4 col-sm-6">
+                                <label class="form-label">Year</label>
+                                <input type="number" id="regional-year" class="form-control source-control-input"
+                                    value="{{ now()->year }}" min="2000" max="2100">
+                            </div>
+                            <div class="col-lg-4 col-md-4 col-sm-6">
+                                <label class="form-label">Month</label>
+                                <select id="regional-month" class="form-select source-control-input">
+                                    <option value="">All Months</option>
+                                    <option value="1">January</option>
+                                    <option value="2">February</option>
+                                    <option value="3">March</option>
+                                    <option value="4">April</option>
+                                    <option value="5">May</option>
+                                    <option value="6">June</option>
+                                    <option value="7">July</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">October</option>
+                                    <option value="11">November</option>
+                                    <option value="12">December</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-4 col-md-4 col-sm-6">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn source-apply-button w-100" id="regional-apply">
+                                    <i class="fas fa-filter me-1"></i> Apply Filter
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Month</label>
-                            <select id="regional-month" class="form-select source-control-input">
-                                <option value="">All Months</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="regional-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
+                        @endif
                     </div>
-                    @else
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Year</label>
-                            <input type="number" id="regional-year" class="form-control source-control-input" value="{{ now()->year }}" min="2000" max="2100">
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">Month</label>
-                            <select id="regional-month" class="form-select source-control-input">
-                                <option value="">All Months</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="col-lg-4 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="regional-apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filter
-                            </button>
-                        </div>
-                    </div>
-                    @endif
-                </div>
 
-                <div class="source-conversion-responsive" id="regional-container">
-                    <div class="source-conversion-scroll">
-                        <table class="table table-hover mb-0" id="regional-table">
-                            <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
-                                <tr>
-                                    <th class="text-white fw-bold py-3 px-4" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Province</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cum</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Cold</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Warm</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Hot</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">Deal</th>
-                                    <th class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="regional-tbody">
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div class="text-success">
-                                            <div class="spinner-border text-success" role="status">
-                                                <span class="visually-hidden">Loading...</span>
+                    <div class="source-conversion-responsive" id="regional-container">
+                        <div class="source-conversion-scroll">
+                            <table class="table table-hover mb-0" id="regional-table">
+                                <thead style="background-color: #115641; position: sticky; top: 0; z-index: 20;">
+                                    <tr>
+                                        <th class="text-white fw-bold py-3 px-4"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Province</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Cum</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Cold</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Warm</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Hot</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="border-radius: 0; position: sticky; top: 0; background-color: #115641;">
+                                            Deal</th>
+                                        <th class="text-white fw-bold py-3 px-4 text-center"
+                                            style="background-color: #0d4534; position: sticky; top: 0; border-radius: 0;">
+                                            Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="regional-tbody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5">
+                                            <div class="text-success">
+                                                <div class="spinner-border text-success" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mt-2 mb-0 text-muted">Loading regional performance data...</p>
                                             </div>
-                                            <p class="mt-2 mb-0 text-muted">Loading regional performance data...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
-                                <tr id="regional-total-row">
-                                    <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cum">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cold">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-warm">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-hot">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-deal">0</td>
-                                    <td class="text-white fw-bold py-3 px-4 text-center" style="background-color: #0d4534;" id="regional-total-all">0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot style="background-color: #115641; position: sticky; bottom: 0; z-index: 15;">
+                                    <tr id="regional-total-row">
+                                        <td class="text-white fw-bold py-3 px-4" style="border-radius: 0;">TOTAL</td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cum">0
+                                        </td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-cold">0
+                                        </td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-warm">0
+                                        </td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-hot">0
+                                        </td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center" id="regional-total-deal">0
+                                        </td>
+                                        <td class="text-white fw-bold py-3 px-4 text-center"
+                                            style="background-color: #0d4534;" id="regional-total-all">0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- TREND ORDERS BULANAN (YTD) -->
-    <div class="col-md-12 mb-4">
-        <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">TREND ORDERS BULANAN (YTD)</h2>
-        
-        <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
-            <div class="card-body p-0">
-                <div class="p-4 bg-light source-conversion-section">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Branch</label>
-                            <select id="orders_branch" class="form-select source-control-input">
-                                <option value="">All Branch</option>
-                                @foreach ($branches as $branch)
-                                    <option value="{{ $branch->id }}" {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
+        <!-- TREND ORDERS BULANAN (YTD) -->
+        <div class="col-md-12 mb-4">
+            <h2 class="font-weight-bold mb-4" style="font-size: 30px; color: #115641;">TREND ORDERS BULANAN (YTD)</h2>
+
+            <div class="card shadow" style="border-radius: 20px; overflow: hidden;">
+                <div class="card-body p-0">
+                    <div class="p-4 bg-light source-conversion-section">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Branch</label>
+                                <select id="orders_branch" class="form-select source-control-input">
+                                    <option value="">All Branch</option>
+                                    @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ? 'selected' : ''
+                                        }}>
                                         {{ $branch->name }}
                                     </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">Start Date</label>
-                            <input type="date" id="orders_start" class="form-control source-control-input" value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">End Date</label>
-                            <input type="date" id="orders_end" class="form-control source-control-input" value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="button" class="btn source-apply-button w-100" id="orders_apply">
-                                <i class="fas fa-filter me-1"></i> Apply Filters
-                            </button>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" id="orders_start" class="form-control source-control-input"
+                                    value="{{ $defaultYtdStart }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">End Date</label>
+                                <input type="date" id="orders_end" class="form-control source-control-input"
+                                    value="{{ $defaultYtdEnd }}" onfocus="this.showPicker()">
+                            </div>
+                            <div class="col-lg-3 col-md-4 col-sm-6">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn source-apply-button w-100" id="orders_apply">
+                                    <i class="fas fa-filter me-1"></i> Apply Filters
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Chart Container -->
-                <div class="p-4" style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
-                    <div style="height: 380px;">
-                        <canvas id="orders_monthly_chart"></canvas>
+                    <!-- Chart Container -->
+                    <div class="p-4"
+                        style="background: #FAFBFC; border-radius: 12px; margin: 16px; border: 1px solid #F1F3F4;">
+                        <div style="height: 380px;">
+                            <canvas id="orders_monthly_chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
         {{-- <div class="col-md-12 mb-4">
             <div class="card shadow">
@@ -4342,9 +4656,10 @@
                                 <select id="overview_branch" class="form-select form-select-sm select2">
                                     <option value="">All Branch</option>
                                     @foreach ($branches as $branch)
-                                        <option value="{{ $branch->id }}" {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->name }}
-                                        </option>
+                                    <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ? 'selected' : ''
+                                        }}>
+                                        {{ $branch->name }}
+                                    </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -4422,10 +4737,10 @@
                                 <select id="lead_total_branch" class="form-select form-select-sm select2">
                                     <option value="">All Branch</option>
                                     @foreach ($branches as $branch)
-                                        <option value="{{ $branch->id }}"
-                                            {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->name }}
-                                        </option>
+                                    <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ? 'selected' : ''
+                                        }}>
+                                        {{ $branch->name }}
+                                    </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -4467,9 +4782,9 @@
                                 <select id="quotation_branch" class="form-select form-select-sm select2">
                                     <option value="">All Branch</option>
                                     @foreach ($branches as $branch)
-                                        <option value="{{ $branch->id }}"
-                                            {{ $currentBranchId == $branch->id ? 'selected' : '' }}>{{ $branch->name }}
-                                        </option>
+                                    <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ? 'selected' : ''
+                                        }}>{{ $branch->name }}
+                                    </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -4509,7 +4824,8 @@
                         <div class="mb-4">
                             <div class="card shadow">
                                 <div class="card-header py-3">
-                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source -
+                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source
+                                        -
                                         Cold</h6>
                                 </div>
                                 <div class="card-body">
@@ -4518,9 +4834,9 @@
                                             <select id="cold_branch" class="form-select form-select-sm select2">
                                                 <option value="">All Branch</option>
                                                 @foreach ($branches as $branch)
-                                                    <option value="{{ $branch->id }}"
-                                                        {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                                                        {{ $branch->name }}</option>
+                                                <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ?
+                                                    'selected' : '' }}>
+                                                    {{ $branch->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -4550,7 +4866,8 @@
                         <div class="mb-4">
                             <div class="card shadow">
                                 <div class="card-header py-3">
-                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source -
+                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source
+                                        -
                                         Warm</h6>
                                 </div>
                                 <div class="card-body">
@@ -4559,9 +4876,9 @@
                                             <select id="warm_branch" class="form-select form-select-sm select2">
                                                 <option value="">All Branch</option>
                                                 @foreach ($branches as $branch)
-                                                    <option value="{{ $branch->id }}"
-                                                        {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                                                        {{ $branch->name }}</option>
+                                                <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ?
+                                                    'selected' : '' }}>
+                                                    {{ $branch->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -4591,7 +4908,8 @@
                         <div class="mb-4">
                             <div class="card shadow">
                                 <div class="card-header py-3">
-                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source -
+                                    <h6 class="m-0 font-weight-bold text-primary">Jumlah Leads Masuk Berdasarkan Source
+                                        -
                                         Hot</h6>
                                 </div>
                                 <div class="card-body">
@@ -4600,9 +4918,9 @@
                                             <select id="hot_branch" class="form-select form-select-sm select2">
                                                 <option value="">All Branch</option>
                                                 @foreach ($branches as $branch)
-                                                    <option value="{{ $branch->id }}"
-                                                        {{ $currentBranchId == $branch->id ? 'selected' : '' }}>
-                                                        {{ $branch->name }}</option>
+                                                <option value="{{ $branch->id }}" {{ $currentBranchId==$branch->id ?
+                                                    'selected' : '' }}>
+                                                    {{ $branch->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -4633,15 +4951,15 @@
             </div>
         </div> --}}
 
-    
 
-    @endsection
 
-    @section('scripts')
+        @endsection
+
+        @section('scripts')
         @parent
         <script src="{{ asset('sb-admin-2/vendor/chart.js/Chart.min.js') }}"></script>
         <script>
-          let svtPercentChart;
+            let svtPercentChart;
 
 function loadAchievementMonthlyPercent() {
   const params = { year: $('#svt_year').val() };
@@ -7333,4 +7651,4 @@ loadBranchSalesTrend();
                 });
             });
         </script>
-    @endsection
+        @endsection

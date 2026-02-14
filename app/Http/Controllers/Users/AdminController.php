@@ -20,7 +20,7 @@ class AdminController extends Controller
         $userRole = request()->user()->role?->code;
 
         if (! in_array($userRole, $allowed)) {
-            abort(403);
+            return redirect()->route('dashboard')->with('error', 'Akun Anda tidak diizinkan mengakses halaman ini.');
         }
 
         $this->pageTitle = 'Manage Admins';
@@ -54,7 +54,7 @@ class AdminController extends Controller
         if ($user->role?->code === 'branch_manager') {
             $query->where('branch_id', $user->branch_id);
         }
-        
+
         return DataTables::of($query)
             ->addColumn('role_name', fn($row) => $row->role->name ?? '')
             ->addColumn('company_name', fn($row) => $row->branch?->company?->name ?? '')
@@ -65,8 +65,8 @@ class AdminController extends Controller
             ->addColumn('actions', function ($row) {
                 $edit = route('users.form', $row->id);
                 $del  = route('users.delete', $row->id);
-                return '<a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a> '
-                    .'<a href="'.$del.'" data-id="'.$row->id.'" data-table="adminsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>';
+                return '<a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a> '
+                    . '<a href="' . $del . '" data-id="' . $row->id . '" data-table="adminsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>';
             })
             ->rawColumns(['actions'])
             ->make(true);
@@ -83,10 +83,10 @@ class AdminController extends Controller
 
     public function save(Request $request, $id = null)
     {
-        $authUser  = $request->user();        
-        $roleCode  = $request->user()->role->code;                        
+        $authUser  = $request->user();
+        $roleCode  = $request->user()->role->code;
 
-        $branchReq = $roleCode === 'branch_manager';        
+        $branchReq = $roleCode === 'branch_manager';
 
         // Override branch_id from session if role is branch_manager
         $branchId = $branchReq ? $authUser->branch_id : $request->branch_id;
@@ -95,8 +95,8 @@ class AdminController extends Controller
             'role_id'   => 'required|exists:user_roles,id',
             'branch_id' => ($branchReq ? 'required' : 'nullable|exists:ref_branches,id'),
             'name'      => 'required|string|max:100',
-            'nip'       => 'required|string|max:50|unique:users,nip'.($id ? ','.$id : ''),
-            'email'     => 'required|email|unique:users,email'.($id ? ','.$id : ''),
+            'nip'       => 'required|string|max:50|unique:users,nip' . ($id ? ',' . $id : ''),
+            'email'     => 'required|email|unique:users,email' . ($id ? ',' . $id : ''),
             'phone'     => 'nullable|string|max:20',
             'target'    => 'nullable|numeric|min:0',
         ];
@@ -121,7 +121,7 @@ class AdminController extends Controller
             if ($request->filled('password')) {
                 $user->password = bcrypt($request->password);
             }
-            
+
             $user->role_id      = $request->role_id;
             $user->company_id   = $request->company_id;
             $user->branch_id    = $branchId;

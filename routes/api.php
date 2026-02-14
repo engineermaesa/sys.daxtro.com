@@ -183,7 +183,7 @@ Route::group([
     Route::post('/counts', 'OrderController@counts')->name('counts');
     Route::get('/export', 'OrderController@export')->name('export');
     Route::get('/{id}', 'OrderController@show')->name('show');
-    Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
+    Route::get('/{id}/progress', 'OrderProgressControll    er@form')->name('progress.form');
     Route::post('/{id}/progress', 'OrderProgressController@save')->name('progress.save');
     Route::get('/{id}/progress-logs', 'OrderProgressController@logs')->name('progress.logs');
     Route::get('/{id}/activity-logs', 'OrderController@activityLogs')->name('activity.logs');
@@ -208,3 +208,8 @@ Route::group([
     Route::get('/{id}', 'FinanceRequestController@form')->name('form');
     Route::post('/approve-with-realization', 'FinanceRequestController@approveWithRealization')->name('approve-with-realization');
 });
+
+// =====================================
+// USERS (API)
+// =====================================
+

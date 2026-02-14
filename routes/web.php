@@ -49,18 +49,21 @@ Route::middleware('auth')->group(function () {
     Route::post('dashboard/group6/quotation-status', [DashboardController::class, 'quotationStatusStats'])->name('dashboard.group6.quotation-status');
     Route::post('dashboard/group5/lead-total', [DashboardController::class, 'leadStatusTotal'])->name('dashboard.group5.lead-total');
     Route::post('dashboard/orders-monthly', [DashboardController::class, 'ordersMonthlyStats'])->name('dashboard.orders-monthly');
+
     Route::get('incentives', [\App\Http\Controllers\IncentiveController::class, 'index'])->name('incentives.dashboard');
 
     Route::get('attachments/{id}', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
 
 
-    // Leads
+    // =====================================
+    // LEADS 
+    // =====================================
     Route::group([
         'prefix' => 'leads',
         'as' => '',
         'namespace' => 'App\\Http\\Controllers\\Leads',
     ], function () {
-        
+
         Route::get('/available', 'LeadController@available')->name('leads.available');
         Route::post('/available/list', 'LeadController@availableList')->name('leads.available.list');
         Route::get('/available/export', 'LeadController@availableExport')->name('leads.available.export');
