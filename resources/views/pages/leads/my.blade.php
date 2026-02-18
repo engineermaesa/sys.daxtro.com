@@ -94,7 +94,8 @@
     </div>
 </section>
 
-{{-- <!-- Activity Logs Modal -->
+{{--
+<!-- Activity Logs Modal -->
 <div class="modal fade" id="activityLogModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -272,7 +273,7 @@
             <div>
                 <div class="flex items-center gap-2 px-3 rounded-lg bg-[#CFF7D3]">
                     <p class="text-[#14AE5C] text-4xl">•</p>
-                    <p class="font-semibold text-[#1E1E1E]">Total Cold Leads</p>
+                    <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
             </div>
@@ -305,10 +306,7 @@
                             fill="#6B7786" />
                     </svg>
                 </div>
-                <input
-                    id="searchInput" 
-                    type="text" 
-                    placeholder="Search" 
+                <input id="searchInput" type="text" placeholder="Search"
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
@@ -379,7 +377,8 @@
                 <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
                     <div class="flex items-center gap-3">
                         <p class="font-semibold">Show Rows</p>
-                        <select id="allPageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md" onchange="changePageSize('all', this.value)">
+                        <select id="allPageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                            onchange="changePageSize('all', this.value)">
                             <option value="5">5</option>
                             <option value="10" selected>10</option>
                             <option value="25">25</option>
@@ -391,10 +390,12 @@
                     <div class="flex items-center gap-2">
                         <div id="allShowing" class="font-semibold">Showing 0-0 of 0</div>
                         <div>
-                            <button id="allPrevBtn" class="btn bg-white border! border-[#D9D9D9]!" onclick="goPrev('all')">
+                            <button id="allPrevBtn" class="btn bg-white border! border-[#D9D9D9]!"
+                                onclick="goPrev('all')">
                                 <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
                             </button>
-                            <button id="allNextBtn" class="btn bg-white border! border-[#D9D9D9]!" onclick="goNext('all')">
+                            <button id="allNextBtn" class="btn bg-white border! border-[#D9D9D9]!"
+                                onclick="goNext('all')">
                                 <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
                             </button>
                         </div>
@@ -404,65 +405,69 @@
         </div>
         {{-- CONDITIONAL STAGE TABLE --}}
         @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
-            <div data-tab-container="{{ $tab }}" class="leads-table-container">
-                <table id="{{ $tab }}LeadsTableNew" class="w-full">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="hidden">ID (hidden)</th>
-                            @if ($tab === 'cold')
-                            <th class="font-bold text-left p-3">Nama</th>
-                            <th>Sales Name</th>
-                            <th>Telephone</th>
-                            <th>Source</th>
-                            <th>Needs</th>
-                            <th>Customer Type</th>
-                            <th>City</th>
-                            <th>Regional</th>
-                            <th class="text-left">Status</th>
-                            @else
-                            <th class="p-3">Claimed At</th>
-                            <th>Lead Name</th>
-                            <th>Industry</th>
-                            <th class="text-left">Status</th>
-                            @endif
-                            <th class="text-center">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="{{ $tab }}Body"></tbody>
-                </table>
+        <div data-tab-container="{{ $tab }}" class="leads-table-container">
+            <table id="{{ $tab }}LeadsTableNew" class="w-full">
+                {{-- HEADER TABLE --}}
+                <thead class="text-[#1E1E1E]">
+                    <tr class="border-b border-b-[#D9D9D9]">
+                        <th class="hidden">ID (hidden)</th>
+                        @if ($tab === 'cold')
+                        <th class="font-bold text-left p-3">Nama</th>
+                        <th>Sales Name</th>
+                        <th>Telephone</th>
+                        <th>Source</th>
+                        <th>Needs</th>
+                        <th>Customer Type</th>
+                        <th>City</th>
+                        <th>Regional</th>
+                        <th class="text-left">Status</th>
+                        @else
+                        <th class="p-3">Claimed At</th>
+                        <th>Lead Name</th>
+                        <th>Industry</th>
+                        <th class="text-left">Status</th>
+                        @endif
+                        <th class="text-center">
+                            Action
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="{{ $tab }}Body"></tbody>
+            </table>
 
-                {{-- NAVIGATION ROWS --}}
-                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                    <div class="flex items-center gap-3">
-                        <p class="font-semibold">Show Rows</p>
-                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md" onchange="changePageSize('{{ $tab }}', this.value)">
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
+            {{-- NAVIGATION ROWS --}}
+            <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                <div class="flex items-center gap-3">
+                    <p class="font-semibold">Show Rows</p>
+                    <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                        onchange="changePageSize('{{ $tab }}', this.value)">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
 
-                    <div class="flex items-center gap-2">
-                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
-                        <div>
-                            <button id="{{ $tab }}PrevBtn" class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!" onclick="goPrev('{{ $tab }}')">
-                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                            </button>
-                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!" onclick="goNext('{{ $tab }}')">
-                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                            </button>
-                        </div>
+                <div class="flex items-center gap-2">
+                    <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                    <div>
+                        <button id="{{ $tab }}PrevBtn"
+                            class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                            onclick="goPrev('{{ $tab }}')">
+                            <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                        </button>
+                        <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                            onclick="goNext('{{ $tab }}')">
+                            <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
         @endforeach
     </div>
-    
+
 </section>
 
 <!-- Activity Logs Modal -->
@@ -495,24 +500,17 @@
                         {{-- DATE AND ACTIVITY FIELD SELECT --}}
                         <div class="p-2 flex items-center border border-[#D9D9D9] justify-between rounded-lg gap-2">
                             <div class="w-1/4 flex items-center">
-                                <input
-                                    type="text"
-                                    id="logged_at"
-                                    name="logged_at"
-                                    class="w-full text-sm rounded-lg outline-none"
-                                    value="{{ date('Y-m-d') }}"
-                                    placeholder="Select date"
-                                    required
-                                >
+                                <input type="text" id="logged_at" name="logged_at"
+                                    class="w-full text-sm rounded-lg outline-none" value="{{ date('Y-m-d') }}"
+                                    placeholder="Select date" required>
                             </div>
                             <span class="w-px h-3/4 block bg-[#D9D9D9]"></span>
                             <div class="w-3/4 flex items-center">
-                                <select name="activity_id"
-                                    class="max-w-full! text-sm rounded-lg bg-white outline-none"
+                                <select name="activity_id" class="max-w-full! text-sm rounded-lg bg-white outline-none"
                                     required>
                                     <option value="" class="text-center">Activity Type</option>
                                     @foreach ($activities as $act)
-                                        <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}</option>
+                                    <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -520,31 +518,31 @@
 
                         {{-- NOTE FIELD / ATTACHMENT FILES AND SUBMIT BUTTON --}}
                         <div class="grid grid-cols-2">
-                            <input type="text" name="note" class="px-3 py-2 border border-[#D9D9D9] rounded-lg w-full focus:outline-none" placeholder="Type Note Here...">
+                            <input type="text" name="note"
+                                class="px-3 py-2 border border-[#D9D9D9] rounded-lg w-full focus:outline-none"
+                                placeholder="Type Note Here...">
                             {{-- ATTACHMENT FILES AND SUBMIT BUTTON --}}
                             <div class="flex items-center justify-end gap-5 ">
                                 <div class="">
-                                    <input
-                                        type="file"
-                                        id="activity_attachment"
-                                        name="attachment"
-                                        class="hidden"
-                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                    >
-    
-                                    <button
-                                        type="button"
+                                    <input type="file" id="activity_attachment" name="attachment" class="hidden"
+                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+
+                                    <button type="button"
                                         onclick="document.getElementById('activity_attachment').click()"
-                                        class="p-2 cursor-pointer"
-                                    >
-                                        <svg width="20" height="20" viewBox="0 0 22 27" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M15.5786 22.0366C14.4231 24.0381 12.7373 25.3357 10.5213 25.9295C8.30529 26.5233 6.19655 26.2424 4.19507 25.0868C2.19359 23.9313 0.895959 22.2455 0.302185 20.0295C-0.291589 17.8135 -0.0106983 15.7048 1.14486 13.7033L7.31152 3.02232C8.14486 1.57895 9.35837 0.643746 10.9521 0.216716C12.5458 -0.210313 14.0643 -0.00716162 15.5077 0.826172C16.9511 1.6595 17.8863 2.87302 18.3133 4.46672C18.7403 6.06041 18.5372 7.57895 17.7038 9.02232L11.8705 19.126C11.3594 20.0112 10.6181 20.584 9.64673 20.8443C8.67534 21.1046 7.74701 20.9792 6.86174 20.468C5.97646 19.9569 5.40369 19.2157 5.1434 18.2443C4.88312 17.2729 5.00853 16.3446 5.51964 15.4593L11.0196 5.93301C11.2085 5.60584 11.4775 5.39549 11.8266 5.30195C12.1757 5.20841 12.5138 5.25608 12.841 5.44497C13.1682 5.63386 13.3785 5.90285 13.4721 6.25195C13.5656 6.60105 13.5179 6.93918 13.329 7.26634L7.82904 16.7926C7.6846 17.0428 7.64694 17.2969 7.71608 17.5549C7.78522 17.813 7.94488 18.0142 8.19507 18.1586C8.44525 18.3031 8.69936 18.3407 8.95739 18.2716C9.21541 18.2025 9.41665 18.0428 9.56109 17.7926L15.3944 7.68899C15.8418 6.86959 15.9524 6.0225 15.7262 5.14773C15.4999 4.27296 14.9826 3.60224 14.1743 3.13557C13.3661 2.66891 12.5217 2.55351 11.6414 2.7894C10.7611 3.02528 10.0876 3.54737 9.62092 4.35566L3.45426 15.0366C2.64612 16.3919 2.44818 17.8237 2.86043 19.3318C3.27268 20.84 4.16201 21.9886 5.5284 22.7774C6.87555 23.5552 8.29563 23.74 9.78864 23.3318C11.2816 22.9237 12.4418 22.0475 13.2692 20.7033L19.1025 10.5997C19.2914 10.2725 19.5604 10.0622 19.9095 9.96862C20.2586 9.87508 20.5967 9.92275 20.9239 10.1116C21.2511 10.3005 21.4614 10.5695 21.555 10.9186C21.6485 11.2677 21.6008 11.6058 21.4119 11.933L15.5786 22.0366Z" fill="#757575"/>
+                                        class="p-2 cursor-pointer">
+                                        <svg width="20" height="20" viewBox="0 0 22 27" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M15.5786 22.0366C14.4231 24.0381 12.7373 25.3357 10.5213 25.9295C8.30529 26.5233 6.19655 26.2424 4.19507 25.0868C2.19359 23.9313 0.895959 22.2455 0.302185 20.0295C-0.291589 17.8135 -0.0106983 15.7048 1.14486 13.7033L7.31152 3.02232C8.14486 1.57895 9.35837 0.643746 10.9521 0.216716C12.5458 -0.210313 14.0643 -0.00716162 15.5077 0.826172C16.9511 1.6595 17.8863 2.87302 18.3133 4.46672C18.7403 6.06041 18.5372 7.57895 17.7038 9.02232L11.8705 19.126C11.3594 20.0112 10.6181 20.584 9.64673 20.8443C8.67534 21.1046 7.74701 20.9792 6.86174 20.468C5.97646 19.9569 5.40369 19.2157 5.1434 18.2443C4.88312 17.2729 5.00853 16.3446 5.51964 15.4593L11.0196 5.93301C11.2085 5.60584 11.4775 5.39549 11.8266 5.30195C12.1757 5.20841 12.5138 5.25608 12.841 5.44497C13.1682 5.63386 13.3785 5.90285 13.4721 6.25195C13.5656 6.60105 13.5179 6.93918 13.329 7.26634L7.82904 16.7926C7.6846 17.0428 7.64694 17.2969 7.71608 17.5549C7.78522 17.813 7.94488 18.0142 8.19507 18.1586C8.44525 18.3031 8.69936 18.3407 8.95739 18.2716C9.21541 18.2025 9.41665 18.0428 9.56109 17.7926L15.3944 7.68899C15.8418 6.86959 15.9524 6.0225 15.7262 5.14773C15.4999 4.27296 14.9826 3.60224 14.1743 3.13557C13.3661 2.66891 12.5217 2.55351 11.6414 2.7894C10.7611 3.02528 10.0876 3.54737 9.62092 4.35566L3.45426 15.0366C2.64612 16.3919 2.44818 17.8237 2.86043 19.3318C3.27268 20.84 4.16201 21.9886 5.5284 22.7774C6.87555 23.5552 8.29563 23.74 9.78864 23.3318C11.2816 22.9237 12.4418 22.0475 13.2692 20.7033L19.1025 10.5997C19.2914 10.2725 19.5604 10.0622 19.9095 9.96862C20.2586 9.87508 20.5967 9.92275 20.9239 10.1116C21.2511 10.3005 21.4614 10.5695 21.555 10.9186C21.6485 11.2677 21.6008 11.6058 21.4119 11.933L15.5786 22.0366Z"
+                                                fill="#757575" />
                                         </svg>
-    
+
                                     </button>
                                 </div>
                                 <div>
-                                    <button type="submit" class="cursor-pointer bg-[#115640] px-5 py-2 text-white rounded-lg ">+ Activity</button>
+                                    <button type="submit"
+                                        class="cursor-pointer bg-[#115640] px-5 py-2 text-white rounded-lg ">+
+                                        Activity</button>
                                 </div>
                             </div>
                         </div>
@@ -563,6 +561,14 @@
     const DEFAULT_PAGE_SIZE = 10;
     const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
     const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
+    // local totals (initialize from server-rendered counts so UI shows values immediately)
+    const totals = {
+        all: {{ $leadCounts['all'] ?? 0 }},
+        cold: {{ $leadCounts['cold'] ?? 0 }},
+        warm: {{ $leadCounts['warm'] ?? 0 }},
+        hot: {{ $leadCounts['hot'] ?? 0 }},
+        deal: {{ $leadCounts['deal'] ?? 0 }}
+    };
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -621,7 +627,8 @@
         const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            }
+            },
+            credentials: 'same-origin'
         });
 
         const result = await response.json();
@@ -632,6 +639,10 @@
         tbody.innerHTML = '';
 
         updatePagerUI('cold', result.total);
+
+        // update local total and badges
+        totals.cold = result.total || 0;
+        updateBadgeCounts();
 
         result.data.forEach(row => {
 
@@ -657,7 +668,9 @@
     const page = pageState.all || 1;
     const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
 
-    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}`);
+    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}`, {
+        credentials: 'same-origin'
+    });
 
     const result = await response.json();
 
@@ -665,6 +678,10 @@
 
     const tbody = document.getElementById('allBody');
     tbody.innerHTML = '';
+
+    // update local total and badges
+    totals.all = result.total || 0;
+    updateBadgeCounts();
 
     result.data.forEach(row => {
 
@@ -717,7 +734,8 @@
         const response = await fetch(`{{ route('leads.my.warm.list') }}?${params.toString()}`, {
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            }
+            },
+            credentials: 'same-origin'
         });
 
         const result = await response.json();
@@ -728,6 +746,10 @@
         tbody.innerHTML = '';
 
         updatePagerUI('warm', result.total);
+
+        // update local total and badges
+        totals.warm = result.total || 0;
+        updateBadgeCounts();
 
         result.data.forEach(row => {
 
@@ -756,7 +778,8 @@
         const response = await fetch(`{{ route('leads.my.hot.list') }}?${params.toString()}`, {
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            }
+            },
+            credentials: 'same-origin'
         });
 
         const result = await response.json();
@@ -767,6 +790,10 @@
         tbody.innerHTML = '';
 
         updatePagerUI('hot', result.total);
+
+        // update local total and badges
+        totals.hot = result.total || 0;
+        updateBadgeCounts();
 
         result.data.forEach(row => {
 
@@ -795,7 +822,8 @@
         const response = await fetch(`{{ route('leads.my.deal.list') }}?${params.toString()}`, {
             headers: {
                 "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            }
+            },
+            credentials: 'same-origin'
         });
 
         const result = await response.json();
@@ -806,6 +834,10 @@
         tbody.innerHTML = '';
 
         updatePagerUI('deal', result.total);
+
+        // update local total and badges
+        totals.deal = result.total || 0;
+        updateBadgeCounts();
 
         result.data.forEach(row => {
 
@@ -928,14 +960,20 @@
 
             return $(selector).DataTable({
                 processing: true,
-                serverSide: true,
+                serverSide: false,
                 ajax: {
                     url: route,
                     type: 'GET',
+                    dataSrc: 'data',
                     data: function(d) {
-                        d._token = '{{ csrf_token() }}';
-                        d.start_date = $('#filter_start').val();
-                        d.end_date = $('#filter_end').val();
+                        // map DataTables params into API filter params
+                        return {
+                            start_date: $('#filter_start').val(),
+                            end_date: $('#filter_end').val()
+                        };
+                    },
+                    xhrFields: {
+                        withCredentials: true
                     }
                 },
                 columns: columns,
@@ -960,18 +998,20 @@
             const $toggleFilterBtn = $('#toggleFilterBtn');
             const $filterCollapse = $('#filterCollapse');
 
-            function updateBadgeCounts() {
-                $.post('{{ route('leads.my.counts') }}', {
-                    _token: '{{ csrf_token() }}',
-                    start_date: $('#filter_start').val(),
-                    end_date: $('#filter_end').val()
-                }, function(data) {
-                    $('#cold-tab .badge').text(data.cold);
-                    $('#warm-tab .badge').text(data.warm);
-                    $('#hot-tab .badge').text(data.hot);
-                    $('#deal-tab .badge').text(data.deal);
-                });
-            }
+            window.updateBadgeCounts = function() {
+                // Use local totals (keeps UI responsive and avoids extra server call)
+                $('#cold-tab .badge').text(totals.cold || 0);
+                $('#warm-tab .badge').text(totals.warm || 0);
+                $('#hot-tab .badge').text(totals.hot || 0);
+                $('#deal-tab .badge').text(totals.deal || 0);
+
+                // update the summary nav counts
+                $('.span-cold').text(totals.cold || 0);
+                $('.span-warm').text(totals.warm || 0);
+                $('.span-hot').text(totals.hot || 0);
+                $('.span-deal').text(totals.deal || 0);
+                $('.span-all').text('(' + (totals.all || 0) + ')');
+            };
 
             function updateFilterVisibility() {
                 const activeId = $('#leadTabs .nav-link.active').attr('id');
@@ -1260,7 +1300,7 @@
 
     /* Tailwind-style status nav active state */
     .nav-leads {
-    border-bottom: 4px solid transparent;
+        border-bottom: 4px solid transparent;
     }
 
     .nav-leads.active-nav {
@@ -1275,6 +1315,5 @@
     .bi-three-dots::before {
         -webkit-text-stroke: 0.6px;
     }
-
 </style>
 @endsection
