@@ -7,10 +7,10 @@
       <strong>Regions</strong>
     </div>
     <div class="card-body pt-4">
-      @include('partials.common.create-btn', [
-          'url' => route('masters.regions.form'),
-          'title' => 'Region'
-      ])
+          @include('partials.common.create-btn', [
+            'url' => $formUrl ?? $apiFormUrl ?? route('masters.regions.form'),
+            'title' => 'Region'
+          ])
 
       <div class="table-responsive">
         <table id="regionsTable" class="table table-bordered table-sm w-100">
@@ -37,9 +37,10 @@ $(function () {
     processing: true,
     serverSide: true,
     ajax: {
-      url: '{{ route("masters.regions.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      url: '{{ $listUrl ?? route("masters.regions.list") }}',
+      type: 'GET',
+      dataType: 'json',
+      headers: { 'Accept': 'application/json' }
     },
     columns: [
       { data: 'id', visible: false },

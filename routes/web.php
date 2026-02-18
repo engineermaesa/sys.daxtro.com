@@ -7,6 +7,15 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Finance\FinanceRequestController;
 
+// Temporary debug route to inspect session id and CSRF token
+// Route::get('/debug/csrf', function () {
+//     return response()->json([
+//         'session_id' => session()->getId(),
+//         'session_token' => session('_token'),
+//         'csrf_token' => csrf_token(),
+//     ]);
+// });
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
@@ -56,7 +65,7 @@ Route::middleware('auth')->group(function () {
 
 
     // =====================================
-    // LEADS 
+    // LEADS ✔
     // =====================================
     Route::group([
         'prefix' => 'leads',
@@ -132,7 +141,7 @@ Route::middleware('auth')->group(function () {
 
 
     // =====================================
-    // ORDERS 
+    // ORDERS ✔
     // =====================================
     Route::group([
         'prefix' => 'orders',
@@ -142,6 +151,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'OrderController@index')->name('index');
         Route::get('/{id}', 'OrderController@show')->name('show');
     });
+
+    // =====================================
+    // EXPENSE REALIZATIONS (Arahnya Kemana X)
+    // =====================================
 
     Route::group([
         'prefix' => 'expense-realizations',
@@ -171,7 +184,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
-    // PAYMENT CONFIRMATION
+    // PAYMENT CONFIRMATION CC ✔
     // =====================================
     Route::group([
         'prefix' => 'payment-confirmation',
@@ -184,7 +197,7 @@ Route::middleware('auth')->group(function () {
 
 
     // =====================================
-    // QUOTATIONS
+    // QUOTATIONS 
     // =====================================
     Route::group([
         'prefix' => 'quotations',
@@ -200,7 +213,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
-    // FINANCE REQUEST (API)
+    // FINANCE REQUEST (API) ✔
     // =====================================
     Route::prefix('finance-requests')
         ->name('finance-requests.')
@@ -222,7 +235,7 @@ Route::middleware('auth')->group(function () {
 
 
     // =====================================
-    // MASTERS
+    // MASTERS ✔
     // =====================================
     Route::group([
         'prefix' => 'masters',
@@ -261,6 +274,7 @@ Route::middleware('auth')->group(function () {
 
         Route::name('companies.')->prefix('companies')->group(function () {
             Route::get('/', 'CompanyController@index')->name('index');
+            Route::post('/list', 'CompanyController@list')->name('list');
             Route::get('/form/{id?}', 'CompanyController@form')->name('form');
         });
 
@@ -272,6 +286,7 @@ Route::middleware('auth')->group(function () {
         Route::name('regions.')->prefix('regions')->group(function () {
             Route::get('/', 'RegionController@index')->name('index');
             Route::get('/form/{id?}', 'RegionController@form')->name('form');
+            Route::get('/provinces', 'RegionController@provinces')->name('provinces');
         });
 
         Route::name('branches.')->prefix('branches')->group(function () {
@@ -291,7 +306,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
-    // USERS
+    // USERS ✔
     // =====================================
     Route::group([
         'prefix' => 'users',
@@ -299,10 +314,6 @@ Route::middleware('auth')->group(function () {
         'namespace' => 'App\\Http\\Controllers\\Users',
     ], function () {
         // API
-        // Route::get('branches-by-company/{companyId}', 'AdminController@branchesByCompany')->name('branches.by-company');
-        // Route::get('regions-by-branch/{branchId}', 'AdminController@regionsByBranch')->name('regions.by-branch');
-        // Route::get('sales-by-branch/{branchId}', 'AdminController@salesByBranch')->name('sales.by-branch');
-
         Route::get('/', 'AdminController@index')->name('index');
         Route::get('/form/{id?}', 'AdminController@form')->name('form');
 
@@ -314,7 +325,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
-    // SETTINGS
+    // SETTINGS ✔
     // =====================================
     Route::group([
         'prefix' => 'settings',
@@ -322,9 +333,6 @@ Route::middleware('auth')->group(function () {
         'namespace' => 'App\\Http\\Controllers\\Users',
     ], function () {
         Route::get('permissions', 'PermissionSettingController@index')->name('permissions-settings.index');
-        Route::post('permissions/list', 'PermissionSettingController@list')->name('permissions-settings.list');
         Route::get('permissions/form/{roleId}', 'PermissionSettingController@form')->name('permissions-settings.form');
-        Route::post('permissions/save/{roleId}', 'PermissionSettingController@save')->name('permissions-settings.save');
-        Route::get('seeder', 'SeederController@run')->name('seeder.run');
     });
 });

@@ -32,8 +32,9 @@ $(function () {
     serverSide: true,
     ajax: {
       url: '{{ route("settings.permissions-settings.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      type: 'GET',
+      dataType: 'json',
+      headers: { 'Accept': 'application/json' }
     },
     columns: [
       { data: 'id', visible: false },

@@ -38,6 +38,7 @@ $(function () {
       type: 'POST',
       data: function (d) {
         d._token = '{{ csrf_token() }}';
+        d.type = 'expense-realization';
       }
     },
     columns: [

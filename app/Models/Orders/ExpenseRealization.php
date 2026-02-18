@@ -12,6 +12,8 @@ class ExpenseRealization extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'meeting_expenses';
+
     const STATUS_PENDING = 'pending';
     const STATUS_SUBMITTED = 'submitted';
     const STATUS_APPROVED = 'approved';

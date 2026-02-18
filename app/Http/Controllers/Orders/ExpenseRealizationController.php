@@ -25,11 +25,11 @@ class ExpenseRealizationController extends Controller
 
     public function list(Request $request)
     {
-        $type = $request->input('type');
-        
-        if ($type === 'expense-realization') {
+        $type = $request->input('type', 'expense-realization');
+
+        try {
             $query = \App\Models\Orders\ExpenseRealization::with(['sales', 'meetingExpense.meeting.lead']);
-            
+
             \Log::info('Expense Realization Count: ' . $query->count());
             \Log::info('Request Type: ' . $type);
 
@@ -52,8 +52,19 @@ class ExpenseRealizationController extends Controller
                     return '<span class="badge bg-' . $color . '">' . $label . '</span>';
                 })
                 ->addColumn('requester_name', fn($row) => $row->sales->name ?? '-')
-                ->addColumn('amount', function ($row) {
-                    return 'Rp ' . number_format($row->realized_amount, 0, ',', '.');
+                ->addColumn('meeting_info', function ($row) {
+                    $meeting = $row->meetingExpense?->meeting;
+                    if (!$meeting) return '-';
+                    $leadName = $meeting->lead->name ?? null;
+                    $id = $meeting->id ?? ($row->meeting_expense_id ?? '-');
+                    return $leadName ? "Meeting #{$id} - {$leadName}" : "Meeting #{$id}";
+                })
+                ->addColumn('original_amount', function ($row) {
+                    $orig = $row->meetingExpense?->amount ?? 0;
+                    return 'Rp ' . number_format($orig, 0, ',', '.');
+                })
+                ->addColumn('realized_amount_formatted', function ($row) {
+                    return 'Rp ' . number_format($row->realized_amount ?? 0, 0, ',', '.');
                 })
                 ->addColumn('lead_name', function ($row) {
                     return $row->meetingExpense?->meeting?->lead?->name ?? '-';
@@ -76,6 +87,17 @@ class ExpenseRealizationController extends Controller
                 })
                 ->rawColumns(['actions', 'status_badge'])
                 ->make(true);
+        } catch (\Exception $e) {
+            \Log::error('ExpenseRealization list error: ' . $e->getMessage());
+
+            $draw = intval($request->input('draw', 1));
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Server error: ' . $e->getMessage()
+            ], 200);
         }
     }
 

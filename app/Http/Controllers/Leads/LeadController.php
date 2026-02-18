@@ -788,6 +788,8 @@ class LeadController extends Controller
             abort(403);
         }
 
+        $user = $request->user();
+
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
 

@@ -14,13 +14,46 @@ class BranchController extends Controller
     public function index()
     {
         $this->pageTitle = 'Branches';
-        return $this->render('pages.masters.branches.index');
+        $listUrl = url('/api/masters/branches/list');
+        $apiFormUrl = url('/api/masters/branches/form');
+
+        return $this->render('pages.masters.branches.index', compact('listUrl', 'apiFormUrl'));
     }
 
     public function list(Request $request)
     {
         $query = Branch::with('company');
+        // If DataTables server-side request (has draw), process with Yajra so computed columns are included
+        if ($request->has('draw')) {
+            return DataTables::of($query)
+                ->addColumn('company_name', fn($row) => $row->company->name ?? '')
+                ->addColumn('address', fn($row) => $row->address ?? '')
+                ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
+                ->addColumn('actions', function ($row) {
+                    try {
+                        $edit = route('masters.branches.form', $row->id);
+                    } catch (\Exception $e) {
+                        $edit = '#';
+                    }
 
+                    try {
+                        $del = route('masters.branches.delete', $row->id);
+                    } catch (\Exception $e) {
+                        $del = '#';
+                    }
+
+                    $buttons = "<a href='" . $edit . "' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>";
+                    if ($del !== '#') {
+                        $buttons .= " <a href='" . $del . "' data-id='" . $row->id . "' data-table='branchesTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                    }
+
+                    return $buttons;
+                })
+                ->rawColumns(['actions'])
+                ->make(true);
+        }
+
+        // For API or explicit JSON requests without DataTables draw, return plain JSON list
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             $branches = $query->get();
             return response()->json([
@@ -48,8 +81,31 @@ class BranchController extends Controller
     {
         $form_data = $id ? Branch::findOrFail($id) : new Branch();
         $companies = Company::all();
+        // Decide between view or JSON response, similar to ProvinceController
+        $forceView = $request->query('format') === 'view';
+        $isApiPath = $request->is('api/*');
+        $acceptHeader = strtolower($request->header('Accept', ''));
+        $prefersHtml = str_contains($acceptHeader, 'text/html') && ! str_contains($acceptHeader, 'application/json');
+        $expectsJson = $request->wantsJson() || $request->ajax() || str_contains($acceptHeader, 'application/json');
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        // Prepare safe URLs for the view
+        try {
+            $saveUrl = route('masters.branches.save', $id);
+        } catch (\Exception $e) {
+            $saveUrl = url('/api/masters/branches/save' . ($id ? '/' . $id : ''));
+        }
+
+        try {
+            $backUrl = route('masters.branches.index');
+        } catch (\Exception $e) {
+            $backUrl = url('/masters/branches');
+        }
+
+        if ($forceView) {
+            return $this->render('pages.masters.branches.form', compact('form_data', 'companies', 'saveUrl', 'backUrl'));
+        }
+
+        if ($isApiPath || $expectsJson) {
             return response()->json([
                 'status' => true,
                 'data' => [
@@ -59,7 +115,7 @@ class BranchController extends Controller
             ]);
         }
 
-        return $this->render('pages.masters.branches.form', compact('form_data', 'companies'));
+        return $this->render('pages.masters.branches.form', compact('form_data', 'companies', 'saveUrl', 'backUrl'));
     }
 
     public function save(Request $request, $id = null)

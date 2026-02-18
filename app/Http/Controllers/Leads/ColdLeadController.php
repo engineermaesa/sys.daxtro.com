@@ -43,7 +43,7 @@ class ColdLeadController extends Controller
 
 
         // If called via API (Postman), return plain JSON payload
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
                 $meeting = $row->lead->meetings()->latest()->first();
 

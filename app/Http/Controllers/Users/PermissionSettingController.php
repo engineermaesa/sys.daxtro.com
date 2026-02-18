@@ -13,9 +13,15 @@ use Illuminate\Support\Facades\DB;
 
 class PermissionSettingController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->pageTitle = 'Access Privileges';
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            $roles = UserRole::with('permissions')->get();
+            return response()->json(['roles' => $roles]);
+        }
+
         return $this->render('pages.settings.permissions-settings.index');
     }
 
@@ -25,18 +31,27 @@ class PermissionSettingController extends Controller
         return DataTables::of($query)
             ->addColumn('actions', function ($row) {
                 $edit = route('settings.permissions-settings.form', $row->id);
-                return '<a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>';
+                return '<a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>';
             })
             ->editColumn('updated_at', fn($row) => $row->updated_at ? $row->updated_at->format('d M Y H:i') : '-')
             ->rawColumns(['actions'])
             ->make(true);
     }
 
-    public function form($roleId)
+    public function form(Request $request, $roleId)
     {
         $role        = UserRole::findOrFail($roleId);
         $permissions = UserPermission::orderBy('name')->get();
         $assigned    = UserRolePermission::where('role_id', $roleId)->get();
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'role' => $role,
+                'permissions' => $permissions,
+                'assigned' => $assigned,
+            ]);
+        }
+
         return $this->render('pages.settings.permissions-settings.form', compact('role', 'permissions', 'assigned'));
     }
 
@@ -54,7 +69,7 @@ class PermissionSettingController extends Controller
             }
             DB::commit();
             $after = UserRolePermission::where('role_id', $roleId)->get()->toArray();
-            ActivityLogger::writeLog('update_role_permissions', 'Updated role permissions', $role, ['before'=>$before,'after'=>$after], $request->user());
+            ActivityLogger::writeLog('update_role_permissions', 'Updated role permissions', $role, ['before' => $before, 'after' => $after], $request->user());
             return $this->setJsonResponse('Permissions updated successfully!');
         } catch (\Throwable $e) {
             DB::rollBack();

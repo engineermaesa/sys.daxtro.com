@@ -285,6 +285,7 @@ Route::group([
 
     // PARTS (API)
     Route::prefix('parts')->name('parts.')->group(function () {
+
         Route::get('/list', [PartController::class, 'list'])->name('list');
 
         Route::get('/form/{id?}', [PartController::class, 'form'])->name('form');
@@ -293,6 +294,7 @@ Route::group([
 
         Route::delete('/delete/{id}', [PartController::class, 'delete'])->name('delete');
     });
+
 
     // COMPANIES (API)
     Route::prefix('companies')->name('companies.')->group(function () {
@@ -399,5 +401,17 @@ Route::group([
 });
 
 // =====================================
-// PERMISSIONS (API)
+// SETTINGS
 // =====================================
+Route::group([
+    'prefix' => 'settings',
+    'as' => 'settings.',
+    'namespace' => 'App\\Http\\Controllers\\Users',
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+    Route::get('permissions', [\App\Http\Controllers\Users\PermissionSettingController::class, 'index'])->name('permissions-settings.index');
+    Route::get('permissions/list', [\App\Http\Controllers\Users\PermissionSettingController::class, 'list'])->name('permissions-settings.list');
+    Route::get('permissions/form/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'form'])->name('permissions-settings.form');
+    Route::post('permissions/save/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'save'])->name('permissions-settings.save');
+    Route::get('seeder', [\App\Http\Controllers\Users\SeederController::class, 'run'])->name('seeder.run');
+});

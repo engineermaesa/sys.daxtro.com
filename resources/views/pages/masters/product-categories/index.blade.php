@@ -7,10 +7,10 @@
       <strong>Product Categories</strong>
     </div>
     <div class="card-body pt-4">
-      @include('partials.common.create-btn', [
-          'url' => route('masters.product-categories.form'),
+        @include('partials.common.create-btn', [
+          'url' => $formUrl ?? ($apiFormUrl ?? route('masters.product-categories.form')),
           'title' => 'Product Category'
-      ])
+        ])
 
       <div class="table-responsive">
         <table id="productCategoriesTable" class="table table-bordered table-sm w-100">
@@ -36,9 +36,9 @@ $(function () {
     processing: true,
     serverSide: true,
     ajax: {
-      url: '{{ route("masters.product-categories.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      url: '{{ $listUrl ?? route("masters.product-categories.list") }}',
+      type: 'GET',
+      headers: { 'Accept': 'application/json' }
     },
     columns: [
       { data: 'id', visible: false },

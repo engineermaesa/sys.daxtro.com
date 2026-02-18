@@ -32,8 +32,8 @@ class HotLeadController extends Controller
             });
         }
 
-        // If the request expects JSON (API / Postman), return a plain JSON payload.
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        // If the request is an API call, return a plain JSON payload.
+        if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
                 return [
                     'id' => $row->id,

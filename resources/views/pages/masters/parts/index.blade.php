@@ -38,8 +38,7 @@ $(function () {
     serverSide: true,
     ajax: {
       url: '{{ route("masters.parts.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      type: 'GET'
     },
     columns: [
       { data: 'id', visible: false },

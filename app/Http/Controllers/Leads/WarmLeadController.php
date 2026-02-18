@@ -37,7 +37,7 @@ class WarmLeadController extends Controller
         }
 
         // If called via API (Postman), return plain JSON payload
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
                 $quotation = $row->lead->quotation;
                 return [

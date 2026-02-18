@@ -16,13 +16,49 @@ class RegionController extends Controller
     public function index()
     {
         $this->pageTitle = 'Regions';
-        return $this->render('pages.masters.regions.index');
+        $listUrl = url('/api/masters/regions/list');
+        $apiFormUrl = url('/api/masters/regions/form');
+
+        try {
+            $formUrl = route('masters.regions.form');
+        } catch (\Exception $e) {
+            $formUrl = $apiFormUrl;
+        }
+
+        return $this->render('pages.masters.regions.index', compact('listUrl', 'apiFormUrl', 'formUrl'));
     }
 
     public function list(Request $request)
     {
                 $query = Region::with(['regional', 'province', 'branch']);
 
+                // If DataTables is calling server-side (sends `draw`) produce Yajra DataTables response
+                if ($request->has('draw')) {
+                    return DataTables::of($query)
+                        ->addColumn('regional_name', fn($r) => $r->regional->name ?? '')
+                        ->addColumn('province_name', fn($r) => $r->province->name ?? '')
+                        ->addColumn('branch_name', fn($r) => $r->branch->name ?? '')
+                        ->addColumn('actions', function ($r) {
+                            try {
+                                $edit = route('masters.regions.form', $r->id);
+                            } catch (\Exception $e) {
+                                $edit = url('/api/masters/regions/form/'.$r->id);
+                            }
+
+                            try {
+                                $del = route('masters.regions.delete', $r->id);
+                            } catch (\Exception $e) {
+                                $del = url('/api/masters/regions/delete/'.$r->id);
+                            }
+
+                            return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
+                                   " <a href='".$del."' data-id='".$r->id."' data-table='regionsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                        })
+                        ->rawColumns(['actions'])
+                        ->make(true);
+                }
+
+                // Non-DataTables API/JSON clients
                 if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
                         $regions = $query->get();
                         return response()->json([
@@ -31,18 +67,8 @@ class RegionController extends Controller
                         ]);
                 }
 
-                return DataTables::of($query)
-                        ->addColumn('regional_name', fn($r) => $r->regional->name ?? '')
-                        ->addColumn('province_name', fn($r) => $r->province->name ?? '')
-                        ->addColumn('branch_name', fn($r) => $r->branch->name ?? '')
-                        ->addColumn('actions', function ($r) {
-                                $edit = route('masters.regions.form', $r->id);
-                                $del  = route('masters.regions.delete', $r->id);
-                                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
-                                             " <a href='".$del."' data-id='".$r->id."' data-table='regionsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
-                        })
-                        ->rawColumns(['actions'])
-                        ->make(true);
+                // Fallback: render view (if called directly)
+                return $this->render('pages.masters.regions.index');
     }
 
         public function form(Request $request, $id = null)
@@ -60,19 +86,32 @@ class RegionController extends Controller
                 $branches  = Branch::orderBy('name')->get();
 
                 if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-                        return response()->json([
-                                'status' => true,
-                                'data' => [
-                                        'form_data' => $form_data,
-                                        'regionals' => $regionals,
-                                        'provinces' => $provinces,
-                                        'branches' => $branches,
-                                ],
-                        ]);
+                    return response()->json([
+                        'status' => true,
+                        'data' => [
+                            'form_data' => $form_data,
+                            'regionals' => $regionals,
+                            'provinces' => $provinces,
+                            'branches' => $branches,
+                        ],
+                    ]);
+                }
+
+                // Prepare safe URLs for blade view (avoid route() exceptions)
+                try {
+                    $saveUrl = route('masters.regions.save', $form_data->id ?? null);
+                } catch (\Exception $e) {
+                    $saveUrl = url('/api/masters/regions/save'.($form_data->id ? '/'.$form_data->id : ''));
+                }
+
+                try {
+                    $backUrl = route('masters.regions.index');
+                } catch (\Exception $e) {
+                    $backUrl = url('/masters/regions');
                 }
 
                 return $this->render('pages.masters.regions.form', compact(
-                    'form_data', 'regionals', 'provinces', 'branches'
+                    'form_data', 'regionals', 'provinces', 'branches', 'saveUrl', 'backUrl'
                 ));
         }
 
