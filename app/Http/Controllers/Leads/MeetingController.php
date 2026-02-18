@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\{Attachment};
-use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadStatus, LeadStatusLog};
+use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadMeetingDetail, LeadStatus, LeadStatusLog};
 use App\Models\Masters\MeetingType;
 use App\Models\Orders\{MeetingExpense, MeetingExpenseDetail, FinanceRequest};
 
@@ -191,16 +191,28 @@ class MeetingController extends Controller
 
     protected function saveMeetingLeadDetails(Request $request, LeadMeeting $meeting)
     {
-        foreach ($request->lead_name as $index => $name) {
+        $leadNames   = $request->input('lead_name', []);
+        $types       = $request->input('lead_type', []);
+        $provinces   = $request->input('lead_province', []);
+        $cities      = $request->input('lead_city', []);
+        $productIds  = $request->input('lead_product_id', []);
+        $prices      = $request->input('lead_price', []);
+        $descriptions= $request->input('lead_description', []);
+
+        if (!is_array($leadNames) || empty($leadNames)) {
+            return;
+        }
+
+        foreach ($leadNames as $index => $name) {
             LeadMeetingDetail::create([
                 'lead_meeting_id' => $meeting->id,
                 'name'            => $name,
-                'type'            => $request->lead_type[$index],
-                'province'        => $request->lead_province[$index],
-                'city'            => $request->lead_city[$index],
-                'product_id'      => $request->lead_product_id[$index],
-                'price'           => str_replace(['.', ','], ['', '.'], $request->lead_price[$index]),
-                'description'     => $request->lead_description[$index] ?? null,
+                'type'            => $types[$index] ?? 'office',
+                'province'        => $provinces[$index] ?? null,
+                'city'            => $cities[$index] ?? null,
+                'product_id'      => $productIds[$index] ?? null,
+                'price'           => isset($prices[$index]) ? str_replace(['.', ','], ['', '.'], $prices[$index]) : null,
+                'description'     => $descriptions[$index] ?? null,
             ]);
         }
     }
