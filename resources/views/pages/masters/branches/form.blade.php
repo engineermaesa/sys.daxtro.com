@@ -6,9 +6,9 @@
     <div class="col-xl-12">
       <div class="card">
         <div class="card-body pt-3">
-          <form method="POST" action="{{ route('masters.branches.save', $form_data->id) }}"
+              <form method="POST" action="{{ $saveUrl ?? route('masters.branches.save', $form_data->id) }}"
                 id="form"
-                back-url="{{ route('masters.branches.index') }}"
+                back-url="{{ $backUrl ?? route('masters.branches.index') }}"
                 require-confirmation="true">
             @csrf
 
@@ -43,7 +43,7 @@
               <small class="form-text text-muted">Enter target amount in Rupiah</small>
             </div>
 
-            @include('partials.common.save-btn-form', ['backUrl' => route('masters.branches.index')])
+            @include('partials.common.save-btn-form', ['backUrl' => $backUrl ?? route('masters.branches.index')])
           </form>
         </div>
       </div>

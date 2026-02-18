@@ -6,10 +6,10 @@
     <div class="col-xl-12">
       <div class="card">
         <div class="card-body pt-3">
-          <form method="POST"
-                action="{{ route('masters.provinces.save', $form_data->id) }}"
+              <form method="POST"
+                action="{{ $saveUrl ?? route('masters.provinces.save', $form_data->id) }}"
                 id="form"
-                back-url="{{ route('masters.provinces.index') }}"
+                back-url="{{ $backUrl ?? route('masters.provinces.index') }}"
                 require-confirmation="true">
             @csrf
 
@@ -28,7 +28,7 @@
               <input type="text" name="name" class="form-control" value="{{ old('name', $form_data->name) }}" required>
             </div>
 
-            @include('partials.common.save-btn-form', ['backUrl' => route('masters.provinces.index')])
+            @include('partials.common.save-btn-form', ['backUrl' => $backUrl ?? route('masters.provinces.index')])
           </form>
         </div>
       </div>

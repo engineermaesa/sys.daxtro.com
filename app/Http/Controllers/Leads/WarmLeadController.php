@@ -43,8 +43,35 @@ class WarmLeadController extends Controller
             });
         }
 
+<<<<<<< HEAD
         $page = $request->input('page', 1);
         $perPage = 10;
+=======
+        // If called via API (Postman), return plain JSON payload
+        if ($request->is('api/*')) {
+            $items = $claims->get()->map(function ($row) {
+                $quotation = $row->lead->quotation;
+                return [
+                    'id' => $row->id,
+                    'lead_id' => $row->lead_id ?? ($row->lead->id ?? null),
+                    'claimed_at' => $row->claimed_at,
+                    'lead_name' => $row->lead->name ?? null,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'needs' => $row->lead->needs ?? null,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
+                    'quotation' => $quotation ? [
+                        'id' => $quotation->id,
+                        'status' => $quotation->status,
+                        'grand_total' => $quotation->grand_total ?? null,
+                    ] : null,
+                ];
+            });
+>>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
         $claims = $claims->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);

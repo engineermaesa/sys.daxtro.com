@@ -23,7 +23,7 @@ class ProductController extends Controller
     {
         $query = Product::with(['categories', 'type']);
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if (($request->is('api/*') || $request->wantsJson()) && !$request->has('draw')) {
             $products = $query->get();
             return response()->json([
                 'status' => true,

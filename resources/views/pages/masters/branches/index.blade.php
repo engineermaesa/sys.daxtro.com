@@ -39,9 +39,10 @@ $(function () {
     processing: true,
     serverSide: true,
     ajax: {
-      url: '{{ route("masters.branches.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      url: '{{ $listUrl ?? route("masters.branches.list") }}',
+      type: 'GET',
+      dataType: 'json',
+      headers: { 'Accept': 'application/json' }
     },
     columns: [
       { data: 'id', visible: false },

@@ -7,10 +7,10 @@
       <strong>Customer Types</strong>
     </div>
     <div class="card-body pt-4">
-      @include('partials.common.create-btn', [
-          'url' => route('masters.customer-types.form'),
+        @include('partials.common.create-btn', [
+          'url' => $formUrl ?? ($apiFormUrl ?? route('masters.customer-types.form')),
           'title' => 'Customer Type'
-      ])
+        ])
 
       <div class="table-responsive">
         <table id="customerTypesTable" class="table table-bordered table-sm w-100">
@@ -35,9 +35,9 @@ $(function () {
     processing: true,
     serverSide: true,
     ajax: {
-      url: '{{ route("masters.customer-types.list") }}',
-      type: 'POST',
-      data: { _token: '{{ csrf_token() }}' }
+      url: '{{ $listUrl ?? route("masters.customer-types.list") }}',
+      type: 'GET',
+      headers: { 'Accept': 'application/json' }
     },
     columns: [
       { data: 'id', visible: false },

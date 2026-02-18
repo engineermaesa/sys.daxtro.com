@@ -8,8 +8,8 @@
     </div>
     <div class="card-body pt-4">
       @include('partials.common.create-btn', [
-          'url' => route('masters.companies.form'),
-          'title' => 'Company'
+      'url' => route('masters.companies.form'),
+      'title' => 'Company'
       ])
 
       <div class="table-responsive">
@@ -32,7 +32,7 @@
 
 @section('scripts')
 <script>
-$(function () {
+  $(function () {
   $('#companiesTable').DataTable({
     processing: true,
     serverSide: true,

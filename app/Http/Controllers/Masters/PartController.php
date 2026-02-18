@@ -20,25 +20,37 @@ class PartController extends Controller
     {
         $query = Part::query();
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $parts = $query->get();
-            return response()->json([
-                'status' => true,
-                'data' => $parts,
-            ]);
+        // If DataTables server-side is calling (POST or has `draw`), return Yajra envelope
+        if ($request->isMethod('post') || $request->has('draw')) {
+            return DataTables::of($query)
+                ->addColumn('actions', function ($row) {
+                    try {
+                        $edit = route('masters.parts.form', $row->id);
+                    } catch (\Exception $e) {
+                        $edit = url('api/masters/parts/form/' . $row->id);
+                    }
+
+                    try {
+                        $del = route('masters.parts.delete', $row->id);
+                    } catch (\Exception $e) {
+                        $del = url('api/masters/parts/delete/' . $row->id);
+                    }
+
+                    return "<a href='" . $edit . "' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>" .
+                        " <a href='" . $del . "' data-id='" . $row->id . "' data-table='partsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
+                })
+                ->rawColumns(['actions'])
+                ->make(true);
         }
-
-        return DataTables::of($query)
-            ->addColumn('actions', function ($row) {
-                $edit = route('masters.parts.form', $row->id);
-                $del  = route('masters.parts.delete', $row->id);
-
-                return "<a href='".$edit."' class='btn btn-sm btn-primary'><i class='bi bi-pencil'></i> Edit</a>".
-                       " <a href='".$del."' data-id='".$row->id."' data-table='partsTable' class='btn btn-sm btn-danger delete-data'><i class='bi bi-trash'></i> Delete</a>";
-            })
-            ->rawColumns(['actions'])
-            ->make(true);
+        // Otherwise return plain JSON for API GET consumers
+        $parts = $query->get();
+        return response()->json([
+            'status' => true,
+            'data' => $parts,
+        ]);
     }
+
+    
 
     public function form(Request $request, $id = null)
     {
@@ -59,6 +71,7 @@ class PartController extends Controller
     public function save(Request $request, $id = null)
     {
         $request->validate([
+            'sku'   => 'required',
             'name'  => 'required',
             'price' => 'required|numeric',
         ]);
@@ -68,6 +81,7 @@ class PartController extends Controller
 
         $part->name  = $request->name;
         $part->price = $request->price;
+        $part->sku   = $request->sku;
         $part->save();
 
         $after = $part->fresh()->toArray();

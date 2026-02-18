@@ -32,8 +32,34 @@ class HotLeadController extends Controller
             });
         }
 
+<<<<<<< HEAD
         $page = $request->input('page', 1);
         $perPage = 10;
+=======
+        // If the request is an API call, return a plain JSON payload.
+        if ($request->is('api/*')) {
+            $items = $claims->get()->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'claimed_at' => $row->claimed_at,
+                    'lead_id' => $row->lead->id,
+                    'lead_name' => $row->lead->name,
+                    'sales_id' => $row->sales->id ?? null,
+                    'sales_name' => $row->sales->name ?? null,
+                    'phone' => $row->lead->phone,
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? null,
+                    'source_name' => $row->lead->source->name ?? null,
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'meeting_status' => 'Hot',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                    'quotation' => $row->lead->quotation ? [
+                        'id' => $row->lead->quotation->id,
+                    ] : null,
+                ];
+            });
+>>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
         $claims = $claims->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);

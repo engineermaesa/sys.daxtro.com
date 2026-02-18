@@ -10,6 +10,8 @@ class ExpenseRealizationDetail extends Model
 {
     use HasFactory;
 
+    protected $table = 'meeting_expense_details';
+
     protected $fillable = [
         'expense_realization_id',
         'expense_type_id',

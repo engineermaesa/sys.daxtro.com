@@ -19,8 +19,7 @@ class CompanyController extends Controller
     public function list(Request $request)
     {
         $query = Company::query();
-
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if ($request->is('api/*') || ($request->wantsJson() && !$request->has('draw'))) {
             $companies = $query->get();
             return response()->json([
                 'status' => true,

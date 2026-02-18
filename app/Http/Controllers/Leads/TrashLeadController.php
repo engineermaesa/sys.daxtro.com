@@ -88,7 +88,7 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
                 return [
                     'id' => $row->id,
@@ -170,7 +170,7 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
                 return [
                     'id' => $row->id,

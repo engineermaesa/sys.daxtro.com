@@ -6,9 +6,9 @@
     <div class="col-xl-12">
       <div class="card">
         <div class="card-body pt-3">
-          <form method="POST" action="{{ route('masters.product-categories.save', $form_data->id) }}"
+              <form method="POST" action="{{ $saveUrl ?? route('masters.product-categories.save', $form_data->id) }}"
                 id="form"
-                back-url="{{ route('masters.product-categories.index') }}"
+                back-url="{{ $backUrl ?? route('masters.product-categories.index') }}"
                 require-confirmation="true">
             @csrf
 

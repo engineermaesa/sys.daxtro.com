@@ -203,7 +203,7 @@ Route::group([
     Route::post('/counts', 'OrderController@counts')->name('counts');
     Route::get('/export', 'OrderController@export')->name('export');
     Route::get('/{id}', 'OrderController@show')->name('show');
-    Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
+    Route::get('/{id}/progress', 'OrderProgressControll    er@form')->name('progress.form');
     Route::post('/{id}/progress', 'OrderProgressController@save')->name('progress.save');
     Route::get('/{id}/progress-logs', 'OrderProgressController@logs')->name('progress.logs');
     Route::get('/{id}/activity-logs', 'OrderController@activityLogs')->name('activity.logs');
@@ -232,6 +232,7 @@ Route::group([
 // =====================================
 // MASTERS (API)
 // =====================================
+
 Route::group([
     'prefix' => 'masters',
     'as' => 'masters.',
@@ -248,7 +249,6 @@ Route::group([
         Route::post('/save/{id?}', [BankController::class, 'save'])->name('save');
 
         Route::delete('/delete/{id}', [BankController::class, 'delete'])->name('delete');
-
     });
 
     // ACCOUNTS (API)
@@ -260,9 +260,8 @@ Route::group([
         Route::post('/save/{id?}', [AccountController::class, 'save'])->name('save');
 
         Route::delete('/delete/{id}', [AccountController::class, 'delete'])->name('delete');
-
     });
-    
+
     // PRODUCT CATEGORIES (API)
     Route::prefix('product-categories')->name('product-categories.')->group(function () {
         Route::get('/list', [ProductCategoryController::class, 'list'])->name('list');
@@ -272,7 +271,6 @@ Route::group([
         Route::post('/save/{id?}', [ProductCategoryController::class, 'save'])->name('save');
 
         Route::delete('/delete/{id}', [ProductCategoryController::class, 'delete'])->name('delete');
-
     });
 
     // PRODUCTS (API)
@@ -288,6 +286,7 @@ Route::group([
 
     // PARTS (API)
     Route::prefix('parts')->name('parts.')->group(function () {
+
         Route::get('/list', [PartController::class, 'list'])->name('list');
 
         Route::get('/form/{id?}', [PartController::class, 'form'])->name('form');
@@ -296,6 +295,7 @@ Route::group([
 
         Route::delete('/delete/{id}', [PartController::class, 'delete'])->name('delete');
     });
+
 
     // COMPANIES (API)
     Route::prefix('companies')->name('companies.')->group(function () {
@@ -377,7 +377,7 @@ Route::group([
     Route::get('branches-by-company/{companyId}', [AdminController::class, 'branchesByCompany'])->name('branches.by-company');
     Route::get('regions-by-branch/{branchId}', [AdminController::class, 'regionByBranch'])->name('regions.by-branch');
     Route::get('sales-by-branch/{branchId}', [AdminController::class, 'salesByBranch'])->name('sales.by-branch');
-    
+
     // USER (API)
     Route::get('/list', [AdminController::class, 'list'])->name('list');
     Route::get('/form/{id?}', [AdminController::class, 'form'])->name('form');
@@ -402,5 +402,17 @@ Route::group([
 });
 
 // =====================================
-// PERMISSIONS (API)
+// SETTINGS
 // =====================================
+Route::group([
+    'prefix' => 'settings',
+    'as' => 'settings.',
+    'namespace' => 'App\\Http\\Controllers\\Users',
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+    Route::get('permissions', [\App\Http\Controllers\Users\PermissionSettingController::class, 'index'])->name('permissions-settings.index');
+    Route::get('permissions/list', [\App\Http\Controllers\Users\PermissionSettingController::class, 'list'])->name('permissions-settings.list');
+    Route::get('permissions/form/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'form'])->name('permissions-settings.form');
+    Route::post('permissions/save/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'save'])->name('permissions-settings.save');
+    Route::get('seeder', [\App\Http\Controllers\Users\SeederController::class, 'run'])->name('seeder.run');
+});

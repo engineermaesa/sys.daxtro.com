@@ -44,8 +44,15 @@ class ColdLeadController extends Controller
         $page = $request->input('page', 1);
         $perPage = 10;
 
+<<<<<<< HEAD
         $claims = $claims->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);
+=======
+        // If called via API (Postman), return plain JSON payload
+        if ($request->is('api/*')) {
+            $items = $claims->get()->map(function ($row) {
+                $meeting = $row->lead->meetings()->latest()->first();
+>>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
         $data = $claims->map(function ($row) {
 
