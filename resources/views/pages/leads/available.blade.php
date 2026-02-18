@@ -214,8 +214,7 @@ $(function () {
                           <td>${row.region_name ?? ''}</td>
                           <td>${row.source_name ?? ''}</td>
                           <td>${row.segment_name ?? ''}</td>
-                          <td class="text-left">${row.actions ?? ''}</td>
-                          <td></td>
+                            <td class="text-left">${row.actions ?? ''}</td>
                       </tr>
                   `);
               });
@@ -266,7 +265,7 @@ $(function () {
       if (result.isConfirmed) {
         $.post(url, {_token: '{{ csrf_token() }}'}, function(){
           notif('Lead claimed successfully');
-          $('#availableLeadsTable').DataTable().ajax.reload();
+          loadAvailableLeads();
         }).fail(function(xhr){
           let err = 'Failed to claim lead';
           if(xhr.responseJSON && xhr.responseJSON.message){

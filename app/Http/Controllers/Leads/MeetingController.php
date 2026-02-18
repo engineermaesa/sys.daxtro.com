@@ -29,7 +29,7 @@ class MeetingController extends Controller
             'scheduled_start_at' => 'required|date',
             'scheduled_end_at'   => 'required|date|after:scheduled_start_at',
             'meeting_url'        => ($request->meeting_type_id == $zoomId) ? 'required|url' : 'nullable|url',
-            
+
             // Lead details validation
             'lead_name.*'        => 'required|string',
             'lead_type.*'        => 'required|in:office,canvas',
@@ -130,7 +130,7 @@ class MeetingController extends Controller
                 // Update lead details
                 $meeting->leadDetails()->delete();
                 $this->saveMeetingLeadDetails($request, $meeting);
-                
+
                 if (! $isOnline && $meeting->expense && $meeting->expense->financeRequest) {
                     $meeting->expense->financeRequest->update([
                         'status' => 'pending',
@@ -181,7 +181,6 @@ class MeetingController extends Controller
             }
 
             return $this->setJsonResponse('Meeting created successfully');
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Meeting Save Error: ' . $e->getMessage());
@@ -197,7 +196,7 @@ class MeetingController extends Controller
         $cities      = $request->input('lead_city', []);
         $productIds  = $request->input('lead_product_id', []);
         $prices      = $request->input('lead_price', []);
-        $descriptions= $request->input('lead_description', []);
+        $descriptions = $request->input('lead_description', []);
 
         if (!is_array($leadNames) || empty($leadNames)) {
             return;
@@ -216,7 +215,7 @@ class MeetingController extends Controller
             ]);
         }
     }
-    
+
     protected function createMeetingExpense(Request $request, LeadMeeting $meeting)
     {
         $expenseItems = [];
@@ -237,7 +236,7 @@ class MeetingController extends Controller
                 $totalAmount += $amount;
             }
         }
-        
+
         $expenseStatus = $totalAmount > 0 ? 'submitted' : 'approved';
 
         $expense = MeetingExpense::create([
@@ -368,7 +367,7 @@ class MeetingController extends Controller
         if ($request->result === 'yes' && $request->hasFile('attachment_id')) {
             $file = $request->file('attachment_id');
             $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('meetings', $filename, 'local'); 
+            $path = $file->storeAs('meetings', $filename, 'local');
 
             // Simpan data ke tabel attachments
             $attachment = Attachment::create([
@@ -393,14 +392,14 @@ class MeetingController extends Controller
 
             $lead->status_id = $newStatus;
             $lead->save();
-            
+
             // Force update timestamp saat pindah status
             Log::info('Before update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
-            
+
             DB::table('leads')
                 ->where('id', $lead->id)
                 ->update(['updated_at' => now()]);
-            
+
             // Update claim's claimed_at when status changes to WARM
             if ($newStatus === LeadStatus::WARM) {
                 DB::table('lead_claims')
@@ -408,7 +407,7 @@ class MeetingController extends Controller
                     ->whereNull('released_at')
                     ->update(['claimed_at' => now()]);
             }
-            
+
             $lead->refresh();
             Log::info('After update - Lead ID: ' . $lead->id . ', updated_at: ' . $lead->updated_at);
 

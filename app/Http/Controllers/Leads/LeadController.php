@@ -88,7 +88,7 @@ class LeadController extends Controller
                 // $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
                 // $html .= '  </div>';
                 // $html .= '</div>';
-                $html = '    <a class="text-[#115640] font-semibold" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
+                $html = '    <a class="text-[#115640] font-semibold claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
 
                 return $html;
             })
@@ -158,6 +158,7 @@ class LeadController extends Controller
         try {
             $user    = auth()->user();
             $isSales = $user->role->code === 'sales';
+            $isMyForm = $request->routeIs('leads.my.save');
 
             // 1. Build validation rules
             $segmentRule = $isSales && !$id ? 'required' : 'nullable';
@@ -320,7 +321,7 @@ class LeadController extends Controller
                     $lead->region_id = $rawRegion;
                     $lead->branch_id = $branchId;
                     $lead->province = $rawRegion ? $provinceName : null;
-                    $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
+                    $lead->status_id = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
                     $lead->factory_city_id = $rawFactoryCity;
                     $lead->factory_province = $factoryCity ? $factoryCity->province->name : ($request->factory_province[$i] ?? null);
                     $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
@@ -378,7 +379,7 @@ class LeadController extends Controller
                         }
                     }
 
-                    if ($isSales) {
+                    if ($isSales || $isMyForm) {
                         LeadClaim::create([
                             'lead_id'    => $lead->id,
                             'sales_id'   => $user->id,
@@ -396,7 +397,7 @@ class LeadController extends Controller
 
                     $ids[] = $lead->id;
                 }
-                \Log::info('Request data:', $request->all());
+                Log::info('Request data:', $request->all());
 
                 return $this->setJsonResponse('Leads saved successfully', ['ids' => $ids]);
             }
@@ -418,7 +419,7 @@ class LeadController extends Controller
             $lead->branch_id    = $branchId;
             $lead->province     = $rawRegion ? $provinceName : null;
             if (! $id) {
-                $lead->status_id = $isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED;
+                $lead->status_id = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
             }
             $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL'
                 ? null
@@ -462,7 +463,7 @@ class LeadController extends Controller
             $lead->published_at = $id ? $lead->published_at : now();
             $lead->save();
 
-            if (! $id && $isSales) {
+            if (! $id && ($isSales || $isMyForm)) {
                 LeadClaim::create([
                     'lead_id'    => $lead->id,
                     'sales_id'   => $user->id,
@@ -513,7 +514,6 @@ class LeadController extends Controller
             ], 500);
         }
     }
-
 
     public function claim($id)
     {
@@ -595,7 +595,6 @@ class LeadController extends Controller
             ],
             'activities' => LeadActivityList::all(),
         ]);
-
     }
 
 
@@ -837,22 +836,6 @@ class LeadController extends Controller
 
         if ($request->filled('status_id')) {
             $leads->where('status_id', $request->status_id);
-
-            // Apply day filters for Cold and Warm leads like in My Leads
-            $status = (int) $request->status_id;
-            if ($status === LeadStatus::COLD) {
-                // Cold leads: only show leads claimed within last 10 days
-                $leads->whereHas('claims', function ($q) {
-                    $q->whereNull('released_at')
-                        ->where('claimed_at', '>=', now()->subDays(10));
-                });
-            } elseif ($status === LeadStatus::WARM) {
-                // Warm leads: only show leads claimed within last 30 days
-                $leads->whereHas('claims', function ($q) {
-                    $q->whereNull('released_at')
-                        ->where('claimed_at', '>=', now()->subDays(30));
-                });
-            }
         }
 
         if ($branchId && $request->filled('status_id')) {
@@ -1577,7 +1560,9 @@ class LeadController extends Controller
 
         // OPTIONAL: status filter dari frontend
         if ($request->filled('status')) {
-            $claims->whereHas('lead', fn($q) =>
+            $claims->whereHas(
+                'lead',
+                fn($q) =>
                 $q->where('status_id', $request->status)
             );
         }
@@ -1642,16 +1627,16 @@ class LeadController extends Controller
         $html .= '  </button>';
         $html .= '  <div class="dropdown-menu dropdown-menu-right rounded-lg!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($leadUrl) . '">
-            '.view('components.icon.detail')->render().'
+            ' . view('components.icon.detail')->render() . '
             View Lead Detail</a>';
         $activityUrl = route('leads.activity.logs', $row->lead_id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
-            '.view('components.icon.log')->render().'
+            ' . view('components.icon.log')->render() . '
         View / Add Activity Log</button>';
 
         if (! $meeting) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($setMeetUrl) . '">
-            '.view('components.icon.meeting')->render().'
+            ' . view('components.icon.meeting')->render() . '
             Set Meeting</a>';
         } else {
             $viewUrl       = route('leads.my.cold.meeting', $row->id);
@@ -1684,7 +1669,7 @@ class LeadController extends Controller
 
         if (! $meeting) {
             $html .= '  <button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Move to Trash Lead</button>';
         }
         $html .= '  </div>';
@@ -1711,27 +1696,27 @@ class LeadController extends Controller
         $html .= '  </button>';
         $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
-            . '      '.view('components.icon.detail')->render().' View Lead</a>';
+            . '      ' . view('components.icon.detail')->render() . ' View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        '.view('components.icon.log')->render().' View / Add Activity</button>';
+        ' . view('components.icon.log')->render() . ' View / Add Activity</button>';
 
         if (! $quotation) {
             $html .= '  <a class="dropdown-item" href="' . e($createUrl) . '">'
                 . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
-                . '    '.view('components.icon.view-quotation')->render().' View Quotation</a>';
+                . '    ' . view('components.icon.view-quotation')->render() . ' View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
-                . '    '.view('components.icon.download')->render().' Download</a>';
+                . '    ' . view('components.icon.download')->render() . ' Download</a>';
             $logUrl = route('quotations.logs', $quotation->id);
             $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
-            '. view('components.icon.quotation-log')->render().' Quotation Log</button>';
+            ' . view('components.icon.quotation-log')->render() . ' Quotation Log</button>';
         }
 
         if (! $quotation || $quotation->status !== 'published') {
             $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Trash Lead</button>';
         }
         $html .= '  </div>';
@@ -1757,11 +1742,11 @@ class LeadController extends Controller
         $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
             . '
-            '.view('components.icon.detail')->render().'
+            ' . view('components.icon.detail')->render() . '
             View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        '.view('components.icon.log')->render().' 
+        ' . view('components.icon.log')->render() . ' 
         View / Add Activity Log</button>';
 
         if (! $quotation) {
@@ -1771,11 +1756,11 @@ class LeadController extends Controller
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    
-                '.view('components.icon.view-quotation')->render().'
+                ' . view('components.icon.view-quotation')->render() . '
                 View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
                 . '    
-                '.view('components.icon.download').' 
+                ' . view('components.icon.download') . ' 
                 Download</a>';
         }
 
@@ -1802,11 +1787,11 @@ class LeadController extends Controller
         $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
             . '
-            '.view('components.icon.detail')->render().'
+            ' . view('components.icon.detail')->render() . '
             View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        '.view('components.icon.log')->render().'
+        ' . view('components.icon.log')->render() . '
         View / Add Activity</button>';
 
         if (! $quotation) {
@@ -1815,11 +1800,11 @@ class LeadController extends Controller
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    
-                '.view('components.icon.view-quotation')->render().'
+                ' . view('components.icon.view-quotation')->render() . '
                 View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
                 . '    
-                '.view('components.icon.download').' 
+                ' . view('components.icon.download') . ' 
                 Download</a>';
         }
 

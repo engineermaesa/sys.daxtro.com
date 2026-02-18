@@ -293,6 +293,9 @@
         </div>
     </div>
 
+    <!-- DEBUG OUTPUT (temporary) -->
+    <div id="leadsDebug" style="margin-top:8px; font-size:13px; color:#444;"></div>
+
     {{-- TABLES CONTENTS --}}
     <div class="mt-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
@@ -634,6 +637,7 @@
         const result = await response.json();
 
         console.log('loadColdLeads result:', result);
+        try { document.getElementById('leadsDebug').innerText = 'COLD → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
         const tbody = document.getElementById('coldBody');
         tbody.innerHTML = '';
@@ -673,6 +677,9 @@
     });
 
     const result = await response.json();
+
+    console.log('loadAllLeads result:', result);
+    try { document.getElementById('leadsDebug').innerText = 'ALL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
     updatePagerUI('all', result.total);
 
@@ -741,6 +748,7 @@
         const result = await response.json();
 
         console.log('loadWarmLeads result:', result);
+        try { document.getElementById('leadsDebug').innerText = 'WARM → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
         const tbody = document.getElementById('warmBody');
         tbody.innerHTML = '';
@@ -785,6 +793,7 @@
         const result = await response.json();
 
         console.log('loadHotLeads result:', result);
+        try { document.getElementById('leadsDebug').innerText = 'HOT → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
         const tbody = document.getElementById('hotBody');
         tbody.innerHTML = '';
@@ -829,6 +838,7 @@
         const result = await response.json();
 
         console.log('loadDealLeads result:', result);
+        try { document.getElementById('leadsDebug').innerText = 'DEAL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
         const tbody = document.getElementById('dealBody');
         tbody.innerHTML = '';

@@ -66,7 +66,7 @@ Route::group([
     // FOR AVAILABLE LEADS (API)
     Route::prefix('available')->name('availables.')->group(function () {
 
-        Route::get('/', [LeadController::class, 'available'])
+        Route::get('/index', [LeadController::class, 'available'])
             ->name('index');
 
         Route::get('/list', [LeadController::class, 'availableList'])
