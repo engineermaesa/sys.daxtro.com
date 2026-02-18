@@ -147,7 +147,7 @@ class ColdLeadController extends Controller
         $meeting = LeadMeeting::with('reschedules', 'lead.segment')->findOrFail($meetingId);
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
-        
+
         // Get products with default segment pricing
         $segmentName = strtolower($meeting->lead->segment->name ?? '');
         $priceField = match ($segmentName) {
@@ -279,16 +279,16 @@ class ColdLeadController extends Controller
         $html .= '  </button>';
         $html .= '  <div class="dropdown-menu dropdown-menu-right rounded-lg!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($leadUrl) . '">
-            '.view('components.icon.detail')->render().'
+            ' . view('components.icon.detail')->render() . '
             View Lead Detail</a>';
         $activityUrl = route('leads.activity.logs', $row->lead_id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
-            '.view('components.icon.log')->render().'
+            ' . view('components.icon.log')->render() . '
         View / Add Activity Log</button>';
 
         if (! $meeting) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($setMeetUrl) . '">
-            '.view('components.icon.meeting')->render().'
+            ' . view('components.icon.meeting')->render() . '
             Set Meeting</a>';
         } else {
             $viewUrl       = route('leads.my.cold.meeting', $row->id);
@@ -321,7 +321,7 @@ class ColdLeadController extends Controller
 
         if (! $meeting) {
             $html .= '  <button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Move to Trash Lead</button>';
         }
         $html .= '  </div>';

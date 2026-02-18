@@ -101,11 +101,12 @@
       serverSide: true,
       ajax: {
         url: '{{ route("users.list") }}',
-        type: 'GET',
+        type: 'POST',
         data: function(d){
           d.company_id = $('#filter_company').val();
           d.branch_id  = $('#filter_branch').val();
           d.role_id    = $('#filter_role').val();
+          d._token     = '{{ csrf_token() }}';
         }
       },
       columns: columns,

@@ -185,6 +185,7 @@ Route::group([
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
     Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
     Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
+    Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');
     Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
     Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
 });
@@ -203,7 +204,7 @@ Route::group([
     Route::post('/counts', 'OrderController@counts')->name('counts');
     Route::get('/export', 'OrderController@export')->name('export');
     Route::get('/{id}', 'OrderController@show')->name('show');
-    Route::get('/{id}/progress', 'OrderProgressControll    er@form')->name('progress.form');
+    Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
     Route::post('/{id}/progress', 'OrderProgressController@save')->name('progress.save');
     Route::get('/{id}/progress-logs', 'OrderProgressController@logs')->name('progress.logs');
     Route::get('/{id}/activity-logs', 'OrderController@activityLogs')->name('activity.logs');

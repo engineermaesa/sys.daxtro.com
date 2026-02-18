@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="section">
+{{-- <section class="section">
   <div class="card">
     <div class="card-header"><strong>Trash Leads</strong></div>
     <div class="card-body pt-4">
@@ -51,7 +51,7 @@
 
     </div>
   </div>
-</section>
+</section> --}}
 
 <section class="min-h-screen">
   {{-- HEADER PAGES --}}
@@ -81,7 +81,7 @@
         <div class="w-4/6 border border-[#D5D5D5] rounded-lg grid grid-cols-4">
             @foreach (['all', 'cold', 'warm', 'hot'] as $tab)
                 {{-- NAVIGATION STATUS --}}
-                <div class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active">
+                  <div class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active" data-status="{{ $tab }}">
                     <p class="text-[#083224]">
                         {{ $loop->first ? 'All Status' : ucfirst($tab) }}
                         <span 
@@ -102,22 +102,14 @@
                 </div>
             @endforeach
         </div>
-        {{-- ADD MANUAL LEADS --}}
-        <div class="w-1/6 bg-[#115640] rounded-lg">
-            <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-3 px-3 py-2"> 
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z" fill="#E7F3EE"/>
-                </svg>
-                <p class="text-white font-medium">Leads Manually</p>
-            </a>
-        </div>
+        {{-- Manual add removed: trash leads are automated --}}
     </div>
 
     {{-- CONTENTS TABLES --}}
     <div class="">
-        @foreach(['cold', 'warm', 'hot'] as $tab)
-            <div>
-                <table id="{{ $tab }}TrashLeadsTable" class="w-full">
+      @foreach(['cold', 'warm', 'hot'] as $tab)
+        <div data-status-wrapper="{{ $tab }}">
+          <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#CFD5DC]">
@@ -145,7 +137,7 @@
                             </th>
                         </tr>
                     </thead>
-                    <tbody id="{{ $tab }}Body"></tbody>
+                    <tbody id="{{ $tab }}BodyTailwind"></tbody>
                 </table>
             </div>
         @endforeach
@@ -192,50 +184,58 @@
 
 @section('scripts')
 <script>
-  async function loadColdTrashLeads(){
-    const response = await fetch("{{ route('trash-leads.cold.list') }}", {
-      method: "POST",
-      headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": "{{ csrf_token() }}"
-      },
-      body: JSON.stringify({
-          start_date: document.getElementById('filter_start')?.value,
-          end_date: document.getElementById('filter_end')?.value
-      })
-    });
+    @php
+      $trashRoutes = [];
+      if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list')) {
+        $trashRoutes['cold'] = route('trash-leads.cold.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('trash-leads.warm.list')) {
+        $trashRoutes['warm'] = route('trash-leads.warm.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('trash-leads.hot.list')) {
+        $trashRoutes['hot'] = route('trash-leads.hot.list');
+      }
+    @endphp
+    const trashRoutes = @json($trashRoutes);
 
-    const result = await response.json();
+    function initTailwindTable(tab){
+      const selector = '#' + tab + 'TrashLeadsTableTailwind';
+      if(!trashRoutes[tab]){ console.warn('No route defined for '+tab); return; }
+      if(!$.fn.dataTable.isDataTable(selector)){
+        initTrashTable(selector, trashRoutes[tab]);
+      } else {
+        $(selector).DataTable().ajax.reload();
+      }
+    }
 
-    const tbody = document.getElementById('coldBody');
-
-    tbody.innerHTML = '';
-
-    result.data.forEach(row => {
-
-        let industry = 'Belum Diisi';
-
-        if (row.industry?.trim()) {
-            industry = row.industry;
-        } else if (row.lead?.other_industry?.trim()) {
-            industry = row.lead.other_industry;
+    function showTables(status){
+        if(status === 'all'){
+        $('[data-status-wrapper]').show();
+        ['cold','warm','hot'].forEach(function(tab){
+          if(trashRoutes[tab]){
+            initTailwindTable(tab);
+          }
+        });
+      } else {
+        $('[data-status-wrapper]').hide();
+        $('[data-status-wrapper="'+status+'"]').show();
+        if(trashRoutes[status]){
+          initTailwindTable(status);
         }
+      }
+      $('.nav-leads-active').removeClass('active-nav');
+      $('.nav-leads-active[data-status="'+status+'"]').addClass('active-nav');
+    }
 
-        tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.claimed_at}</td>
-                <td>${row.name}</td>
-                <td>${row.segment_name}</td>
-                <td>${row.source_name}</td>
-                <td>${row.first_sales_name}</td>
-                <td>${row.meeting_status}</td>
-                <td>${row.actions}</td>
-            </tr>
-        `;
+    // init: show all
+    showTables('all');
+
+    // nav click
+    $(document).on('click', '.nav-leads-active', function(){
+      const status = $(this).data('status');
+      if(!status) return;
+      showTables(status);
     });
-  }
-  loadColdTrashLeads();
 
 function initTrashTable(selector, route) {
   $(selector).DataTable({
@@ -263,8 +263,12 @@ function initTrashTable(selector, route) {
 }
 
 $(function () {
-  initTrashTable('#coldTrashLeadsTable', '{{ route('trash-leads.cold.list') }}');
-  initTrashTable('#warmTrashLeadsTable', '{{ route('trash-leads.warm.list') }}');
+  @if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list'))
+    initTrashTable('#coldTrashLeadsTable', '{{ route('trash-leads.cold.list') }}');
+  @endif
+  @if(\Illuminate\Support\Facades\Route::has('trash-leads.warm.list'))
+    initTrashTable('#warmTrashLeadsTable', '{{ route('trash-leads.warm.list') }}');
+  @endif
   
   $(document).on('click', '.restore-lead', function(){
     const url = $(this).data('url');

@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Leads;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Leads\{LeadClaim, LeadStatus};
+use Illuminate\Support\Facades\DB;
+use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog};
 use Yajra\DataTables\Facades\DataTables;
 
 class HotLeadController extends Controller
