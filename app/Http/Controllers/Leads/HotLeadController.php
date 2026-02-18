@@ -32,10 +32,8 @@ class HotLeadController extends Controller
             });
         }
 
-<<<<<<< HEAD
         $page = $request->input('page', 1);
         $perPage = 10;
-=======
         // If the request is an API call, return a plain JSON payload.
         if ($request->is('api/*')) {
             $items = $claims->get()->map(function ($row) {
@@ -59,7 +57,6 @@ class HotLeadController extends Controller
                     ] : null,
                 ];
             });
->>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
         $claims = $claims->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);
@@ -88,6 +85,8 @@ class HotLeadController extends Controller
             'last_page' => $claims->lastPage(),
             'total' => $claims->total(),
         ]);
+    }
+
     }
 
     protected function hotActions($row)

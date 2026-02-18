@@ -16,9 +16,11 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
-        $roleCode = $request->user()->role?->code;
+        $user = $request->user();
+        $roleCode = $user->role?->code;
+        $perPage = 10;
 
-        $claims = LeadClaim::with([
+        $claimsQuery = LeadClaim::with([
             'lead.quotation',
             'lead.segment',
             'lead.source',
@@ -26,86 +28,64 @@ class WarmLeadController extends Controller
             'lead.region.regional',
             'sales'
         ])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
+        // Role filter
         if ($roleCode === 'sales') {
-            $claims->where('sales_id', $request->user()->id);
+            $claimsQuery->where('sales_id', $user->id);
         } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) use ($request) {
-                $q->where('branch_id', $request->user()->branch_id);
+            $claimsQuery->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
             });
         }
 
+        // Date filter
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function ($q) use ($request) {
+            $claimsQuery->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->firstApprovalBetween($request->start_date, $request->end_date);
             });
         }
 
-<<<<<<< HEAD
-        $page = $request->input('page', 1);
-        $perPage = 10;
-=======
-        // If called via API (Postman), return plain JSON payload
+        // Pagination
+        $claims = $claimsQuery
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        // API response
         if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
+
+            $data = $claims->map(function ($row) {
                 $quotation = $row->lead->quotation;
+
                 return [
                     'id' => $row->id,
-                    'lead_id' => $row->lead_id ?? ($row->lead->id ?? null),
                     'claimed_at' => $row->claimed_at,
-                    'lead_name' => $row->lead->name ?? null,
-                    'sales_name' => $row->sales->name ?? null,
-                    'phone' => $row->lead->phone ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'needs' => $row->lead->needs ?? null,
-                    'segment_name' => $row->lead->segment->name ?? null,
+                    'lead_name' => $row->lead->name ?? '-',
+                    'sales_name' => $row->sales->name ?? '-',
+                    'phone' => $row->lead->phone ?? '-',
+                    'source_name' => $row->lead->source->name ?? '-',
+                    'needs' => $row->lead->needs ?: '-',
+                    'segment_name' => $row->lead->segment->name ?? '-',
                     'city_name' => $row->lead->region->name ?? 'All Regions',
                     'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
-                    'quotation' => $quotation ? [
-                        'id' => $quotation->id,
-                        'status' => $quotation->status,
-                        'grand_total' => $quotation->grand_total ?? null,
-                    ] : null,
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+
+                    // helper
+                    'meeting_status' => $this->warmMeetingStatus($quotation),
+                    'actions' => $this->warmActions($row),
                 ];
             });
->>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
-        $claims = $claims->orderByDesc('id')
-            ->paginate($perPage, ['*'], 'page', $page);
-
-        $data = $claims->map(function ($row) {
-
-            $quotation = $row->lead->quotation;
-
-            return [
-                'id' => $row->id,
-                'claimed_at' => $row->claimed_at,
-                'lead_name' => $row->lead->name,
-                'sales_name' => $row->sales->name ?? '-',
-                'phone' => $row->lead->phone,
-                'source_name' => $row->lead->source->name ?? '-',
-                'needs' => $row->lead->needs ?: '-',
-                'segment_name' => $row->lead->segment->name ?? '-',
-                'city_name' => $row->lead->region->name ?? 'All Regions',
-                'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-
-                // helper
-                'meeting_status' => $this->warmMeetingStatus($quotation),
-                'actions' => $this->warmActions($row),
-            ];
-        });
-
-        return response()->json([
-            'data' => $data,
-            'current_page' => $claims->currentPage(),
-            'last_page' => $claims->lastPage(),
-            'total' => $claims->total(),
-        ]);
+            return response()->json([
+                'data' => $data,
+                'current_page' => $claims->currentPage(),
+                'last_page' => $claims->lastPage(),
+                'total' => $claims->total(),
+            ]);
+        }
     }
+
 
     public function trash($claimId)
     {

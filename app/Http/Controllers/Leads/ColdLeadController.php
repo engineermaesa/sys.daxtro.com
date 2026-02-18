@@ -17,11 +17,12 @@ class ColdLeadController extends Controller
     {
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
-        
-        $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
-        $roleCode = $request->user()->role?->code;
 
-        $claims = LeadClaim::with([
+        $user = $request->user();
+        $roleCode = $user->role?->code;
+        $perPage = 10;
+
+        $claimsQuery = LeadClaim::with([
             'lead.status',
             'lead.segment',
             'lead.source',
@@ -30,57 +31,53 @@ class ColdLeadController extends Controller
             'lead.industry',
             'sales'
         ])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
 
+        // Role filtering
         if ($roleCode === 'sales') {
-            $claims->where('sales_id', $request->user()->id);
+            $claimsQuery->where('sales_id', $user->id);
         } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) {
-                $q->where('branch_id', auth()->user()->branch_id);
+            $claimsQuery->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
             });
         }
 
-        $page = $request->input('page', 1);
-        $perPage = 10;
+        // Pagination
+        $claims = $claimsQuery
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
-<<<<<<< HEAD
-        $claims = $claims->orderByDesc('id')
-            ->paginate($perPage, ['*'], 'page', $page);
-=======
-        // If called via API (Postman), return plain JSON payload
+        // API Response
         if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
+            $data = $claims->map(function ($row) {
                 $meeting = $row->lead->meetings()->latest()->first();
->>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
-        $data = $claims->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->lead->name,
+                    'sales_name' => $row->sales->name ?? '-',
+                    'phone' => $row->lead->phone,
+                    'source' => $row->lead->source->name ?? '-',
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? '',
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                    'meeting_status' => $this->coldMeetingStatus($meeting),
+                    'actions' => $this->coldActions($row),
+                ];
+            });
 
-            $meeting = $row->lead->meetings()->latest()->first();
-
-            return [
-                'id' => $row->id,
-                'name' => $row->lead->name,
-                'sales_name' => $row->sales->name ?? '-',
-                'phone' => $row->lead->phone,
-                'source' => $row->lead->source->name ?? '-',
-                'needs' => $row->lead->needs,
-                'segment_name' => $row->lead->segment->name ?? '',
-                'city_name' => $row->lead->region->name ?? 'All Regions',
-                'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                'meeting_status' => $this->coldMeetingStatus($meeting),
-                'actions' => $this->coldActions($row),
-            ];
-        });
-
-        return response()->json([
-            'data' => $data,
-            'current_page' => $claims->currentPage(),
-            'last_page' => $claims->lastPage(),
-            'total' => $claims->total(),
-        ]);
+            return response()->json([
+                'data' => $data,
+                'current_page' => $claims->currentPage(),
+                'last_page' => $claims->lastPage(),
+                'total' => $claims->total(),
+            ]);
+        }
     }
+
 
     public function meeting(Request $request, $claimId)
     {
