@@ -8,6 +8,7 @@
         <div class="card-header d-flex justify-content-between align-items-center">
           <strong>Meeting Schedule</strong>
 
+          {{-- CONDITIONAL BY DATE --}}
           <div>
             @if($canReschedule ?? false)
               <a href="{{ route('leads.my.cold.meeting.reschedule', $data->id) }}"
@@ -34,6 +35,7 @@
         </div>
 
         <div class="card-body pt-3">
+          {{-- overall meeting lifecycle + expense workflow --}}
           @if(!empty($data))
             <div class="mb-3">
               @php
@@ -83,20 +85,24 @@
             </div>
           @endif
 
+          {{-- IF SCHEDULED --}}
           @if($isViewOnly ?? false)
             <div class="alert alert-info">
               <strong>Note:</strong> This meeting has already been scheduled. Fields are read-only.
             </div>
           @endif
 
+          {{-- COUNT AND URL MEETING --}}
           @if(!empty($data))
             <div class="mb-3">
+              {{-- COUNT RESCHEDULED --}}
               @if($data->reschedules && $data->reschedules->count() > 0)
                 <span class="badge bg-warning me-2">
                   Rescheduled {{ $data->reschedules->count() }} time{{ $data->reschedules->count() > 1 ? 's' : '' }}
                 </span>
               @endif
 
+              {{-- URL MEETING ONLINE --}}
               @if($data->is_online && !empty($data->online_url))
                 <div class="alert alert-secondary mt-2">
                   <strong>Meeting Link:</strong>
@@ -106,6 +112,7 @@
             </div>
           @endif
 
+          {{-- MAIN FORM --}}
           <form id="form"
                 method="POST"
                 action="{{ route('leads.my.cold.meeting.save', ['id' => $data->id ?? '']) }}"
@@ -116,7 +123,7 @@
             <input type="hidden" name="lead_id" value="{{ old('lead_id', $data->lead_id ?? $lead_id ?? '') }}">
 
             {{-- Meeting Type --}}
-            <div class="mb-3">
+            {{-- <div class="mb-3">
               <label for="meeting_type_id" class="form-label">Meeting Type <i class="required">*</i></label>
               <select name="meeting_type_id" id="meeting_type_id"
                       class="form-select select2"
@@ -130,7 +137,7 @@
                   </option>
                 @endforeach
               </select>
-            </div>
+            </div> --}}
 
             {{-- Lead Details Table
             <div class="mb-3">
@@ -279,7 +286,7 @@
             </div> --}}
 
             {{-- Online URL --}}
-            <div id="online-url-section" class="mb-3" style="display: none;">
+            {{-- <div id="online-url-section" class="mb-3" style="display: none;">
               <label for="meeting_url" class="form-label">Meeting URL <i class="required">*</i></label>
               <input type="url"
                     name="meeting_url"
@@ -287,10 +294,10 @@
                     class="form-control"
                     value="{{ old('meeting_url', $data->online_url ?? '') }}"
                     @if($isViewOnly ?? false) readonly @endif>
-            </div>
+            </div> --}}
 
             {{-- Offline Section --}}
-            <div id="offline-section" style="display: none;">
+            {{-- <div id="offline-section" style="display: none;">
               <div class="mb-3">
                 <label for="province" class="form-label">Province <i class="required">*</i></label>
                 <input type="text" 
@@ -320,8 +327,7 @@
                           rows="2"
                           @if($isViewOnly ?? false) readonly @endif>{{ old('address', $data->address ?? '') }}</textarea>
               </div>
-
-              {{-- Expenses --}}
+\
               <div class="mb-3">
                 <label class="form-label">Expenses <i class="required">*</i></label>
                 <table class="table table-bordered" id="expense-table">
@@ -387,7 +393,7 @@
                   <button type="button" id="add-expense" class="btn btn-sm btn-outline-primary">Add Expense</button>
                 @endif
               </div>
-            </div>
+            </div> --}}
 
             {{-- Reschedule reason --}}
             @if(isset($isReschedule) && $isReschedule)
@@ -495,6 +501,196 @@
           Set A Meeting
       </a>
     </div>
+
+    <form id="form"
+        method="POST"
+        action="{{ route('leads.my.cold.meeting.save', ['id' => $data->id ?? '']) }}"
+        back-url="{{ route('leads.my') }}"
+        enctype="multipart/form-data">
+      @csrf
+
+      <input type="hidden" name="lead_id" value="{{ old('lead_id', $data->lead_id ?? $lead_id ?? '') }}">
+
+      {{-- MEETING PLAN SECTION --}}
+      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
+        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Meeting Plan</h1>
+        {{-- MEETING TYPE AND DATE TIME --}}
+        <div class="px-3 py-2 grid grid-cols-2 gap-5">
+          {{-- MEETING TYPE SELECT FIELD --}}
+          <div class="text-[#1E1E1E]">
+            <label for="meeting_type_id" class="text-[#1E1E1E]! mb-1!">Meeting Type <i class="required">*</i></label>
+            <select name="meeting_type_id" id="meeting_type_id"
+              class="px-3 py-2 rounded-lg border border-[#D9D9D9] w-full"
+              @if($isViewOnly ?? false) disabled @endif required>
+              <option value="">Select</option>
+              @foreach($meetingTypes as $mt)
+                <option value="{{ $mt->id }}"
+                        data-name="{{ $mt->name }}"
+                        {{ old('meeting_type_id', $data->meeting_type_id ?? '') == $mt->id ? 'selected' : '' }}>
+                  {{ $mt->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+          {{-- START & END TIME --}}
+          <div class="text-[#1E1E1E]">
+              <label for="scheduled_start_at" class="text-[#1E1E1E]! mb-1!">Start & End Time <i class="required">*</i></label>
+              <button
+                  type="button"
+                  id="selectDateBtn"
+                  class="px-4 py-2 rounded-lg w-full text-left border border-[#D9D9D9] cursor-pointer"
+              >
+                  Select Date
+              </button>
+
+              <div id="dateDropdown" class="date-dropdown hidden mt-2 rounded-lg p-3 bg-white grid grid-cols-2 gap-4 border border-[#D9D9D9]">
+                  <div class="fp-wrap relative">
+                      <p class="text-sm mb-1">Start Time</p>
+                      <input id="fpStart" type="text" class="rounded p-2 w-full border border-[#D9D9D9] cursor-pointer"
+                      placeholder="Select start time">
+                  </div>
+                  <div class="fp-wrap relative">
+                      <p class="text-sm mb-1">End Time</p>
+                      <input id="fpEnd" type="text" class="rounded p-2 w-full border border-[#D9D9D9] cursor-pointer"
+                      placeholder="Select end time">
+                  </div>
+
+              </div>
+              <input 
+                type="hidden" 
+                name="scheduled_start_at" 
+                id="scheduled_start_at"
+                value="{{ old('scheduled_start_at', isset($data->scheduled_start_at)
+                ? \Carbon\Carbon::parse($data->scheduled_start_at)->format('Y-m-d H:i')
+                : '') }}">
+              <input 
+                type="hidden" 
+                name="scheduled_end_at" 
+                id="scheduled_end_at"
+                value="{{ old('scheduled_end_at', isset($data->scheduled_end_at)
+                ? \Carbon\Carbon::parse($data->scheduled_end_at)->format('Y-m-d H:i')
+                : '') }}">
+          </div>
+        </div>
+        {{-- Online URL --}}
+        <div id="online-url-section" class="px-3 py-2 text-[#1E1E1E]!" style="display: none;">
+          <label for="meeting_url" class="text-[#1E1E1E]! mb-1!">Meeting URL <i class="required">*</i></label>
+          <input type="url"
+                name="meeting_url"
+                id="meeting_url"
+                class="px-3 py-2 rounded-lg border border-[#D9D9D9] w-full"
+                value="{{ old('meeting_url', $data->online_url ?? '') }}"
+                @if($isViewOnly ?? false) readonly @endif>
+        </div>
+
+        {{-- Offline Section --}}
+        <div id="offline-section" class="px-3 py-2" style="display: none;">
+          <div class="grid grid-cols-2 gap-5">
+            <div class="text-[#1E1E1E]!">
+              <label for="province" class="text-[#1E1E1E]! mb-1! block">Province <i class="required">*</i></label>
+              <input type="text" 
+                    name="province" 
+                    id="province"
+                    value="{{ old('province', $data->province ?? '') }}"
+                    readonly
+                    class="px-3 py-2 rounded-lg! cursor-not-allowed! bg-[#e9ecef]! w-full! border border-[#D9D9D9]!"
+                    @if($isViewOnly ?? false) readonly @endif>
+            </div>
+            
+            <div class="text-[#1E1E1E]!">
+              <label for="city" class="text-[#1E1E1E]! mb-1! block">City <i class="required">*</i></label>
+              <select name="city" id="city" class="select2" @if($isViewOnly ?? false) disabled @endif>
+                <option value="">Select City</option>
+                @foreach($cities as $cityOption)
+                  <option value="{{ $cityOption }}" {{ old('city', $data->city ?? '') == $cityOption ? 'selected' : '' }}>{{ $cityOption }}</option>
+                @endforeach
+              </select>
+            </div>
+          </div>
+          
+          <div class="text[#1E1E1E]! mt-3">
+            <label for="address" class="block! mb-1!">Address <i class="required">*</i></label>
+            <textarea name="address" id="address"
+              class="px-3! py-2! rounded-lg! w-full! border border-[#D9D9D9]! focus:outline-[#115640]"
+              rows="5"
+              @if($isViewOnly ?? false) readonly @endif>{{ old('address', $data->address ?? '') }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      {{-- EXPENSES SECTION --}}
+      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
+        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Expenses</h1>
+        <div class="px-3 py-2">
+          <div class="border border-[#D9D9D9] rounded-lg ">
+            <table class=" w-full" id="expense-table">
+              <thead class="text-[#1E1E1E]!">
+                <tr class="border-b border-b-[#D9D9D9]">
+                  <th class="p-3">Type</th>
+                  <th class="px-3">Notes</th>
+                  <th class="px-3">Amount</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @php
+                  $expenseDetails = old('expense_type_id')
+                    ? collect(old('expense_type_id'))->map(fn($id, $i) => [
+                        'type_id' => $id,
+                        'notes'  => old('expense_notes')[$i] ?? '',
+                        'amount'  => old('expense_amount')[$i] ?? '',
+                      ])
+                    : (isset($data) && $data->expense
+                        ? $data->expense->details->map(fn($e) => [
+                            'type_id' => $e->expense_type_id,
+                            'notes'  => $e->notes,
+                            'amount'  => $e->amount,
+                          ])
+                        : collect([[ 'type_id' => null, 'notes' => null, 'amount' => null ]])
+                      );
+                @endphp
+  
+                @foreach($expenseDetails as $row)
+                <tr class="text-[#1E1E1E]">
+                  <td class="px-3 py-2">
+                    <select name="expense_type_id[]" class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none" @if($isViewOnly ?? false) disabled @endif>
+                      @foreach($expenseTypes as $et)
+                        <option value="{{ $et->id }}" {{ $et->id == $row['type_id'] ? 'selected' : '' }}>{{ $et->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="text"
+                          name="expense_notes[]"
+                          class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
+                          value="{{ $row['notes'] }}"
+                          placeholder="Type Note Here..."
+                          @if($isViewOnly ?? false) readonly @endif>
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="number" step="0.01"
+                          name="expense_amount[]"
+                          class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
+                          value="{{ $row['amount'] }}"
+                          placeholder="Input Amount Here..."
+                          @if($isViewOnly ?? false) readonly @endif>
+                  </td>
+                  <td class="text-center">
+                    @if(!($isViewOnly ?? false))
+                      <button type="button" class="btn btn-sm btn-danger remove-expense">&times;</button>
+                    @endif
+                  </td>
+                </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+          @if(!($isViewOnly ?? false))
+            <button type="button" id="add-expense" class="btn btn-sm btn-outline-primary mt-3">Add Expense</button>
+          @endif
+        </div>
+      </div>
+      
   </div>
 </section>
 @endsection
@@ -513,17 +709,93 @@
         margin-bottom: 15px;
         border-radius: 4px;
     }
+
+    .date-dropdown {
+        opacity: 0;
+        transform: translateY(-6px) scale(.98);
+        transition: all .25s cubic-bezier(.4,0,.2,1);
+        pointer-events: none;
+    }
+
+    .date-dropdown.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+
+    .hidden {
+        display: none;
+    }
 </style>
 @endsection
 
 @section('scripts')
-<script>
+<script >
   $(function () {
     $('.select2').select2({ width: '100%' });
 
     const onlineNames = ['Zoom / Google Meet', 'Video Call'];
     const zoomName = 'Zoom / Google Meet';
     const expoName = 'EXPO';
+
+    let startVal = $('#scheduled_start_at').val()?.replace('T', ' ');
+    let endVal = $('#scheduled_end_at').val()?.replace('T', ' ');
+
+    $('#selectDateBtn').on('click', function () {
+        const dropdown = $('#dateDropdown');
+
+        if (dropdown.hasClass('show')) {
+            dropdown.removeClass('show');
+
+            setTimeout(() => {
+                dropdown.addClass('hidden');
+            }, 200);
+
+        } else {
+            dropdown.removeClass('hidden');
+
+            setTimeout(() => {
+                dropdown.addClass('show');
+            }, 10);
+        }
+    });
+
+    const fpStart = flatpickr("#fpStart", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        time_24hr: true,
+        defaultDate: startVal || null,
+        position: "below",
+        disableMobile: true,
+        onChange(selectedDates, dateStr) {
+            startVal = dateStr;
+            $('#scheduled_start_at').val(dateStr);
+            updateLabel();
+        }
+    });
+
+    const fpEnd = flatpickr("#fpEnd", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        time_24hr: true,
+        defaultDate: endVal || null,
+        position: "below",
+        disableMobile: true,
+        onChange(selectedDates, dateStr) {
+            endVal = dateStr;
+            $('#scheduled_end_at').val(dateStr);
+            updateLabel();
+        }
+    });
+
+    function updateLabel() {
+        if (startVal && endVal) {
+            $('#selectDateBtn').text(`Start Date: ${startVal} & End Date: ${endVal}`);
+        }
+    }
+
+    // INITIAL LOAD
+    updateLabel();
 
     // Helper to get province from city mapping
     const cityProvinceMap = @json(
@@ -656,6 +928,10 @@
 
     function toggleMeetingTypeSections() {
         const selectedName = $('#meeting_type_id option:selected').data('name');
+
+        console.log('selected:', selectedName);
+        console.log('zoomName:', zoomName);
+
         const isOnline = onlineNames.includes(selectedName);
         const requiresUrl = selectedName === zoomName;
         const isExpo = selectedName === expoName;
