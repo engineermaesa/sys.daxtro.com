@@ -99,6 +99,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('my')->group(function () {
             Route::get('/', 'LeadController@my')->name('leads.my');
             Route::get('/form/{id?}', 'LeadController@form')->name('leads.my.form');
+            Route::post('/save/{id?}', 'LeadController@save')->name('leads.my.save');
 
             Route::prefix('cold')->name('leads.my.cold.')->group(function () {
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
@@ -214,6 +215,8 @@ Route::middleware('auth')->group(function () {
         ->name('finance-requests.')
         ->group(function () {
             Route::get('/', [FinanceRequestController::class, 'index'])->name('index');
+            Route::post('/{id}/approve', [FinanceRequestController::class, 'approve'])->name('approve');
+            Route::post('/{id}/reject', [FinanceRequestController::class, 'reject'])->name('reject');
             Route::get('/{id}', [FinanceRequestController::class, 'form'])->name('form');
         });
 

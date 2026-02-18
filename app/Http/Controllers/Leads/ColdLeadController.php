@@ -31,7 +31,7 @@ class ColdLeadController extends Controller
             'lead.industry',
             'sales'
         ])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::COLD))
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
 
         // Role filtering
@@ -332,8 +332,9 @@ class ColdLeadController extends Controller
 
     protected function coldMeetingStatus($meeting)
     {
+        // Onlne
         if (!$meeting) {
-            return '<span class="status-grey">Not Scheduled</span>';
+            return '<span class="status-grey">Raw Lead</span>';
         }
 
         $scheduledEnd = \Carbon\Carbon::parse($meeting->scheduled_end_at);

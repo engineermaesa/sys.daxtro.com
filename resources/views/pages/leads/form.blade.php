@@ -15,8 +15,8 @@
                             @endif
                         </div>
 
-                        <form method="POST" action="{{ route('leads.save', $form_data->id) }}" id="form"
-                            back-url="{{ route('leads.available') }}" require-confirmation="true">
+                        <form method="POST" action="{{ request()->routeIs('leads.my.form') ? route('leads.my.save', $form_data->id) : route('leads.save', $form_data->id) }}" id="form"
+                            back-url="{{ request()->routeIs('leads.my.form') ? route('leads.my') : route('leads.available') }}" require-confirmation="true">
                             @csrf
                             @php $isCreate = empty($form_data->id); @endphp
 
@@ -723,8 +723,8 @@
                     Add Leads Manually
                 </a>
             </div>
-            <form method="POST" action="{{ route('leads.save', $form_data->id) }}" id="form"
-                    back-url="{{ route('leads.available') }}" require-confirmation="true"
+                <form method="POST" action="{{ request()->routeIs('leads.my.form') ? route('leads.my.save', $form_data->id) : route('leads.save', $form_data->id) }}" id="form"
+                    back-url="{{ request()->routeIs('leads.my.form') ? route('leads.my') : route('leads.available') }}" require-confirmation="true"
                     class="mt-3">
                 @csrf
                 @php $isCreate = empty($form_data->id); @endphp
