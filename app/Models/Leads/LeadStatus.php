@@ -20,4 +20,5 @@ class LeadStatus extends Model
     public const DEAL       = 5;
     public const TRASH_COLD = 6;
     public const TRASH_WARM = 7;
+    public const TRASH_HOT  = 8;
 }

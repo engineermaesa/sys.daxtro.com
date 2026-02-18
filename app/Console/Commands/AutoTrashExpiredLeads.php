@@ -18,7 +18,7 @@ class AutoTrashExpiredLeads extends Command
      *
      * @var string
      */
-    protected $description = 'Auto trash expired cold (10+ days) and warm (30+ days) leads';
+    protected $description = 'Auto trash expired cold (3+ days), warm (7+ days) and hot (30+ days) leads';
 
     /**
      * Execute the console command.
@@ -36,19 +36,20 @@ class AutoTrashExpiredLeads extends Command
                 $result = \App\Services\AutoTrashService::triggerIfNeeded();
             }
 
-            $coldTrashed = $result['cold_trashed'];
-            $warmTrashed = $result['warm_trashed'];
-            $total = $coldTrashed + $warmTrashed;
+            $coldTrashed = $result['cold_trashed'] ?? 0;
+            $warmTrashed = $result['warm_trashed'] ?? 0;
+            $hotTrashed = $result['hot_trashed'] ?? 0;
+            $total = $coldTrashed + $warmTrashed + $hotTrashed;
 
             if ($total > 0) {
                 $this->info("Auto trash completed successfully!");
                 $this->line("- Cold leads trashed: {$coldTrashed}");
                 $this->line("- Warm leads trashed: {$warmTrashed}");
+                $this->line("- Hot leads trashed: {$hotTrashed}");
                 $this->line("- Total trashed: {$total}");
             } else {
                 $this->info("No expired leads found to trash.");
             }
-
         } catch (\Exception $e) {
             $this->error("Auto trash failed: " . $e->getMessage());
         }

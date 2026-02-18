@@ -38,9 +38,7 @@ class AdminController extends Controller
 
         $query = User::with(['role', 'branch.company']);
 
-        // If this is an API consumer request (non-DataTables), return a simple JSON payload.
-        // Use only API route detection and JSON preference as requested.
-        if ($request->is('api/*') && $request->wantsJson()) {
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             $types = $query->get();
             return response()->json([
                 'status' => true,

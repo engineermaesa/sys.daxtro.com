@@ -17,8 +17,8 @@ class ColdLeadController extends Controller
     {
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
-        
-        $tenDaysAgo = now()->subDays(10); // Tanggal 10 hari yang lalu
+
+        $tenDaysAgo = now()->subDays(10);
         $roleCode = $request->user()->role?->code;
 
         $claims = LeadClaim::with([
@@ -44,42 +44,42 @@ class ColdLeadController extends Controller
         $page = $request->input('page', 1);
         $perPage = 10;
 
-<<<<<<< HEAD
         $claims = $claims->orderByDesc('id')
             ->paginate($perPage, ['*'], 'page', $page);
-=======
+
         // If called via API (Postman), return plain JSON payload
         if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
+
+            $data = $claims->getCollection()->map(function ($row) {
+
                 $meeting = $row->lead->meetings()->latest()->first();
->>>>>>> 9f7b6744e804e8768dea38d21c32ce38e57d59a3
 
-        $data = $claims->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->lead->name,
+                    'sales_name' => $row->sales->name ?? '-',
+                    'phone' => $row->lead->phone,
+                    'source' => $row->lead->source->name ?? '-',
+                    'needs' => $row->lead->needs,
+                    'segment_name' => $row->lead->segment->name ?? '',
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                    'meeting_status' => $this->coldMeetingStatus($meeting),
+                    'actions' => $this->coldActions($row),
+                ];
+            });
 
-            $meeting = $row->lead->meetings()->latest()->first();
+            return response()->json([
+                'data' => $data,
+                'current_page' => $claims->currentPage(),
+                'last_page' => $claims->lastPage(),
+                'total' => $claims->total(),
+            ]);
+        }
 
-            return [
-                'id' => $row->id,
-                'name' => $row->lead->name,
-                'sales_name' => $row->sales->name ?? '-',
-                'phone' => $row->lead->phone,
-                'source' => $row->lead->source->name ?? '-',
-                'needs' => $row->lead->needs,
-                'segment_name' => $row->lead->segment->name ?? '',
-                'city_name' => $row->lead->region->name ?? 'All Regions',
-                'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                'meeting_status' => $this->coldMeetingStatus($meeting),
-                'actions' => $this->coldActions($row),
-            ];
-        });
-
-        return response()->json([
-            'data' => $data,
-            'current_page' => $claims->currentPage(),
-            'last_page' => $claims->lastPage(),
-            'total' => $claims->total(),
-        ]);
+        // kalau bukan API — fallback (misal blade)
+        return $claims;
     }
 
     public function meeting(Request $request, $claimId)
@@ -150,7 +150,7 @@ class ColdLeadController extends Controller
         $meeting = LeadMeeting::with('reschedules', 'lead.segment')->findOrFail($meetingId);
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
-        
+
         // Get products with default segment pricing
         $segmentName = strtolower($meeting->lead->segment->name ?? '');
         $priceField = match ($segmentName) {
@@ -282,16 +282,16 @@ class ColdLeadController extends Controller
         $html .= '  </button>';
         $html .= '  <div class="dropdown-menu dropdown-menu-right rounded-lg!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($leadUrl) . '">
-            '.view('components.icon.detail')->render().'
+            ' . view('components.icon.detail')->render() . '
             View Lead Detail</a>';
         $activityUrl = route('leads.activity.logs', $row->lead_id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
-            '.view('components.icon.log')->render().'
+            ' . view('components.icon.log')->render() . '
         View / Add Activity Log</button>';
 
         if (! $meeting) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($setMeetUrl) . '">
-            '.view('components.icon.meeting')->render().'
+            ' . view('components.icon.meeting')->render() . '
             Set Meeting</a>';
         } else {
             $viewUrl       = route('leads.my.cold.meeting', $row->id);
@@ -324,7 +324,7 @@ class ColdLeadController extends Controller
 
         if (! $meeting) {
             $html .= '  <button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Move to Trash Lead</button>';
         }
         $html .= '  </div>';
