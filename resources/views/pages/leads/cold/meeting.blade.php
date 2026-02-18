@@ -677,7 +677,10 @@
                   </td>
                   <td class="text-center">
                     @if(!($isViewOnly ?? false))
-                      <button type="button" class="btn btn-sm btn-danger remove-expense">&times;</button>
+                      <button type="button" class="flex items-center justify-center w-full text-[#900B09] cursor-pointer font-semibold">
+                        @include('components.icon.trash', ['class' => 'text-[#900B09]'])
+                        Delete
+                      </button>
                     @endif
                   </td>
                 </tr>
@@ -686,7 +689,10 @@
             </table>
           </div>
           @if(!($isViewOnly ?? false))
-            <button type="button" id="add-expense" class="btn btn-sm btn-outline-primary mt-3">Add Expense</button>
+            <button type="button" id="add-expense" class="flex items-center w-full text-[#083224] cursor-pointer font-semibold mt-3 gap-3">
+              @include('components.icon.circle-plus', ['class' => 'text-[#083224]'])
+              More Expense
+            </button>
           @endif
         </div>
       </div>
