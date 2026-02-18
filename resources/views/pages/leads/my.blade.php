@@ -359,7 +359,7 @@
                 <table id="allLeadsTableNew" class="w-full">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
-                        <tr class="border-b">
+                        <tr class="border-b border-b-[#D9D9D9]">
                             <th class="hidden">ID (hidden)</th>
                             <th class="font-bold text-left p-3">Nama</th>
                             <th>Sales Name</th>
@@ -369,41 +369,46 @@
                             <th>Customer Type</th>
                             <th>City</th>
                             <th>Regional</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Action</th>
+                            <th class="text-center w-12.5">Status</th>
+                            <th class="text-center min-w-18.75">Action</th>
                         </tr>
                     </thead>
                     <tbody id="allBody"></tbody>
                 </table>
-
-                <div class="d-flex justify-content-between align-items-center my-2 px-3">
-                    <div>
-                        Show
-                        <select id="allPageSizeSelect" class="form-select form-select-sm d-inline-block w-auto ms-2" onchange="changePageSize('all', this.value)">
+                {{-- NAVIGATION ROWS --}}
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                    <div class="flex items-center gap-3">
+                        <p class="font-semibold">Show Rows</p>
+                        <select id="allPageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md" onchange="changePageSize('all', this.value)">
                             <option value="5">5</option>
                             <option value="10" selected>10</option>
                             <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
-                        rows
                     </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="allShowing">Showing 0-0 of 0</div>
-                        <button id="allPrevBtn" class="btn btn-sm btn-outline-secondary" onclick="goPrev('all')">&lt;</button>
-                        <button id="allNextBtn" class="btn btn-sm btn-outline-secondary" onclick="goNext('all')">&gt;</button>
+                    <div class="flex items-center gap-2">
+                        <div id="allShowing" class="font-semibold">Showing 0-0 of 0</div>
+                        <div>
+                            <button id="allPrevBtn" class="btn bg-white border! border-[#D9D9D9]!" onclick="goPrev('all')">
+                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                            </button>
+                            <button id="allNextBtn" class="btn bg-white border! border-[#D9D9D9]!" onclick="goNext('all')">
+                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            {{-- CONDITIONAL STAGE TABLE --}}
-            @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
+        </div>
+        {{-- CONDITIONAL STAGE TABLE --}}
+        @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
             <div data-tab-container="{{ $tab }}" class="leads-table-container">
                 <table id="{{ $tab }}LeadsTableNew" class="w-full">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
-                        <tr class="border-b">
+                        <tr class="border-b border-b-[#D9D9D9]">
                             <th class="hidden">ID (hidden)</th>
                             @if ($tab === 'cold')
                             <th class="font-bold text-left p-3">Nama</th>
@@ -414,12 +419,12 @@
                             <th>Customer Type</th>
                             <th>City</th>
                             <th>Regional</th>
-                            <th class="text-center">Status</th>
+                            <th class="text-left">Status</th>
                             @else
                             <th class="p-3">Claimed At</th>
                             <th>Lead Name</th>
                             <th>Industry</th>
-                            <th class="text-center">Status</th>
+                            <th class="text-left">Status</th>
                             @endif
                             <th class="text-center">
                                 Action
@@ -429,40 +434,44 @@
                     <tbody id="{{ $tab }}Body"></tbody>
                 </table>
 
-                <div class="d-flex justify-content-between align-items-center my-2">
-                    <div>
-                        Show
-                        <select id="{{ $tab }}PageSizeSelect" class="form-select form-select-sm d-inline-block w-auto ms-2" onchange="changePageSize('{{ $tab }}', this.value)">
+                {{-- NAVIGATION ROWS --}}
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                    <div class="flex items-center gap-3">
+                        <p class="font-semibold">Show Rows</p>
+                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md" onchange="changePageSize('{{ $tab }}', this.value)">
                             <option value="5">5</option>
                             <option value="10" selected>10</option>
                             <option value="25">25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
-                        rows
                     </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <div id="{{ $tab }}Showing">Showing 0-0 of 0</div>
-                        <button id="{{ $tab }}PrevBtn" class="btn btn-sm btn-outline-secondary" onclick="goPrev('{{ $tab }}')">&lt;</button>
-                        <button id="{{ $tab }}NextBtn" class="btn btn-sm btn-outline-secondary" onclick="goNext('{{ $tab }}')">&gt;</button>
+                    <div class="flex items-center gap-2">
+                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                        <div>
+                            <button id="{{ $tab }}PrevBtn" class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!" onclick="goPrev('{{ $tab }}')">
+                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                            </button>
+                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!" onclick="goNext('{{ $tab }}')">
+                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-            @endforeach
-        </div>
+        @endforeach
     </div>
+    
 </section>
 @endsection
 
 @section('scripts')
 <script>
-    
     // LEADS
     const DEFAULT_PAGE_SIZE = 10;
     const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
     const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
-
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -508,309 +517,218 @@
         if (tab === 'hot') loadHotLeads();
         if (tab === 'deal') loadDealLeads();
     }
+
     async function loadColdLeads() {
+        const page = pageState.cold || 1;
 
-    const response = await fetch("{{ route('leads.my.cold.list') }}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({
-            start_date: document.getElementById('filter_start')?.value,
-            end_date: document.getElementById('filter_end')?.value,
-            start: 0,
-            length: 100000,
-            draw: 1
-        })
-    });
+        const params = new URLSearchParams({
+            page: page,
+            start_date: document.getElementById('filter_start')?.value || '',
+            end_date: document.getElementById('filter_end')?.value || ''
+        });
 
+        const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            }
+        });
 
-    const result = await response.json();
-    console.log('loadColdLeads result:', result);
+        const result = await response.json();
 
-    const tbody = document.getElementById('coldBody');
+        console.log('loadColdLeads result:', result);
 
-    tbody.innerHTML = '';
+        const tbody = document.getElementById('coldBody');
+        tbody.innerHTML = '';
 
-    const total = (result.data || []).length;
-    updatePagerUI('cold', total);
-    const start = (pageState.cold - 1) * (pageSizeState.cold || DEFAULT_PAGE_SIZE);
-    const pageData = (result.data || []).slice(start, start + (pageSizeState.cold || DEFAULT_PAGE_SIZE));
+        updatePagerUI('cold', result.total);
 
-    pageData.forEach(row => {
+        result.data.forEach(row => {
 
-        let industry = 'Belum Diisi';
-
-        if (row.industry?.trim()) {
-            industry = row.industry;
-        } else if (row.lead?.other_industry?.trim()) {
-            industry = row.lead.other_industry;
-        }
-
-        tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.name}</td>
-                <td>${row.sales_name}</td>
-                <td>${row.phone}</td>
-                <td>${row.source}</td>
-                <td>${row.needs}</td>
-                <td>${industry}</td>
-                <td>${row.city_name}</td>
-                <td>${row.regional_name}</td>
-                <td class="text-center">${row.meeting_status}</td>
-                <td class="text-center">${row.actions}</td>
-            </tr>
-        `;
-    });
+            tbody.innerHTML += `
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.name}</td>
+                    <td>${row.sales_name}</td>
+                    <td>${row.phone}</td>
+                    <td>${row.source}</td>
+                    <td>${row.needs}</td>
+                    <td>${row.industry}</td>
+                    <td>${row.city_name}</td>
+                    <td>${row.regional_name}</td>
+                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-center">${row.actions}</td>
+                </tr>
+            `;
+        });
 }
 
     async function loadAllLeads() {
-    const endpoints = [
-        { url: "{{ route('leads.my.cold.list') }}", status: 'cold' },
-        { url: "{{ route('leads.my.warm.list') }}", status: 'warm' },
-        { url: "{{ route('leads.my.hot.list') }}", status: 'hot' },
-        { url: "{{ route('leads.my.deal.list') }}", status: 'deal' }
-    ];
+    const page = pageState.all || 1;
+    const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
 
-    const token = '{{ csrf_token() }}';
+    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}`);
 
-    const fetches = endpoints.map(e =>
-        fetch(e.url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': token
-            },
-            body: JSON.stringify({
-                start_date: document.getElementById('filter_start')?.value,
-                end_date: document.getElementById('filter_end')?.value,
-                start: 0,
-                length: 100000,
-                draw: 1
-            })
-        }).then(r => r.json()).then(json => ({ status: e.status, data: json.data || [] })).catch(() => ({ status: e.status, data: [] }))
-    );
+    const result = await response.json();
 
-    const results = await Promise.all(fetches);
-
-    // normalize and merge
-    const merged = [];
-    results.forEach(result => {
-        result.data.forEach(row => {
-            let industry = 'Belum Diisi';
-            if (row.industry && row.industry.trim() !== '' && row.industry.trim() !== '-') {
-                industry = row.industry;
-            } else if (row.lead && row.lead.other_industry && row.lead.other_industry.trim() !== '') {
-                industry = row.lead.other_industry;
-            }
-
-            merged.push({
-                id: row.id || 0,
-                name: row.name || row.lead_name || '',
-                sales_name: row.sales_name || '',
-                phone: row.phone || '',
-                source: row.source || row.source_name || '',
-                needs: row.needs || '',
-                customer_type: row.customer_type || '',
-                industry: industry,
-                city_name: row.city_name || '',
-                regional_name: row.regional_name || '',
-                status: result.status,
-                actions: row.actions || ''
-            });
-        });
-    });
-
-    // sort by id desc
-    merged.sort((a, b) => (b.id || 0) - (a.id || 0));
-
-    const total = merged.length;
-    updatePagerUI('all', total);
-    const start = (pageState.all - 1) * (pageSizeState.all || DEFAULT_PAGE_SIZE);
-    const pageData = merged.slice(start, start + (pageSizeState.all || DEFAULT_PAGE_SIZE));
+    updatePagerUI('all', result.total);
 
     const tbody = document.getElementById('allBody');
     tbody.innerHTML = '';
 
-    pageData.forEach(row => {
+    result.data.forEach(row => {
+
+        const industry =
+            row.lead?.industry?.name ??
+            row.lead?.other_industry ??
+            '-';
+
         tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.name}</td>
-                <td>${row.sales_name}</td>
-                <td>${row.phone}</td>
-                <td>${row.source}</td>
-                <td>${row.needs}</td>
-                <td>${row.customer_type || row.industry}</td>
-                <td>${row.city_name}</td>
-                <td>${row.regional_name}</td>
-                <td class="text-center capitalize">
-                    <span class="p-2 rounded-lg
-                    ${
-                        row.status === 'cold' ? 'status-cold' :
-                        row.status === 'warm' ? 'status-warm' :
-                        row.status === 'hot' ? 'status-hot' :
-                        'status-deal'
-                    }">
-                        ${row.status}
-                    </span>
-                </td>
-                <td class="text-center">${row.actions}</td>
-            </tr>
+        <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
+            <td class="hidden">${row.id}</td>
+            <td class="p-3 font-medium">${row.lead?.name ?? ''}</td>
+            <td>${row.sales?.name ?? '-'}</td>
+            <td>${row.lead?.phone ?? ''}</td>
+            <td>${row.lead?.source?.name ?? ''}</td>
+            <td>${row.lead?.needs ?? ''}</td>
+            <td>${industry}</td>
+            <td>${row.lead?.region?.name ?? ''}</td>
+            <td>${row.lead?.region?.regional?.name ?? ''}</td>
+            <td class="text-center capitalize">
+                <span class="block px-2 py-1 rounded-sm
+                ${
+                        row.lead?.status?.name === 'Cold' ? 'status-cold' :
+                        row.lead?.status?.name === 'Warm' ? 'status-warm' :
+                        row.lead?.status?.name === 'Hot' ? 'status-hot' :
+                        row.lead?.status?.name === 'Deal' ? 'status-deal' :
+                        ''
+                }
+                ">
+                    ${row.lead?.status?.name ?? ''}
+                </span>
+            </td>
+            <td class="text-center">
+                ${row.actions ?? '-'}
+            </td>
+        </tr>
         `;
     });
 }
 
     async function loadWarmLeads() {
-    const response = await fetch("{{ route('leads.my.warm.list') }}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({
-            start_date: document.getElementById('filter_start')?.value,
-            end_date: document.getElementById('filter_end')?.value,
-            start: 0,
-            length: 100000,
-            draw: 1
-        })
-    });
+        const page = pageState.warm || 1;
 
-    const result = await response.json();
+        const params = new URLSearchParams({
+            page: page,
+            start_date: document.getElementById('filter_start')?.value || '',
+            end_date: document.getElementById('filter_end')?.value || ''
+        });
 
-    const tbody = document.getElementById('warmBody');
+        const response = await fetch(`{{ route('leads.my.warm.list') }}?${params.toString()}`, {
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            }
+        });
 
-    tbody.innerHTML = '';
+        const result = await response.json();
 
-    const total = (result.data || []).length;
-    updatePagerUI('warm', total);
-    const start = (pageState.warm - 1) * (pageSizeState.warm || DEFAULT_PAGE_SIZE);
-    const pageData = (result.data || []).slice(start, start + (pageSizeState.warm || DEFAULT_PAGE_SIZE));
+        console.log('loadWarmLeads result:', result);
 
-    pageData.forEach(row => {
+        const tbody = document.getElementById('warmBody');
+        tbody.innerHTML = '';
 
-        let industry = 'Belum Diisi';
+        updatePagerUI('warm', result.total);
 
-        if (row.industry?.trim()) {
-            industry = row.industry;
-        } else if (row.lead?.other_industry?.trim()) {
-            industry = row.lead.other_industry;
-        }
+        result.data.forEach(row => {
 
-        tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.claimed_at}</td>
-                <td>${row.lead_name}</td>
-                <td>${industry}</td>
-                <td>${row.meeting_status}</td>
-                <td>${row.actions}</td>
-            </tr>
-        `;
-    });
+            tbody.innerHTML += `
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${row.industry}</td>
+                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-center">${row.actions}</td>
+                </tr>
+            `;
+        });
 }
     
     async function loadHotLeads() {
-    const response = await fetch("{{ route('leads.my.hot.list') }}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({
-            start_date: document.getElementById('filter_start')?.value,
-            end_date: document.getElementById('filter_end')?.value,
-            start: 0,
-            length: 100000,
-            draw: 1
-        })
-    });
+        const page = pageState.hot || 1;
 
-    const result = await response.json();
+        const params = new URLSearchParams({
+            page: page,
+            start_date: document.getElementById('filter_start')?.value || '',
+            end_date: document.getElementById('filter_end')?.value || ''
+        });
 
-    const tbody = document.getElementById('hotBody');
+        const response = await fetch(`{{ route('leads.my.hot.list') }}?${params.toString()}`, {
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            }
+        });
 
-    tbody.innerHTML = '';
+        const result = await response.json();
 
-    const total = (result.data || []).length;
-    updatePagerUI('hot', total);
-    const start = (pageState.hot - 1) * (pageSizeState.hot || DEFAULT_PAGE_SIZE);
-    const pageData = (result.data || []).slice(start, start + (pageSizeState.hot || DEFAULT_PAGE_SIZE));
+        console.log('loadHotLeads result:', result);
 
-    pageData.forEach(row => {
+        const tbody = document.getElementById('hotBody');
+        tbody.innerHTML = '';
 
-        let industry = 'Belum Diisi';
+        updatePagerUI('hot', result.total);
 
-        if (row.industry?.trim()) {
-            industry = row.industry;
-        } else if (row.lead?.other_industry?.trim()) {
-            industry = row.lead.other_industry;
-        }
+        result.data.forEach(row => {
 
-        tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.claimed_at}</td>
-                <td>${row.lead_name}</td>
-                <td>${industry}</td>
-                <td>${row.meeting_status}</td>
-                <td>${row.actions}</td>
-            </tr>
-        `;
-    });
+            tbody.innerHTML += `
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${row.industry_name}</td>
+                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-center">${row.actions}</td>
+                </tr>
+            `;
+        });
     }
 
     async function loadDealLeads() {
-    const response = await fetch("{{ route('leads.my.deal.list') }}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({
-            start_date: document.getElementById('filter_start')?.value,
-            end_date: document.getElementById('filter_end')?.value,
-            start: 0,
-            length: 100000,
-            draw: 1
-        })
-    });
+        const page = pageState.deal || 1;
 
-    const result = await response.json();
+        const params = new URLSearchParams({
+            page: page,
+            start_date: document.getElementById('filter_start')?.value || '',
+            end_date: document.getElementById('filter_end')?.value || ''
+        });
 
-    const tbody = document.getElementById('dealBody');
+        const response = await fetch(`{{ route('leads.my.deal.list') }}?${params.toString()}`, {
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+            }
+        });
 
-    tbody.innerHTML = '';
+        const result = await response.json();
 
-    const total = (result.data || []).length;
-    updatePagerUI('deal', total);
-    const start = (pageState.deal - 1) * (pageSizeState.deal || DEFAULT_PAGE_SIZE);
-    const pageData = (result.data || []).slice(start, start + (pageSizeState.deal || DEFAULT_PAGE_SIZE));
+        console.log('loadDealLeads result:', result);
 
-    pageData.forEach(row => {
+        const tbody = document.getElementById('dealBody');
+        tbody.innerHTML = '';
 
-        let industry = 'Belum Diisi';
+        updatePagerUI('deal', result.total);
 
-        if (row.industry?.trim()) {
-            industry = row.industry;
-        } else if (row.lead?.other_industry?.trim()) {
-            industry = row.lead.other_industry;
-        }
+        result.data.forEach(row => {
 
-        tbody.innerHTML += `
-            <tr class="border-b">
-                <td class="hidden">${row.id}</td>
-                <td class="p-3">${row.claimed_at}</td>
-                <td>${row.lead_name}</td>
-                <td>${industry}</td>
-                <td>${row.meeting_status}</td>
-                <td>${row.actions}</td>
-            </tr>
-        `;
-    });
+            tbody.innerHTML += `
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td>${row.lead_name}</td>
+                    <td>${row.industry_name}</td>
+                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-center">${row.actions}</td>
+                </tr>
+            `;
+        });
     }
 
     function initLeadTable(selector, route, type = 'default') {
@@ -922,7 +840,7 @@
                 serverSide: true,
                 ajax: {
                     url: route,
-                    type: 'POST',
+                    type: 'GET',
                     data: function(d) {
                         d._token = '{{ csrf_token() }}';
                         d.start_date = $('#filter_start').val();
@@ -1253,5 +1171,10 @@
     .leads-table-container {
         display: block;
     }
+
+    .bi-three-dots::before {
+        -webkit-text-stroke: 0.6px;
+    }
+
 </style>
 @endsection

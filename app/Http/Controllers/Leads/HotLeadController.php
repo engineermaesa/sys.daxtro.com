@@ -32,87 +32,81 @@ class HotLeadController extends Controller
             });
         }
 
-        // If the request expects JSON (API / Postman), return a plain JSON payload.
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $items = $claims->get()->map(function ($row) {
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_id' => $row->lead->id,
-                    'lead_name' => $row->lead->name,
-                    'sales_id' => $row->sales->id ?? null,
-                    'sales_name' => $row->sales->name ?? null,
-                    'phone' => $row->lead->phone,
-                    'needs' => $row->lead->needs,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'meeting_status' => 'Hot',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                    'quotation' => $row->lead->quotation ? [
-                        'id' => $row->lead->quotation->id,
-                    ] : null,
-                ];
-            });
+        $page = $request->input('page', 1);
+        $perPage = 10;
 
-            return response()->json([
-                'data' => $items,
-                'count' => $items->count(),
-            ], 200);
+        $claims = $claims->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        $data = $claims->map(function ($row) {
+
+            return [
+                'id' => $row->id,
+                'claimed_at' => $row->claimed_at,
+                'lead_name' => $row->lead->name ?? '',
+                'sales_name' => $row->sales->name ?? '-',
+                'phone' => $row->lead->phone ?? '-',
+                'segment_name' => $row->lead->segment->name ?? '',
+                'industry_name' => $row->lead->industry->name ?? null,
+                'other_industry' => $row->lead->other_industry ?? null,
+
+                // helper
+                'meeting_status' => '<span class="status-expired">Hot</span>',
+                'actions' => $this->hotActions($row),
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+            'current_page' => $claims->currentPage(),
+            'last_page' => $claims->lastPage(),
+            'total' => $claims->total(),
+        ]);
+    }
+
+    protected function hotActions($row)
+    {
+        $quotation = $row->lead->quotation;
+        $viewUrl   = route('leads.manage.form', $row->lead->id);
+        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+
+        $btnId = 'hotActionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"'
+            . ' type="button" id="' . $btnId . '"'
+            . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
+            . '
+            '.view('components.icon.detail')->render().'
+            View Lead</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead->id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
+        '.view('components.icon.log')->render().' 
+        View / Add Activity Log</button>';
+
+        if (! $quotation) {
+            $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
+                . '
+                <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+        } else {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
+                . '    
+                '.view('components.icon.view-quotation')->render().'
+                View Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
+                . '    
+                '.view('components.icon.download').' 
+                Download</a>';
         }
 
-        // Fallback to original DataTables response for web UI
-        return DataTables::of($claims)
-            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
-            ->addColumn('phone', fn($row) => $row->lead->phone)
-            ->addColumn('needs', fn($row) => $row->lead->needs)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
-            ->addColumn('meeting_status', fn() => '<span class="badge bg-danger">Hot</span>')
-            ->addColumn('industry', function ($row) {
-                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
-            })
-            ->addColumn('actions', function ($row) {
-                $quotation = $row->lead->quotation;
-                $viewUrl   = route('leads.manage.form', $row->lead->id);
-                $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
-                $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+        $html .= '  </div>';
+        $html .= '</div>';
 
-                $btnId = 'hotActionsDropdown' . $row->id;
-
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle"'
-                    . ' type="button" id="' . $btnId . '"'
-                    . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">'
-                    . '      <i class="bi bi-eye mr-2"></i> View Lead</a>';
-                $activityUrl = route('leads.activity.logs', $row->lead->id);
-                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
-
-                if (! $quotation) {
-                    $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
-                        . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
-                } else {
-                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '">'
-                        . '    <i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    $html .= '  <a class="dropdown-item" href="' . e($downloadUrl) . '">'
-                        . '    <i class="bi bi-download mr-2"></i> Download</a>';
-                }
-
-                $html .= '  </div>';
-                $html .= '</div>';
-
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->make(true);
+        return $html;
     }
 }

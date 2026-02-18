@@ -128,6 +128,7 @@ Route::group([
     // FOR MY LEADS (API)
     Route::prefix('my')->name('my.')->group(function () {
         Route::get('/', [LeadController::class, 'my'])->name('index');
+        Route::get('/all', [LeadController::class, 'myAllList'])->name('all');
         Route::get('/form/{id?}', [LeadController::class, 'form'])->name('form');
 
         Route::prefix('cold')->name('cold.')->group(function () {

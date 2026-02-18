@@ -41,153 +41,38 @@ class ColdLeadController extends Controller
             });
         }
 
+        $page = $request->input('page', 1);
+        $perPage = 10;
 
-        // If called via API (Postman), return plain JSON payload
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $items = $claims->get()->map(function ($row) {
-                $meeting = $row->lead->meetings()->latest()->first();
+        $claims = $claims->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
 
-                return [
-                    'id' => $row->id,
-                    'lead_id' => $row->lead_id,
-                    'name' => $row->lead->name,
-                    'sales_name' => $row->sales->name ?? null,
-                    'phone' => $row->lead->phone,
-                    'source' => $row->lead->source->name ?? null,
-                    'needs' => $row->lead->needs,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
-                    'meeting' => $meeting ? [
-                        'id' => $meeting->id,
-                        'scheduled_end_at' => $meeting->scheduled_end_at,
-                        'is_online' => $meeting->is_online,
-                        'expense_status' => $meeting->expense->status ?? null,
-                        'reschedules_count' => $meeting->reschedules()->count(),
-                        'result' => $meeting->result,
-                    ] : null,
-                ];
-            });
+        $data = $claims->map(function ($row) {
 
-            return response()->json(['data' => $items]);
-        }
+            $meeting = $row->lead->meetings()->latest()->first();
 
-        return DataTables::of($claims)
-            ->addColumn('name', fn($row) => $row->lead->name)
-            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
-            ->addColumn('phone', fn($row) => $row->lead->phone)
-            ->addColumn('source', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('needs', fn($row) => $row->lead->needs)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
-            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
-            ->addColumn('industry', function ($row) {
-                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
-            })
-            ->addColumn('meeting_status', function ($row) {
-                $meeting = $row->lead->meetings()->latest()->first();
+            return [
+                'id' => $row->id,
+                'name' => $row->lead->name,
+                'sales_name' => $row->sales->name ?? '-',
+                'phone' => $row->lead->phone,
+                'source' => $row->lead->source->name ?? '-',
+                'needs' => $row->lead->needs,
+                'segment_name' => $row->lead->segment->name ?? '',
+                'city_name' => $row->lead->region->name ?? 'All Regions',
+                'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                'meeting_status' => $this->coldMeetingStatus($meeting),
+                'actions' => $this->coldActions($row),
+            ];
+        });
 
-                if (!$meeting) {
-                    return '<span class="badge bg-secondary">Not Scheduled</span>';
-                }
-
-                $scheduledEnd = \Carbon\Carbon::parse($meeting->scheduled_end_at);
-                $isExpired = $scheduledEnd->copy()->addDays(30) < now();
-                $isFinished = $scheduledEnd < now();
-
-                $expiredBadge = $isExpired ? '<span class="badge bg-dark mr-1">Expired</span>' : '';
-                $finishedBadge = (!$isExpired && $isFinished) ? '<span class="badge bg-success mr-1">Finished</span>' : '';
-
-                // If offline + ada expense
-                if ($meeting->expense && $meeting->is_online == 0) {
-                    if ($meeting->expense->status === 'submitted') {
-                        return $expiredBadge . '<span class="badge bg-warning">Awaiting Finance Approval</span>';
-                    } elseif ($meeting->expense->status === 'rejected') {
-                        $note = $meeting->expense->financeRequest?->notes;
-                        $html = $expiredBadge . '<span class="badge bg-danger">Rejected by Finance</span>';
-                        if ($note) {
-                            $html .= '<div class="text-danger small mt-1"><i class="bi bi-info-circle-fill"></i> ' . e($note) . '</div>';
-                        }
-                        return $html;
-                    }
-                }
-
-                // Jika pernah dijadwal ulang
-                if ($meeting->reschedules()->count() > 0) {
-                    return $expiredBadge . $finishedBadge . '<span class="badge bg-info">Rescheduled (' . $meeting->reschedules->count() . 'x)</span>';
-                }
-
-                if ($meeting->result === 'waiting') {
-                    return $expiredBadge . $finishedBadge . '<span class="badge bg-info">Waiting for Consideration</span>';
-                }
-
-                // Tampilkan "Meeting Set" hanya jika belum expired
-                if (!$isExpired && !$isFinished) {
-                    return '<span class="badge bg-info">Meeting Set</span>';
-                }
-
-                // Jika expired atau selesai tapi tidak punya status khusus
-                return $expiredBadge . $finishedBadge;
-            })
-            ->addColumn('actions', function ($row) {
-                $meeting     = $row->lead->meetings()->latest()->first();
-                $leadUrl     = route('leads.my.cold.manage', $row->lead_id);
-                $trashUrl    = route('leads.my.cold.trash', $row->id);
-                $setMeetUrl  = route('leads.my.cold.meeting', $row->id);
-                $btnId       = 'actionsDropdown' . $row->id;
-
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($leadUrl) . '"><i class="bi bi-eye mr-2"></i> View Lead</a>';
-                $activityUrl = route('leads.activity.logs', $row->lead_id);
-                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
-
-                if (! $meeting) {
-                    $html .= '  <a class="dropdown-item" href="' . e($setMeetUrl) . '"><i class="bi bi-calendar-plus mr-2"></i> Set Meeting</a>';
-                } else {
-                    $viewUrl       = route('leads.my.cold.meeting', $row->id);
-                    $rescheduleUrl = route('leads.my.cold.meeting.reschedule', $meeting->id);
-                    $resultUrl     = route('leads.my.cold.meeting.result', $meeting->id);
-                    $cancelUrl     = route('leads.my.cold.meeting.cancel', $meeting->id);
-
-                    $html .= '  <a class="dropdown-item" href="' . e($viewUrl) . '"><i class="bi bi-calendar-event mr-2"></i> View Meeting</a>';
-
-                    // Cancel condition
-                    if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled']) && is_null($meeting->result)) {
-                        $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
-                            . '    <i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
-                    }
-
-                    // Reschedule condition
-                    $canSetResult = $meeting->is_online || ($meeting->expense && $meeting->expense->status === 'approved');
-                    $canReschedule = !$canSetResult
-                        && optional($meeting->expense)->status !== 'submitted';
-
-                    if ($canReschedule) {
-                        $html .= '  <a class="dropdown-item" href="' . e($rescheduleUrl) . '"><i class="bi bi-arrow-repeat mr-2"></i> Reschedule</a>';
-                    }
-
-                    // Set Result condition
-                    if (now()->gt($meeting->scheduled_end_at) && ($meeting->result === null || $meeting->result === 'waiting') && $canSetResult) {
-                        $html .= '  <a class="dropdown-item text-success" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
-                    }
-                }
-
-                if (! $meeting) {
-                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($trashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
-                }
-                $html .= '  </div>';
-                $html .= '</div>';
-
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->orderColumn('id', 'id $1')
-            ->make(true);
+        return response()->json([
+            'data' => $data,
+            'current_page' => $claims->currentPage(),
+            'last_page' => $claims->lastPage(),
+            'total' => $claims->total(),
+        ]);
     }
 
     public function meeting(Request $request, $claimId)
@@ -374,5 +259,126 @@ class ColdLeadController extends Controller
         );
 
         return $this->setJsonResponse('Lead saved successfully');
+    }
+
+    protected function coldActions($row)
+    {
+        $meeting     = $row->lead->meetings()->latest()->first();
+        $leadUrl     = route('leads.my.cold.manage', $row->lead_id);
+        $trashUrl    = route('leads.my.cold.trash', $row->id);
+        $setMeetUrl  = route('leads.my.cold.meeting', $row->id);
+        $btnId       = 'actionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right rounded-lg!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($leadUrl) . '">
+            '.view('components.icon.detail')->render().'
+            View Lead Detail</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead_id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
+            '.view('components.icon.log')->render().'
+        View / Add Activity Log</button>';
+
+        if (! $meeting) {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($setMeetUrl) . '">
+            '.view('components.icon.meeting')->render().'
+            Set Meeting</a>';
+        } else {
+            $viewUrl       = route('leads.my.cold.meeting', $row->id);
+            $rescheduleUrl = route('leads.my.cold.meeting.reschedule', $meeting->id);
+            $resultUrl     = route('leads.my.cold.meeting.result', $meeting->id);
+            $cancelUrl     = route('leads.my.cold.meeting.cancel', $meeting->id);
+
+            $html .= '  <a class="dropdown-item" href="' . e($viewUrl) . '"><i class="bi bi-calendar-event mr-2"></i> View Meeting</a>';
+
+            // Cancel condition
+            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled']) && is_null($meeting->result)) {
+                $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
+                    . '    <i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
+            }
+
+            // Reschedule condition
+            $canSetResult = $meeting->is_online || ($meeting->expense && $meeting->expense->status === 'approved');
+            $canReschedule = !$canSetResult
+                && optional($meeting->expense)->status !== 'submitted';
+
+            if ($canReschedule) {
+                $html .= '  <a class="dropdown-item" href="' . e($rescheduleUrl) . '"><i class="bi bi-arrow-repeat mr-2"></i> Reschedule</a>';
+            }
+
+            // Set Result condition
+            if (now()->gt($meeting->scheduled_end_at) && ($meeting->result === null || $meeting->result === 'waiting') && $canSetResult) {
+                $html .= '  <a class="dropdown-item text-success" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
+            }
+        }
+
+        if (! $meeting) {
+            $html .= '  <button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-url="' . e($trashUrl) . '">
+            '.view('components.icon.trash')->render().'
+            Move to Trash Lead</button>';
+        }
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    protected function coldMeetingStatus($meeting)
+    {
+        if (!$meeting) {
+            return '<span class="status-grey">Not Scheduled</span>';
+        }
+
+        $scheduledEnd = \Carbon\Carbon::parse($meeting->scheduled_end_at);
+
+        $isExpired  = $scheduledEnd->copy()->addDays(30) < now();
+        $isFinished = $scheduledEnd < now();
+
+        $expiredBadge = $isExpired ? '<span class="status-expired">Expired</span>' : '';
+        $finishedBadge = (!$isExpired && $isFinished)
+            ? '<span class="status-finish">Finished</span>'
+            : '';
+
+        // Offline + expense
+        if ($meeting->expense && $meeting->is_online == 0) {
+
+            if ($meeting->expense->status === 'submitted') {
+                return $expiredBadge . '<span class="status-waiting">Awaiting Finance Approval</span>';
+            }
+
+            if ($meeting->expense->status === 'rejected') {
+                $note = $meeting->expense->financeRequest?->notes;
+
+                $html = $expiredBadge . '<span class="status-expired">Rejected by Finance</span>';
+
+                if ($note) {
+                    $html .= '<div class="text-danger small mt-1">' . e($note) . '</div>';
+                }
+
+                return $html;
+            }
+        }
+
+        // Reschedule
+        if ($meeting->reschedules()->count() > 0) {
+            return $expiredBadge
+                . $finishedBadge
+                . '<span class="status-waiting">Rescheduled (' . $meeting->reschedules()->count() . 'x)</span>';
+        }
+
+        if ($meeting->result === 'waiting') {
+            return $expiredBadge
+                . $finishedBadge
+                . '<span class="status-waiting">Waiting for Consideration</span>';
+        }
+
+        if (!$isExpired && !$isFinished) {
+            return '<span class="status-finish">Meeting Set</span>';
+        }
+
+        return $expiredBadge . $finishedBadge;
     }
 }

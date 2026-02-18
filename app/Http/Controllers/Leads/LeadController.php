@@ -1549,4 +1549,281 @@ class LeadController extends Controller
             ->rawColumns(['meeting_status', 'actions'])
             ->make(true);
     }
+
+    public function myAllList(Request $request)
+    {
+        AutoTrashService::triggerIfNeeded();
+
+        $user = $request->user();
+
+        $perPage = $request->get('per_page', 10);
+
+        $claims = LeadClaim::with([
+            'lead.status',
+            'lead.segment',
+            'lead.source',
+            'lead.region.regional',
+            'lead.quotation',
+            'lead.industry',
+            'sales'
+        ])->whereNull('released_at');
+
+        // Role filter
+        if ($user->role?->code === 'sales') {
+            $claims->where('sales_id', $user->id);
+        }
+
+        // OPTIONAL: status filter dari frontend
+        if ($request->filled('status')) {
+            $claims->whereHas('lead', fn($q) =>
+                $q->where('status_id', $request->status)
+            );
+        }
+
+        $paginated = $claims
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $paginated->getCollection()->transform(function ($row) {
+
+            $status = $row->lead?->status?->name;
+
+            switch ($status) {
+                case 'Cold':
+                    $row->actions = $this->coldActions($row);
+                    break;
+
+                case 'Warm':
+                    $row->actions = $this->warmActions($row);
+                    break;
+
+                case 'Hot':
+                    $row->actions = $this->hotActions($row);
+                    break;
+
+                case 'Deal':
+                    $row->actions = $this->dealActions($row);
+                    break;
+
+                default:
+                    $row->actions = '-';
+            }
+            return $row;
+        });
+
+        return response()->json([
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+        ]);
+
+        // return DataTables::of($claims)
+        //     ->addColumn('lead_name', fn($r) => $r->lead->name)
+        //     ->addColumn('sales_name', fn($r) => $r->sales->name ?? '-')
+        //     ->addColumn('status', fn($r) => $r->lead->status->name ?? '-')
+        //     ->addColumn('phone', fn($r) => $r->lead->phone)
+        //     ->make(true);
+    }
+
+    protected function coldActions($row)
+    {
+        $meeting     = $row->lead->meetings()->latest()->first();
+        $leadUrl     = route('leads.my.cold.manage', $row->lead_id);
+        $trashUrl    = route('leads.my.cold.trash', $row->id);
+        $setMeetUrl  = route('leads.my.cold.meeting', $row->id);
+        $btnId       = 'actionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right rounded-lg!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($leadUrl) . '">
+            '.view('components.icon.detail')->render().'
+            View Lead Detail</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead_id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
+            '.view('components.icon.log')->render().'
+        View / Add Activity Log</button>';
+
+        if (! $meeting) {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($setMeetUrl) . '">
+            '.view('components.icon.meeting')->render().'
+            Set Meeting</a>';
+        } else {
+            $viewUrl       = route('leads.my.cold.meeting', $row->id);
+            $rescheduleUrl = route('leads.my.cold.meeting.reschedule', $meeting->id);
+            $resultUrl     = route('leads.my.cold.meeting.result', $meeting->id);
+            $cancelUrl     = route('leads.my.cold.meeting.cancel', $meeting->id);
+
+            $html .= '  <a class="dropdown-item" href="' . e($viewUrl) . '"><i class="bi bi-calendar-event mr-2"></i> View Meeting</a>';
+
+            // Cancel condition
+            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled']) && is_null($meeting->result)) {
+                $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
+                    . '    <i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
+            }
+
+            // Reschedule condition
+            $canSetResult = $meeting->is_online || ($meeting->expense && $meeting->expense->status === 'approved');
+            $canReschedule = !$canSetResult
+                && optional($meeting->expense)->status !== 'submitted';
+
+            if ($canReschedule) {
+                $html .= '  <a class="dropdown-item" href="' . e($rescheduleUrl) . '"><i class="bi bi-arrow-repeat mr-2"></i> Reschedule</a>';
+            }
+
+            // Set Result condition
+            if (now()->gt($meeting->scheduled_end_at) && ($meeting->result === null || $meeting->result === 'waiting') && $canSetResult) {
+                $html .= '  <a class="dropdown-item text-success" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
+            }
+        }
+
+        if (! $meeting) {
+            $html .= '  <button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-url="' . e($trashUrl) . '">
+            '.view('components.icon.trash')->render().'
+            Move to Trash Lead</button>';
+        }
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+    protected function warmActions($row)
+    {
+        $quotation = $row->lead->quotation;
+        $viewUrl   = route('leads.my.warm.manage', $row->lead->id);
+        $createUrl = route('leads.my.warm.quotation.create', $row->id);
+        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+        $trashUrl   = route('leads.my.warm.trash', $row->id);
+
+        $btnId = 'warmActionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"'
+            . ' type="button" id="' . $btnId . '"'
+            . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
+            . '      '.view('components.icon.detail')->render().' View Lead</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead->id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
+        '.view('components.icon.log')->render().' View / Add Activity</button>';
+
+        if (! $quotation) {
+            $html .= '  <a class="dropdown-item" href="' . e($createUrl) . '">'
+                . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+        } else {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
+                . '    '.view('components.icon.view-quotation')->render().' View Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
+                . '    '.view('components.icon.download')->render().' Download</a>';
+            $logUrl = route('quotations.logs', $quotation->id);
+            $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
+            '. view('components.icon.quotation-log')->render().' Quotation Log</button>';
+        }
+
+        if (! $quotation || $quotation->status !== 'published') {
+            $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
+            '.view('components.icon.trash')->render().'
+            Trash Lead</button>';
+        }
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+    protected function hotActions($row)
+    {
+        $quotation = $row->lead->quotation;
+        $viewUrl   = route('leads.manage.form', $row->lead->id);
+        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+
+        $btnId = 'hotActionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"'
+            . ' type="button" id="' . $btnId . '"'
+            . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
+            . '
+            '.view('components.icon.detail')->render().'
+            View Lead</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead->id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
+        '.view('components.icon.log')->render().' 
+        View / Add Activity Log</button>';
+
+        if (! $quotation) {
+            $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
+                . '
+                <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+        } else {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
+                . '    
+                '.view('components.icon.view-quotation')->render().'
+                View Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
+                . '    
+                '.view('components.icon.download').' 
+                Download</a>';
+        }
+
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+    protected function dealActions($row)
+    {
+        $quotation = $row->lead->quotation;
+        $viewUrl   = route('leads.manage.form', $row->lead->id);
+        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+
+        $btnId = 'dealActionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"'
+            . ' type="button" id="' . $btnId . '"'
+            . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
+            . '
+            '.view('components.icon.detail')->render().'
+            View Lead</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead->id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
+        '.view('components.icon.log')->render().'
+        View / Add Activity</button>';
+
+        if (! $quotation) {
+            $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
+                . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+        } else {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
+                . '    
+                '.view('components.icon.view-quotation')->render().'
+                View Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
+                . '    
+                '.view('components.icon.download').' 
+                Download</a>';
+        }
+
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
 }

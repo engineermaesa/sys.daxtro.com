@@ -89,7 +89,6 @@ Route::middleware('auth')->group(function () {
             Route::get('/form/{id?}', 'LeadController@form')->name('leads.my.form');
 
             Route::prefix('cold')->name('leads.my.cold.')->group(function () {
-                Route::post('/list', 'ColdLeadController@myColdList')->name('list');
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
                 Route::get('meeting/{claim}', 'ColdLeadController@meeting')->name('meeting');
                 Route::get('meeting/{id}/reschedule', 'ColdLeadController@reschedule')->name('meeting.reschedule');
@@ -101,16 +100,11 @@ Route::middleware('auth')->group(function () {
             });
 
             Route::prefix('warm')->name('leads.my.warm.')->group(function () {
-                Route::post('/list', 'WarmLeadController@myWarmList')->name('list');
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
                 Route::get('quotation/{claim}', 'WarmLeadController@createQuotation')->name('quotation.create');
                 Route::post('quotation/{claim}', 'WarmLeadController@storeQuotation')->name('quotation.store');
                 Route::post('trash/{claim}', 'WarmLeadController@trash')->name('trash');
             });
-
-            Route::post('hot/list', 'HotLeadController@myHotList')->name('leads.my.hot.list');
-            Route::post('deal/list', 'DealLeadController@myDealList')->name('leads.my.deal.list');
-            Route::post('counts', 'LeadController@myCounts')->name('leads.my.counts');
         });
     });
 

@@ -33,7 +33,7 @@
 
                 <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg"> <path id="leadsIcon" d="M2 16.85C2.9 15.9667 3.94583 15.2708 5.1375 14.7625C6.32917 14.2542 7.61667 14 9 14C10.3833 14 11.6708 14.2542 12.8625 14.7625C14.0542 15.2708 15.1 15.9667 16 16.85V4H2V16.85ZM9 12C8.03333 12 7.20833 11.6583 6.525 10.975C5.84167 10.2917 5.5 9.46667 5.5 8.5C5.5 7.53333 5.84167 6.70833 6.525 6.025C7.20833 5.34167 8.03333 5 9 5C9.96667 5 10.7917 5.34167 11.475 6.025C12.1583 6.70833 12.5 7.53333 12.5 8.5C12.5 9.46667 12.1583 10.2917 11.475 10.975C10.7917 11.6583 9.96667 12 9 12ZM2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V4C0 3.45 0.195833 2.97917 0.5875 2.5875C0.979167 2.19583 1.45 2 2 2H3V1C3 0.716667 3.09583 0.479167 3.2875 0.2875C3.47917 0.0958333 3.71667 0 4 0C4.28333 0 4.52083 0.0958333 4.7125 0.2875C4.90417 0.479167 5 0.716667 5 1V2H13V1C13 0.716667 13.0958 0.479167 13.2875 0.2875C13.4792 0.0958333 13.7167 0 14 0C14.2833 0 14.5208 0.0958333 14.7125 0.2875C14.9042 0.479167 15 0.716667 15 1V2H16C16.55 2 17.0208 2.19583 17.4125 2.5875C17.8042 2.97917 18 3.45 18 4V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2Z" fill="#0D0F11"/> </svg>
                 <span id="leadsSpan" class="text-[#010508] font-semibold text-lg">Leads</span>
-                <i id="chevronLeadsMenu" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+                <i id="chevronLeadsMenu" class="fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
             </button>
             <div    
                 id="leadsMenu" 
@@ -133,7 +133,7 @@
                 leadsSpan.classList.add('text-[#115640]');
                 leadsIcon.setAttribute('fill', '#115640');
                 chevronLeadsMenu.classList.remove('text-black');
-                chevronLeadsMenu.classList.add('rotate-180', 'text-[#115640]');
+                chevronLeadsMenu.classList.add('rotate-90', 'text-[#115640]');
             }
 
             function closeLeads() {
@@ -142,7 +142,7 @@
                 leadsToggle.classList.remove('bg-[#E8EFEC]');
                 leadsSpan.classList.remove('text-[#115640]');
                 leadsIcon.setAttribute('fill', '#0D0F11');
-                chevronLeadsMenu.classList.remove('rotate-180', 'text-[#115640]');
+                chevronLeadsMenu.classList.remove('rotate-90', 'text-[#115640]');
                 chevronLeadsMenu.classList.add('text-black');
             }
 
@@ -220,7 +220,7 @@
                 {{-- ICON MASTERS --}}
                 <i id="mastersIcon" class="fas fa-fw fa-cog"></i>
                 <span id="mastersSpan" class="text-[#010508] font-semibold text-lg">Masters</span>
-                <i id="chevronMastersMenu" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+                <i id="chevronMastersMenu" class="fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
             </button>
             <div 
                 id="mastersMenu" 
@@ -384,7 +384,7 @@
                 mastersSpan.classList.add('text-[#115640]');
                 mastersIcon.setAttribute('fill', '#115640');
                 chevronMastersMenu.classList.remove('text-black');
-                chevronMastersMenu.classList.add('rotate-180', 'text-[#115640]');
+                chevronMastersMenu.classList.add('rotate-90', 'text-[#115640]');
             }
 
             function closeMasters() {
@@ -393,7 +393,7 @@
                 mastersToggle.classList.remove('bg-[#E8EFEC]');
                 mastersSpan.classList.remove('text-[#115640]');
                 mastersIcon.setAttribute('fill', '#0D0F11');
-                chevronMastersMenu.classList.remove('rotate-180', 'text-[#115640]');
+                chevronMastersMenu.classList.remove('rotate-90', 'text-[#115640]');
                 chevronMastersMenu.classList.add('text-black');
             }
 
@@ -430,7 +430,7 @@
                 {{-- ICON USERS --}}
                 <i id="usersIcon" class="fas fa-fw fa-users"></i>
                 <span id="usersSpan" class="text-[#010508] font-semibold text-lg">Users</span>
-                <i id="chevronUsersMenu" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+                <i id="chevronUsersMenu" class="fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
             </button>
             <div 
                 id="usersMenu" 
@@ -491,7 +491,7 @@
                 usersSpan.classList.add('text-[#115640]');
                 usersIcon.setAttribute('fill', '#115640');
                 chevronUsersMenu.classList.remove('text-black');
-                chevronUsersMenu.classList.add('rotate-180', 'text-[#115640]');
+                chevronUsersMenu.classList.add('rotate-90', 'text-[#115640]');
             }
 
             function closeUsers() {
@@ -500,7 +500,7 @@
                 usersToggle.classList.remove('bg-[#E8EFEC]');
                 usersSpan.classList.remove('text-[#115640]');
                 usersIcon.setAttribute('fill', '#0D0F11');
-                chevronUsersMenu.classList.remove('rotate-180', 'text-[#115640]');
+                chevronUsersMenu.classList.remove('rotate-90', 'text-[#115640]');
                 chevronUsersMenu.classList.add('text-black');
             }
 
@@ -539,7 +539,7 @@
                 <span id="settingsSpan" class="text-[#010508] font-semibold text-lg">
                     Settings
                 </span>
-                <i id="chevronSettingsMenu" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+                <i id="chevronSettingsMenu" class="fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
             </button>
             <div 
                 id="settingsMenu" 
@@ -586,7 +586,7 @@
                 settingsSpan.classList.add('text-[#115640]');
                 settingsIcon.setAttribute('fill', '#115640');
                 chevronSettingsMenu.classList.remove('text-black');
-                chevronSettingsMenu.classList.add('rotate-180', 'text-[#115640]');
+                chevronSettingsMenu.classList.add('rotate-90', 'text-[#115640]');
             }
 
             function closeSettings() {
@@ -595,7 +595,7 @@
                 settingsToggle.classList.remove('bg-[#E8EFEC]');
                 settingsSpan.classList.remove('text-[#115640]');
                 settingsIcon.setAttribute('fill', '#0D0F11');
-                chevronSettingsMenu.classList.remove('rotate-180', 'text-[#115640]');
+                chevronSettingsMenu.classList.remove('rotate-90', 'text-[#115640]');
                 chevronSettingsMenu.classList.add('text-black');
             }
 
@@ -686,14 +686,14 @@
                         dropdownUserInfo.classList.remove('opacity-0','scale-95','pointer-events-none');
                         dropdownUserInfo.classList.add('opacity-100','scale-100');
 
-                        chevronUserInfo.classList.add('rotate-180');
+                        chevronUserInfo.classList.add('rotate-90');
 
                     } else {
 
                         dropdownUserInfo.classList.add('opacity-0','scale-95','pointer-events-none');
                         dropdownUserInfo.classList.remove('opacity-100','scale-100');
 
-                        chevronUserInfo.classList.remove('rotate-180');
+                        chevronUserInfo.classList.remove('rotate-90');
                     }
 
                 });

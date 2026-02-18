@@ -33,3 +33,19 @@
 .status-deal{
     @apply text-[#05261B] bg-[#CFE7DE] rounded-sm font-light;
 }
+
+.status-grey{
+    @apply text-[#1E1E1E] bg-[#F5F5F5] rounded-md font-light inline-block px-2 py-1;
+}
+
+.status-waiting{
+    @apply text-[#682D03] bg-[#FFF1C2] rounded-md font-light inline-block px-2 py-1;
+}
+
+.status-finish{
+    @apply text-[#02542D] bg-[#CFF7D3] rounded-md font-light inline-block px-2 py-1;
+}
+
+.status-expired{
+    @apply text-[#900B09] bg-[#FDD3D0] rounded-md font-light inline-block px-2 py-1;
+}

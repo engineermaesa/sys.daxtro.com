@@ -17,7 +17,15 @@ class WarmLeadController extends Controller
     public function myWarmList(Request $request)
     {
         $roleCode = $request->user()->role?->code;
-        $claims = LeadClaim::with(['lead.quotation', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional'])
+
+        $claims = LeadClaim::with([
+            'lead.quotation',
+            'lead.segment',
+            'lead.source',
+            'lead.industry',
+            'lead.region.regional',
+            'sales'
+        ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
@@ -29,119 +37,47 @@ class WarmLeadController extends Controller
             });
         }
 
-
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $claims->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->firstApprovalBetween($request->start_date, $request->end_date);
             });
         }
 
-        // If called via API (Postman), return plain JSON payload
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $items = $claims->get()->map(function ($row) {
-                $quotation = $row->lead->quotation;
-                return [
-                    'id' => $row->id,
-                    'lead_id' => $row->lead_id ?? ($row->lead->id ?? null),
-                    'claimed_at' => $row->claimed_at,
-                    'lead_name' => $row->lead->name ?? null,
-                    'sales_name' => $row->sales->name ?? null,
-                    'phone' => $row->lead->phone ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'needs' => $row->lead->needs ?? null,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? null),
-                    'quotation' => $quotation ? [
-                        'id' => $quotation->id,
-                        'status' => $quotation->status,
-                        'grand_total' => $quotation->grand_total ?? null,
-                    ] : null,
-                ];
-            });
+        $page = $request->input('page', 1);
+        $perPage = 10;
 
-            return response()->json(['data' => $items]);
-        }
+        $claims = $claims->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
 
-        return DataTables::of($claims)
-            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('sales_name', fn($row) => $row->sales->name ?? '-')
-            ->addColumn('phone', fn($row) => $row->lead->phone)
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('needs', fn($row) => $row->lead->needs ?: '-')
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('city_name', fn($row) => $row->lead->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn($row) => $row->lead->region->regional->name ?? 'All Regions')
-            
-            ->addColumn('industry', function ($row) {
-                return $row->lead->industry->name ?? ($row->lead->other_industry ?? '-');
-            })
-            ->addColumn('meeting_status', function ($row) {
-                $quotation = $row->lead->quotation;
+        $data = $claims->map(function ($row) {
 
-                if (! $quotation) {
-                    return '<span class="badge bg-secondary">No Quotation</span>';
-                }
+            $quotation = $row->lead->quotation;
 
-                $status = $quotation->status;
-                $badgeClass = match ($status) {
-                    'draft'     => 'bg-secondary',
-                    'review'    => 'bg-warning',
-                    'pending_finance' => 'bg-warning',
-                    'published' => 'bg-success',
-                    'rejected'  => 'bg-danger',
-                    default     => 'bg-light text-dark',
-                };
+            return [
+                'id' => $row->id,
+                'claimed_at' => $row->claimed_at,
+                'lead_name' => $row->lead->name,
+                'sales_name' => $row->sales->name ?? '-',
+                'phone' => $row->lead->phone,
+                'source_name' => $row->lead->source->name ?? '-',
+                'needs' => $row->lead->needs ?: '-',
+                'segment_name' => $row->lead->segment->name ?? '-',
+                'city_name' => $row->lead->region->name ?? 'All Regions',
+                'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
+                'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
 
-                return '<span class="badge ' . $badgeClass . '">' . ucfirst($status) . '</span>';
-            })
-            ->addColumn('actions', function ($row) {
-                $quotation = $row->lead->quotation;
-                $viewUrl   = route('leads.my.warm.manage', $row->lead->id);
-                $createUrl = route('leads.my.warm.quotation.create', $row->id);
-                $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
-                $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
-                $trashUrl   = route('leads.my.warm.trash', $row->id);
+                // helper
+                'meeting_status' => $this->warmMeetingStatus($quotation),
+                'actions' => $this->warmActions($row),
+            ];
+        });
 
-                $btnId = 'warmActionsDropdown' . $row->id;
-
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle"'
-                    . ' type="button" id="' . $btnId . '"'
-                    . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($viewUrl) . '">'
-                    . '      <i class="bi bi-eye mr-2"></i> View Lead</a>';
-                $activityUrl = route('leads.activity.logs', $row->lead->id);
-                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
-
-                if (! $quotation) {
-                    $html .= '  <a class="dropdown-item" href="' . e($createUrl) . '">'
-                        . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
-                } else {
-                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '">'
-                        . '    <i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    $html .= '  <a class="dropdown-item" href="' . e($downloadUrl) . '">'
-                        . '    <i class="bi bi-download mr-2"></i> Download</a>';
-                    $logUrl = route('quotations.logs', $quotation->id);
-                    $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '">' .
-                        '<i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
-                }
-
-                if (! $quotation || $quotation->status !== 'published') {
-                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($trashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
-                }
-                $html .= '  </div>';
-                $html .= '</div>';
-
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->make(true);
+        return response()->json([
+            'data' => $data,
+            'current_page' => $claims->currentPage(),
+            'last_page' => $claims->lastPage(),
+            'total' => $claims->total(),
+        ]);
     }
 
     public function trash($claimId)
@@ -502,5 +438,72 @@ class WarmLeadController extends Controller
             DB::rollBack();
             return $this->setJsonResponse('Failed to save quotation', [], 500, $e);
         }
+    }
+
+    protected function warmMeetingStatus($quotation)
+    {
+        if (! $quotation) {
+            return '<span class="status-grey">No Quotation</span>';
+        }
+
+        $status = $quotation->status;
+
+        $badgeClass = match ($status) {
+            'draft' => 'status-grey',
+            'review', 'pending_finance' => 'status-waiting',
+            'published' => 'status-finish',
+            'rejected' => 'status-expired',
+            default => 'bg-light text-dark',
+        };
+
+        return '<span class="'.$badgeClass.'">'.ucfirst($status).'</span>';
+    }
+
+    protected function warmActions($row)
+    {
+        $quotation = $row->lead->quotation;
+        $viewUrl   = route('leads.my.warm.manage', $row->lead->id);
+        $createUrl = route('leads.my.warm.quotation.create', $row->id);
+        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
+        $trashUrl   = route('leads.my.warm.trash', $row->id);
+
+        $btnId = 'warmActionsDropdown' . $row->id;
+
+        $html  = '<div class="dropdown">';
+        $html .= '  <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"'
+            . ' type="button" id="' . $btnId . '"'
+            . ' data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
+        $html .= '    <i class="bi bi-three-dots"></i>';
+        $html .= '  </button>';
+        $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
+            . '      '.view('components.icon.detail')->render().' View Lead</a>';
+        $activityUrl = route('leads.activity.logs', $row->lead->id);
+        $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
+        '.view('components.icon.log')->render().' View / Add Activity</button>';
+
+        if (! $quotation) {
+            $html .= '  <a class="dropdown-item" href="' . e($createUrl) . '">'
+                . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+        } else {
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
+                . '    '.view('components.icon.view-quotation')->render().' View Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
+                . '    '.view('components.icon.download')->render().' Download</a>';
+            $logUrl = route('quotations.logs', $quotation->id);
+            $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
+            '. view('components.icon.quotation-log')->render().' Quotation Log</button>';
+        }
+
+        if (! $quotation || $quotation->status !== 'published') {
+            $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
+            '.view('components.icon.trash')->render().'
+            Trash Lead</button>';
+        }
+        $html .= '  </div>';
+        $html .= '</div>';
+
+        return $html;
     }
 }
