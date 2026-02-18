@@ -992,7 +992,9 @@ class LeadController extends Controller
                         $q->where('name', 'like', "%{$search}%")
                             ->orWhere('phone', 'like', "%{$search}%")
                             ->orWhere('needs', 'like', "%{$search}%")
-                            ->orWhere('city_name', 'like', "%{$search}%")
+                            ->orWhere('customer_type', 'like', "%{$search}%")
+                            ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                            ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
                             ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
                             ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%")) // Changed from claims.user to claims.sales
                             ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%")) // Changed from quotation_number to quotation_no

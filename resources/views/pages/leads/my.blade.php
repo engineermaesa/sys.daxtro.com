@@ -2,159 +2,6 @@
 
 @section('content')
 
-<section class="section">
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <strong>My Leads tes</strong>
-            <div class="d-flex gap-2">
-                <a href="{{ route('leads.my.form') }}" class="btn btn-sm btn-primary mr-2">
-                    <i class="bi bi-plus-circle me-1"></i> Add Manual Leads
-                </a>
-                <button id="toggleFilterBtn" class="btn btn-sm btn-outline-primary" type="button" data-toggle="collapse"
-                    data-target="#filterCollapse">
-                    <i class="bi bi-funnel-fill me-1"></i> Toggle Filters
-                </button>
-            </div>
-        </div>
-        <div class="collapse" id="filterCollapse">
-            <div class="card-body pt-3 pb-0">
-                <div id="filterNote" class="text-muted small mb-2"></div>
-                <div class="row mb-3" id="dateFilterRow">
-                    <div class="col-md-3">
-                        <input type="date" id="filter_start" class="form-control form-control-sm"
-                            placeholder="Start date" onfocus="this.showPicker()">
-                    </div>
-                    <div class="col-md-3">
-                        <input type="date" id="filter_end" class="form-control form-control-sm" placeholder="End date"
-                            onfocus="this.showPicker()">
-                    </div>
-                    <div class="col-md-2 d-grid">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFilter">
-                            <i class="bi bi-search me-1"></i> Apply Filter
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card-body pt-4">
-
-            {{-- Custom Full-Width Tab Navigation --}}
-            <ul class="nav nav-tabs mb-3 w-100 no-border" id="leadTabs" role="tablist">
-                @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
-                <li class="nav-item flex-fill text-center" style="border: none;">
-                    <a class="nav-link {{ $loop->first ? 'active' : '' }}" id="{{ $tab }}-tab" data-toggle="tab"
-                        href="#{{ $tab }}" role="tab" style="border: none; font-weight: 500;">
-                        {{ ucfirst($tab) }}
-                        <span
-                            class="badge badge-pill badge-
-                                    {{ $tab === 'cold' ? 'primary' : ($tab === 'warm' ? 'warning' : ($tab === 'hot' ? 'danger' : 'success')) }}">
-                            {{ $leadCounts[$tab] ?? 0 }}
-                        </span>
-                    </a>
-                </li>
-                @endforeach
-            </ul>
-
-            {{-- TABLES --}}
-            <div class="tab-content" id="leadTabsContent">
-                @foreach (['cold', 'warm', 'hot', 'deal'] as $tab)
-                <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $tab }}" role="tabpanel"
-                    aria-labelledby="{{ $tab }}-tab">
-                    <div class="table-responsive">
-                        <table id="{{ $tab }}LeadsTable" class="table table-sm w-100">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>ID (hidden)</th>
-                                    @if ($tab === 'cold')
-                                    <th>Nama</th>
-                                    <th>Sales Name</th>
-                                    <th>Telephone</th>
-                                    <th>Source</th>
-                                    <th>Needs</th>
-                                    <th>Industry</th>
-                                    <th>City</th>
-                                    <th>Regional</th>
-                                    <th class="text-center">Status</th>
-                                    @else
-                                    <th>Claimed At</th>
-                                    <th>Lead Name</th>
-                                    <th>Industry</th>
-                                    <th class="text-center">Status</th>
-                                    @endif
-                                    <th class="text-center">Action</th>
-                                </tr>
-                            </thead>
-                        </table>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-
-        </div>
-    </div>
-</section>
-
-{{--
-<!-- Activity Logs Modal -->
-<div class="modal fade" id="activityLogModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Activity Logs</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Date</th>
-                                <th>Activity</th>
-                                <th>Note</th>
-                                <th>Attachment</th>
-                                <th>User</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-                <form id="activityLogForm">
-                    <div class="form-row align-items-end">
-                        <div class="col-md-3">
-                            <select name="activity_id" class="form-control form-control-sm" required>
-                                <option value="">-- Activity --</option>
-                                @foreach ($activities as $act)
-                                <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}
-                                </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <input type="date" name="logged_at" class="form-control form-control-sm"
-                                value="{{ date('Y-m-d') }}" required onfocus="this.showPicker()">
-                        </div>
-                        <div class="col-md-3">
-                            <input type="text" name="note" class="form-control form-control-sm" placeholder="Note">
-                        </div>
-                        <div class="col-md-3">
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input" id="activity_attachment" name="attachment"
-                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-                                <label class="custom-file-label" for="activity_attachment">Attachment</label>
-                            </div>
-                        </div>
-                        <div class="col-md-1">
-                            <button type="submit" class="btn btn-sm btn-primary">Add</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div> --}}
-
 <!-- Quotation Logs Modal -->
 <div class="modal fade" id="quotationLogModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -293,8 +140,6 @@
         </div>
     </div>
 
-    <!-- DEBUG OUTPUT (temporary) -->
-    <div id="leadsDebug" style="margin-top:8px; font-size:13px; color:#444;"></div>
 
     {{-- TABLES CONTENTS --}}
     <div class="mt-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
@@ -624,6 +469,7 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
+            search: document.getElementById('searchInput')?.value || '',
             end_date: document.getElementById('filter_end')?.value || ''
         });
 
@@ -671,8 +517,13 @@
     async function loadAllLeads() {
     const page = pageState.all || 1;
     const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
+    const params = new URLSearchParams({
+        page: page,
+        per_page: perPage,
+        search: document.getElementById('searchInput')?.value || ''
+    });
 
-    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}`, {
+    const response = await fetch(`/api/leads/my/all?${params.toString()}`, {
         credentials: 'same-origin'
     });
 
@@ -735,6 +586,7 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
+            search: document.getElementById('searchInput')?.value || '',
             end_date: document.getElementById('filter_end')?.value || ''
         });
 
@@ -780,6 +632,7 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
+            search: document.getElementById('searchInput')?.value || '',
             end_date: document.getElementById('filter_end')?.value || ''
         });
 
@@ -825,6 +678,7 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
+            search: document.getElementById('searchInput')?.value || '',
             end_date: document.getElementById('filter_end')?.value || ''
         });
 
@@ -979,7 +833,8 @@
                         // map DataTables params into API filter params
                         return {
                             start_date: $('#filter_start').val(),
-                            end_date: $('#filter_end').val()
+                            end_date: $('#filter_end').val(),
+                            search: $('#searchInput').val()
                         };
                     },
                     xhrFields: {
@@ -998,6 +853,37 @@
             const warmTable = initLeadTable('#warmLeadsTable', '{{ route('leads.my.warm.list') }}');
             const hotTable = initLeadTable('#hotLeadsTable', '{{ route('leads.my.hot.list') }}');
             const dealTable = initLeadTable('#dealLeadsTable', '{{ route('leads.my.deal.list') }}');
+
+            // Search input: debounce and reload both DataTables and custom loaders
+            const searchInput = document.getElementById('searchInput');
+            function debounce(func, wait) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), wait);
+                };
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', debounce(function(e) {
+                    // reset to first page for all paginated lists
+                    pageState.all = pageState.cold = pageState.warm = pageState.hot = pageState.deal = 1;
+
+                    // reload DataTables
+                    coldTable.ajax.reload();
+                    warmTable.ajax.reload();
+                    hotTable.ajax.reload();
+                    dealTable.ajax.reload();
+
+                    // reload custom (new) tables
+                    loadAllLeads();
+                    loadColdLeads();
+                    loadWarmLeads();
+                    loadHotLeads();
+                    loadDealLeads();
+                    updateBadgeCounts();
+                }, 350));
+            }
 
             const notes = {
                 warm: 'Filter tanggal berdasarkan Tanggal Approve pertama',
