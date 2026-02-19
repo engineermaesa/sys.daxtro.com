@@ -447,25 +447,51 @@ class WarmLeadController extends Controller
         }
     }
 
-    protected function warmMeetingStatus($quotation)
+   protected function warmMeetingStatus($quotation)
     {
         if (! $quotation) {
             return '<span class="status-grey">No Quotation</span>';
         }
 
         $status = $quotation->status;
+        if ($status === 'draft') {
+            return '<span class="status-grey">Draft</span>';
+        }
 
-        $badgeClass = match ($status) {
-            'draft' => 'status-grey',
-            'review', 'pending_finance' => 'status-waiting',
-            'published' => 'status-finish',
-            'rejected' => 'status-expired',
-            default => 'bg-light text-dark',
-        };
+        if (in_array($status, ['review', 'pending_finance'])) {
+            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
 
-        return '<span class="'.$badgeClass.'">'.ucfirst($status).'</span>';
+            if (! $bmApproved) {
+                return '<span class="status-waiting">Pending BM Approval</span>';
+            }
+
+            if ($bmApproved && ! $financeApproved) {
+                return '<span class="status-waiting">Pending Finance Approval</span>';
+            }
+
+            return '<span class="status-waiting">Pending Approval</span>';
+        }
+
+        if ($status === 'published') {
+            return '<span class="status-finish">Quotation Published</span>';
+        }
+
+        if ($status === 'rejected') {
+            $review = $quotation->reviews()->where('decision', 'reject')->latest('decided_at')->first();
+            $role = $review?->role;
+
+            if ($role) {
+                $by = strtolower($role) === 'bm' ? 'BM' : (strtolower($role) === 'finance' ? 'Finance' : ucfirst($role));
+            } else {
+                $by = 'BM/Finance';
+            }
+
+            return '<span class="status-expired">Rejected by ' . e($by) . '</span>';
+        }
+
+        return '<span class="bg-light text-dark">' . ucfirst($status) . '</span>';
     }
-
     protected function warmActions($row)
     {
         $quotation = $row->lead->quotation;

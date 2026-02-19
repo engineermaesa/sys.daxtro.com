@@ -16,7 +16,7 @@ class LeadMeetingReschedule extends Model
         'old_scheduled_end_at',
         'new_scheduled_start_at',
         'new_scheduled_end_at',
-        'old_location',
+        'old_location', 
         'new_location',
         'reason',
         'rescheduled_by',
