@@ -408,24 +408,24 @@
               <label for="scheduled_start_at" class="form-label">Start Time <i class="required">*</i></label>
               <input type="datetime-local"
                     onfocus="this.showPicker()"
-                     name="scheduled_start_at"
-                     id="scheduled_start_at"
-                     class="form-control"
-                     min="{{ now()->format('Y-m-d\TH:i') }}"
-                     value="{{ old('scheduled_start_at', isset($data->scheduled_start_at) ? \Carbon\Carbon::parse($data->scheduled_start_at)->format('Y-m-d\TH:i') : '') }}"
-                     @if($isViewOnly ?? false) readonly @endif required>
+                    name="scheduled_start_at"
+                    id="scheduled_start_at"
+                    class="form-control"
+                    min="{{ now()->format('Y-m-d\TH:i') }}"
+                    value="{{ old('scheduled_start_at', isset($data->scheduled_start_at) ? \Carbon\Carbon::parse($data->scheduled_start_at)->format('Y-m-d\TH:i') : '') }}"
+                    @if($isViewOnly ?? false) readonly @endif required>
             </div>
 
             <div class="mb-3">
               <label for="scheduled_end_at" class="form-label">End Time <i class="required">*</i></label>
               <input type="datetime-local"
                     onfocus="this.showPicker()"
-                     name="scheduled_end_at"
-                     id="scheduled_end_at"
-                     class="form-control"
-                     min="{{ now()->format('Y-m-d\TH:i') }}"
-                     value="{{ old('scheduled_end_at', isset($data?->scheduled_end_at) ? \Carbon\Carbon::parse($data?->scheduled_end_at)->format('Y-m-d\TH:i') : '') }}"
-                     @if($isViewOnly ?? false) readonly @endif required>
+                    name="scheduled_end_at"
+                    id="scheduled_end_at"
+                    class="form-control"
+                    min="{{ now()->format('Y-m-d\TH:i') }}"
+                    value="{{ old('scheduled_end_at', isset($data?->scheduled_end_at) ? \Carbon\Carbon::parse($data?->scheduled_end_at)->format('Y-m-d\TH:i') : '') }}"
+                    @if($isViewOnly ?? false) readonly @endif required>
             </div>
 
             {{-- Submit / Back --}}
@@ -619,7 +619,7 @@
       </div>
 
       {{-- EXPENSES SECTION --}}
-      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
+      <div id="expense-section" class="expense-table bg-white border border-[#D9D9D9] rounded mt-4">
         <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Expenses</h1>
         <div class="px-3 py-2">
           <div class="border border-[#D9D9D9] rounded-lg ">
@@ -677,7 +677,7 @@
                   </td>
                   <td class="text-center">
                     @if(!($isViewOnly ?? false))
-                      <button type="button" class="flex items-center justify-center w-full text-[#900B09] cursor-pointer font-semibold">
+                      <button type="button" class="remove-expense flex items-center justify-center w-full text-[#900B09] cursor-pointer font-semibold">
                         @include('components.icon.trash', ['class' => 'text-[#900B09]'])
                         Delete
                       </button>
@@ -696,7 +696,46 @@
           @endif
         </div>
       </div>
-      
+      <div class="flex justify-end py-3">
+        @php
+          $isViewOnly = $isViewOnly ?? false;
+        @endphp
+
+        @if(!$isViewOnly)
+          @include('partials.template.save-btn-form', ['backUrl' => 'back'])
+        @else
+        <div class="w-full flex justify-between items-center">
+          <a href="{{ route('leads.my') }}"
+            class="inline-block text-center w-[150px] px-3 py-2 border border-[#083224] text-[#083224] font-semibold rounded-lg cursor-pointer transition-all duration-300 bg-white hover:bg-[#F1F1F1]">
+              Back
+          </a>
+          <div class="flex items-center gap-3">
+            @if($data && !in_array(optional($data->expense)->status, ['submitted', 'canceled']) && is_null($data->result))
+                <button type="button"
+                        class="cursor-pointer text-[#900B09] bg-[#FDD3D0] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#900B09]"
+                        id="btnCancelMeeting"
+                        data-url="{{ route('leads.my.cold.meeting.cancel', $data->id) }}"
+                        data-online="{{ $data->is_online ? 1 : 0 }}"
+                        data-status="{{ optional($data->expense)->status }}">
+                    Cancel Meeting
+                </button>
+            @endif
+
+            @if($canReschedule ?? false)
+              <a href="{{ route('leads.my.cold.meeting.reschedule', $data->id) }}"
+                class="text-[#522504] bg-[#FFF1C2] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#522504]">Update Meeting</a>
+            @endif
+
+            @if($data && now()->gt($data->scheduled_end_at) && $data->result === null &&
+              ($data->is_online || optional($data->expense)->status === 'approved'))
+              <a href="{{ route('leads.my.cold.meeting.result', $data->id) }}"
+                class="cursor-pointer text-[#02542D] bg-[#CFF7D3] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#02542D]">Set Meeting Result</a>
+            @endif
+          </div>
+        </div>
+        @endif
+      </div>
+    </form>
   </div>
 </section>
 @endsection
@@ -744,8 +783,8 @@
     const zoomName = 'Zoom / Google Meet';
     const expoName = 'EXPO';
 
-    let startVal = $('#scheduled_start_at').val()?.replace('T', ' ');
-    let endVal = $('#scheduled_end_at').val()?.replace('T', ' ');
+    let startVal = $('input[name="scheduled_start_at"][type="hidden"]').val()?.replace('T', ' ');
+    let endVal = $('input[name="scheduled_end_at"][type="hidden"]').val()?.replace('T', ' ');
 
     $('#selectDateBtn').on('click', function () {
         const dropdown = $('#dateDropdown');
@@ -775,7 +814,7 @@
         disableMobile: true,
         onChange(selectedDates, dateStr) {
             startVal = dateStr;
-            $('#scheduled_start_at').val(dateStr);
+            $('input[name="scheduled_start_at"]').val(dateStr);
             updateLabel();
         }
     });
@@ -788,9 +827,11 @@
         position: "below",
         disableMobile: true,
         onChange(selectedDates, dateStr) {
-            endVal = dateStr;
-            $('#scheduled_end_at').val(dateStr);
-            updateLabel();
+          endVal = dateStr;
+          $('input[name="scheduled_end_at"][type="hidden"]').val(dateStr);
+
+          $('input[type="datetime-local"][name="scheduled_end_at"]').val(dateStr.replace(' ', 'T'));
+          updateLabel();
         }
     });
 
@@ -956,7 +997,9 @@
 
         if (isOnline) {
             $('#offline-section').hide();
+            $('#expense-section').hide();
             $('#offline-section input, #offline-section textarea, #offline-section select').val('');
+            $('#expense-section input, #expense-section textarea, #expense-section select').val('');
             $('#offline-section .select2').val(null).trigger('change');
         } else {
             $('#offline-section').show();
@@ -995,12 +1038,16 @@
         
         // Set start time to now
         const now = new Date();
-        const startTime = formatDateTimeLocal(now);
-        $('#scheduled_start_at').val(startTime);
+        const startTime = formatDateTimeLocal(now); // returns T-format
+        // hidden inputs expect space-separated format
+        $('input[name="scheduled_start_at"][type="hidden"]').val(startTime.replace('T', ' '));
+        $('input[type="datetime-local"][name="scheduled_start_at"]').val(startTime);
         
         // Set end time to now + 1 minute
         const endTime = new Date(now.getTime() + 60000); // 1 minute in milliseconds
-        $('#scheduled_end_at').val(formatDateTimeLocal(endTime));
+        const endTimeStr = formatDateTimeLocal(endTime);
+        $('input[name="scheduled_end_at"][type="hidden"]').val(endTimeStr.replace('T', ' '));
+        $('input[type="datetime-local"][name="scheduled_end_at"]').val(endTimeStr);
         
         // Hide online URL section
         $('#online-url-section').hide();

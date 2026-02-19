@@ -22,7 +22,7 @@
                     <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
                 </svg>
             </div>
-            <input type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
+            <input id="globalSearch" type="text" placeholder="Search..." class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
         </div>
         {{-- FILTERS MENUS --}}
         <div class="w-1/2 grid grid-cols-4 items-center border border-gray-300 rounded-lg">
@@ -37,67 +37,50 @@
             <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
                 <select id="source-filter-new"
                 class="w-full font-semibold text-center focus:outline-none cursor-pointer">
-                    <option value="">All Source</option>
-                    {{-- @foreach($leadSources as $source)
-                        <option value="{{ $source->name }}">{{ $source->name }}</option>
-                    @endforeach --}}
+                  <option value="">All Source</option>
+                  @foreach($leadSources as $source)
+                    <option value="{{ $source->id }}">{{ $source->name }}</option>
+                  @endforeach
                 </select>
             </div>
             {{-- DATES --}}
             <div
-                id="conversionListsDateToggle"
-                class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
-  
-                {{-- TOGGLE --}}
-                <div class="flex justify-center items-center gap-2">
-                    <p class="font-medium">Date</p>
-                    <i id="chevronFiltersDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
-                </div>
-                
-                {{-- DROPDOWN DATE --}}
-                <div 
-                    id="dateDropdown"
-                    class="hidden absolute top-full left-0 w-full bg-white border border-[#CFD5DC] p-3 z-20">
-  
-                    <div class="w-full flex gap-3">
-                    {{-- FOR START DATE --}}
-                        <div class="w-1/2">
-                            <label class="block text-sm mb-1">Start Date</label>
-                            <input type="date" id="source-start-date" class="form-control source-control-input" value="{{ now()->startOfYear()->format('Y-m-d') }}">
-                        </div>
-                        {{-- FOR END DATE --}}
-                        <div class="w-1/2">
-                            <label class="block text-sm mb-1">End Date</label>
-                            <input type="date" id="source-end-date" class="form-control source-control-input" value="{{ now()->endOfYear()->format('Y-m-d') }}">
-                        </div>
+              class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+
+              {{-- TOGGLE --}}
+              <div id="openDateDropdown" class="flex justify-center items-center gap-2">
+                  <p id="dateLabel" class="font-medium text-black">Date</p>
+                  <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+              </div>
+
+              {{-- DATE DROPDOWN --}}
+              <div id="dateDropdown"
+                  class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
+
+                  <h3 class="font-semibold mb-2">Select Date Range</h3>
+
+                    <div class="flex justify-center items-center">
+                      <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
                     </div>
-                </div>
-            </div>
-            {{-- SCRIPTS FOR DATE TOGGLE --}}
-            <script>
-                document.addEventListener('DOMContentLoaded', () => {
-  
-                const toggle = document.getElementById('conversionListsDateToggle');
-                const dropdown = document.getElementById('dateDropdown');
-                const chevron = document.getElementById('chevronFiltersDate');
-  
-                toggle.addEventListener('click', () => {
-                    dropdown.classList.toggle('hidden');
-                    chevron.classList.toggle('rotate-180');
-                });
-  
-                dropdown.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
-  
-            });
-            </script>
-  
-  
+
+                  <div class="flex justify-end gap-2 mt-3">
+
+                      <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                          Cancel
+                      </button>
+
+                      <button id="applyDate"
+                          class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
+                          Apply
+                      </button>
+
+                  </div>
+              </div>
+            </div>  
             {{-- RESET FILTER --}}
             <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
-                <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-red-600 -scale-x-100   " style="font-size: 12px;"></i>
-                <p class="font-medium text-red-600">Reset Filter</p>
+                <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
+                <p class="font-medium text-[#900B09]">Reset Filter</p>
             </div>
         </div>
         {{-- BUTTON EXCEL EXPORT --}}
@@ -132,6 +115,64 @@
 @section('scripts')
 <script>
 $(function () {
+  var fp = null;
+
+  function initFlatpickr() {
+    var input = document.getElementById('source-date-range');
+    if (input && typeof flatpickr !== 'undefined') {
+      fp = flatpickr(input, {
+        mode: 'range',
+        inline: true,
+        dateFormat: 'Y-m-d',
+        onClose: function(selectedDates, dateStr, instance) {
+          // keep input populated; actual apply happens via Apply button
+        }
+      });
+    }
+  }
+
+  function filterDate(){
+    const openBtn = document.getElementById('openDateDropdown');
+    const dropdown = document.getElementById('dateDropdown');
+    const chevron = document.getElementById('iconDate');
+
+    if (openBtn) {
+      openBtn.onclick = () => {
+        if (dropdown) {
+          dropdown.classList.toggle('opacity-0');
+          dropdown.classList.toggle('scale-95');
+          dropdown.classList.toggle('pointer-events-none');
+        }
+        if (chevron) chevron.classList.toggle('rotate-180');
+        if (fp) fp.open();
+      };
+    }
+
+    const cancelBtn = document.getElementById('cancelDate');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => {
+      if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+    });
+
+    const applyBtn = document.getElementById('applyDate');
+    if (applyBtn) applyBtn.addEventListener('click', () => {
+      const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
+      if (dates.length !== 2) return;
+
+      const startDate = dates[0].toISOString().split('T')[0];
+      const endDate = dates[1].toISOString().split('T')[0];
+
+      const label = document.getElementById('dateLabel');
+      if (label) label.innerText = `${startDate} → ${endDate}`;
+
+      loadAvailableLeads(startDate, endDate);
+
+      if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+    });
+  }
+
+  initFlatpickr();
+  filterDate();
+
   function filterRegions() {
     const branchId = $('#filter_branch').val();
     $('#filter_region option').each(function(){
@@ -149,44 +190,52 @@ $(function () {
   $('#filter_branch').on('change', filterRegions);
   filterRegions();
 
-  // const table = $('#availableLeadsTable').DataTable({
-  //   processing: true,
-  //   serverSide: true,
-  //   ajax: {
-  //     url: '{{ route("leads.available.list") }}',
-  //     type: 'POST',
-  //     data: function(d){
-  //       d.branch_id = $('#filter_branch').val();
-  //       d.region_id = $('#filter_region').val();
-  //       d._token = '{{ csrf_token() }}';
-  //     }
-  //   },
-  //   columns: [
-  //     { data: 'id', visible: false },
-  //     { data: 'published_at', name: 'published_at', render: function (data) { if(!data) return ''; return new Date(data).toLocaleString('en-GB', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}); } },
-  //     { data: 'name' },
-  //     { data: 'branch_name' },
-  //     { data: 'region_name' },
-  //     { data: 'source_name' },
-  //     { data: 'segment_name' },
-  //     { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
-  //   ],
-  //   order: [[0, 'desc']]
-  // });
+  // Reload when source filter changes
+  $('#source-filter-new').on('change', function(){
+    triggerLoadWithCurrentFilters();
+  });
 
-  // $('#btnFilter').on('click', function(){
-  //   table.ajax.reload();
-  // });
+  // Debounced search handler
+  function debounce(fn, wait){
+    let t = null;
+    return function(){
+      const ctx = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(ctx, args), wait);
+    };
+  }
 
-  function loadAvailableLeads() {
+  function triggerLoadWithCurrentFilters(){
+    const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
+    if (dates.length === 2) {
+      const s = dates[0].toISOString().split('T')[0];
+      const e = dates[1].toISOString().split('T')[0];
+      loadAvailableLeads(s, e);
+    } else {
+      loadAvailableLeads();
+    }
+  }
+
+  $('#globalSearch').on('input', debounce(function(){
+    triggerLoadWithCurrentFilters();
+  }, 400));
+
+  function loadAvailableLeads(startDate = null, endDate = null) {
+      const data = {
+          branch_id: $('#filter_branch').val(),
+          region_id: $('#filter_region').val(),
+          source_id: $('#source-filter-new').length ? $('#source-filter-new').val() : null,
+        q: $('#globalSearch').length ? $('#globalSearch').val().trim() : null,
+          _token: '{{ csrf_token() }}'
+      };
+
+      if (startDate) data.start_date = startDate;
+      if (endDate) data.end_date = endDate;
+
       $.ajax({
-          url: '{{ route("leads.available.list") }}',
-          method: 'POST',
-          data: {
-              branch_id: $('#filter_branch').val(),
-              region_id: $('#filter_region').val(),
-              _token: '{{ csrf_token() }}'
-          },
+          url: '{{ route("leads.availables.list") }}',
+          method: 'GET',
+          data: data,
           success: function(res) {
 
               const tbody = $('#availableLeadsBody');
@@ -214,7 +263,7 @@ $(function () {
                           <td>${row.region_name ?? ''}</td>
                           <td>${row.source_name ?? ''}</td>
                           <td>${row.segment_name ?? ''}</td>
-                            <td class="text-left">${row.actions ?? ''}</td>
+                            <td class="py-3 flex! items-center! justify-start! gap-3!">${row.actions ?? ''}</td>
                       </tr>
                   `);
               });
@@ -227,13 +276,22 @@ $(function () {
 
   // FILTER BUTTON
   $('#btnFilter').on('click', function(){
-      loadAvailableLeads();
+      const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
+      if (dates.length === 2) {
+        const s = dates[0].toISOString().split('T')[0];
+        const e = dates[1].toISOString().split('T')[0];
+        loadAvailableLeads(s, e);
+      } else {
+        loadAvailableLeads();
+      }
   });
 
   $('#btnExport').on('click', function(){
     const params = new URLSearchParams();
     const branchInput = $('#filter_branch');
     const regionInput = $('#filter_region');
+    const sourceInput = $('#source-filter-new');
+    const qInput = $('#globalSearch');
 
     if (branchInput.length && branchInput.val()) {
       params.append('branch_id', branchInput.val());
@@ -243,8 +301,24 @@ $(function () {
       params.append('region_id', regionInput.val());
     }
 
+    if (sourceInput.length && sourceInput.val()) {
+      params.append('source_id', sourceInput.val());
+    }
+
+    if (qInput.length && qInput.val().trim()) {
+      params.append('q', qInput.val().trim());
+    }
+
+    // include date range if selected
+    if (fp && fp.selectedDates && fp.selectedDates.length === 2) {
+      const s = fp.selectedDates[0].toISOString().split('T')[0];
+      const e = fp.selectedDates[1].toISOString().split('T')[0];
+      params.append('start_date', s);
+      params.append('end_date', e);
+    }
+
     const query = params.toString();
-    const url = '{{ route('leads.available.export') }}' + (query ? '?' + query : '');
+    const url = '{{ route('leads.availables.export') }}' + (query ? '?' + query : '');
     window.location = url;
   });
 

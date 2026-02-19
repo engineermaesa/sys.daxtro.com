@@ -74,7 +74,6 @@ Route::middleware('auth')->group(function () {
     ], function () {
 
         Route::get('/available', 'LeadController@available')->name('leads.available');
-        Route::post('/available/list', 'LeadController@availableList')->name('leads.available.list');
         Route::get('/available/export', 'LeadController@availableExport')->name('leads.available.export');
         Route::get('/available/form/{id?}', 'LeadController@form')->name('leads.form');
         Route::post('/available/save/{id?}', 'LeadController@save')->name('leads.save');

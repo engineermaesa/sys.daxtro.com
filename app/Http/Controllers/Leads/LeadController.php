@@ -20,6 +20,8 @@ class LeadController extends Controller
         $regions  = Region::with('province:id,name')
             ->get(['id', 'name', 'province_id', 'branch_id']);
 
+        $leadSources = LeadSource::orderBy('name')->get();
+
         // If request comes from API (route starting with /api/) or expects JSON, return JSON
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -28,7 +30,10 @@ class LeadController extends Controller
             ]);
         }
 
-        return view('pages.leads.available', compact('branches', 'regions'));
+        return view('pages.leads.available', compact(
+            'branches', 
+            'regions',
+            'leadSources'));
     }
 
     public function availableList(Request $request)
@@ -66,6 +71,52 @@ class LeadController extends Controller
             });
         }
 
+        // Date range filter (expects YYYY-MM-DD)
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $start = $request->start_date;
+                $end = $request->end_date;
+                $leads->whereDate('published_at', '>=', $start)
+                      ->whereDate('published_at', '<=', $end);
+            } elseif ($request->filled('start_date')) {
+                $start = $request->start_date;
+                $leads->whereDate('published_at', '>=', $start);
+            } else {
+                $end = $request->end_date;
+                $leads->whereDate('published_at', '<=', $end);
+            }
+        }
+
+        // Source filter (by id) — allow either single id or array of ids
+        if ($request->filled('source_id')) {
+            $source = $request->source_id;
+            if (is_array($source)) {
+                $leads->whereIn('source_id', $source);
+            } else {
+                $leads->where('source_id', $source);
+            }
+        }
+
+        // Global text search across name, branch, region, source, segment
+        if ($request->filled('q')) {
+            $term = $request->q;
+            $leads->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhereHas('region', function ($qr) use ($term) {
+                      $qr->where('name', 'like', "%{$term}%")
+                         ->orWhereHas('branch', function ($qb) use ($term) {
+                             $qb->where('name', 'like', "%{$term}%");
+                         });
+                  })
+                  ->orWhereHas('source', function ($qs) use ($term) {
+                      $qs->where('name', 'like', "%{$term}%");
+                  })
+                  ->orWhereHas('segment', function ($qseg) use ($term) {
+                      $qseg->where('name', 'like', "%{$term}%");
+                  });
+            });
+        }
+
         return DataTables::of($leads)
             ->addColumn('region_name', fn($row) => $row->region->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
@@ -77,18 +128,18 @@ class LeadController extends Controller
                 $editUrl  = route('leads.form', $row->id);
                 $claimUrl = route('leads.claim', $row->id);
 
-                $btnId = 'availableActionsDropdown' . $row->id;
-
                 // $html  = '<div class="dropdown">';
                 // $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
                 // $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
                 // $html .= '  </button>';
                 // $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                // $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View</a>';
+                $html = '    <a class="flex! items-center! gap-2! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg" href="' . e($editUrl) . '"> 
+                ' . view('components.icon.detail')->render() . '
+                View </a>';
                 // $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
                 // $html .= '  </div>';
                 // $html .= '</div>';
-                $html = '    <a class="text-[#115640] font-semibold claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
+                $html .= '    <a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-1"></i> Claim</a>';
 
                 return $html;
             })
