@@ -390,9 +390,9 @@ class ColdLeadController extends Controller
             }
         }
 
-        // Rescheduled
+        // Rescheduled — only show if meeting has not finished
         $reschedulesCount = $meeting->reschedules()->count();
-        if ($reschedulesCount > 0) {
+        if ($reschedulesCount > 0 && ! $isFinished) {
             return $expiredBadge
                 . '<span class="status-waiting">Rescheduled (' . $reschedulesCount . 'x)</span>';
         }

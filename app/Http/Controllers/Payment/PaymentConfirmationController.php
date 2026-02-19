@@ -31,6 +31,17 @@ class PaymentConfirmationController extends Controller
             $proforma = $quotation->proformas()->where('term_no', $term)->firstOrFail();
         }
 
+        // Safety: ensure the selected term corresponds to expected proforma type
+        $expectedType = $term === 'bf'
+            ? 'booking_fee'
+            : ((int)$term === 1 ? 'down_payment' : 'term_payment');
+
+        if ($proforma->proforma_type !== $expectedType) {
+            return redirect()
+                ->route('quotations.show', $quotation->id)
+                ->with('error', 'Selected payment term does not match the proforma type. Please verify the selected term.');
+        }
+
         return $this->render('pages.orders.payment-confirmation-form', compact('leadId', 'term', 'proforma'));
     }
 
