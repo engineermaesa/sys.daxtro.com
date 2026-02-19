@@ -357,7 +357,7 @@ class ColdLeadController extends Controller
                 : false;
 
             if ($hasInitiation) {
-                return '<span class="status-initiation">Initiation</span>';
+                return '<span class="status-grey">Initiation</span>';
             }
 
             return '<span class="status-grey">Raw Lead</span>';

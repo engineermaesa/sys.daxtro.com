@@ -44,10 +44,11 @@
         <p class="mt-1 text-[#115640] text-lg">My Leads</p>
     </div>
 
-    {{-- CARDS COUNTS --}}
-    <div class="grid grid-cols-4 gap-3 mt-4">
+    {{-- ALL CARDS COUNTS --}}
+    <div id="forAllCardsCounts" class="grid grid-cols-4 gap-3 mt-4">
         {{-- COLD CARDS --}}
-        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9]">
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0s;">
             <div>
                 <div class="flex items-center gap-2 px-3     rounded-lg bg-[#E1EBFA]">
                     <p class="text-[#3F80EA] text-4xl">•</p>
@@ -70,7 +71,8 @@
             </div>
         </div>
         {{-- WARM CARDS --}}
-        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9]">
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.30s;">
             <div>
                 <div class="flex items-center gap-2 px-3 rounded-lg bg-[#FFF1C2]">
                     <p class="text-[#E5A000] text-4xl">•</p>
@@ -93,7 +95,8 @@
             </div>
         </div>
         {{-- HOT CARDS --}}
-        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9]">
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.45s;">
             <div>
                 <div class="flex items-center gap-2 px-3 rounded-lg bg-[#FDD3D0]">
                     <p class="text-[#EC221F] text-4xl">•</p>
@@ -116,7 +119,305 @@
             </div>
         </div>
         {{-- DEAL CARDS --}}
-        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9]">
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.6s;">
+            <div>
+                <div class="flex items-center gap-2 px-3 rounded-lg bg-[#CFF7D3]">
+                    <p class="text-[#14AE5C] text-4xl">•</p>
+                    <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
+                </div>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#14AE5C" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#14AE5C" />
+                    <path opacity="0.6"
+                        d="M24.9131 34.175C24.3255 34.8017 23.3411 34.8335 22.7143 34.2459C22.0876 33.6583 22.0558 32.6739 22.6434 32.0472L28.4767 25.8249C29.045 25.2188 29.9893 25.1662 30.6213 25.7056L35.2253 29.6343L41.224 22.0361C41.7563 21.3618 42.7345 21.2467 43.4088 21.779C44.0831 22.3114 44.1982 23.2895 43.6658 23.9638L36.6658 32.8305C36.1191 33.5231 35.1063 33.6227 34.4351 33.0499L29.7311 29.0358L24.9131 34.175Z"
+                        fill="#14AE5C" />
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    {{-- COLD CARDS COUNTS --}}
+    <div id="forColdCardsCounts" class="hidden grid grid-cols-4 gap-3 mt-4">
+        {{-- LEADS COLD COUNTS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0s;">
+            <div>
+                <div class="flex items-center gap-2 px-3 rounded-lg bg-[#E1EBFA]">
+                    <p class="text-[#3F80EA] text-4xl">•</p>
+                    <p class="font-semibold text-[#1E1E1E]">Total Cold Leads</p>
+                </div>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['cold'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x Raw Leads)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#3F81EA" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#3F81EA" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#3F81EA" />
+                </svg>
+            </div>
+        </div>
+        {{-- INITIATION CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.30s;">
+            <div>
+                <p class="font-semibold text-[#1E1E1E]">Initiations</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['warm'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x Raw Leads)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#3F81EA" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#3F81EA" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#3F81EA" />
+                </svg>
+            </div>
+        </div>
+        {{-- PENDING APPROVAL CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.45s;">
+             <div>
+                <p class="font-semibold text-[#1E1E1E]">Pending Approval</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['hot'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x Pending & x Rejected)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#3F81EA" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#3F81EA" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#3F81EA" />
+                </svg>
+            </div>
+        </div>
+        {{-- DEAL CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.6s;">
+            <div>
+                <p class="font-semibold text-[#1E1E1E]">Meeting Scheduled</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['hot'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x Online & x Offline)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#3F81EA" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#3F81EA" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#3F81EA" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    {{-- WARM CARDS COUNTS --}}
+    <div id="forWarmCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+        {{-- LEADS WARM COUNTS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.00s;">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 rounded-lg bg-[#FFF1C2]">
+                    <p class="text-[#E5A000] text-4xl">•</p>
+                    <p class="font-semibold text-[#1E1E1E]">Total Warm Leads</p>
+                </div>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['warm'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x No Quotation & x Draft)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#E6A000" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#E6A000" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#E6A000" />
+                </svg>
+            </div>
+        </div>
+        {{-- PENDING APPROVAL CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.30s;">
+             <div>
+                <p class="font-semibold text-[#1E1E1E]">Pending Approval</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['warm'] }}
+                    <span class="text-sm text-[#757575] font-semibold">
+                        (x Pending & x Rejected)
+                    </span>
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#E6A000" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#E6A000" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#E6A000" />
+                </svg>
+            </div>
+        </div>
+        {{-- QUOTATIONS PUBLISHED CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.6s;">
+            <div>
+                <p class="font-semibold text-[#1E1E1E]">Quotations Published</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['hot'] }}
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#E6A000" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#E6A000" />
+                    <path opacity="0.6"
+                        d="M24.9126 34.175C24.325 34.8017 23.3406 34.8335 22.7138 34.2459C22.0871 33.6583 22.0553 32.6739 22.6429 32.0472L28.4762 25.8249C29.0445 25.2188 29.9888 25.1662 30.6208 25.7056L35.2248 29.6343L41.2235 22.0361C41.7558 21.3618 42.734 21.2467 43.4083 21.779C44.0826 22.3114 44.1977 23.2895 43.6653 23.9638L36.6653 32.8305C36.1186 33.5231 35.1059 33.6227 34.4347 33.0499L29.7306 29.0358L24.9126 34.175Z"
+                        fill="#E6A000" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    {{-- HOT CARDS COUNTS --}}
+    <div id="forHotCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+        {{-- LEADS HOT COUNTS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.00s;">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 rounded-lg bg-[#FDD3D0]">
+                    <p class="text-[#EC221F] text-4xl">•</p>
+                    <p class="font-semibold text-[#1E1E1E]">Total Hot Leads (Committed)</p>
+                </div>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['hot'] }}
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#EC221F" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#EC221F" />
+                    <path opacity="0.6"
+                        d="M24.9131 34.175C24.3255 34.8017 23.3411 34.8335 22.7143 34.2459C22.0876 33.6583 22.0558 32.6739 22.6434 32.0472L28.4767 25.8249C29.045 25.2188 29.9893 25.1662 30.6213 25.7056L35.2253 29.6343L41.224 22.0361C41.7563 21.3618 42.7345 21.2467 43.4088 21.779C44.0831 22.3114 44.1982 23.2895 43.6658 23.9638L36.6658 32.8305C36.1191 33.5231 35.1063 33.6227 34.4351 33.0499L29.7311 29.0358L24.9131 34.175Z"
+                        fill="#EC221F" />
+                </svg>
+            </div>
+        </div>
+        {{-- EXPIRING IN 7 DAYS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.30s;">
+             <div>
+                <p class="font-semibold text-[#1E1E1E]">Expiring in 7 Days</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-[#1E1E1E]">
+                    {{ $leadCounts['warm'] }}
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#EC221F" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#EC221F" />
+                    <path opacity="0.6"
+                        d="M24.9131 34.175C24.3255 34.8017 23.3411 34.8335 22.7143 34.2459C22.0876 33.6583 22.0558 32.6739 22.6434 32.0472L28.4767 25.8249C29.045 25.2188 29.9893 25.1662 30.6213 25.7056L35.2253 29.6343L41.224 22.0361C41.7563 21.3618 42.7345 21.2467 43.4088 21.779C44.0831 22.3114 44.1982 23.2895 43.6658 23.9638L36.6658 32.8305C36.1191 33.5231 35.1063 33.6227 34.4351 33.0499L29.7311 29.0358L24.9131 34.175Z"
+                        fill="#EC221F" />
+                </svg>
+            </div>
+        </div>
+        {{-- EXPIRING IN 8+ DAYS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.6s;">
+            <div>
+                <p class="font-semibold text-[#1E1E1E]">Expiring in 8+ Days</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    {{ $leadCounts['hot'] }}
+                </p>
+            </div>
+            <div>
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path opacity="0.21"
+                        d="M44 0C52.8366 0 60 7.16344 60 16V44C60 52.8366 52.8366 60 44 60H16C7.16344 60 4.5101e-07 52.8366 0 44V16C0 7.16344 7.16344 4.5098e-07 16 0H44Z"
+                        fill="#EC221F" />
+                    <path
+                        d="M19.1111 40.8889H42.4444C43.3036 40.8889 44 41.5853 44 42.4444C44 43.3036 43.3036 44 42.4444 44H17.5556C16.6964 44 16 43.3036 16 42.4444V17.5556C16 16.6964 16.6964 16 17.5556 16C18.4147 16 19.1111 16.6964 19.1111 17.5556V40.8889Z"
+                        fill="#EC221F" />
+                    <path opacity="0.6"
+                        d="M24.9131 34.175C24.3255 34.8017 23.3411 34.8335 22.7143 34.2459C22.0876 33.6583 22.0558 32.6739 22.6434 32.0472L28.4767 25.8249C29.045 25.2188 29.9893 25.1662 30.6213 25.7056L35.2253 29.6343L41.224 22.0361C41.7563 21.3618 42.7345 21.2467 43.4088 21.779C44.0831 22.3114 44.1982 23.2895 43.6658 23.9638L36.6658 32.8305C36.1191 33.5231 35.1063 33.6227 34.4351 33.0499L29.7311 29.0358L24.9131 34.175Z"
+                        fill="#EC221F" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    {{-- DEAL CARDS COUNTS --}}
+    <div id="forDealCardsCounts" class="hidden grid grid-cols-1 gap-3 mt-4">
+        {{-- LEADS DEAL COUNTS CARDS --}}
+        <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
+            style="animation-delay: 0.15s;">
             <div>
                 <div class="flex items-center gap-2 px-3 rounded-lg bg-[#CFF7D3]">
                     <p class="text-[#14AE5C] text-4xl">•</p>
@@ -140,11 +441,11 @@
         </div>
     </div>
 
-
+    
     {{-- TABLES CONTENTS --}}
-    <div class="mt-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
+    <div class="mt-4 rounded-lg border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
-        <div class="flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4">
+        <div class="bg-white flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg">
             {{-- SEARCH TABLES --}}
             <div class="w-1/6 border border-gray-300 rounded-lg flex items-center p-2">
                 <div class="px-2">
@@ -202,7 +503,7 @@
         <div class="">
             {{-- ALL STAGE TABLE --}}
             <div data-tab-container="all" class="leads-table-container">
-                <table id="allLeadsTableNew" class="w-full">
+                <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#D9D9D9]">
@@ -215,12 +516,13 @@
                             <th>Customer Type</th>
                             <th>City</th>
                             <th>Regional</th>
-                            <th class="text-center w-12.5">stage</th>
+                            <th class="text-center w-12.5">Stage</th>
                             <th class="text-center min-w-18.75">Action</th>
                         </tr>
                     </thead>
                     <tbody id="allBody"></tbody>
                 </table>
+                
                 {{-- NAVIGATION ROWS --}}
                 <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
                     <div class="flex items-center gap-3">
@@ -254,7 +556,7 @@
         {{-- CONDITIONAL STAGE TABLE --}}
         @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
         <div data-tab-container="{{ $tab }}" class="leads-table-container">
-            <table id="{{ $tab }}LeadsTableNew" class="w-full">
+            <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                 {{-- HEADER TABLE --}}
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
@@ -417,6 +719,44 @@
         hot: {{ $leadCounts['hot'] ?? 0 }},
         deal: {{ $leadCounts['deal'] ?? 0 }}
     };
+
+    $(document).ready(function () {
+
+        const sections = {
+            all: $("#forAllCardsCounts"),
+            cold: $("#forColdCardsCounts"),
+            warm: $("#forWarmCardsCounts"),
+            hot: $("#forHotCardsCounts"),
+            deal: $("#forDealCardsCounts"),
+        };
+
+        function resetAnimation($container) {
+            $container.find(".animate__animated").each(function () {
+                $(this)
+                    .removeClass("animate__fadeInUp")
+                    .width(); // trigger reflow
+                $(this).addClass("animate__fadeInUp");
+            });
+        }
+
+        $(".nav-leads").on("click", function () {
+
+            const selected = $(this).data("tab");
+
+            // Hide all
+            $.each(sections, function (key, value) {
+                value.addClass("hidden");
+            });
+
+            // Show selected
+            sections[selected].removeClass("hidden");
+
+            // Reset animation
+            resetAnimation(sections[selected]);
+
+        });
+
+    });
 
     // return trimmed search query value
     function getSearchQuery() {
