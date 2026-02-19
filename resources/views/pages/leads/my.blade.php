@@ -575,7 +575,11 @@
                         <th class="p-3">Claimed At</th>
                         <th>Lead Name</th>
                         <th>Industry</th>
+                        @if ($tab === 'hot')
+                        <th class="text-left">Expire In</th>
+                        @else
                         <th class="text-left">Status</th>
+                        @endif
                         @endif
                         <th class="text-center">
                             Action
@@ -853,7 +857,7 @@
                     <td>${row.industry}</td>
                     <td>${row.city_name}</td>
                     <td>${row.regional_name}</td>
-                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-left">${row.expire_in !== undefined ? (row.expire_in > 0 ? row.expire_in + ' days' : 'Expired') : row.meeting_status}</td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -959,7 +963,14 @@
                     <td class="p-3">${row.claimed_at}</td>
                     <td>${row.lead_name}</td>
                     <td>${row.industry}</td>
-                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-left">${(() => {
+                        const d = row.expire_in;
+                        if (d === null || d === undefined) return (row.meeting_status || '-');
+                        if (d > 1) return d + ' days left';
+                        if (d === 1) return 'tomorrow';
+                        if (d === 0) return 'today';
+                        return 'Expired';
+                    })()}</td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -1005,7 +1016,14 @@
                     <td class="p-3">${row.claimed_at}</td>
                     <td>${row.lead_name}</td>
                     <td>${row.industry_name}</td>
-                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-left">${(() => {
+                        const d = row.expire_in;
+                        if (d === null || d === undefined) return (row.meeting_status || '-');
+                        if (d > 1) return d + ' days left';
+                        if (d === 1) return 'tomorrow';
+                        if (d === 0) return 'today';
+                        return 'Expired';
+                    })()}</td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -1051,7 +1069,14 @@
                     <td class="p-3">${row.claimed_at}</td>
                     <td>${row.lead_name}</td>
                     <td>${row.industry_name}</td>
-                    <td class="text-left">${row.meeting_status}</td>
+                    <td class="text-left">${(() => {
+                        const d = row.expire_in;
+                        if (d === null || d === undefined) return (row.meeting_status || '-');
+                        if (d > 1) return d + ' days left';
+                        if (d === 1) return 'tomorrow';
+                        if (d === 0) return 'today';
+                        return 'Expired';
+                    })()}</td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -1099,12 +1124,21 @@
                     {
                         data: 'regional_name'
                     },
-                    {
+                    (type === 'hot' ? {
+                        data: 'expire_in',
+                        render: function(data, type, row) {
+                            if (data === null || data === undefined) return '-';
+                            return data > 0 ? data + ' days' : 'Expired';
+                        },
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
+                    } : {
                         data: 'meeting_status',
                         orderable: false,
                         searchable: false,
                         className: 'text-center'
-                    },
+                    }),
                     {
                         data: 'actions',
                         orderable: false,
@@ -1191,7 +1225,7 @@
         $(function() {
             const coldTable = initLeadTable('#coldLeadsTable', '{{ route('leads.my.cold.list') }}', 'cold');
             const warmTable = initLeadTable('#warmLeadsTable', '{{ route('leads.my.warm.list') }}');
-            const hotTable = initLeadTable('#hotLeadsTable', '{{ route('leads.my.hot.list') }}');
+            const hotTable = initLeadTable('#hotLeadsTable', '{{ route('leads.my.hot.list') }}', 'hot');
             const dealTable = initLeadTable('#dealLeadsTable', '{{ route('leads.my.deal.list') }}');
 
             // debounce helper
