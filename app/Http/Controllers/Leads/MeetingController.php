@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\{Attachment};
-use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadMeetingDetail, LeadStatus, LeadStatusLog};
+use App\Models\Leads\{LeadMeeting, LeadMeetingReschedule, LeadStatus, LeadStatusLog};
 use App\Models\Masters\MeetingType;
 use App\Models\Orders\{MeetingExpense, MeetingExpenseDetail, FinanceRequest};
 
@@ -127,8 +127,13 @@ class MeetingController extends Controller
                     'online_url'         => $request->meeting_url,
                 ]);
 
-                // Update lead details
-                $meeting->leadDetails()->delete();
+                // Update lead details (use DB operations; no separate model required)
+                if (\Illuminate\Support\Facades\Schema::hasTable('lead_meeting_details')) {
+                    \Illuminate\Support\Facades\DB::table('lead_meeting_details')
+                        ->where('lead_meeting_id', $meeting->id)
+                        ->delete();
+                }
+
                 $this->saveMeetingLeadDetails($request, $meeting);
 
                 if (! $isOnline && $meeting->expense && $meeting->expense->financeRequest) {
@@ -203,7 +208,8 @@ class MeetingController extends Controller
         }
 
         foreach ($leadNames as $index => $name) {
-            LeadMeetingDetail::create([
+            if (\Illuminate\Support\Facades\Schema::hasTable('lead_meeting_details')) {
+                \Illuminate\Support\Facades\DB::table('lead_meeting_details')->insert([
                 'lead_meeting_id' => $meeting->id,
                 'name'            => $name,
                 'type'            => $types[$index] ?? 'office',
@@ -212,7 +218,10 @@ class MeetingController extends Controller
                 'product_id'      => $productIds[$index] ?? null,
                 'price'           => isset($prices[$index]) ? str_replace(['.', ','], ['', '.'], $prices[$index]) : null,
                 'description'     => $descriptions[$index] ?? null,
-            ]);
+                'created_at'      => now(),
+                'updated_at'      => now(),
+                ]);
+            }
         }
     }
 

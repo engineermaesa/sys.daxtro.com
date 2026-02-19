@@ -215,7 +215,7 @@
                             <th>Customer Type</th>
                             <th>City</th>
                             <th>Regional</th>
-                            <th class="text-center w-12.5">Status</th>
+                            <th class="text-center w-12.5">stage</th>
                             <th class="text-center min-w-18.75">Action</th>
                         </tr>
                     </thead>
@@ -417,6 +417,12 @@
         hot: {{ $leadCounts['hot'] ?? 0 }},
         deal: {{ $leadCounts['deal'] ?? 0 }}
     };
+
+    // return trimmed search query value
+    function getSearchQuery() {
+        const el = document.getElementById('searchInput');
+        return (el?.value || '').trim();
+    }
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -469,8 +475,8 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
-            search: document.getElementById('searchInput')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || ''
+            end_date: document.getElementById('filter_end')?.value || '',
+            search: getSearchQuery()
         });
 
         const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
@@ -517,13 +523,7 @@
     async function loadAllLeads() {
     const page = pageState.all || 1;
     const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
-    const params = new URLSearchParams({
-        page: page,
-        per_page: perPage,
-        search: document.getElementById('searchInput')?.value || ''
-    });
-
-    const response = await fetch(`/api/leads/my/all?${params.toString()}`, {
+    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`, {
         credentials: 'same-origin'
     });
 
@@ -586,8 +586,8 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
-            search: document.getElementById('searchInput')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || ''
+            end_date: document.getElementById('filter_end')?.value || '',
+            search: getSearchQuery()
         });
 
         const response = await fetch(`{{ route('leads.my.warm.list') }}?${params.toString()}`, {
@@ -632,8 +632,8 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
-            search: document.getElementById('searchInput')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || ''
+            end_date: document.getElementById('filter_end')?.value || '',
+            search: getSearchQuery()
         });
 
         const response = await fetch(`{{ route('leads.my.hot.list') }}?${params.toString()}`, {
@@ -678,8 +678,8 @@
         const params = new URLSearchParams({
             page: page,
             start_date: document.getElementById('filter_start')?.value || '',
-            search: document.getElementById('searchInput')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || ''
+            end_date: document.getElementById('filter_end')?.value || '',
+            search: getSearchQuery()
         });
 
         const response = await fetch(`{{ route('leads.my.deal.list') }}?${params.toString()}`, {
@@ -834,7 +834,7 @@
                         return {
                             start_date: $('#filter_start').val(),
                             end_date: $('#filter_end').val(),
-                            search: $('#searchInput').val()
+                            search: $('#searchInput').val().trim()
                         };
                     },
                     xhrFields: {
@@ -854,35 +854,87 @@
             const hotTable = initLeadTable('#hotLeadsTable', '{{ route('leads.my.hot.list') }}');
             const dealTable = initLeadTable('#dealLeadsTable', '{{ route('leads.my.deal.list') }}');
 
-            // Search input: debounce and reload both DataTables and custom loaders
-            const searchInput = document.getElementById('searchInput');
-            function debounce(func, wait) {
-                let timeout;
+            // debounce helper
+            function debounce(fn, wait) {
+                let t;
                 return function(...args) {
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(this, args), wait);
+                    clearTimeout(t);
+                    t = setTimeout(() => fn.apply(this, args), wait);
                 };
             }
 
-            if (searchInput) {
-                searchInput.addEventListener('input', debounce(function(e) {
-                    // reset to first page for all paginated lists
-                    pageState.all = pageState.cold = pageState.warm = pageState.hot = pageState.deal = 1;
+            // debounced remote reload to avoid overwriting immediate DOM filter
+            const remoteReloadDebounced = debounce(function() {
+                try { coldTable.ajax.reload(); } catch(e) {}
+                try { warmTable.ajax.reload(); } catch(e) {}
+                try { hotTable.ajax.reload(); } catch(e) {}
+                try { dealTable.ajax.reload(); } catch(e) {}
 
-                    // reload DataTables
-                    coldTable.ajax.reload();
-                    warmTable.ajax.reload();
-                    hotTable.ajax.reload();
-                    dealTable.ajax.reload();
+                // refresh server-backed custom loaders
+                loadAllLeads();
+                loadColdLeads();
+                loadWarmLeads();
+                loadHotLeads();
+                loadDealLeads();
 
-                    // reload custom (new) tables
-                    loadAllLeads();
-                    loadColdLeads();
-                    loadWarmLeads();
-                    loadHotLeads();
-                    loadDealLeads();
-                    updateBadgeCounts();
-                }, 350));
+                updateBadgeCounts();
+            }, 700);
+
+            // called when search input changes
+            function onSearchChanged() {
+                const q = getSearchQuery();
+
+                // reset pager
+                pageState.all = pageState.cold = pageState.warm = pageState.hot = pageState.deal = 1;
+
+                // For DataTables instances, use DataTables search (client-side)
+                try { coldTable.search(q).draw(); } catch(e) {}
+                try { warmTable.search(q).draw(); } catch(e) {}
+                try { hotTable.search(q).draw(); } catch(e) {}
+                try { dealTable.search(q).draw(); } catch(e) {}
+
+                // Also apply DOM filtering to our custom "New" tables immediately
+                applyDomFilterToCustomTable('allBody', q, 'all');
+                applyDomFilterToCustomTable('coldBody', q, 'cold');
+                applyDomFilterToCustomTable('warmBody', q, 'warm');
+                applyDomFilterToCustomTable('hotBody', q, 'hot');
+                applyDomFilterToCustomTable('dealBody', q, 'deal');
+
+                // If there's a query, don't immediately trigger remote reload (avoid overwrite).
+                // Only schedule remote reload when query is cleared.
+                if (!q) {
+                    remoteReloadDebounced();
+                }
+            }
+
+            function applyDomFilterToCustomTable(tbodyId, query, tab) {
+                const tbody = document.getElementById(tbodyId);
+                if (!tbody) return;
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const q = (query || '').toLowerCase();
+                let visible = 0;
+                rows.forEach(r => {
+                    if (!q) {
+                        r.style.display = '';
+                        visible++;
+                        return;
+                    }
+                    const text = r.innerText.toLowerCase();
+                    const show = text.indexOf(q) !== -1;
+                    r.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+
+                // update pager info for this tab to reflect filtered count
+                const showingEl = document.getElementById(tab + 'Showing');
+                if (showingEl) {
+                    showingEl.innerText = q ? `Showing 1-${visible} of ${visible}` : `Showing 0-0 of ${totals[tab] || 0}`;
+                }
+            }
+
+            const searchEl = document.getElementById('searchInput');
+            if (searchEl) {
+                searchEl.addEventListener('input', debounce(onSearchChanged, 350));
             }
 
             const notes = {

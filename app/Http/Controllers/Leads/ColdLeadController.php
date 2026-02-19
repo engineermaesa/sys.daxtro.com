@@ -64,7 +64,7 @@ class ColdLeadController extends Controller
                     'city_name' => $row->lead->region->name ?? 'All Regions',
                     'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
                     'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                    'meeting_status' => $this->coldMeetingStatus($meeting),
+                    'meeting_status' => $this->coldMeetingStatus($row->lead, $meeting),
                     'actions' => $this->coldActions($row),
                 ];
             });
@@ -298,8 +298,14 @@ class ColdLeadController extends Controller
 
             $html .= '  <a class="dropdown-item" href="' . e($viewUrl) . '"><i class="bi bi-calendar-event mr-2"></i> View Meeting</a>';
 
-            // Cancel condition
-            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled']) && is_null($meeting->result)) {
+            $isFinished = false;
+            if ($meeting->scheduled_end_at) {
+                $isFinished = \Carbon\Carbon::parse($meeting->scheduled_end_at) < now();
+            }
+
+            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled'])
+                && is_null($meeting->result)
+                && ! $isFinished) {
                 $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
                     . '    <i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
             }
@@ -330,10 +336,30 @@ class ColdLeadController extends Controller
         return $html;
     }
 
-    protected function coldMeetingStatus($meeting)
+    protected function coldMeetingStatus($leadOrMeeting, $meeting = null)
     {
-        // Onlne
-        if (!$meeting) {
+        // Accept either ($lead, $meeting) or ($meeting) for backward compatibility
+        if ($leadOrMeeting instanceof \App\Models\Leads\Lead) {
+            $lead = $leadOrMeeting;
+        } else {
+            $meeting = $leadOrMeeting;
+            $lead = $meeting?->lead;
+        }
+
+        // No meeting -> check initiation (A01..A04) or raw
+        if (! $meeting) {
+            $initCodes = ['A01', 'A02', 'A03', 'A04'];
+
+            $hasInitiation = $lead
+                ? $lead->activityLogs()->whereHas('activity', function ($q) use ($initCodes) {
+                    $q->whereIn('code', $initCodes);
+                })->exists()
+                : false;
+
+            if ($hasInitiation) {
+                return '<span class="status-initiation">Initiation</span>';
+            }
+
             return '<span class="status-grey">Raw Lead</span>';
         }
 
@@ -343,21 +369,18 @@ class ColdLeadController extends Controller
         $isFinished = $scheduledEnd < now();
 
         $expiredBadge = $isExpired ? '<span class="status-expired">Expired</span>' : '';
-        $finishedBadge = (!$isExpired && $isFinished)
-            ? '<span class="status-finish">Finished</span>'
-            : '';
 
-        // Offline + expense
+        // Offline + expense: pending or rejected
         if ($meeting->expense && $meeting->is_online == 0) {
-
             if ($meeting->expense->status === 'submitted') {
-                return $expiredBadge . '<span class="status-waiting">Awaiting Finance Approval</span>';
+                return $expiredBadge . '<span class="status-waiting">Pending Finance approval</span>';
             }
 
             if ($meeting->expense->status === 'rejected') {
                 $note = $meeting->expense->financeRequest?->notes;
+                $by = $meeting->expense->financeRequest?->rejected_by_name ?? 'Finance';
 
-                $html = $expiredBadge . '<span class="status-expired">Rejected by Finance</span>';
+                $html = $expiredBadge . '<span class="status-expired">Rejected by ' . e($by) . '</span>';
 
                 if ($note) {
                     $html .= '<div class="text-danger small mt-1">' . e($note) . '</div>';
@@ -367,23 +390,29 @@ class ColdLeadController extends Controller
             }
         }
 
-        // Reschedule
-        if ($meeting->reschedules()->count() > 0) {
+        // Rescheduled
+        $reschedulesCount = $meeting->reschedules()->count();
+        if ($reschedulesCount > 0) {
             return $expiredBadge
-                . $finishedBadge
-                . '<span class="status-waiting">Rescheduled (' . $meeting->reschedules()->count() . 'x)</span>';
+                . '<span class="status-waiting">Rescheduled (' . $reschedulesCount . 'x)</span>';
         }
 
+        // Waiting for consideration (result = waiting)
         if ($meeting->result === 'waiting') {
             return $expiredBadge
-                . $finishedBadge
-                . '<span class="status-waiting">Waiting for Consideration</span>';
+                . '<span class="status-waiting">Waiting for consideration</span>';
         }
 
-        if (!$isExpired && !$isFinished) {
-            return '<span class="status-finish">Meeting Set</span>';
+        // Meeting finished but result not set
+        if ($isFinished && is_null($meeting->result)) {
+            return $expiredBadge . '<span class="status-finish">Meeting Finished</span>';
         }
 
-        return $expiredBadge . $finishedBadge;
+        // Meeting scheduled and upcoming
+        if (! $isExpired && ! $isFinished) {
+            return '<span class="status-finish">Meeting Scheduled</span>';
+        }
+
+        return $expiredBadge;
     }
 }
