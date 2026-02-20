@@ -1,488 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="section">
-  <div class="row">
-    <div class="col-xl-12">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <strong>Meeting Schedule</strong>
-
-          {{-- CONDITIONAL BY DATE --}}
-          <div>
-            @if($canReschedule ?? false)
-              <a href="{{ route('leads.my.cold.meeting.reschedule', $data->id) }}"
-                 class="btn btn-warning btn-sm">Update Meeting</a>
-            @endif
-            
-            @if($data && now()->gt($data->scheduled_end_at) && $data->result === null &&
-                ($data->is_online || optional($data->expense)->status === 'approved'))
-              <a href="{{ route('leads.my.cold.meeting.result', $data->id) }}"
-                class="btn btn-success btn-sm">Set Meeting Result</a>
-            @endif
-
-            @if($data && !in_array(optional($data->expense)->status, ['submitted', 'canceled']) && is_null($data->result))
-              <button type="button"
-                      class="btn btn-danger btn-sm"
-                      id="btnCancelMeeting"
-                      data-url="{{ route('leads.my.cold.meeting.cancel', $data->id) }}"
-                      data-online="{{ $data->is_online ? 1 : 0 }}"
-                      data-status="{{ optional($data->expense)->status }}">
-                Cancel Meeting
-              </button>
-            @endif
-          </div>
-        </div>
-
-        <div class="card-body pt-3">
-          {{-- overall meeting lifecycle + expense workflow --}}
-          @if(!empty($data))
-            <div class="mb-3">
-              @php
-                $rescheduleCount = $data?->reschedules->count();
-                $isOffline = !$data->is_online;
-                $expenseStatus = $data->expense?->status ?? null;
-                $now = now();
-              @endphp
-
-              {{-- Status Badge --}}
-              <div>
-                @if($isOffline && $expenseStatus === 'submitted')
-                  <span class="badge badge-warning">Awaiting Finance Approval</span>
-                @elseif($isOffline && $expenseStatus === 'rejected')
-                  <span class="badge badge-danger">Rejected by Finance</span>
-                  @if($data->expense?->financeRequest?->notes)
-                    <div class="alert alert-danger mt-2 mb-0 py-2 px-3 small">
-                      <i class="bi bi-info-circle-fill mr-1"></i>
-                      <strong>FINANCE NOTES:</strong> {{ $data->expense->financeRequest->notes }}
-                    </div>
-                  @endif
-                @elseif($isOffline && $expenseStatus === 'approved')
-                  <span class="badge badge-success">Approved by Finance</span>
-                  @if($data->expense?->financeRequest?->notes)
-                    <div class="alert alert-success mt-2 mb-0 py-2 px-3 small">
-                      <i class="bi bi-info-circle-fill mr-1"></i>
-                      <strong>FINANCE NOTES:</strong> {{ $data->expense->financeRequest->notes }}
-                    </div>
-                  @endif
-                @elseif($now->lt($data->scheduled_start_at))
-                  <span class="badge badge-info">Scheduled</span>
-                @elseif($now->gt($data->scheduled_end_at) && $data->result === null)
-                  <span class="badge badge-secondary">Meeting Expired</span>
-                @elseif($data->result !== null)
-                  <span class="badge badge-success">Completed ({{ ucfirst($data->result) }})</span>
-                @else
-                  <span class="badge badge-primary">Meeting In Progress</span>
-                @endif
-
-                @if($rescheduleCount > 0)
-                  <span class="badge badge-light text-dark ml-2">
-                    Rescheduled {{ $rescheduleCount }} time{{ $rescheduleCount > 1 ? 's' : '' }}
-                  </span>
-                @endif
-              </div>
-
-            </div>
-          @endif
-
-          {{-- IF SCHEDULED --}}
-          @if($isViewOnly ?? false)
-            <div class="alert alert-info">
-              <strong>Note:</strong> This meeting has already been scheduled. Fields are read-only.
-            </div>
-          @endif
-
-          {{-- COUNT AND URL MEETING --}}
-          @if(!empty($data))
-            <div class="mb-3">
-              {{-- COUNT RESCHEDULED --}}
-              @if($data->reschedules && $data->reschedules->count() > 0)
-                <span class="badge bg-warning me-2">
-                  Rescheduled {{ $data->reschedules->count() }} time{{ $data->reschedules->count() > 1 ? 's' : '' }}
-                </span>
-              @endif
-
-              {{-- URL MEETING ONLINE --}}
-              @if($data->is_online && !empty($data->online_url))
-                <div class="alert alert-secondary mt-2">
-                  <strong>Meeting Link:</strong>
-                  <a href="{{ $data->online_url }}" target="_blank">{{ $data->online_url }}</a>
-                </div>
-              @endif
-            </div>
-          @endif
-
-          {{-- MAIN FORM --}}
-          <form id="form"
-                method="POST"
-                action="{{ route('leads.my.cold.meeting.save', ['id' => $data->id ?? '']) }}"
-                back-url="{{ route('leads.my') }}"
-                enctype="multipart/form-data">
-            @csrf
-
-            <input type="hidden" name="lead_id" value="{{ old('lead_id', $data->lead_id ?? $lead_id ?? '') }}">
-
-            {{-- Meeting Type --}}
-            {{-- <div class="mb-3">
-              <label for="meeting_type_id" class="form-label">Meeting Type <i class="required">*</i></label>
-              <select name="meeting_type_id" id="meeting_type_id"
-                      class="form-select select2"
-                      @if($isViewOnly ?? false) disabled @endif required>
-                <option value="">-- Select Type --</option>
-                @foreach($meetingTypes as $mt)
-                  <option value="{{ $mt->id }}"
-                          data-name="{{ $mt->name }}"
-                          {{ old('meeting_type_id', $data->meeting_type_id ?? '') == $mt->id ? 'selected' : '' }}>
-                    {{ $mt->name }}
-                  </option>
-                @endforeach
-              </select>
-            </div> --}}
-
-            {{-- Lead Details Table
-            <div class="mb-3">
-              <label class="form-label">Lead Details <i class="required">*</i></label>
-              <table class="table table-bordered" id="leads-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Province</th>
-                    <th>City</th>
-                    <th>Product</th>
-                    <th style="width:190px;">Price</th>
-                    <th>Description</th>
-                    @if(!($isViewOnly ?? false))
-                      <th style="width:40px;"></th>
-                    @endif
-                  </tr>
-                </thead>
-                <tbody>
-                  @php
-                    $leadDetails = old('lead_name')
-                      ? collect(old('lead_name'))->map(fn($name, $i) => [
-                          'name' => $name,
-                          'type' => old('lead_type')[$i] ?? '',
-                          'province' => old('lead_province')[$i] ?? '',
-                          'city' => old('lead_city')[$i] ?? '',
-                          'product_id' => old('lead_product_id')[$i] ?? '',
-                          'price' => old('lead_price')[$i] ?? '',
-                          'description' => old('lead_description')[$i] ?? '',
-                        ])
-                      : (isset($data) && $data->leadDetails && $data->leadDetails->count() 
-                          ? $data->leadDetails->map(fn($d) => [
-                              'name' => $d->name,
-                              'type' => $d->type,
-                              'province' => $d->province,
-                              'city' => $d->city,
-                              'product_id' => $d->product_id,
-                              'price' => $d->price,
-                              'description' => $d->description,
-                            ])
-                          : collect([['name' => '', 'type' => 'office', 'province' => '', 'city' => '', 'product_id' => '', 'price' => '', 'description' => '']])
-                        );
-                  @endphp
-
-                  @foreach($leadDetails as $row)
-                  <tr>
-                    <td>
-                      <input type="text" name="lead_name[]" class="form-control" 
-                             value="{{ $row['name'] }}" 
-                             @if($isViewOnly ?? false) readonly @endif required>
-                    </td>
-                    <td>
-                      <select name="lead_type[]" class="form-select" @if($isViewOnly ?? false) disabled @endif required>
-                        <option value="office" {{ $row['type'] == 'office' ? 'selected' : '' }}>Office</option>
-                        <option value="canvas" {{ $row['type'] == 'canvas' ? 'selected' : '' }}>Canvas</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input type="text" name="lead_province[]" class="form-control lead-province" 
-                             value="{{ $row['province'] }}" 
-                             @if($isViewOnly ?? false) readonly @endif required>
-                    </td>
-                    <td>
-                      <select name="lead_city[]" class="form-select select2 lead-city" 
-                              @if($isViewOnly ?? false) disabled @endif required>
-                        <option value="">Select City</option>
-                        @foreach($cities as $cityOption)
-                          <option value="{{ $cityOption }}" 
-                                  data-province="{{ $cityOption }}"
-                                  {{ $row['city'] == $cityOption ? 'selected' : '' }}>
-                            {{ $cityOption }}
-                          </option>
-                        @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <select name="lead_product_id[]" class="form-select lead-product select2" 
-                              @if($isViewOnly ?? false) disabled @endif required>
-                        <option value="">Select Product</option>
-                        @foreach($products as $p)
-                          <option value="{{ $p->id }}"
-                                  {{ $row['product_id'] == $p->id ? 'selected' : '' }}
-                                  data-price="{{ $p->price }}"
-                                  data-gov="{{ $p->government_price }}"
-                                  data-corp="{{ $p->corporate_price }}"
-                                  data-pers="{{ $p->personal_price }}"
-                                  data-fob="{{ $p->fob_price }}">
-                            {{ $p->name }} ({{ $p->sku }})
-                          </option>
-                        @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <input type="text" name="lead_price[]" 
-                             class="form-control lead-price number-input" 
-                             value="{{ $row['price'] ? number_format($row['price'], 0, ',', '.') : '' }}" 
-                             @if($isViewOnly ?? false) readonly @endif required>
-                      @if(isset($row['product_id']) && $row['product_id'])
-                        @php
-                          $product = $products->firstWhere('id', $row['product_id']);
-                        @endphp
-                        @if($product)
-                        <div class="form-text segment-price-info small text-muted">
-                          <ul class="list-inline mb-0">
-                            <li class="list-inline-item me-3">
-                              <span class="fw-semibold">Gov:</span>
-                              Rp{{ number_format($product->government_price ?? 0, 0, ',', '.') }}
-                            </li>
-                            <li class="list-inline-item me-3">
-                              <span class="fw-semibold">Corp:</span>
-                              Rp{{ number_format($product->corporate_price ?? 0, 0, ',', '.') }}
-                            </li>
-                            <li class="list-inline-item me-3">
-                              <span class="fw-semibold">Personal:</span>
-                              Rp{{ number_format($product->personal_price ?? 0, 0, ',', '.') }}
-                            </li>
-                            <li class="list-inline-item me-3">
-                              <span class="fw-semibold">FOB:</span>
-                              Rp{{ number_format($product->fob_price ?? 0, 0, ',', '.') }}
-                            </li>
-                          </ul>
-                        </div>
-                        @endif
-                      @else
-                        <div class="form-text segment-price-info small text-muted"></div>
-                      @endif
-                    </td>
-                    <td>
-                      <input type="text" name="lead_description[]" class="form-control" 
-                             value="{{ $row['description'] }}" 
-                             @if($isViewOnly ?? false) readonly @endif>
-                    </td>
-                    @if(!($isViewOnly ?? false))
-                      <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger remove-lead">&times;</button>
-                      </td>
-                    @endif
-                  </tr>
-                  @endforeach
-                </tbody>
-              </table>
-              @if(!($isViewOnly ?? false))
-                <button type="button" id="add-lead" class="btn btn-sm btn-outline-primary">Add Lead</button>
-              @endif
-            </div> --}}
-
-            {{-- Online URL --}}
-            {{-- <div id="online-url-section" class="mb-3" style="display: none;">
-              <label for="meeting_url" class="form-label">Meeting URL <i class="required">*</i></label>
-              <input type="url"
-                    name="meeting_url"
-                    id="meeting_url"
-                    class="form-control"
-                    value="{{ old('meeting_url', $data->online_url ?? '') }}"
-                    @if($isViewOnly ?? false) readonly @endif>
-            </div> --}}
-
-            {{-- Offline Section --}}
-            {{-- <div id="offline-section" style="display: none;">
-              <div class="mb-3">
-                <label for="province" class="form-label">Province <i class="required">*</i></label>
-                <input type="text" 
-                       name="province" 
-                       id="province" 
-                       class="form-control" 
-                       value="{{ old('province', $data->province ?? '') }}"
-                       readonly
-                       style="background-color: #e9ecef; cursor: not-allowed;"
-                       @if($isViewOnly ?? false) readonly @endif>
-              </div>
-              
-              <div class="mb-3">
-                <label for="city" class="form-label">City <i class="required">*</i></label>
-                <select name="city" id="city" class="form-select select2" @if($isViewOnly ?? false) disabled @endif>
-                  <option value="">-- Select City --</option>
-                  @foreach($cities as $cityOption)
-                    <option value="{{ $cityOption }}" {{ old('city', $data->city ?? '') == $cityOption ? 'selected' : '' }}>{{ $cityOption }}</option>
-                  @endforeach
-                </select>
-              </div>
-              
-              <div class="mb-3">
-                <label for="address" class="form-label">Address <i class="required">*</i></label>
-                <textarea name="address" id="address"
-                          class="form-control"
-                          rows="2"
-                          @if($isViewOnly ?? false) readonly @endif>{{ old('address', $data->address ?? '') }}</textarea>
-              </div>
-\
-              <div class="mb-3">
-                <label class="form-label">Expenses <i class="required">*</i></label>
-                <table class="table table-bordered" id="expense-table">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Notes</th>
-                      <th style="width: 150px;">Amount</th>
-                      <th style="width: 40px;"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @php
-                      $expenseDetails = old('expense_type_id')
-                        ? collect(old('expense_type_id'))->map(fn($id, $i) => [
-                            'type_id' => $id,
-                            'notes'  => old('expense_notes')[$i] ?? '',
-                            'amount'  => old('expense_amount')[$i] ?? '',
-                          ])
-                        : (isset($data) && $data->expense
-                            ? $data->expense->details->map(fn($e) => [
-                                'type_id' => $e->expense_type_id,
-                                'notes'  => $e->notes,
-                                'amount'  => $e->amount,
-                              ])
-                            : collect([[ 'type_id' => null, 'notes' => null, 'amount' => null ]])
-                          );
-                    @endphp
-
-                    @foreach($expenseDetails as $row)
-                    <tr>
-                      <td>
-                        <select name="expense_type_id[]" class="form-select" @if($isViewOnly ?? false) disabled @endif>
-                          @foreach($expenseTypes as $et)
-                            <option value="{{ $et->id }}" {{ $et->id == $row['type_id'] ? 'selected' : '' }}>{{ $et->name }}</option>
-                          @endforeach
-                        </select>
-                      </td>
-                      <td>
-                        <input type="text"
-                              name="expense_notes[]"
-                              class="form-control"
-                              value="{{ $row['notes'] }}"
-                              @if($isViewOnly ?? false) readonly @endif>
-                      </td>
-                      <td>
-                        <input type="number" step="0.01"
-                              name="expense_amount[]"
-                              class="form-control"
-                              value="{{ $row['amount'] }}"
-                              @if($isViewOnly ?? false) readonly @endif>
-                      </td>
-                      <td class="text-center">
-                        @if(!($isViewOnly ?? false))
-                          <button type="button" class="btn btn-sm btn-danger remove-expense">&times;</button>
-                        @endif
-                      </td>
-                    </tr>
-                    @endforeach
-                  </tbody>
-                </table>
-                @if(!($isViewOnly ?? false))
-                  <button type="button" id="add-expense" class="btn btn-sm btn-outline-primary">Add Expense</button>
-                @endif
-              </div>
-            </div> --}}
-
-            {{-- Reschedule reason --}}
-            @if(isset($isReschedule) && $isReschedule)
-              <div class="mb-3">
-                <label for="reason" class="form-label">Reschedule Reason <i class="required">*</i></label>
-                <textarea name="reason" id="reason" class="form-control" rows="2" required></textarea>
-              </div>
-            @endif
-
-            {{-- Schedule --}}
-            <div class="mb-3">
-              <label for="scheduled_start_at" class="form-label">Start Time <i class="required">*</i></label>
-              <input type="datetime-local"
-                    onfocus="this.showPicker()"
-                    name="scheduled_start_at"
-                    id="scheduled_start_at"
-                    class="form-control"
-                    min="{{ now()->format('Y-m-d\TH:i') }}"
-                    value="{{ old('scheduled_start_at', isset($data->scheduled_start_at) ? \Carbon\Carbon::parse($data->scheduled_start_at)->format('Y-m-d\TH:i') : '') }}"
-                    @if($isViewOnly ?? false) readonly @endif required>
-            </div>
-
-            <div class="mb-3">
-              <label for="scheduled_end_at" class="form-label">End Time <i class="required">*</i></label>
-              <input type="datetime-local"
-                    onfocus="this.showPicker()"
-                    name="scheduled_end_at"
-                    id="scheduled_end_at"
-                    class="form-control"
-                    min="{{ now()->format('Y-m-d\TH:i') }}"
-                    value="{{ old('scheduled_end_at', isset($data?->scheduled_end_at) ? \Carbon\Carbon::parse($data?->scheduled_end_at)->format('Y-m-d\TH:i') : '') }}"
-                    @if($isViewOnly ?? false) readonly @endif required>
-            </div>
-
-            {{-- Submit / Back --}}
-            <div class="d-flex justify-content-between">
-              @if(!($isViewOnly ?? false))
-                @include('partials.common.save-btn-form', ['backUrl' => route('leads.my')])
-              @else
-                <a href="{{ route('leads.my') }}" class="btn btn-secondary">Back</a>
-              @endif
-            </div>
-          </form>
-          
-
-          @if( ! empty($data->reschedules) && $data->reschedules->count())
-            <hr>
-            <h6 class="text-muted">Reschedule History</h6>
-            <table class="table table-sm table-bordered mt-2">
-              <thead class="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>Old Time</th>                  
-                  <th>Old Location</th>                  
-                  <th>Old Online URL</th>
-                  <th>Reason</th>
-                  <th>By</th>
-                  <th>At</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach($data->reschedules as $i => $r)
-                <tr>
-                  <td>{{ $i + 1 }}</td>
-                  <td>
-                    {{ \Carbon\Carbon::parse($r->old_scheduled_start_at)->format('d M Y H:i') }}<br>
-                    - {{ \Carbon\Carbon::parse($r->old_scheduled_end_at)->format('d M Y H:i') }}
-                  </td>
-                  <td>{{ !empty($r->old_location) ? $r->old_location : '-' }}</td>
-                  <td>
-                    @if(!empty($r->old_online_url))
-                      <a href="{{ $r->old_online_url }}" target="_blank">Open Link</a>
-                    @else
-                      -
-                    @endif
-                  </td>
-                  <td>{{ $r->reason ?? '-' }}</td>
-                  <td>{{ $r->rescheduler->name ?? 'N/A' }}</td>
-                  <td>{{ \Carbon\Carbon::parse($r->rescheduled_at)->format('d M Y H:i') }}</td>
-                </tr>
-                @endforeach
-              </tbody>
-            </table>
-          @endif
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section class="min-h-screen">
   <div class="pt-4">
@@ -494,14 +12,16 @@
       </svg>
       <h1 class="text-[#115640] font-semibold text-2xl">Leads</h1>
     </div>
+    {{-- BREADCUMBS --}}
     <div class="flex items-center mt-2 gap-3">
       <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">My Leads</a>
       <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
-      <a href="/" class="text-[#083224] underline">
+      <a href="{{ route('leads.my.cold.meeting', $claim_id) }}" class="text-[#083224] underline">
           Set A Meeting
       </a>
     </div>
 
+    {{-- FORM MEETINGS --}}
     <form id="form"
         method="POST"
         action="{{ route('leads.my.cold.meeting.save', ['id' => $data->id ?? '']) }}"
@@ -513,7 +33,65 @@
 
       {{-- MEETING PLAN SECTION --}}
       <div class="bg-white border border-[#D9D9D9] rounded mt-4">
-        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Meeting Plan</h1>
+        <div class="w-full p-3 border-b border-b-[#D9D9D9]">
+          <div class="flex justify-between items-center">
+          <h1 class="font-semibold text-[#1E1E1E] uppercase">
+            Meeting Plan
+          </h1>
+          <div>
+            {{-- overall meeting lifecycle + expense workflow --}}
+            @if(!empty($data))
+              @php
+                $rescheduleCount = $data?->reschedules->count();
+                $isOffline = !$data->is_online;
+                $expenseStatus = $data->expense?->status ?? null;
+                $now = now();
+              @endphp
+                @if($isOffline && $expenseStatus === 'submitted')
+                  <span class="span-warm px-2!">Awaiting Finance Approval</span>
+                @elseif($isOffline && $expenseStatus === 'rejected')
+                  <span class="span-hot px-2!">Rejected by Finance</span>
+                  @if($data->expense?->financeRequest?->notes)
+                    <div class="alert alert-danger mt-2 mb-0 py-2 px-3 small">
+                      <i class="bi bi-info-circle-fill mr-1"></i>
+                      <strong>FINANCE NOTES:</strong> {{ $data->expense->financeRequest->notes }}
+                    </div>
+                  @endif
+                @elseif($isOffline && $expenseStatus === 'approved')
+                  <span class="span-deal px-2!">Approved by Finance</span>
+                  @if($data->expense?->financeRequest?->notes)
+                    <div class="alert alert-success mt-2 mb-0 py-2 px-3 small">
+                      <i class="bi bi-info-circle-fill mr-1"></i>
+                      <strong>FINANCE NOTES:</strong> {{ $data->expense->financeRequest->notes }}
+                    </div>
+                  @endif
+                @elseif($now->lt($data->scheduled_start_at))
+                  <span class="span-cold px-2!">Scheduled</span>
+                @elseif($now->gt($data->scheduled_end_at) && $data->result === null)
+                  <span class="span-hot px-2!">Meeting Expired</span>
+                @elseif($data->result !== null)
+                  <span class="span-deal px-2!">Completed ({{ ucfirst($data->result) }})</span>
+                @else
+                  <span class="span-cold px-2!">Meeting In Progress</span>
+                @endif
+
+                @if($rescheduleCount > 0)
+                  <span class="span-warm px-2!">
+                    Rescheduled {{ $rescheduleCount }} time{{ $rescheduleCount > 1 ? 's' : '' }}
+                  </span>
+                @endif
+            @endif
+            </div>
+          </div>
+
+          {{-- IF SCHEDULED --}}
+          @if($isViewOnly ?? false)
+            <div class="w-full bg-[#E1EBFA] text-[#3F80EA] p-3 rounded-lg mt-3">
+              <strong>Note:</strong> This meeting has already been scheduled. Fields are read-only.
+            </div>
+          @endif
+        </div>
+        
         {{-- MEETING TYPE AND DATE TIME --}}
         <div class="px-3 py-2 grid grid-cols-2 gap-5">
           {{-- MEETING TYPE SELECT FIELD --}}
@@ -532,6 +110,7 @@
               @endforeach
             </select>
           </div>
+      
           {{-- START & END TIME --}}
           <div class="text-[#1E1E1E]">
               <label for="scheduled_start_at" class="text-[#1E1E1E]! mb-1!">Start & End Time <i class="required">*</i></label>
@@ -572,6 +151,13 @@
                 : '') }}">
           </div>
         </div>
+        {{-- ALERT IF EXPO SELECTED --}}
+        <div id="expo-info-alert" class="p-3 hidden">
+          <h1 class="bg-[#E1EBFA] text-[#3F80EA] p-3 rounded-lg">
+            <strong>EXPO Meeting Detected:</strong> Fields will be auto-filled for quick setup.
+          </h1>
+        </div>
+
         {{-- Online URL --}}
         <div id="online-url-section" class="px-3 py-2 text-[#1E1E1E]!" style="display: none;">
           <label for="meeting_url" class="text-[#1E1E1E]! mb-1!">Meeting URL <i class="required">*</i></label>
@@ -736,6 +322,49 @@
         @endif
       </div>
     </form>
+
+    {{-- RESCHEDULE HISTORY SECTION --}}
+    @if( ! empty($data->reschedules) && $data->reschedules->count())
+      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
+        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Reschedule History</h1>
+        <table class="w-full bg-white rounded-br-lg rounded-bl-lg">
+            {{-- HEADER TABLE --}}
+            <thead class="text-[#1E1E1E]">
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <th class="p-3 text-center">#</th>
+                    <th>Old Time</th>                  
+                    <th>Old Location</th>                  
+                    <th>Old Online URL</th>
+                    <th>Reason</th>
+                    <th>By</th>
+                    <th>At</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($data->reschedules as $i => $r)
+                <tr class="border-b border-b-[#D9D9D9]">
+                  <td class="p-3 text-center">{{ $i + 1 }}</td>
+                  <td>
+                    {{ \Carbon\Carbon::parse($r->old_scheduled_start_at)->format('d M Y H:i') }}<br>
+                    - {{ \Carbon\Carbon::parse($r->old_scheduled_end_at)->format('d M Y H:i') }}
+                  </td>
+                  <td>{{ !empty($r->old_location) ? $r->old_location : '-' }}</td>
+                  <td>
+                    @if(!empty($r->old_online_url))
+                      <a href="{{ $r->old_online_url }}" target="_blank">Open Link</a>
+                    @else
+                      -
+                    @endif
+                  </td>
+                  <td>{{ $r->reason ?? '-' }}</td>
+                  <td>{{ $r->rescheduler->name ?? 'N/A' }}</td>
+                  <td>{{ \Carbon\Carbon::parse($r->rescheduled_at)->format('d M Y H:i') }}</td>
+                </tr>
+                @endforeach
+              </tbody>
+        </table>
+      </div>
+    @endif
   </div>
 </section>
 @endsection
@@ -775,7 +404,7 @@
 @endsection
 
 @section('scripts')
-<script >
+<script>
   $(function () {
     $('.select2').select2({ width: '100%' });
 
@@ -809,9 +438,16 @@
         enableTime: true,
         dateFormat: "Y-m-d H:i",
         time_24hr: true,
-        defaultDate: startVal || null,
+        defaultDate: startVal || new Date(),
         position: "below",
         disableMobile: true,
+        onReady(selectedDates, dateStr) {
+            if (!endVal) {
+                const now = this.input.value;
+                $('input[name="scheduled_end_at"]').val(now);
+                endVal = now;
+            }
+        },
         onChange(selectedDates, dateStr) {
             startVal = dateStr;
             $('input[name="scheduled_start_at"]').val(dateStr);
@@ -823,9 +459,17 @@
         enableTime: true,
         dateFormat: "Y-m-d H:i",
         time_24hr: true,
-        defaultDate: endVal || null,
+        defaultDate: endVal || new Date(),
         position: "below",
         disableMobile: true,
+        onReady(selectedDates, dateStr) {
+            if (!endVal) {
+                const now = this.input.value;
+                $('input[name="scheduled_end_at"]').val(now);
+                endVal = now;
+            }
+        },
+        
         onChange(selectedDates, dateStr) {
           endVal = dateStr;
           $('input[name="scheduled_end_at"][type="hidden"]').val(dateStr);
@@ -987,22 +631,25 @@
         if (!isExpo) {
             $('#city, #province, #address, #scheduled_start_at, #scheduled_end_at, #expense-table input, #expense-table select')
                 .removeClass('expo-auto-filled');
-            $('#expo-info-alert').remove();
+            $('#expo-info-alert').addClass('hidden');
         }
 
         // Handle EXPO type - auto-fill fields
         if (isExpo) {
+            $('#expo-info-alert').removeClass('hidden');
             autoFillExpoFields();
         }
 
         if (isOnline) {
-            $('#offline-section').hide();
-            $('#expense-section').hide();
-            $('#offline-section input, #offline-section textarea, #offline-section select').val('');
-            $('#expense-section input, #expense-section textarea, #expense-section select').val('');
-            $('#offline-section .select2').val(null).trigger('change');
+          $('#offline-section').hide();
+          $('#expense-section').hide();
+          $('#offline-section input, #offline-section textarea, #offline-section select').val('');
+          $('#expense-section input, #expense-section textarea, #expense-section select').val('');
+          $('#offline-section .select2').val(null).trigger('change');
         } else {
-            $('#offline-section').show();
+          $('#offline-section').show();
+          // Ensure expenses are visible when switching back to offline
+          $('#expense-section').show();
         }
 
         if (requiresUrl) {
@@ -1016,7 +663,7 @@
     function autoFillExpoFields() {
         // Show EXPO info message
         if (!$('#expo-info-alert').length) {
-            $('#meeting_type_id').closest('.mb-3').after(
+            $('#meeting_type_id').closest('.px-3').after(
                 '<div id="expo-info-alert" class="expo-info">' +
                 '<strong>EXPO Meeting Detected:</strong> Fields will be auto-filled for quick setup.' +
                 '</div>'

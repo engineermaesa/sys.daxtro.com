@@ -117,6 +117,7 @@ class ColdLeadController extends Controller
             return response()->json([
                 'data' => $meeting,
                 'lead_id' => $claim->lead_id,
+                'claim_id' => $claimId,
                 'expenseTypes' => $expenseTypes,
                 'meetingTypes' => $meetingTypes,
                 'products' => $products,
@@ -131,6 +132,7 @@ class ColdLeadController extends Controller
         return $this->render('pages.leads.cold.meeting', [
             'data'          => $meeting,
             'lead_id'       => $claim->lead_id,
+            'claim_id' => $claimId,
             'expenseTypes'  => $expenseTypes,
             'cities'        => config('cities'),
             'meetingTypes'  => $meetingTypes,
@@ -145,6 +147,10 @@ class ColdLeadController extends Controller
     public function reschedule(Request $request, $meetingId)
     {
         $meeting = LeadMeeting::with('reschedules', 'lead.segment')->findOrFail($meetingId);
+
+        $leadClaimId = LeadClaim::where('lead_id', $meeting->lead_id)
+            ->value('id');
+
         $expenseTypes = ExpenseType::all();
         $meetingTypes = \App\Models\Masters\MeetingType::all();
 
@@ -170,6 +176,7 @@ class ColdLeadController extends Controller
             return response()->json([
                 'data' => $meeting,
                 'lead_id' => $meeting->lead_id,
+                'claim_id' => $leadClaimId,
                 'expenseTypes' => $expenseTypes,
                 'meetingTypes' => $meetingTypes,
                 'products' => $products,
@@ -184,6 +191,7 @@ class ColdLeadController extends Controller
         return $this->render('pages.leads.cold.meeting', [
             'data' => $meeting,
             'lead_id' => $meeting->lead_id,
+            'claim_id' => $leadClaimId,
             'expenseTypes' => $expenseTypes,
             'cities' => config('cities'),
             'meetingTypes' => $meetingTypes,
@@ -298,15 +306,9 @@ class ColdLeadController extends Controller
 
             $html .= '  <a class="dropdown-item" href="' . e($viewUrl) . '"><i class="bi bi-calendar-event mr-2"></i> View Meeting</a>';
 
-            $isFinished = false;
-            if ($meeting->scheduled_end_at) {
-                $isFinished = \Carbon\Carbon::parse($meeting->scheduled_end_at) < now();
-            }
-
-            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled'])
-                && is_null($meeting->result)
-                && ! $isFinished) {
-                $html .= '  <button class="dropdown-item text-warning cancel-meeting" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
+            // Cancel condition
+            if (!in_array(optional($meeting->expense)->status, ['submitted', 'canceled']) && is_null($meeting->result)) {
+                $html .= '  <button class="dropdown-item text-[#900B09]! cancel-meeting cursor-pointer" data-url="' . e($cancelUrl) . '" data-online="' . ($meeting->is_online ? 1 : 0) . '" data-status="' . (optional($meeting->expense)->status ?? '') . '">'
                     . '    <i class="bi bi-x-circle mr-2"></i> Cancel Meeting</button>';
             }
 
@@ -321,7 +323,7 @@ class ColdLeadController extends Controller
 
             // Set Result condition
             if (now()->gt($meeting->scheduled_end_at) && ($meeting->result === null || $meeting->result === 'waiting') && $canSetResult) {
-                $html .= '  <a class="dropdown-item text-success" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
+                $html .= '  <a class="dropdown-item text-[#02542D]!" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
             }
         }
 

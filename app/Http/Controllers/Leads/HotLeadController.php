@@ -194,7 +194,8 @@ class HotLeadController extends Controller
         if (! $quotation) {
             $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
                 . '
-                <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+                '.view('components.icon.generate-quotation')->render().'
+                Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    

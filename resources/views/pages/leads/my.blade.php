@@ -641,7 +641,7 @@
                             <tr class="border-b border-b-[#D9D9D9]">
                                 <th class="p-3">Date</th>
                                 <th>Activity</th>
-                                <th>Note</th>
+                                <th class="max-w-60">Note</th>
                                 <th>Attachment</th>
                                 <th>User</th>
                             </tr>
@@ -1463,7 +1463,7 @@
                     rows += '<tr class="border-b border-b-[#D9D9D9]">' +
                         '<td class="p-3">' + item.logged_at + '</td>' +
                         '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                        '<td>' + (item.note || '') + '</td>' +
+                        '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
                         '<td>' + (item.attachment ? '<a href="' + item.attachment +
                             '" class="btn btn-sm btn-outline-secondary">Download</a>' : '-') +
                         '</td>' +
@@ -1496,7 +1496,7 @@
                             rows += '<tr class="border-b border-b-[#D9D9D9]">' +
                                 '<td class="p-3">' + item.logged_at + '</td>' +
                                 '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                                '<td>' + (item.note || '') + '</td>' +
+                                '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
                                 '<td>' + (item.attachment ? '<a href="' + item
                                     .attachment +
                                     '" class="btn btn-sm btn-outline-secondary">Download</a>' :

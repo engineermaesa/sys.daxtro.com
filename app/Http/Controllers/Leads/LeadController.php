@@ -1716,7 +1716,7 @@ class LeadController extends Controller
 
             // Set Result condition
             if (now()->gt($meeting->scheduled_end_at) && ($meeting->result === null || $meeting->result === 'waiting') && $canSetResult) {
-                $html .= '  <a class="dropdown-item text-success" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
+                $html .= '  <a class="dropdown-item text-[#02542D]!" href="' . e($resultUrl) . '"><i class="bi bi-check2-square mr-2"></i> Set Result</a>';
             }
         }
 
@@ -1730,6 +1730,7 @@ class LeadController extends Controller
 
         return $html;
     }
+
     protected function warmActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1749,27 +1750,37 @@ class LeadController extends Controller
         $html .= '  </button>';
         $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
-            . '      ' . view('components.icon.detail')->render() . ' View Lead</a>';
+            . '
+            '.view('components.icon.detail')->render().' 
+            View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        ' . view('components.icon.log')->render() . ' View / Add Activity</button>';
+        '.view('components.icon.log')->render().' 
+        View / Add Activity</button>';
 
         if (! $quotation) {
-            $html .= '  <a class="dropdown-item" href="' . e($createUrl) . '">'
-                . '    <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
+                . '    
+                '.view('components.icon.generate-quotation')->render().'
+                Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
-                . '    ' . view('components.icon.view-quotation')->render() . ' View Quotation</a>';
+                . '    
+                '.view('components.icon.view-quotation')->render().' 
+                View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
-                . '    ' . view('components.icon.download')->render() . ' Download</a>';
+                . '    
+                '.view('components.icon.download')->render().' 
+                Download</a>';
             $logUrl = route('quotations.logs', $quotation->id);
             $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
-            ' . view('components.icon.quotation-log')->render() . ' Quotation Log</button>';
+            '. view('components.icon.quotation-log')->render().' 
+            Quotation Log</button>';
         }
 
         if (! $quotation || $quotation->status !== 'published') {
             $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
-            ' . view('components.icon.trash')->render() . '
+            '.view('components.icon.trash')->render().'
             Trash Lead</button>';
         }
         $html .= '  </div>';
@@ -1777,6 +1788,7 @@ class LeadController extends Controller
 
         return $html;
     }
+
     protected function hotActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1805,7 +1817,8 @@ class LeadController extends Controller
         if (! $quotation) {
             $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
                 . '
-                <i class="bi bi-file-earmark-plus mr-2"></i> Generate Quotation</a>';
+                '.view('components.icon.generate-quotation')->render().'
+                Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    
@@ -1822,6 +1835,7 @@ class LeadController extends Controller
 
         return $html;
     }
+    
     protected function dealActions($row)
     {
         $quotation = $row->lead->quotation;

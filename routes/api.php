@@ -101,7 +101,7 @@ Route::group([
         Route::get('/', [LeadController::class, 'manage'])
             ->name('api.leads.manage');
 
-        Route::post('/list', [LeadController::class, 'manageList'])
+        Route::get('/list', [LeadController::class, 'manageList'])
             ->name('api.leads.manage.list');
 
         Route::get('/counts', [LeadController::class, 'manageCounts'])
