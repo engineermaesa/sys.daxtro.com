@@ -1679,6 +1679,7 @@ class LeadController extends Controller
 
         return $html;
     }
+
     protected function warmActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1726,6 +1727,7 @@ class LeadController extends Controller
 
         return $html;
     }
+
     protected function hotActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1771,6 +1773,7 @@ class LeadController extends Controller
 
         return $html;
     }
+
     protected function dealActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1815,4 +1818,5 @@ class LeadController extends Controller
 
         return $html;
     }
+    
 }
