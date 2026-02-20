@@ -50,8 +50,6 @@ class SummaryController extends Controller
                 ->whereHas('expense', fn($qe) => $qe->where('status', 'submitted')))
             ->count();
 
-        // Pending (expense submitted) and Rejected (expense rejected)
-        // `pending` = expense.status === 'submitted' (waiting finance approval)
         $pendingCold = $pendingApprovalCold;
         $rejectedCold = (clone $coldBase)
             ->whereHas('lead.meetings', fn($q) => $q->where('is_online', 0)
@@ -61,9 +59,18 @@ class SummaryController extends Controller
         // approval_status is the sum of pending + rejected
         $approvalStatusCold = $pendingCold + $rejectedCold;
 
-        $meetingScheduledCold = (clone $coldBase)
-            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now()))
+        // Meeting scheduled split by online/offline
+        $meetOnlineCold = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now())
+                ->where('is_online', 1))
             ->count();
+
+        $meetOfflineCold = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now())
+                ->where('is_online', 0))
+            ->count();
+
+        $meetingScheduledCold = $meetOnlineCold + $meetOfflineCold;
 
         // -- WARM --
         $warmBase = LeadClaim::whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
@@ -133,6 +140,8 @@ class SummaryController extends Controller
                 'approval_status' => $approvalStatusCold,
                 'pending' => $pendingCold,
                 'rejected' => $rejectedCold,
+                'meet_online' => $meetOnlineCold,
+                'meet_offline' => $meetOfflineCold,
                 'meeting_scheduled' => $meetingScheduledCold,
             ],
             'warm' => [
