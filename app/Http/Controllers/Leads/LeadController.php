@@ -1880,4 +1880,5 @@ class LeadController extends Controller
 
         return $html;
     }
+    
 }

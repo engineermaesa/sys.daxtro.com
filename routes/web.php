@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Finance\FinanceRequestController;
+use App\Http\Controllers\Leads\SummaryController;
 
 // Temporary debug route to inspect session id and CSRF token
 // Route::get('/debug/csrf', function () {
@@ -99,6 +100,8 @@ Route::middleware('auth')->group(function () {
             Route::get('/', 'LeadController@my')->name('leads.my');
             Route::get('/form/{id?}', 'LeadController@form')->name('leads.my.form');
             Route::post('/save/{id?}', 'LeadController@save')->name('leads.my.save');
+            Route::get('/summary', [SummaryController::class, 'index']);
+
 
             Route::prefix('cold')->name('leads.my.cold.')->group(function () {
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');

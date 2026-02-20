@@ -14,6 +14,7 @@ use App\Http\Controllers\Leads\WarmLeadController;
 use App\Http\Controllers\Leads\HotLeadController;
 use App\Http\Controllers\Leads\DealLeadController;
 use App\Http\Controllers\Leads\MeetingController;
+use App\Http\Controllers\Leads\SummaryController;
 
 // MASTERS (API)
 use App\Http\Controllers\Masters\AccountController;
@@ -35,6 +36,8 @@ Route::post('leads/register', [LeadRegisterController::class, 'store'])->name('a
 Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('api.leads.sources');
 Route::get('leads/segments', [LeadRegisterController::class, 'segments'])->name('api.leads.segments');
 Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('api.leads.regions');
+
+// (route moved below inside 'leads' -> 'my' group)
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
 Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
@@ -128,6 +131,14 @@ Route::group([
     // FOR MY LEADS (API)
     Route::prefix('my')->name('my.')->group(function () {
         Route::get('/', [LeadController::class, 'my'])->name('index');
+
+
+        // PRIORITY TO USE LARAVEL SANCTUM
+        // API FOR GRID BUT NOT SAFE BECAUSE NO MIDDLEWARE CHECK
+        Route::get('/summary', [SummaryController::class, 'index'])->withoutMiddleware(['web', 'auth'])->name('summary');
+        //
+
+
         Route::get('/all', [LeadController::class, 'myAllList'])->name('all');
         Route::get('/form/{id?}', [LeadController::class, 'form'])->name('form');
 
@@ -169,6 +180,8 @@ Route::group([
 
         Route::post('counts', [LeadController::class, 'myCounts'])->name('counts');
     });
+
+    // (summary route restored inside 'my' group with web/auth removed for API access)
 });
 
 // =====================================
