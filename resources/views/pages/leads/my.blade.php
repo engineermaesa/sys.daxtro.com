@@ -225,15 +225,16 @@
                 </svg>
             </div>
         </div>
-        {{-- DEAL CARDS --}}
+        {{-- MEETING SCHEDULE CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.6s;">
             <div>
                 <p class="font-semibold text-[#1E1E1E]">Meeting Scheduled</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['hot'] }}
+                    <span id="summary-total-meeting">0</span>
                     <span class="text-sm text-[#757575] font-semibold">
-                        (x Online & x Offline)
+                        <span id="summary-meeting-online">0</span>
+                        <span id="summary-meeting-offline">0</span>
                     </span>
                 </p>
             </div>
@@ -264,9 +265,9 @@
                     <p class="font-semibold text-[#1E1E1E]">Total Warm Leads</p>
                 </div>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['warm'] }}
+                    <span id="summary-warm-total">0</span>
                     <span class="text-sm text-[#757575] font-semibold">
-                        (x No Quotation & x Draft)
+                        <span id="summary-warm-no-quotation">0</span>
                     </span>
                 </p>
             </div>
@@ -290,9 +291,10 @@
              <div>
                 <p class="font-semibold text-[#1E1E1E]">Pending Approval</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['warm'] }}
+                    <span id="summary-warm-total-pending">0</span>
                     <span class="text-sm text-[#757575] font-semibold">
-                        (x Pending & x Rejected)
+                        <span id="summary-warm-pending-count">0</span>
+                        <span id="summary-warm-rejected-count">0</span>
                     </span>
                 </p>
             </div>
@@ -316,7 +318,7 @@
             <div>
                 <p class="font-semibold text-[#1E1E1E]">Quotations Published</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['hot'] }}
+                    <span id="summary-warm-quotations">0</span>
                 </p>
             </div>
             <div>
@@ -346,7 +348,7 @@
                     <p class="font-semibold text-[#1E1E1E]">Total Hot Leads (Committed)</p>
                 </div>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['hot'] }}
+                    <span id="summary-hot-total">0</span>
                 </p>
             </div>
             <div>
@@ -369,7 +371,7 @@
              <div>
                 <p class="font-semibold text-[#1E1E1E]">Expiring in 7 Days</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-[#1E1E1E]">
-                    {{ $leadCounts['warm'] }}
+                    <span id="summary-hot-expire-7-days">0</span>
                 </p>
             </div>
             <div>
@@ -392,7 +394,7 @@
             <div>
                 <p class="font-semibold text-[#1E1E1E]">Expiring in 8+ Days</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
-                    {{ $leadCounts['hot'] }}
+                    <span id="summary-hot-expire-8-days-more">0</span>
                 </p>
             </div>
             <div>
@@ -1581,47 +1583,96 @@
             });
         });
     
+    // FETCH SUMMARY EVERY STAGE
     $(document).ready(function () {
+        loadColdSummary();
+        loadWarmSummary();
+        loadHotSummary();
+    });
 
+    function loadColdSummary(){
         $.ajax({
             url: "/api/leads/my/summary",
             type: "GET",
             dataType: "json",
             success: function (response) {
-
-                // COLD
-                $("#summary-cold-total").text(response.cold.total);
-                $("#summary-cold-raw").text("( "+ response.cold.raw + " Raw Leads" + ")");
-
-                // INITIATION
-                $("#summary-initiation-count").text(response.cold.initiation);
-
-                // PENDING & REJECTED
-                $("#summary-total-pending").text(response.cold.pending + response.cold.rejected);
-                $("#summary-pending-count").text("( " + response.cold.pending + " Pending & ");
-                $("#summary-rejected-count").text(response.cold.rejected + " Rejected )");
-
-                // MEETING
-                $("#summary-meeting-count").text(response.cold.meeting_scheduled);
-
-                // WARM
-                $("#summary-warm-total").text(response.warm.total);
-
-                // HOT
-                $("#summary-hot-total").text(response.hot.total);
-
-                // DEAL
-                $("#summary-deal-total").text(response.deal.total);
-
-                // Tampilkan Cards setelah data masuk
-                $("#forColdCardsCounts").removeClass("hidden");
+                renderColdSummary(response.cold);
             },
             error: function (xhr) {
                 console.log("Error ambil summary:", xhr.responseText);
             }
         });
+    }
 
-    });
+    function renderColdSummary(cold) {
+        // TOTAL COLD
+        $("#summary-cold-total").text(cold.total);
+        $("#summary-cold-raw").text(`( ${cold.raw} Raw Leads )`);
+
+        // INITIATION
+        $("#summary-initiation-count").text(cold.initiation);
+
+        // PENDING & REJECTED
+        $("#summary-total-pending").text(cold.approval_status);
+        $("#summary-pending-count").text(`( ${cold.pending} Pending & `);
+        $("#summary-rejected-count").text(`${cold.rejected} Rejected )`);
+
+        // MEETING
+        $("#summary-total-meeting").text(cold.meeting_scheduled);
+        $("#summary-meeting-online").text(`( ${cold.meet_online} Online & `);
+        $("#summary-meeting-offline").text(`${cold.meet_offline} Offline )`);
+    }
+
+    function loadWarmSummary(){
+        $.ajax({
+            url: "/api/leads/my/summary",
+            type: "GET",
+            dataType: "json",
+            success: function (response) {
+                renderWarmSummary(response.warm);
+            },
+            error: function (xhr) {
+                console.log("Error ambil summary:", xhr.responseText);
+            }
+        });
+    }
+
+    function renderWarmSummary(warm) {
+        // TOTAL WARM
+        $("#summary-warm-total").text(warm.total);
+        $("#summary-warm-no-quotation").text(`( ${warm.no_quotation} No Quotation )`);
+
+        // PENDING & REJECTED
+        $("#summary-warm-total-pending").text(warm.approval_status);
+        $("#summary-warm-pending-count").text(`( ${warm.pending} Pending & `);
+        $("#summary-warm-rejected-count").text(`${warm.rejected} Rejected )`);
+        
+        // QUOTATIONS
+        $("#summary-warm-quotations").text(`${warm.quotation_published}`);
+    }
+    
+    function loadHotSummary(){
+        $.ajax({
+            url: "/api/leads/my/summary",
+            type: "GET",
+            dataType: "json",
+            success: function (response) {
+                renderHotSummary(response.hot);
+            },
+            error: function (xhr) {
+                console.log("Error ambil summary:", xhr.responseText);
+            }
+        });
+    }
+
+    function renderHotSummary(hot) {
+        // TOTAL HOT
+        $("#summary-hot-total").text(hot.total);
+        $("#summary-hot-expire-7-days").text(hot.expiring_7_days);
+        $("#summary-hot-expire-8-days-more").text(hot.expiring_8_plus_days);
+    }
+
+    
 </script>
 @endsection
 
