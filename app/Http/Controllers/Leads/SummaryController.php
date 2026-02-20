@@ -26,7 +26,9 @@ class SummaryController extends Controller
             }
         };
 
+        // ===============================
         // -- COLD --
+        // ===============================
         $coldBase = LeadClaim::whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
         $applyRoleFilter($coldBase);
@@ -50,22 +52,30 @@ class SummaryController extends Controller
                 ->whereHas('expense', fn($qe) => $qe->where('status', 'submitted')))
             ->count();
 
-        // Pending (expense submitted) and Rejected (expense rejected)
-        // `pending` = expense.status === 'submitted' (waiting finance approval)
         $pendingCold = $pendingApprovalCold;
         $rejectedCold = (clone $coldBase)
             ->whereHas('lead.meetings', fn($q) => $q->where('is_online', 0)
                 ->whereHas('expense', fn($qe) => $qe->where('status', 'rejected')))
             ->count();
-
-        // approval_status is the sum of pending + rejected
         $approvalStatusCold = $pendingCold + $rejectedCold;
 
-        $meetingScheduledCold = (clone $coldBase)
-            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now()))
+        $meetOnlineCold = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now())
+                ->where('is_online', 1))
             ->count();
 
+        $meetOfflineCold = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', Carbon::now())
+                ->where('is_online', 0))
+            ->count();
+
+        $meetingScheduledCold = $meetOnlineCold + $meetOfflineCold;
+
+
+
+        // ===============================
         // -- WARM --
+        // ===============================
         $warmBase = LeadClaim::whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
         $applyRoleFilter($warmBase);
@@ -83,11 +93,17 @@ class SummaryController extends Controller
         // approval_status for warm is pending (review|pending_finance) + rejected
         $approvalStatusWarm = $warmPending + $warmRejected;
 
+        $warmNoQuotation = (clone $warmBase)
+            ->whereDoesntHave('lead.quotation')
+            ->count();
+
         $warmPublished = (clone $warmBase)
             ->whereHas('lead.quotation', fn($q) => $q->where('status', 'published'))
             ->count();
 
-        // -- HOT -- (we compute days-left per claim similar to HotLeadController)
+        // ===============================
+        // -- HOT --
+        // ===============================
         $hotBase = LeadClaim::with(['lead.statusLogs'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
             ->whereNull('released_at');
@@ -119,7 +135,9 @@ class SummaryController extends Controller
             }
         }
 
+        // ===============================
         // -- DEAL --
+        // ===============================
         $dealBase = LeadClaim::whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
             ->whereNull('released_at');
         $applyRoleFilter($dealBase);
@@ -133,6 +151,8 @@ class SummaryController extends Controller
                 'approval_status' => $approvalStatusCold,
                 'pending' => $pendingCold,
                 'rejected' => $rejectedCold,
+                'meet_online' => $meetOnlineCold,
+                'meet_offline' => $meetOfflineCold,
                 'meeting_scheduled' => $meetingScheduledCold,
             ],
             'warm' => [
@@ -140,6 +160,7 @@ class SummaryController extends Controller
                 'approval_status' => $approvalStatusWarm,
                 'pending' => $warmPending,
                 'rejected' => $warmRejected,
+                'no_quotation' => $warmNoQuotation,
                 'quotation_published' => $warmPublished,
             ],
             'hot' => [
