@@ -37,7 +37,6 @@ Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('a
 Route::get('leads/segments', [LeadRegisterController::class, 'segments'])->name('api.leads.segments');
 Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('api.leads.regions');
 
-// (route moved below inside 'leads' -> 'my' group)
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
 Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
@@ -68,19 +67,14 @@ Route::group([
 
     // FOR AVAILABLE LEADS (API)
     Route::prefix('available')->name('availables.')->group(function () {
-
         Route::get('/index', [LeadController::class, 'available'])
             ->name('index');
-
         Route::get('/list', [LeadController::class, 'availableList'])
             ->name('list');
-
         Route::get('/export', [LeadController::class, 'availableExport'])
             ->name('export');
-
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('form');
-
         Route::post('/save/{id?}', [LeadController::class, 'save'])
             ->name('save');
     });
@@ -103,19 +97,14 @@ Route::group([
 
         Route::get('/', [LeadController::class, 'manage'])
             ->name('api.leads.manage');
-
         Route::get('/list', [LeadController::class, 'manageList'])
             ->name('api.leads.manage.list');
-
         Route::get('/counts', [LeadController::class, 'manageCounts'])
             ->name('api.leads.manage.counts');
-
         Route::get('/export', [LeadController::class, 'manageExport'])
             ->name('api.leads.manage.export');
-
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('api.leads.manage.form');
-
         Route::delete('/delete/{id}', [LeadController::class, 'delete'])
             ->name('api.leads.manage.delete');
     });
@@ -144,40 +133,26 @@ Route::group([
 
         Route::prefix('cold')->name('cold.')->group(function () {
             Route::get('/list', [ColdLeadController::class, 'myColdList'])->name('list');
-
             Route::get('manage/form/{id?}', [LeadController::class, 'form'])->name('manage');
-
             Route::get('meeting/{claim}', [ColdLeadController::class, 'meeting'])->name('meeting');
-
             Route::get('meeting/{id}/reschedule', [ColdLeadController::class, 'reschedule'])->name('meeting.reschedule');
-
             Route::post('meeting/save/{id?}', [MeetingController::class, 'save'])->name('meeting.save');
-
             Route::get('meeting/{id}/result', [MeetingController::class, 'resultForm'])->name('meeting.result');
-
             Route::post('meeting/{id}/result', [MeetingController::class, 'result'])->name('meeting.result.save');
-
             Route::post('meeting/{id}/cancel', [MeetingController::class, 'cancel'])->name('meeting.cancel');
-
             Route::post('trash/{claim}', [ColdLeadController::class, 'trash'])->name('trash');
         });
 
         Route::prefix('warm')->name('warm.')->group(function () {
             Route::get('/list', [WarmLeadController::class, 'myWarmList'])->name('list');
-
             Route::get('manage/form/{id?}', [LeadController::class, 'form'])->name('manage');
-
             Route::get('quotation/{claim}', [WarmLeadController::class, 'createQuotation'])->name('quotation.create');
-
             Route::post('quotation/{claim}', [WarmLeadController::class, 'storeQuotation'])->name('quotation.store');
-
             Route::post('trash/{claim}', [WarmLeadController::class, 'trash'])->name('trash');
         });
 
         Route::get('hot/list', [HotLeadController::class, 'myHotList'])->name('hot.list');
-
         Route::get('deal/list', [DealLeadController::class, 'myDealList'])->name('deal.list');
-
         Route::post('counts', [LeadController::class, 'myCounts'])->name('counts');
     });
 
@@ -255,58 +230,41 @@ Route::group([
 
     // BANKS (API)
     Route::prefix('banks')->name('banks.')->group(function () {
-
         Route::get('/list', [BankController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [BankController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [BankController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [BankController::class, 'delete'])->name('delete');
     });
 
     // ACCOUNTS (API)
     Route::prefix('accounts')->name('accounts.')->group(function () {
         Route::get('/list', [AccountController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [AccountController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [AccountController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [AccountController::class, 'delete'])->name('delete');
     });
 
     // PRODUCT CATEGORIES (API)
     Route::prefix('product-categories')->name('product-categories.')->group(function () {
         Route::get('/list', [ProductCategoryController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [ProductCategoryController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [ProductCategoryController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [ProductCategoryController::class, 'delete'])->name('delete');
     });
 
     // PRODUCTS (API)
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('/list', [ProductController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [ProductController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [ProductController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('delete');
     });
 
     // PARTS (API)
     Route::prefix('parts')->name('parts.')->group(function () {
-
         Route::get('/list', [PartController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [PartController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [PartController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [PartController::class, 'delete'])->name('delete');
     });
 
@@ -314,66 +272,48 @@ Route::group([
     // COMPANIES (API)
     Route::prefix('companies')->name('companies.')->group(function () {
         Route::get('/list', [CompanyController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [CompanyController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [CompanyController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [CompanyController::class, 'delete'])->name('delete');
     });
 
     //  PROVICENS (API)
     Route::prefix('provinces')->name(value: 'provinces.')->group(function () {
         Route::get('/list', [ProvinceController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [ProvinceController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [ProvinceController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [ProvinceController::class, 'delete'])->name('delete');
     });
 
     //  REGIONS (API)
     Route::prefix('regions')->name(value: 'regions.')->group(function () {
         Route::get('/list', [RegionController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [RegionController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [RegionController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [RegionController::class, 'delete'])->name('delete');
     });
 
     // BRANCHES (API)
     Route::prefix('branches')->name(value: 'branches.')->group(function () {
         Route::get('/list', [BranchController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [BranchController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [BranchController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [BranchController::class, 'delete'])->name('delete');
     });
 
     // EXPENSES-TYPE (API)
     Route::prefix('expense-types')->name(value: 'expense-types.')->group(function () {
         Route::get('/list', [ExpenseTypeController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [ExpenseTypeController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [ExpenseTypeController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [ExpenseTypeController::class, 'delete'])->name('delete');
     });
 
     // CUSTOMER-TYPE (API)
     Route::prefix('customer-types')->name(value: 'customer-types.')->group(function () {
         Route::get('/list', [CustomerTypeController::class, 'list'])->name('list');
-
         Route::get('/form/{id?}', [CustomerTypeController::class, 'form'])->name('form');
-
         Route::post('/save/{id?}', [CustomerTypeController::class, 'save'])->name('save');
-
         Route::delete('/delete/{id}', [CustomerTypeController::class, 'delete'])->name('delete');
     });
 });

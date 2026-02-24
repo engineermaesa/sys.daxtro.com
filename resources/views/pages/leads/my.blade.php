@@ -116,7 +116,7 @@
             </div>
         </div>
     </div>
-    
+
     {{-- COLD CARDS COUNTS --}}
     <div id="forColdCardsCounts" class="hidden grid grid-cols-4 gap-3 mt-4">
         {{-- LEADS COLD COUNTS CARDS --}}
@@ -174,7 +174,7 @@
         {{-- PENDING APPROVAL CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.45s;">
-             <div>
+            <div>
                 <p class="font-semibold text-[#1E1E1E]">Pending Approval</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
                     <span id="summary-total-pending">0</span>
@@ -261,7 +261,7 @@
         {{-- PENDING APPROVAL CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.30s;">
-             <div>
+            <div>
                 <p class="font-semibold text-[#1E1E1E]">Pending Approval</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-black">
                     <span id="summary-warm-total-pending">0</span>
@@ -341,7 +341,7 @@
         {{-- EXPIRING IN 7 DAYS CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.30s;">
-             <div>
+            <div>
                 <p class="font-semibold text-[#1E1E1E]">Expiring in 7 Days</p>
                 <p class="mt-auto text-2xl font-bold pt-3 text-[#1E1E1E]">
                     <span id="summary-hot-expire-7-days">0</span>
@@ -414,11 +414,12 @@
         </div>
     </div>
 
-    
+
     {{-- TABLES CONTENTS --}}
     <div class="mt-4 rounded-lg border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
-        <div class="bg-white flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg">
+        <div
+            class="bg-white flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg">
             {{-- SEARCH TABLES --}}
             <div class="w-1/6 border border-gray-300 rounded-lg flex items-center p-2">
                 <div class="px-2">
@@ -495,7 +496,7 @@
                     </thead>
                     <tbody id="allBody"></tbody>
                 </table>
-                
+
                 {{-- NAVIGATION ROWS --}}
                 <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
                     <div class="flex items-center gap-3">
