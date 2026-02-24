@@ -142,12 +142,17 @@ class HotLeadController extends Controller
                 return [
                     'id' => $row->id,
                     'claimed_at' => $row->claimed_at,
-                    'lead_name' => $row->lead->name ?? '',
+                    'lead_name' => $row->lead->name ?? '-',
                     'sales_name' => $row->sales->name ?? '-',
                     'phone' => $row->lead->phone ?? '-',
-                    'segment_name' => $row->lead->segment->name ?? '',
+                    'source_name' => $row->lead->source->name ?? '-',
+                    'needs' => $row->lead->needs ?: '-',
+                    'segment_name' => $row->lead->segment->name ?? '-',
+                    'city_name' => $row->lead->region->name ?? 'All Regions',
+                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
                     'industry_name' => $row->lead->industry->name ?? null,
                     'other_industry' => $row->lead->other_industry ?? null,
+                    
 
                     // helper
                     'expire_in' => $daysLeft,

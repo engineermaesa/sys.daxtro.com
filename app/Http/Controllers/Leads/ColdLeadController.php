@@ -60,7 +60,7 @@ class ColdLeadController extends Controller
                     'phone' => $row->lead->phone,
                     'source' => $row->lead->source->name ?? '-',
                     'needs' => $row->lead->needs,
-                    'segment_name' => $row->lead->segment->name ?? '',
+                    'segment_name' => $row->lead->segment->name ?? '-',
                     'city_name' => $row->lead->region->name ?? 'All Regions',
                     'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
                     'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),

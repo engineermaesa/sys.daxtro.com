@@ -35,10 +35,10 @@
       <div class="bg-white border border-[#D9D9D9] rounded mt-4">
         <div class="w-full p-3 border-b border-b-[#D9D9D9]">
           <div class="flex justify-between items-center">
-          <h1 class="font-semibold text-[#1E1E1E] uppercase">
-            Meeting Plan
-          </h1>
-          <div>
+            <h1 class="font-semibold text-[#1E1E1E] uppercase">
+              Meeting Plan
+            </h1>
+            <div>
             {{-- overall meeting lifecycle + expense workflow --}}
             @if(!empty($data))
               @php

@@ -2,33 +2,6 @@
 
 @section('content')
 
-<!-- Quotation Logs Modal -->
-<div class="modal fade" id="quotationLogModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Quotation Logs</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Date</th>
-                                <th>Action</th>
-                                <th>User</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <section class="min-h-screen">
     {{-- HEADER PAGES --}}
@@ -508,7 +481,7 @@
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#D9D9D9]">
                             <th class="hidden">ID (hidden)</th>
-                            <th class="font-bold text-left p-3">Nama</th>
+                            <th class="font-bold text-left p-3">Lead Name</th>
                             <th>Sales Name</th>
                             <th>Telephone</th>
                             <th>Source</th>
@@ -560,30 +533,24 @@
                 {{-- HEADER TABLE --}}
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="hidden">ID (hidden)</th>
-                        @if ($tab === 'cold')
-                        <th class="font-bold text-left p-3">Nama</th>
+                        <th class="font-bold text-left p-3">Lead Name</th>
                         <th>Sales Name</th>
                         <th>Telephone</th>
                         <th>Source</th>
                         <th>Needs</th>
-                        <th>Customer Type</th>
+                        <th>Segment</th>
                         <th>City</th>
                         <th>Regional</th>
-                        <th class="text-left">Status</th>
-                        @else
-                        <th class="p-3">Claimed At</th>
-                        <th>Lead Name</th>
-                        <th>Industry</th>
+
+                        @if ($tab === 'cold' || $tab === 'warm')
+                            <th class="text-left">Status</th>
+                        @endif
+
                         @if ($tab === 'hot')
-                        <th class="text-left">Expire In</th>
-                        @else
-                        <th class="text-left">Status</th>
+                            <th class="text-left">Quotation Expire In</th>
                         @endif
-                        @endif
-                        <th class="text-center">
-                            Action
-                        </th>
+
+                        <th class="text-center p-3">Action</th>
                     </tr>
                 </thead>
                 <tbody id="{{ $tab }}Body"></tbody>
@@ -624,7 +591,7 @@
 
 </section>
 
-<!-- Activity Logs Modal -->
+{{-- ACTIVITY LOGS MODAL --}}
 <div class="modal fade" id="activityLogModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -707,6 +674,35 @@
         </div>
     </div>
 </div>
+
+{{-- QUOTATION LOGS MODAL --}}
+<div class="modal fade" id="quotationLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-[#083224] text-lg font-semibold">Quotation Logs</h5>
+                <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="border border-[#D9D9D9] rounded-lg mb-3">
+                    <table class="w-full">
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Action</th>
+                                <th class="p-3">User</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-[#1E1E1E]"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -854,7 +850,7 @@
                     <td>${row.phone}</td>
                     <td>${row.source}</td>
                     <td>${row.needs}</td>
-                    <td>${row.industry}</td>
+                    <td>${row.segment_name}</td>
                     <td>${row.city_name}</td>
                     <td>${row.regional_name}</td>
                     <td class="text-left">${row.expire_in !== undefined ? (row.expire_in > 0 ? row.expire_in + ' days' : 'Expired') : row.meeting_status}</td>
@@ -865,61 +861,61 @@
 }
 
     async function loadAllLeads() {
-    const page = pageState.all || 1;
-    const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
-    const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`, {
-        credentials: 'same-origin'
-    });
+        const page = pageState.all || 1;
+        const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
+        const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`, {
+            credentials: 'same-origin'
+        });
 
-    const result = await response.json();
+        const result = await response.json();
 
-    console.log('loadAllLeads result:', result);
-    try { document.getElementById('leadsDebug').innerText = 'ALL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
+        console.log('loadAllLeads result:', result);
+        try { document.getElementById('leadsDebug').innerText = 'ALL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
-    updatePagerUI('all', result.total);
+        updatePagerUI('all', result.total);
 
-    const tbody = document.getElementById('allBody');
-    tbody.innerHTML = '';
+        const tbody = document.getElementById('allBody');
+        tbody.innerHTML = '';
 
-    // update local total and badges
-    totals.all = result.total || 0;
-    updateBadgeCounts();
+        // update local total and badges
+        totals.all = result.total || 0;
+        updateBadgeCounts();
 
-    result.data.forEach(row => {
+        result.data.forEach(row => {
 
-        const industry =
-            row.lead?.industry?.name ??
-            row.lead?.other_industry ??
-            '-';
+            const industry =
+                row.lead?.industry?.name ??
+                row.lead?.other_industry ??
+                '-';
 
-        tbody.innerHTML += `
-        <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
-            <td class="hidden">${row.id}</td>
-            <td class="p-3 font-medium">${row.lead?.name ?? ''}</td>
-            <td>${row.sales?.name ?? '-'}</td>
-            <td>${row.lead?.phone ?? ''}</td>
-            <td>${row.lead?.source?.name ?? ''}</td>
-            <td>${row.lead?.needs ?? ''}</td>
-            <td>${industry}</td>
-            <td>${row.lead?.region?.name ?? ''}</td>
-            <td>${row.lead?.region?.regional?.name ?? ''}</td>
-            <td class="text-center capitalize">
-                <span class="block px-2 py-1 rounded-sm
-                ${
-                        row.lead?.status?.name === 'Cold' ? 'status-cold' :
-                        row.lead?.status?.name === 'Warm' ? 'status-warm' :
-                        row.lead?.status?.name === 'Hot' ? 'status-hot' :
-                        row.lead?.status?.name === 'Deal' ? 'status-deal' :
-                        ''
-                }
-                ">
-                    ${row.lead?.status?.name ?? ''}
-                </span>
-            </td>
-            <td class="text-center">
-                ${row.actions ?? '-'}
-            </td>
-        </tr>
+            tbody.innerHTML += `
+            <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
+                <td class="hidden">${row.id}</td>
+                <td class="p-3 font-medium">${row.lead?.name ?? ''}</td>
+                <td>${row.sales?.name ?? '-'}</td>
+                <td>${row.lead?.phone ?? ''}</td>
+                <td>${row.lead?.source?.name ?? ''}</td>
+                <td>${row.lead?.needs ?? ''}</td>
+                <td>${industry}</td>
+                <td>${row.lead?.region?.name ?? ''}</td>
+                <td>${row.lead?.region?.regional?.name ?? ''}</td>
+                <td class="text-center capitalize">
+                    <span class="block px-2 py-1 rounded-sm
+                    ${
+                            row.lead?.status?.name === 'Cold' ? 'status-cold' :
+                            row.lead?.status?.name === 'Warm' ? 'status-warm' :
+                            row.lead?.status?.name === 'Hot' ? 'status-hot' :
+                            row.lead?.status?.name === 'Deal' ? 'status-deal' :
+                            ''
+                    }
+                    ">
+                        ${row.lead?.status?.name ?? ''}
+                    </span>
+                </td>
+                <td class="text-center">
+                    ${row.actions ?? '-'}
+                </td>
+            </tr>
         `;
     });
 }
@@ -960,9 +956,14 @@
             tbody.innerHTML += `
                 <tr class="border-b border-b-[#D9D9D9]">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${row.industry}</td>
+                    <td class="p-3">${row.lead_name}</td>
+                    <td>${row.sales_name}</td>
+                    <td>${row.phone}</td>
+                    <td>${row.source}</td>
+                    <td>${row.needs}</td>
+                    <td>${row.segment_name}</td>
+                    <td>${row.city_name}</td>
+                    <td>${row.regional_name}</td>
                     <td class="text-left">${(() => {
                         const d = row.expire_in;
                         if (d === null || d === undefined) return (row.meeting_status || '-');
@@ -1013,15 +1014,21 @@
             tbody.innerHTML += `
                 <tr class="border-b border-b-[#D9D9D9]">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${row.industry_name}</td>
+                    <td class="p-3">${row.lead_name}</td>
+                    <td>${row.sales_name}</td>
+                    <td>${row.phone}</td>
+                    <td>${row.source}</td>
+                    <td>${row.needs}</td>
+                    <td>${row.segment_name}</td>
+                    <td>${row.city_name}</td>
+                    <td>${row.regional_name}</td>
                     <td class="text-left">${(() => {
                         const d = row.expire_in;
                         if (d === null || d === undefined) return (row.meeting_status || '-');
-                        if (d > 1) return d + ' days left';
-                        if (d === 1) return 'tomorrow';
-                        if (d === 0) return 'today';
+                        if (d > 7) return '<span class="span-deal px-2 py-1 rounded-sm font-normal!">' + d + ' Days left</span>';
+                        if (d > 2) return '<span class="span-warm px-2 py-1 rounded-sm font-normal!">' + d + ' Days left</span>';
+                        if (d === 1) return '<span class="span-hot px-2 py-1 rounded-sm font-normal!">Tomorrow</span>';
+                        if (d === 0) return '<span class="span-hot px-2 py-1 rounded-sm font-normal!">Today</span>';
                         return 'Expired';
                     })()}</td>
                     <td class="text-center">${row.actions}</td>
@@ -1066,17 +1073,14 @@
             tbody.innerHTML += `
                 <tr class="border-b border-b-[#D9D9D9]">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td>${row.lead_name}</td>
-                    <td>${row.industry_name}</td>
-                    <td class="text-left">${(() => {
-                        const d = row.expire_in;
-                        if (d === null || d === undefined) return (row.meeting_status || '-');
-                        if (d > 1) return d + ' days left';
-                        if (d === 1) return 'tomorrow';
-                        if (d === 0) return 'today';
-                        return 'Expired';
-                    })()}</td>
+                    <td class="p-3">${row.lead_name}</td>
+                    <td>${row.sales_name}</td>
+                    <td>${row.phone}</td>
+                    <td>${row.source_name}</td>
+                    <td>${row.needs}</td>
+                    <td>${row.segment_name}</td>
+                    <td>${row.city_name}</td>
+                    <td>${row.regional_name}</td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -1528,10 +1532,10 @@
             $.get(url, function(data) {
                 let rows = '';
                 data.forEach(function(item) {
-                    rows += '<tr>' +
-                        '<td>' + item.logged_at + '</td>' +
-                        '<td>' + item.action + '</td>' +
-                        '<td>' + item.user + '</td>' +
+                    rows += '<tr class="border-b border-b-[#D9D9D9]">' +
+                        '<td class="p-3">' + item.logged_at + '</td>' +
+                        '<td class="p-3">' + item.action + '</td>' +
+                        '<td class="p-3">' + item.user + '</td>' +
                         '</tr>';
                 });
                 tbody.html(rows || '<tr><td colspan="3" class="text-center">No logs</td></tr>');

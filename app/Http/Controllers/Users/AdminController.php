@@ -38,14 +38,6 @@ class AdminController extends Controller
 
         $query = User::with(['role', 'branch.company']);
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $types = $query->get();
-            return response()->json([
-                'status' => true,
-                'data' => $types,
-            ]);
-        }
-
         if ($request->filled('role_id')) {
             $query->where('role_id', $request->role_id);
         }

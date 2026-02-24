@@ -116,9 +116,8 @@ Route::middleware('auth')->group(function () {
 
             Route::prefix('warm')->name('leads.my.warm.')->group(function () {
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
+                
                 Route::get('quotation/{claim}', 'WarmLeadController@createQuotation')->name('quotation.create');
-                Route::post('quotation/{claim}', 'WarmLeadController@storeQuotation')->name('quotation.store');
-                Route::post('trash/{claim}', 'WarmLeadController@trash')->name('trash');
             });
         });
     });

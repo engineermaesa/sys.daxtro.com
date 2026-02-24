@@ -111,13 +111,13 @@
 </head>
 <body id="page-top">
 	<div id="loader" class="loader hidden"></div>
-    <div class="flex">
+    <div class="flex min-h-screen">
         <div class="w-1/6">
             @include('partials.sidebar')
         </div>
         <div class="flex flex-col w-5/6">
-            <div id="content">
-                <div class="bg-[#E8EFEC] px-6">
+            <div id="content" class="flex-1">
+                <div class="bg-[#E8EFEC] px-6 min-h-full">
                     @yield('content')
                 </div>
             </div>
