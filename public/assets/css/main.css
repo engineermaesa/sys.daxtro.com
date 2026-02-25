@@ -18,13 +18,6 @@
 /* Form enhancements                                                         */
 /* -------------------------------------------------------------------------- */
 
-label,
-
-.mb-3,
-.form-group {
-    margin-bottom: 1.25rem !important;
-}
-
 .form-control,
 .form-select,
 textarea {

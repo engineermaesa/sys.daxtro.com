@@ -31,7 +31,7 @@
 }
 
 .status-deal{
-    @apply text-[#05261B] bg-[#CFE7DE] rounded-sm font-light;
+    @apply text-[#02542D] bg-[#CFE7DE] rounded-sm font-light;
 }
 
 .status-grey{

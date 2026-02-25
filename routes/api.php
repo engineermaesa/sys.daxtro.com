@@ -40,7 +40,7 @@ Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('a
 
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
-Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
+// Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
 Route::get('/dashboard/regional-performance', [DashboardController::class, 'regionalPerformance']);
 Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceConversion']);
 Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sourceMonthlyStats']);
@@ -52,9 +52,9 @@ Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potenti
 // DASHBOARD (API)
 // =====================================
 Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
-route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
-
-
+Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
+Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
+Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
 // =====================================
 // Authentication (API)
 // =====================================

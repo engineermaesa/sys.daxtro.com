@@ -1,4 +1,4 @@
-<ul class="flex flex-col h-screen bg-white pt-10 sticky top-0">
+<ul class="flex flex-col bg-white pt-10 sticky top-0 h-screen">
     <a class="px-2" href="{{ route('dashboard') }}">
         <div class="flex justify-center items-center">
             <img src="{{ asset('assets/images/favicon-newer.png') }}" alt="DAXTRO Logo" class="w-45">
