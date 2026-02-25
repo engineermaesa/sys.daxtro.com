@@ -474,7 +474,7 @@
         </div>
 
         {{-- CONTENTS TABLES --}}
-        <div class="">
+        <div>
             {{-- ALL STAGE TABLE --}}
             <div data-tab-container="all" class="leads-table-container">
                 <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
@@ -1090,6 +1090,7 @@
 
     function initLeadTable(selector, route, type = 'default') {
             let columns;
+
             if (type === 'cold') {
                 columns = [{
                         data: 'id',
@@ -1225,8 +1226,8 @@
                     [0, 'desc']
                 ]
             });
-        }
-
+        } 
+        
         $(function() {
             const coldTable = initLeadTable('#coldLeadsTable', '{{ route('leads.my.cold.list') }}', 'cold');
             const warmTable = initLeadTable('#warmLeadsTable', '{{ route('leads.my.warm.list') }}');
@@ -1312,6 +1313,7 @@
             }
 
             const searchEl = document.getElementById('searchInput');
+            
             if (searchEl) {
                 searchEl.addEventListener('input', debounce(onSearchChanged, 350));
             }
@@ -1604,7 +1606,7 @@
                 renderColdSummary(response.cold);
             },
             error: function (xhr) {
-                console.log("Error ambil summary:", xhr.responseText);
+                console.log("There are error when fetch summary:", xhr.responseText);
             }
         });
     }
@@ -1637,7 +1639,7 @@
                 renderWarmSummary(response.warm);
             },
             error: function (xhr) {
-                console.log("Error ambil summary:", xhr.responseText);
+                console.log("There are error when fetch summary:", xhr.responseText);
             }
         });
     }
@@ -1665,7 +1667,7 @@
                 renderHotSummary(response.hot);
             },
             error: function (xhr) {
-                console.log("Error ambil summary:", xhr.responseText);
+                console.log("There are error when fetch summary:", xhr.responseText);
             }
         });
     }

@@ -85,10 +85,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/activity-logs', 'LeadActivityController@save')->name('leads.activity.save');
 
         Route::get('/manage', 'LeadController@manage')->name('leads.manage');
-        Route::post('/manage/list', 'LeadController@manageList')->name('leads.manage.list');
-        Route::post('/manage/counts', 'LeadController@manageCounts')->name('leads.manage.counts');
+        
         Route::get('/manage/export', 'LeadController@manageExport')->name('leads.manage.export');
         Route::get('/manage/form/{id?}', 'LeadController@form')->name('leads.manage.form');
+        
         Route::delete('/manage/delete/{id}', 'LeadController@delete')->name('leads.manage.delete');
 
         Route::get('/import', 'ImportLeadController@index')->name('leads.import');
