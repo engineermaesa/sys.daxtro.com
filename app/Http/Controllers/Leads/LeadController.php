@@ -809,7 +809,15 @@ class LeadController extends Controller
 
         $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
 
+        $coldCounts = $counts[LeadStatus::COLD] ?? 0;
+        $warmCounts = $counts[LeadStatus::WARM] ?? 0;
+        $hotCounts = $counts[LeadStatus::HOT] ?? 0;
+        $dealCounts = $counts[LeadStatus::DEAL] ?? 0;
+
+        $allCounts = $coldCounts + $warmCounts + $hotCounts + $dealCounts;
+
         $leadCounts = [
+            'all'  => $allCounts,
             'cold' => $counts[LeadStatus::COLD] ?? 0,
             'warm' => $counts[LeadStatus::WARM] ?? 0,
             'hot'  => $counts[LeadStatus::HOT]  ?? 0,
@@ -856,11 +864,34 @@ class LeadController extends Controller
                 $query->whereNull('released_at')
                     ->latest('claimed_at')
                     ->with('sales');
-            }
+            },
+            'activityLogs.activity',
+            'meetings'
         ]);
 
+        // =========================
+        // FILTER SECTION
+        // =========================
 
         $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+
+        if ($request->filled('stage')) {
+
+            $stage = strtolower($request->stage);
+
+            $statusMap = [
+                
+                'cold' => LeadStatus::COLD,
+                'warm' => LeadStatus::WARM,
+                'hot'  => LeadStatus::HOT,
+                'deal' => LeadStatus::DEAL,
+            ];
+
+            if (isset($statusMap[$stage])) {
+                $leads->where('status_id', $statusMap[$stage]);
+            }
+        }
+
         if (!$branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
             $branchId = $user->branch_id;
         }
@@ -869,8 +900,7 @@ class LeadController extends Controller
             $leads->where(function ($q) use ($branchId) {
                 $q->whereHas('region.branch', function ($subq) use ($branchId) {
                     $subq->where('id', $branchId);
-                })
-                    ->orWhere('branch_id', $branchId);
+                })->orWhere('branch_id', $branchId);
             });
         }
 
@@ -881,7 +911,7 @@ class LeadController extends Controller
         if ($request->filled('sales_id')) {
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
-                    ->whereNull('released_at');
+                ->whereNull('released_at');
             });
         }
 
@@ -889,18 +919,10 @@ class LeadController extends Controller
             $leads->where('status_id', $request->status_id);
         }
 
-        if ($branchId && $request->filled('status_id')) {
-            $statusId = (int) $request->status_id;
-            $branchIdInt = (int) $branchId;
-
-            if (in_array($statusId, [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])) {
-                $leads->where('branch_id', $branchIdInt);
-            }
-        }
-
         if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
             $leads->whereHas('quotation', function ($q) use ($request) {
                 $status = (int) $request->status_id;
+
                 if ($status === LeadStatus::WARM) {
                     $q->firstApprovalBetween($request->start_date, $request->end_date);
                 } elseif ($status === LeadStatus::HOT) {
@@ -911,150 +933,124 @@ class LeadController extends Controller
             });
         }
 
+        // =========================
+        // SEARCH
+        // =========================
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $leads->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('needs', 'like', "%{$search}%")
+                ->orWhere('customer_type', 'like', "%{$search}%")
+                ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
+                ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
+            });
+        }
+
+        // =========================
+        // PAGINATION
+        // =========================
+
+        $perPage = $request->get('per_page', 10);
+
+        $paginated = $leads
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
         $role = $request->user()->role?->code;
 
-        return DataTables::of($leads)
-            ->addColumn('sales_name', function ($lead) {
-                return $lead->claims->first()?->sales?->name ?? '-';
-            })
-            ->addColumn('phone', fn($row) => $row->phone)
-            ->addColumn('needs', fn($row) => $row->needs)
-            ->addColumn('source_name', fn($row) => $row->source->name ?? '')
-            ->addColumn('segment_name', fn($row) => $row->segment->name ?? '')
-            ->addColumn('city_name', fn($row) => $row->region->name ?? 'All Regions')
-            ->addColumn('regional_name', fn($row) => $row->region->regional->name ?? '-')
-            ->addColumn('customer_type', function ($lead) {
-                return $lead->customer_type ?? '-';
-            })
-            ->addColumn('existing_industries', function ($lead) {
-                return $lead->industry->name ?? '-';
-            })
-            ->addColumn('product_description', function ($lead) {
-                return $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? '');
-            })
-            ->addColumn('quotation_number', function ($lead) {
-                return $lead->quotation->quotation_no ?? '-';
-            })
-            ->addColumn('quotation_price', function ($lead) {
-                return $lead->quotation ? number_format($lead->quotation->grand_total ?? 0, 2) : '-';
-            })
-            ->addColumn('invoice_number', function ($lead) {
-                return $lead->quotation?->proformas->first()?->invoice?->invoice_no ?? '-';
-            })
-            ->addColumn('invoice_price', function ($lead) {
-                return $lead->quotation?->proformas->first()?->invoice ?
-                    number_format($lead->quotation->proformas->first()->invoice->amount ?? 0, 2) : '-';
-            })
-            ->addColumn('quot_created', function ($lead) {
-                // Ambil dari published_at lead atau quotation published_at
-                if ($lead->published_at) {
-                    return \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y');
-                } elseif ($lead->quotation?->published_at) {
-                    return \Carbon\Carbon::parse($lead->quotation->published_at)->format('d/m/Y');
-                } else {
-                    return '-';
-                }
-            })
-            ->addColumn('quot_end_date', function ($lead) {
-                // Menggunakan updated_at sesuai permintaan
-                return $lead->updated_at ?
-                    \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y') : '-';
-            })
-            ->addColumn('act_last_time', function ($lead) {
-                // Debug: lihat semua activity logs untuk lead ini
-                $activities = $lead->activityLogs;
+        // =========================
+        // TRANSFORM DATA
+        // =========================
 
-                if ($activities->isEmpty()) {
-                    return '-';
-                }
+        $paginated->getCollection()->transform(function ($lead) use ($role) {
 
-                // Ambil yang terbaru berdasarkan logged_at dan id
-                $latestActivity = $activities->sortByDesc(function ($activity) {
-                    // Combine logged_at timestamp with id for precise sorting
+            $latestActivity = $lead->activityLogs
+                ->sortByDesc(function ($activity) {
                     return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
-                })->first();
+                })
+                ->first();
 
-                return $latestActivity ?
-                    \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y') : '-';
-            })
-            ->addColumn('act_status', function ($lead) {
-                // Debug: lihat semua activity logs untuk lead ini
-                $activities = $lead->activityLogs;
+            $claim = $lead->claims->first();
+            $meeting = $lead->meetings->first();
+            $quote = $lead->quotation;
 
-                if ($activities->isEmpty()) {
-                    return '-';
-                }
+            // ================= ACTIONS =================
+            $editUrl   = route('leads.manage.form', $lead->id);
+            $quoteUrl  = $quote ? route('quotations.show', $quote->id) : null;
+            $activityUrl = route('leads.activity.logs', $lead->id);
 
-                // Ambil yang terbaru berdasarkan logged_at dan id
-                $latestActivity = $activities->sortByDesc(function ($activity) {
-                    // Combine logged_at timestamp with id for precise sorting
-                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
-                })->first();
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots-vertical"></i> Actions';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right">';
+            $html .= '<a class="dropdown-item" href="'.e($editUrl).'">View Lead</a>';
+            $html .= '<button type="button" class="dropdown-item btn-activity-log" data-url="'.e($activityUrl).'">View / Add Activity</button>';
 
-                return $latestActivity?->activity?->name ?? '-';
-            })
-            ->addColumn('actions', function ($row) use ($role) {
-                $editUrl   = route('leads.manage.form', $row->id);
-                // $deleteUrl = route('leads.manage.delete', $row->id);
-                $quote     = $row->quotation;
-                $quoteUrl  = $quote ? route('quotations.show', $quote->id) : null;
+            if (in_array($role, ['branch_manager','sales_director','sales']) && $quote) {
+                $html .= '<a class="dropdown-item" href="'.e($quoteUrl).'">View Quotation</a>';
+            }
 
-                $btnId = 'manageActionsDropdown' . $row->id;
+            if ($claim && $lead->status_id === LeadStatus::COLD && ! $meeting) {
+                $trashUrl = route('leads.my.cold.trash', $claim->id);
+                $html .= '<button class="dropdown-item text-danger trash-lead" data-url="'.e($trashUrl).'">Trash Lead</button>';
+            }
 
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($editUrl) . '"><i class="bi bi-pencil-square mr-2"></i> View Lead</a>';
-                $activityUrl = route('leads.activity.logs', $row->id);
-                $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> View / Add Activity</button>';
+            if ($claim && $lead->status_id === LeadStatus::WARM && (! $quote || $quote->status !== 'published')) {
+                $trashUrl = route('leads.my.warm.trash', $claim->id);
+                $html .= '<button class="dropdown-item text-danger trash-lead" data-url="'.e($trashUrl).'">Trash Lead</button>';
+            }
 
-                if (in_array($role, ['branch_manager', 'sales_director', 'sales']) && $quote) {
-                    $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
-                    $logUrl = route('quotations.logs', $quote->id);
-                    $html .= '  <button type="button" class="dropdown-item btn-quotation-log" data-url="' . e($logUrl) . '"><i class="bi bi-clock-history mr-2"></i> Quotation Log</button>';
-                }
+            $html .= '</div></div>';
 
-                $claim = $row->claims()->whereNull('released_at')->latest('claimed_at')->first();
-                $meeting = $row->meetings()->latest()->first();
+            // ================= RETURN ARRAY =================
 
-                if ($claim && $row->status_id === LeadStatus::COLD && ! $meeting) {
-                    $coldTrashUrl = route('leads.my.cold.trash', $claim->id);
-                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($coldTrashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
-                }
+            return [
+                'id' => $lead->id,
+                'lead_name' => $lead->name ?? '-',
+                'sales_name' => $claim?->sales?->name ?? '-',
+                'phone' => $lead->phone,
+                'source_name' => $lead->source->name ?? '',
+                'needs' => $lead->needs,
+                'existing_industries' => $lead->industry->name ?? '-',
+                'city_name' => $lead->region->name ?? 'All Regions',
+                'regional_name' => $lead->region->regional->name ?? '-',
+                'customer_type' => $lead->customer_type ?? '-',
+                'quotation_number' => $quote->quotation_no ?? '-',
+                'quotation_price' => $quote ? number_format($quote->grand_total ?? 0, 2) : '-',
+                'invoice_number' => $quote?->proformas->first()?->invoice?->invoice_no ?? '-',
+                'invoice_price' => $quote?->proformas->first()?->invoice
+                    ? number_format($quote->proformas->first()->invoice->amount ?? 0, 2)
+                    : '-',
+                'quot_created' => $lead->published_at
+                    ? \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y')
+                    : '-',
+                'quot_end_date' => $lead->updated_at
+                    ? \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y')
+                    : '-',
+                'act_last_time' => $latestActivity
+                    ? \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y')
+                    : '-',
+                'act_status' => $latestActivity?->activity?->name ?? '-',
+                'status_name' => $lead->status?->name ?? '-',
+                'actions' => $html
+            ];
+        });
 
-                if ($claim && $row->status_id === LeadStatus::WARM && (! $quote || $quote->status !== 'published')) {
-                    $warmTrashUrl = route('leads.my.warm.trash', $claim->id);
-                    $html .= '  <button class="dropdown-item text-danger trash-lead" data-url="' . e($warmTrashUrl) . '"><i class="bi bi-trash mr-2"></i> Trash Lead</button>';
-                }
-
-                // $html .= '  <a href="' . e($deleteUrl) . '" data-id="' . $row->id . '" data-table="none" class="dropdown-item text-danger delete-data"><i class="bi bi-trash mr-2"></i> Delete Lead</a>';
-
-                $html .= '  </div>';
-                $html .= '</div>';
-
-                return $html;
-            })
-            ->filter(function ($query) use ($request) {
-                if ($request->has('search') && $request->search['value'] != '') {
-                    $search = $request->search['value'];
-                    $query->where(function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%")
-                            ->orWhere('needs', 'like', "%{$search}%")
-                            ->orWhere('customer_type', 'like', "%{$search}%")
-                            ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                            ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%")) // Changed from claims.user to claims.sales
-                            ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%")) // Changed from quotation_number to quotation_no
-                            ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%")); // Changed from invoice_number to invoice_no
-                    });
-                }
-            })
-            ->rawColumns(['actions', 'status_name'])
-            ->make(true);
+        return response()->json([
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+        ]);
     }
 
     public function delete(Request $request, $id)

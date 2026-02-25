@@ -34,6 +34,22 @@
     @apply text-[#02542D] bg-[#CFE7DE] rounded-sm font-light;
 }
 
+.status-trash{
+    @apply text-[#343434] bg-[#F5F5F5] rounded-sm font-light;
+}
+
+.dot-trash-cold{
+    @apply w-[5px] h-[5px] bg-[#224A8A] rounded-full block;
+}
+
+.dot-trash-warm{
+    @apply w-[5px] h-[5px] bg-[#E8B931] rounded-full block;
+}
+
+.dot-trash-hot{
+    @apply w-[5px] h-[5px] bg-[#EC221F] rounded-full block;
+}
+
 .status-grey{
     @apply text-[#1E1E1E] bg-[#F5F5F5] rounded-md font-light inline-block px-2 py-1;
 }

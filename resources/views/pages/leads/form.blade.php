@@ -16,7 +16,7 @@
                 <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">My Leads</a>
                 <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 <a href="/" class="text-[#083224] underline">
-                    View Leads
+                    {{ old('name', $form_data->name) ? 'View Leads' : 'Create Leads' }}
                 </a>
             </div>
             <form method="POST" action="{{ request()->routeIs('leads.my.form') ? route('leads.my.save', $form_data->id) : route('leads.save', $form_data->id) }}" id="form"

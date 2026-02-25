@@ -93,20 +93,16 @@ Route::group([
     });
 
     // FOR MANAGE / ADMIN LEADS (API)
-    Route::prefix('manage')->group(function () {
-
-        Route::get('/', [LeadController::class, 'manage'])
-            ->name('api.leads.manage');
+    Route::prefix('manage')->name('manage.')->group(function () {
         Route::get('/list', [LeadController::class, 'manageList'])
-            ->name('api.leads.manage.list');
+            ->name('list');
         Route::get('/counts', [LeadController::class, 'manageCounts'])
-            ->name('api.leads.manage.counts');
-        Route::get('/export', [LeadController::class, 'manageExport'])
-            ->name('api.leads.manage.export');
+            ->name('counts');
+            
         Route::get('/form/{id?}', [LeadController::class, 'form'])
-            ->name('api.leads.manage.form');
+            ->name('form');
         Route::delete('/delete/{id}', [LeadController::class, 'delete'])
-            ->name('api.leads.manage.delete');
+            ->name('delete');
     });
 
     // FOR IMPORT (API)
@@ -169,11 +165,12 @@ Route::group([
     'namespace' => 'App\\Http\\Controllers\\Leads',
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
-    Route::get('/', 'TrashLeadController@index')->name('index');
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
+
     Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
     Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
     Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');
+    
     Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
     Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
 });
