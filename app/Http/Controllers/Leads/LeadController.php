@@ -988,25 +988,27 @@ class LeadController extends Controller
             $activityUrl = route('leads.activity.logs', $lead->id);
 
             $html  = '<div class="dropdown">';
-            $html .= '<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown">';
-            $html .= '<i class="bi bi-three-dots-vertical"></i> Actions';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
             $html .= '</button>';
-            $html .= '<div class="dropdown-menu dropdown-menu-right">';
-            $html .= '<a class="dropdown-item" href="'.e($editUrl).'">View Lead</a>';
-            $html .= '<button type="button" class="dropdown-item btn-activity-log" data-url="'.e($activityUrl).'">View / Add Activity</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+            $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="'.e($editUrl).'"> ' . view('components.icon.detail')->render() . 'View Lead Detail</a>';
+            $html .= '<button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="'.e($activityUrl).'">
+            ' . view('components.icon.log')->render() . '
+            View / Add Activity Log</button>';
 
             if (in_array($role, ['branch_manager','sales_director','sales']) && $quote) {
-                $html .= '<a class="dropdown-item" href="'.e($quoteUrl).'">View Quotation</a>';
+                $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="'.e($quoteUrl).'">'.view('components.icon.view-quotation')->render().' View Quotation</a>';
             }
 
             if ($claim && $lead->status_id === LeadStatus::COLD && ! $meeting) {
                 $trashUrl = route('leads.my.cold.trash', $claim->id);
-                $html .= '<button class="dropdown-item text-danger trash-lead" data-url="'.e($trashUrl).'">Trash Lead</button>';
+                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="'.e($trashUrl).'">' . view('components.icon.trash')->render() . 'Move To Trash Lead</button>';
             }
 
             if ($claim && $lead->status_id === LeadStatus::WARM && (! $quote || $quote->status !== 'published')) {
                 $trashUrl = route('leads.my.warm.trash', $claim->id);
-                $html .= '<button class="dropdown-item text-danger trash-lead" data-url="'.e($trashUrl).'">Trash Lead</button>';
+                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="'.e($trashUrl).'">' . view('components.icon.trash')->render() . 'Trash Lead</button>';
             }
 
             $html .= '</div></div>';

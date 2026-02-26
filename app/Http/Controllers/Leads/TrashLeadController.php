@@ -76,7 +76,15 @@ class TrashLeadController extends Controller
 
     public function coldList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.firstSales'])
+        $user = $request->user();
+        $perPage = $request->get('per_page', 10);
+
+        $claims = LeadClaim::with([
+                'lead.status', 
+                'lead.segment', 
+                'lead.source', 
+                'lead.firstSales'
+            ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_COLD))
             ->whereIn('id', function ($q) {
                 $q->select(DB::raw('MAX(id)'))
@@ -85,82 +93,93 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($request->user()->role?->code === 'sales') {
-            $claims->whereHas('lead', function ($q) use ($request) {
+        if ($user->role?->code === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
                         'region',
-                        fn($r) =>
-                        $r->where('branch_id', $request->user()->branch_id)
+                        fn($r) => $r->where('branch_id', $user->branch_id)
                     );
             });
         }
 
-        if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_id' => $row->lead->id,
-                    'lead_name' => $row->lead->name,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'first_sales_name' => $row->lead->firstSales->name ?? null,
-                    'meeting_status' => 'Trash Cold',
-                ];
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $claims->whereHas('lead', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
             });
-
-            return response()->json([
-                'data' => $items,
-                'count' => $items->count(),
-            ], 200);
         }
 
-        return DataTables::of($claims)
-            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('first_sales_name', fn($row) => $row->lead->firstSales->name ?? '-')
-            ->addColumn('meeting_status', fn() => '<span class="badge bg-secondary">Trash Cold</span>')
-            ->addColumn('actions', function ($row) use ($request) {
-                $detailUrl  = route('trash-leads.form', $row->lead_id);
-                $restoreUrl = route('trash-leads.restore', $row->id);
-                $btnId      = 'trashActionsDropdown' . $row->id;
+        $paginated = $claims
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($detailUrl) . '"><i class="bi bi-eye mr-2"></i> View Detail</a>';
+        $paginated->getCollection()->transform(function ($row) use ($user) {
+            $detailUrl  = route('trash-leads.form', $row->lead_id);
+            $restoreUrl = route('trash-leads.restore', $row->id);
+            $btnId      = 'trashActionsDropdown' . $row->id;
 
-                $roleCode = $request->user()->role?->code;
-                $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg">';
+            $html .= '<a class="dropdown-item flex items-center gap-2 text-[#1E1E1E]" href="' . e($detailUrl) . '"><i class="bi bi-eye"></i> View Detail</a>';
 
-                if (
-                    ($roleCode === 'sales') &&
-                    ($row->lead->region?->branch_id !== null && $request->user()->branch_id !== null && $row->lead->region->branch_id === $request->user()->branch_id)
-                ) {
-                    $html .= '  <button class="dropdown-item restore-lead" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise mr-2"></i> Restore</button>';
-                }
+            $roleCode = $user->role?->code;
+            $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
 
-                if ($allowedAssign) {
-                    $html .= '  <button class="dropdown-item assign-lead" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus mr-2"></i> Assign</button>';
-                }
+            if (
+                ($roleCode === 'sales') &&
+                ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
+            ) {
+                $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
+            }
 
-                $html .= '  </div>';
-                $html .= '</div>';
+            if ($allowedAssign) {
+                $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
+            }
 
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->make(true);
+            $html .= '</div></div>';
+
+            $row->name          = $row->lead->name ?? '-';
+            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->phone         = $row->lead->phone ?? '-';
+            $row->source        = $row->lead->source->name ?? '-';
+            $row->needs         = $row->lead->needs ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->city_name     = $row->lead->city->name ?? '-';
+            $row->regional_name = $row->lead->region->regional->name ?? '-';
+            
+            $row->status_lead = '<span class="inline-flex items-center justify-center gap-2 px-3 py-2 status-trash">
+            Trash - Cold
+            <span class="dot-trash-cold"></span>
+            </span>';
+            
+            $row->actions       = $html;
+
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+        ]);
     }
-
     public function warmList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.firstSales'])
+        $user = $request->user();
+        $perPage = $request->get('per_page', 10);
+
+        $claims = LeadClaim::with([
+                'lead.status', 
+                'lead.segment', 
+                'lead.source', 
+                'lead.firstSales'
+            ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_WARM))
             ->whereIn('id', function ($q) {
                 $q->select(DB::raw('MAX(id)'))
@@ -169,82 +188,94 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($request->user()->role?->code === 'sales') {
-            $claims->whereHas('lead', function ($q) use ($request) {
+        if ($user->role?->code === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
                         'region',
-                        fn($r) =>
-                        $r->where('branch_id', $request->user()->branch_id)
+                        fn($r) => $r->where('branch_id', $user->branch_id)
                     );
             });
         }
 
-        if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_id' => $row->lead->id,
-                    'lead_name' => $row->lead->name,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'first_sales_name' => $row->lead->firstSales->name ?? null,
-                    'meeting_status' => 'Trash Warm',
-                ];
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $claims->whereHas('lead', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
             });
-
-            return response()->json([
-                'data' => $items,
-                'count' => $items->count(),
-            ], 200);
         }
 
-        return DataTables::of($claims)
-            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('first_sales_name', fn($row) => $row->lead->firstSales->name ?? '-')
-            ->addColumn('meeting_status', fn() => '<span class="badge bg-secondary">Trash Warm</span>')
-            ->addColumn('actions', function ($row) use ($request) {
-                $detailUrl  = route('trash-leads.form', $row->lead_id);
-                $restoreUrl = route('trash-leads.restore', $row->id);
-                $btnId      = 'trashActionsDropdown' . $row->id;
+        $paginated = $claims
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($detailUrl) . '"><i class="bi bi-eye mr-2"></i> View Detail</a>';
+        $paginated->getCollection()->transform(function ($row) use ($user) {
+            $detailUrl  = route('trash-leads.form', $row->lead_id);
+            $restoreUrl = route('trash-leads.restore', $row->id);
+            $btnId      = 'trashActionsDropdown' . $row->id;
 
-                $roleCode = $request->user()->role?->code;
-                $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg">';
+            $html .= '<a class="dropdown-item flex items-center gap-2 text-[#1E1E1E]" href="' . e($detailUrl) . '"><i class="bi bi-eye"></i> View Detail</a>';
 
-                if (
-                    ($roleCode === 'sales') &&
-                    ($row->lead->region?->branch_id !== null && $request->user()->branch_id !== null && $row->lead->region->branch_id === $request->user()->branch_id)
-                ) {
-                    $html .= '  <button class="dropdown-item restore-lead" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise mr-2"></i> Restore</button>';
-                }
+            $roleCode = $user->role?->code;
+            $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
 
-                if ($allowedAssign) {
-                    $html .= '  <button class="dropdown-item assign-lead" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus mr-2"></i> Assign</button>';
-                }
+            if (
+                ($roleCode === 'sales') &&
+                ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
+            ) {
+                $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
+            }
 
-                $html .= '  </div>';
-                $html .= '</div>';
+            if ($allowedAssign) {
+                $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
+            }
 
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->make(true);
+            $html .= '</div></div>';
+
+            $row->name          = $row->lead->name ?? '-';
+            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->phone         = $row->lead->phone ?? '-';
+            $row->source        = $row->lead->source->name ?? '-';
+            $row->needs         = $row->lead->needs ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->city_name     = $row->lead->city->name ?? '-';
+            $row->regional_name = $row->lead->region->regional->name ?? '-';
+            
+            $row->status_lead = '<span class="inline-flex items-center justify-center gap-2 px-3 py-2 status-trash">
+            Trash - Warm
+            <span class="dot-trash-warm"></span>
+            </span>';
+            
+            $row->actions       = $html;
+
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+        ]);
     }
 
     public function hotList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.firstSales'])
+        $user = $request->user();
+        $perPage = $request->get('per_page', 10);
+
+        $claims = LeadClaim::with([
+                'lead.status', 
+                'lead.segment', 
+                'lead.source', 
+                'lead.firstSales'
+            ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_HOT))
             ->whereIn('id', function ($q) {
                 $q->select(DB::raw('MAX(id)'))
@@ -253,82 +284,188 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($request->user()->role?->code === 'sales') {
-            $claims->whereHas('lead', function ($q) use ($request) {
+        if ($user->role?->code === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
                         'region',
-                        fn($r) =>
-                        $r->where('branch_id', $request->user()->branch_id)
+                        fn($r) => $r->where('branch_id', $user->branch_id)
                     );
             });
         }
 
-        if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_id' => $row->lead->id,
-                    'lead_name' => $row->lead->name,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'first_sales_name' => $row->lead->firstSales->name ?? null,
-                    'meeting_status' => 'Trash Hot',
-                ];
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $claims->whereHas('lead', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
             });
-
-            return response()->json([
-                'data' => $items,
-                'count' => $items->count(),
-            ], 200);
         }
 
-        return DataTables::of($claims)
-            ->addColumn('claimed_at', fn($row) => $row->claimed_at)
-            ->addColumn('lead_name', fn($row) => $row->lead->name)
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '-')
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '-')
-            ->addColumn('first_sales_name', fn($row) => $row->lead->firstSales->name ?? '-')
-            ->addColumn('meeting_status', fn() => '<span class="badge bg-secondary">Trash Hot</span>')
-            ->addColumn('actions', function ($row) use ($request) {
-                $detailUrl  = route('trash-leads.form', $row->lead_id);
-                $restoreUrl = route('trash-leads.restore', $row->id);
-                $btnId      = 'trashActionsDropdown' . $row->id;
+        $paginated = $claims
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($detailUrl) . '"><i class="bi bi-eye mr-2"></i> View Detail</a>';
+        $paginated->getCollection()->transform(function ($row) use ($user) {
+            $detailUrl  = route('trash-leads.form', $row->lead_id);
+            $restoreUrl = route('trash-leads.restore', $row->id);
+            $btnId      = 'trashActionsDropdown' . $row->id;
 
-                $roleCode = $request->user()->role?->code;
-                $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg">';
+            $html .= '<a class="dropdown-item flex items-center gap-2 text-[#1E1E1E]" href="' . e($detailUrl) . '"><i class="bi bi-eye"></i> View Detail</a>';
 
-                if (
-                    ($roleCode === 'sales') &&
-                    ($row->lead->region?->branch_id !== null && $request->user()->branch_id !== null && $row->lead->region->branch_id === $request->user()->branch_id)
-                ) {
-                    $html .= '  <button class="dropdown-item restore-lead" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise mr-2"></i> Restore</button>';
-                }
+            $roleCode = $user->role?->code;
+            $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
 
-                if ($allowedAssign) {
-                    $html .= '  <button class="dropdown-item assign-lead" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus mr-2"></i> Assign</button>';
-                }
+            if (
+                ($roleCode === 'sales') &&
+                ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
+            ) {
+                $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
+            }
 
-                $html .= '  </div>';
-                $html .= '</div>';
+            if ($allowedAssign) {
+                $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
+            }
 
-                return $html;
-            })
-            ->rawColumns(['meeting_status', 'actions'])
-            ->make(true);
+            $html .= '</div></div>';
+
+            $row->name          = $row->lead->name ?? '-';
+            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->phone         = $row->lead->phone ?? '-';
+            $row->source        = $row->lead->source->name ?? '-';
+            $row->needs         = $row->lead->needs ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->city_name     = $row->lead->city->name ?? '-';
+            $row->regional_name = $row->lead->region->regional->name ?? '-';
+            
+            $row->status_lead = '<span class="inline-flex items-center justify-center gap-2 px-3 py-2 status-trash">
+            Trash - Cold
+            <span class="dot-trash-hot"></span>
+            </span>';
+            
+            $row->actions       = $html;
+
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+        ]);
     }
 
-    public function AllList(Request $request)
+    public function allList(Request $request)
     {
-    // Untuk menampilkan coldList, warmList,hotList    
+        $user = $request->user();
+        $perPage = $request->get('per_page', 10);
+
+        $claims = LeadClaim::with([
+                'lead.status', 
+                'lead.segment', 
+                'lead.source', 
+                'lead.firstSales'
+            ])
+            ->whereHas('lead', function ($q) {
+                $q->whereIn('status_id', [
+                    LeadStatus::TRASH_COLD, 
+                    LeadStatus::TRASH_WARM, 
+                    LeadStatus::TRASH_HOT
+                ]);
+            })
+            ->whereIn('id', function ($q) {
+                $q->select(DB::raw('MAX(id)'))
+                    ->from('lead_claims as lc2')
+                    ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
+                    ->groupBy('lead_id');
+            });
+
+        if ($user->role?->code === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($r) => $r->where('branch_id', $user->branch_id)
+                    );
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $claims->whereHas('lead', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        $paginated = $claims
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $paginated->getCollection()->transform(function ($row) use ($user) {
+            $detailUrl  = route('trash-leads.form', $row->lead_id);
+            $restoreUrl = route('trash-leads.restore', $row->id);
+            
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg">';
+            $html .= '<a class="dropdown-item flex items-center gap-2 text-[#1E1E1E]" href="' . e($detailUrl) . '"><i class="bi bi-eye"></i> View Detail</a>';
+            
+            $roleCode = $user->role?->code;
+            $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
+            
+            if (
+                ($roleCode === 'sales') &&
+                ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
+            ) {
+                $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
+            }
+            
+            if ($allowedAssign) {
+                $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
+            }
+            $html .= '</div></div>';
+
+            $row->name          = $row->lead->name ?? '-';
+            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->phone         = $row->lead->phone ?? '-';
+            $row->source        = $row->lead->source->name ?? '-';
+            $row->needs         = $row->lead->needs ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->city_name     = $row->lead->city->name ?? '-';
+            $row->regional_name = $row->lead->region->regional->name ?? '-';
+            
+            $statusName = $row->lead->status->name ?? 'Trash';
+            $dotClass   = match($row->lead->status_id) {
+                LeadStatus::TRASH_HOT  => 'dot-trash-hot',
+                LeadStatus::TRASH_WARM => 'dot-trash-warm',
+                LeadStatus::TRASH_COLD => 'dot-trash-cold',
+                default                => 'dot-trash-cold',
+            };
+
+            $row->status_lead = '<span class="inline-flex items-center justify-center gap-2 px-3 py-2 status-trash">
+                ' . e($statusName) . '
+                <span class="' . $dotClass . '"></span>
+            </span>';
+            
+            $row->actions       = $html;
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+        ]);
     }
 
     public function form(Request $request, $id)

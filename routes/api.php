@@ -167,6 +167,7 @@ Route::group([
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
 
+    Route::get('all/list', 'TrashLeadController@allList')->name('all.list');
     Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
     Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
     Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');

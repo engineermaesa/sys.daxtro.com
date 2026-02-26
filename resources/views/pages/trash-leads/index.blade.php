@@ -1,57 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-{{-- <section class="section">
-  <div class="card">
-    <div class="card-header"><strong>Trash Leads</strong></div>
-    <div class="card-body pt-4">
-      <ul class="nav nav-tabs mb-3 w-100 no-border" id="trashLeadTabs" role="tablist">
-        @foreach (['cold', 'warm'] as $tab)
-          <li class="nav-item flex-fill text-center" style="border: none;">
-            <a class="nav-link {{ $loop->first ? 'active' : '' }}"
-               id="{{ $tab }}-tab"
-               data-toggle="tab"
-               href="#{{ $tab }}"
-               role="tab"
-               style="border: none; font-weight: 500;">
-              {{ ucfirst($tab) }}
-              <span class="badge badge-pill badge-{{ $tab === 'cold' ? 'primary' : 'warning' }}">
-                {{ $leadCounts[$tab] ?? 0 }}
-              </span>
-            </a>
-          </li>
-        @endforeach
-      </ul>
-
-      <div class="tab-content" id="trashLeadTabsContent">
-        @foreach (['cold', 'warm'] as $tab)
-          <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}"
-               id="{{ $tab }}"
-               role="tabpanel"
-               aria-labelledby="{{ $tab }}-tab">
-            <div class="table-responsive">
-              <table id="{{ $tab }}TrashLeadsTable" class="table table-sm w-100">
-                <thead class="thead-light">
-                  <tr>
-                    <th>ID (hidden)</th>
-                    <th>Claimed At</th>
-                    <th>Lead Name</th>
-                    <th>Segment</th>
-                    <th>Source</th>
-                    <th>First Sales</th>
-                    <th class="text-center">Status</th>
-                    <th class="text-center">Actions</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-          </div>
-        @endforeach
-      </div>
-
-    </div>
-  </div>
-</section> --}}
 
 <section class="min-h-screen">
   {{-- HEADER PAGES --}}
@@ -75,10 +24,10 @@
                     <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
                 </svg>
             </div>
-            <input type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
+            <input id="searchInput" type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
         </div>
         {{-- NAVIGATION STATUS TABLES --}}
-        <div class="w-4/6 border border-[#D5D5D5] rounded-lg grid grid-cols-4">
+        <div class="w-5/6 border border-[#D5D5D5] rounded-lg grid grid-cols-4">
             @foreach (['all', 'cold', 'warm', 'hot'] as $tab)
                 {{-- NAVIGATION STATUS --}}
                   <div class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active" data-status="{{ $tab }}">
@@ -102,14 +51,13 @@
                 </div>
             @endforeach
         </div>
-        {{-- Manual add removed: trash leads are automated --}}
     </div>
 
     {{-- CONTENTS TABLES --}}
     <div class="">
-      @foreach(['cold', 'warm', 'hot'] as $tab)
+      @foreach(['all', 'cold', 'warm', 'hot'] as $tab)
         <div data-status-wrapper="{{ $tab }}">
-          <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full">
+          <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#CFD5DC]">
@@ -117,28 +65,57 @@
                             <th class="p-3">
                                 Claimed At
                             </th>
-                            <th class="">  
+                            <th class="p-3">  
                                 Lead Name
                             </th>
-                            <th>
+                            <th class="p-3">
                                 Segment
                             </th>
-                            <th>
+                            <th class="p-3">
                                 Source
                             </th>
-                            <th>
+                            <th class="p-3">
                                 First Sales
                             </th>
-                            <th>
+                            <th class="p-3">
                               Status
                             </th>
-                            <th class="text-center">
+                            <th class="text-center p-3">
                                 Action
                             </th>
                         </tr>
                     </thead>
-                    <tbody id="{{ $tab }}BodyTailwind"></tbody>
+                    <tbody id="{{ $tab }}BodyTable"></tbody>
                 </table>
+                {{-- NAVIGATION ROWS --}}
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                    <div class="flex items-center gap-3">
+                        <p class="font-semibold">Show Rows</p>
+                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                            onchange="changePageSize('{{ $tab }}', this.value)">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                        <div>
+                            <button id="{{ $tab }}PrevBtn"
+                                class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goPrev('{{ $tab }}')">
+                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                            </button>
+                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goNext('{{ $tab }}')">
+                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         @endforeach
     </div>
@@ -187,6 +164,9 @@
     @php
       $trashRoutes = [];
       if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list')) {
+        $trashRoutes['all'] = route('trash-leads.all.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list')) {
         $trashRoutes['cold'] = route('trash-leads.cold.list');
       }
       if(\Illuminate\Support\Facades\Route::has('trash-leads.warm.list')) {
@@ -196,16 +176,113 @@
         $trashRoutes['hot'] = route('trash-leads.hot.list');
       }
     @endphp
+    
     const trashRoutes = @json($trashRoutes);
 
+    // LEADS
+    const DEFAULT_PAGE_SIZE = 10;
+    const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
+    const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
+
+    const totals = {
+        all: {{ $leadCounts['all'] ?? 0 }},
+        cold: {{ $leadCounts['cold'] ?? 0 }},
+        warm: {{ $leadCounts['warm'] ?? 0 }},
+        hot: {{ $leadCounts['hot'] ?? 0 }}
+    };
+
+    function getSearchQuery() {
+        const el = document.getElementById('searchInput');
+        return (el?.value || '').trim();
+    }
+
+    const searchInput = document.getElementById('searchInput');
+    
+    if (searchInput) {
+      let searchTimeout = null;
+
+      searchInput.addEventListener('input', function(e) {
+          clearTimeout(searchTimeout);
+
+          searchTimeout = setTimeout(() => {
+              
+              pageState.all = 1;
+              pageState.cold = 1;
+              pageState.warm = 1;
+              pageState.hot = 1;
+
+              let activeTab = 'all';
+              const activeNav = document.querySelector('.nav-leads-active.border-b-2'); 
+              
+              if (activeNav) {
+                  activeTab = activeNav.getAttribute('data-status');
+              }
+
+              reloadTab(activeTab);
+
+          }, 500);
+      });
+    }
+    function updatePagerUI(tab, totalItems) {
+        const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
+        const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
+        const page = pageState[tab] || 1;
+
+        const prev = document.getElementById(tab + 'PrevBtn');
+        const next = document.getElementById(tab + 'NextBtn');
+        const showing = document.getElementById(tab + 'Showing');
+        const info = document.getElementById(tab + 'PageInfo');
+
+        if (prev) prev.disabled = page <= 1;
+        if (next) next.disabled = page >= totalPages;
+
+        const startIdx = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+        const endIdx = Math.min(totalItems, (page - 1) * pageSize + pageSize);
+
+        if (showing) showing.innerText = `Showing ${startIdx}-${endIdx} of ${totalItems}`;
+        if (info) info.innerText = page + ' / ' + totalPages;
+    }
+
+    function changePageSize(tab, value) {
+        const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
+        pageSizeState[tab] = size;
+        pageState[tab] = 1;
+        reloadTab(tab);
+    }
+
+    function goPrev(tab) {
+        if ((pageState[tab] || 1) > 1) {
+            pageState[tab] = pageState[tab] - 1;
+            reloadTab(tab);
+        }
+    }
+
+    function goNext(tab) {
+        const totalItems = totals[tab] || 0;
+        const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
+        const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+        
+        if ((pageState[tab] || 1) < totalPages) {
+            pageState[tab] = (pageState[tab] || 1) + 1;
+            reloadTab(tab);
+        }
+    }
+
+    function reloadTab(tab) {
+        if (trashRoutes[tab]) {
+            initTrashTable(tab, trashRoutes[tab]);
+        } else {
+            console.warn('No route defined for ' + tab);
+        }
+    }
+
     function initTailwindTable(tab){
-      const selector = '#' + tab + 'TrashLeadsTableTailwind';
-      if(!trashRoutes[tab]){ console.warn('No route defined for '+tab); return; }
-      if(!$.fn.dataTable.isDataTable(selector)){
-        initTrashTable(selector, trashRoutes[tab]);
-      } else {
-        $(selector).DataTable().ajax.reload();
+      if(!trashRoutes[tab]){
+        console.warn('No route defined for '+tab);
+        return;
       }
+
+      initTrashTable(tab, trashRoutes[tab]);
     }
 
     function showTables(status){
@@ -237,38 +314,107 @@
       showTables(status);
     });
 
-function initTrashTable(selector, route) {
-  $(selector).DataTable({
-    processing: true,
-    serverSide: true,
-    ajax: {
-      url : route,
-      type: 'POST',
-      data: {
-        _token : '{{ csrf_token() }}'
-      }
-    },
-    columns: [
-      { data: 'id', visible: false },
-      { data: 'claimed_at', name: 'claimed_at', render: function (data) { if(!data) return ''; return new Date(data).toLocaleString('en-GB', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}); } },
-      { data: 'lead_name', name: 'lead_name' },
-      { data: 'segment_name', name: 'segment_name' },
-      { data: 'source_name', name: 'source_name' },
-      { data: 'first_sales_name', name: 'first_sales_name' },
-      { data: 'meeting_status', orderable: false, searchable: false, className: 'text-center' },
-      { data: 'actions', orderable: false, searchable: false, className: 'text-center', width: '200px' }
-    ],
-    order: [[0, 'desc']]
+  document.addEventListener("DOMContentLoaded", function() {
+    initTrashTable('all', `${trashRoutes['all']}`);
+    initTrashTable('cold', `${trashRoutes['cold']}`);
+    initTrashTable('warm', `${trashRoutes['warm']}`);
+    initTrashTable('hot', `${trashRoutes['hot']}`);
+
+    const navTabs = document.querySelectorAll('.nav-leads-active');
+    const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
+
+    function switchTab(statusTarget) {
+        tableWrappers.forEach(wrapper => {
+            wrapper.classList.add('hidden');
+        });
+
+        const targetWrapper = document.querySelector(`[data-status-wrapper="${statusTarget}"]`);
+        if (targetWrapper) {
+            targetWrapper.classList.remove('hidden');
+        }
+
+        navTabs.forEach(tab => {
+            if (tab.getAttribute('data-status') === statusTarget) {
+                tab.classList.add('border-b-2', 'border-b-[#115640]', 'text-white'); 
+            } else {
+                tab.classList.remove('border-b-2', 'border-b-[#115640]', 'text-white');
+            }
+        });
+    }
+
+    switchTab('all');
+
+    navTabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            const statusTarget = this.getAttribute('data-status');
+            switchTab(statusTarget);
+        });
+    });
+
   });
+  
+  
+  async function initTrashTable(selector, route) {
+    const page = pageState[selector] || 1;
+    const perPage = pageSizeState[selector] || DEFAULT_PAGE_SIZE;
+
+    const params = new URLSearchParams({
+        page: page,
+        per_page: perPage,
+        start_date: document.getElementById('filter_start')?.value || '',
+        end_date: document.getElementById('filter_end')?.value || '',
+        search: getSearchQuery()
+    });
+
+    const response = await fetch(`${route}?${params.toString()}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+            
+    const result = await response.json();
+    totals[selector] = result.total || 0;
+
+    updatePagerUI(selector, result.total);
+    if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+
+    const tbody = document.getElementById(`${selector}BodyTable`);
+
+    tbody.innerHTML = '';
+
+    if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
+    
+    if (typeof totals !== 'undefined') {
+        if (selector === 'cold') totals.cold = result.total || 0;
+        if (selector === 'warm') totals.warm = result.total || 0;
+        if (selector === 'hot') totals.hot = result.total || 0;
+    }
+    
+    if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+
+    if (result.data && result.data.length > 0) {
+        result.data.forEach(row => {
+            tbody.innerHTML += `
+                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
+                    <td class="hidden">${row.id}</td>
+                    <td class="p-3">${row.claimed_at}</td>
+                    <td class="p-3">${row.name}</td>
+                    <td class="p-3">${row.segment_name}</td>
+                    <td class="p-3">${row.source}</td>
+                    <td class="p-3">${row.sales_name}</td>
+                    <td class="p-3">${row.status_lead}</td>
+                    <td class="text-center p-3">${row.actions}</td>
+                </tr>
+            `;
+        });
+    } else {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+    }
 }
 
+
 $(function () {
-  @if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list'))
-    initTrashTable('#coldTrashLeadsTable', '{{ route('trash-leads.cold.list') }}');
-  @endif
-  @if(\Illuminate\Support\Facades\Route::has('trash-leads.warm.list'))
-    initTrashTable('#warmTrashLeadsTable', '{{ route('trash-leads.warm.list') }}');
-  @endif
   
   $(document).on('click', '.restore-lead', function(){
     const url = $(this).data('url');
@@ -349,35 +495,54 @@ $(function () {
 @section('styles')
 <style>
   .nav-tabs.full-clean {
-    border-bottom: none;
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
-  }
+        border-bottom: none;
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+    }
 
-  .nav-tabs.full-clean .nav-item {
-    flex: 1;
-    text-align: center;
-  }
+    .nav-tabs.full-clean .nav-item {
+        flex: 1;
+        text-align: center;
+    }
 
-  .nav-tabs.full-clean .nav-link {
-    border: none;
-    background: transparent;
-    font-weight: 500;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    transition: background-color 0.3s ease;
-  }
+    .nav-tabs.full-clean .nav-link {
+        border: none;
+        background: transparent;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        transition: background-color 0.3s ease;
+    }
 
-  .nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link.active {
-    background-color: #115641 !important;
-    color: white !important;
-  }
+    .nav-tabs .nav-item.show .nav-link,
+    .nav-tabs .nav-link.active {
+        background-color: #115641 !important;
+        color: white !important;
+    }
 
-  .nav-tabs.full-clean .nav-link .badge {
-    margin-left: 0.4rem;
-    font-size: 85%;
-    vertical-align: middle;
-  }
+    .nav-tabs.full-clean .nav-link .badge {
+        margin-left: 0.4rem;
+        font-size: 85%;
+        vertical-align: middle;
+    }
+
+    /* Tailwind-style status nav active state */
+    .nav-leads {
+        border-bottom: 4px solid transparent;
+    }
+
+    .nav-leads.active-nav {
+        border-bottom: 4px solid #115640;
+        color: white;
+    }
+
+    .leads-table-container {
+        display: block;
+    }
+
+    .bi-three-dots::before {
+        -webkit-text-stroke: 0.6px;
+    }
 </style>
 @endsection
