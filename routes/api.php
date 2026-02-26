@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\LeadRegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Dashboard\DashSummaryController;
 
 // LEADS (API)
 use App\Http\Controllers\Leads\LeadActivityController;
@@ -39,7 +40,7 @@ Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('a
 
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
-Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
+// Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
 Route::get('/dashboard/regional-performance', [DashboardController::class, 'regionalPerformance']);
 Route::get('/dashboard/source-conversion-stats', [DashboardController::class, 'sourceConversion']);
 Route::get('/dashboard/source-monthly-stats', [DashboardController::class, 'sourceMonthlyStats']);
@@ -47,6 +48,13 @@ Route::get('/dashboard/dealing-list', [DashboardController::class, 'dealingList'
 Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList']);
 Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
 
+// =====================================
+// DASHBOARD (API)
+// =====================================
+Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
+Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
+Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
+Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
 // =====================================
 // Authentication (API)
 // =====================================
