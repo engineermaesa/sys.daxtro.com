@@ -34,26 +34,35 @@ class DashSummaryController extends Controller
 
     public function SourceConversionLists()
     {
+        // Ambil filter dari request
+        $year  = request()->get('year');   // misal 2025
+        $month = request()->get('month');  // misal 12
+
+        // Query dengan filter fleksibel
         $rows = LeadSource::leftJoin('leads', 'lead_sources.id', '=', 'leads.source_id')
-            ->selectRaw(
-                "
-        lead_sources.name as source,
-        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
-        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
-        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
-        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal",
-                [
-                    LeadStatus::COLD,
-                    LeadStatus::WARM,
-                    LeadStatus::HOT,
-                    LeadStatus::DEAL
-                ]
-            )
+            ->selectRaw("
+            lead_sources.name as source,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal
+        ", [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL
+            ])
+            // Filter tahun & bulan jika dikirim
+            ->when($year, function ($q) use ($year) {
+                $q->whereYear('leads.created_at', $year);
+            })
+            ->when($month, function ($q) use ($month) {
+                $q->whereMonth('leads.created_at', $month);
+            })
             ->groupBy('lead_sources.id', 'lead_sources.name')
             ->orderBy('lead_sources.name')
             ->get()
             ->map(function ($row) {
-
                 $cold = (int) $row->cold;
                 $warm = (int) $row->warm;
                 $hot  = (int) $row->hot;
@@ -63,59 +72,56 @@ class DashSummaryController extends Controller
 
                 return [
                     'source' => $row->source,
-                    'cum'    => $total,
-
-                    // sementara isi dulu (nanti dioverride)
-                    'persen_cum' => '0,0',
-
-                    'cold'   => $cold,
-                    'persen_cold' => $total > 0 ? number_format(($cold / $total) * 100, 1, ',', '') : '0,0',
-
-                    'warm'   => $warm,
-                    'persen_warm' => $total > 0 ? number_format(($warm / $total) * 100, 1, ',', '') : '0,0',
-
-                    'hot'    => $hot,
-                    'persen_hot'  => $total > 0 ? number_format(($hot / $total) * 100, 1, ',', '') : '0,0',
-
-                    'deal'   => $deal,
-                    'persen_deal' => $total > 0 ? number_format(($deal / $total) * 100, 1, ',', '') : '0,0',
-
                     'total_source'  => $total,
+                    'persen_cum'    => 0, // sementara, nanti dioverride
+                    'cold'   => $cold,
+                    'persen_cold' => $total > 0 ? round(($cold / $total) * 100, 1) : 0,
+                    'warm'   => $warm,
+                    'persen_warm' => $total > 0 ? round(($warm / $total) * 100, 1) : 0,
+                    'hot'    => $hot,
+                    'persen_hot'  => $total > 0 ? round(($hot / $total) * 100, 1) : 0,
+                    'deal'   => $deal,
+                    'persen_deal' => $total > 0 ? round(($deal / $total) * 100, 1) : 0,
                 ];
             });
 
-        // 🔥 GRAND TOTAL
-        $grandCold = $rows->sum('cold');
-        $grandWarm = $rows->sum('warm');
-        $grandHot  = $rows->sum('hot');
-        $grandDeal = $rows->sum('deal');
+        // 🔥 Hitung grand total
+        $grandCold  = $rows->sum('cold');
+        $grandWarm  = $rows->sum('warm');
+        $grandHot   = $rows->sum('hot');
+        $grandDeal  = $rows->sum('deal');
         $grandTotal = $grandCold + $grandWarm + $grandHot + $grandDeal;
 
-        // 🔥 UPDATE persen_cum pakai GRAND TOTAL
+        // 🔥 Update persen_cum per source
         $rows = $rows->map(function ($row) use ($grandTotal) {
-
-            if ($row['source'] !== 'Total') {
-                $row['persen_cum'] = $grandTotal > 0
-                    ? number_format(($row['total_source'] / $grandTotal) * 100, 1, ',', '')
-                    : '0,0';
-            }
-
+            $row['persen_cum'] = $grandTotal > 0
+                ? round(($row['total_source'] / $grandTotal) * 100, 1)
+                : 0;
             return $row;
         });
 
+        // 🔥 Tambahkan row total
         $rows->push([
-            'source' => 'Total',
-            'cum'    => $grandTotal,
+            'source'       => 'Total',
+            'total_source' => $grandTotal,
+            'persen_cum'   => 100,
             'cold'   => $grandCold,
+            'persen_cold' => $grandTotal > 0 ? round(($grandCold / $grandTotal) * 100, 1) : 0,
             'warm'   => $grandWarm,
+            'persen_warm' => $grandTotal > 0 ? round(($grandWarm / $grandTotal) * 100, 1) : 0,
             'hot'    => $grandHot,
+            'persen_hot'  => $grandTotal > 0 ? round(($grandHot / $grandTotal) * 100, 1) : 0,
             'deal'   => $grandDeal,
-            'total_stage'  => $grandTotal,
+            'persen_deal' => $grandTotal > 0 ? round(($grandDeal / $grandTotal) * 100, 1) : 0,
         ]);
 
         return response()->json([
             'status' => 'success',
-            'data'   => $rows,
+            'filters' => [
+                'year'  => $year,
+                'month' => $month
+            ],
+            'data' => $rows
         ]);
     }
 

@@ -11,7 +11,7 @@ class DealLeadController extends Controller
 {
     public function myDealList(Request $request)
     {
-        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional'])
+        $claims = LeadClaim::with(['lead.status', 'lead.segment', 'lead.source', 'lead.industry', 'sales', 'lead.region.regional', 'lead.quotation.proformas.paymentConfirmation'])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
             ->whereNull('released_at');
 
@@ -36,6 +36,14 @@ class DealLeadController extends Controller
         $paginated = $claims->paginate($perPage);
 
         $items = collect($paginated->items())->map(function ($row) {
+            $quotation = $row->lead->quotation;
+            $totalPayments = $quotation?->proformas?->count() ?? 0;
+            $approvedPayments = 0;
+            if ($quotation && $quotation->proformas) {
+                $approvedPayments = collect($quotation->proformas)->filter(function ($p) {
+                    return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
+                })->count();
+            }
             return [
                 'id' => $row->id,
                 'claimed_at' => $row->claimed_at,
@@ -50,6 +58,7 @@ class DealLeadController extends Controller
                 'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
                 'meeting_status' => '<span class="status-finish">Deal</span>',
                 'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+                'payments' => $approvedPayments . ' / ' . $totalPayments,
                 'actions' => $this->dealActions($row),
             ];
         });
