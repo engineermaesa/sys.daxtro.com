@@ -820,45 +820,45 @@
             search: getSearchQuery()
         });
 
-        const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            credentials: 'same-origin'
-        });
+            const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
+                headers: {
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                },
+                credentials: 'same-origin'
+            });
 
-        const result = await response.json();
+            const result = await response.json();
 
-        console.log('loadColdLeads result:', result);
-        try { document.getElementById('leadsDebug').innerText = 'COLD → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
+            console.log('loadColdLeads result:', result);
+            try { document.getElementById('leadsDebug').innerText = 'COLD → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
 
-        const tbody = document.getElementById('coldBody');
-        tbody.innerHTML = '';
+            const tbody = document.getElementById('coldBody');
+            tbody.innerHTML = '';
 
-        updatePagerUI('cold', result.total);
+            updatePagerUI('cold', result.total);
 
-        // update local total and badges
-        totals.cold = result.total || 0;
-        updateBadgeCounts();
+            // update local total and badges
+            totals.cold = result.total || 0;
+            updateBadgeCounts();
 
-        result.data.forEach(row => {
+            result.data.forEach(row => {
 
-            tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9]">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source}</td>
-                    <td>${row.needs}</td>
-                    <td>${row.segment_name}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-left">${row.expire_in !== undefined ? (row.expire_in > 0 ? row.expire_in + ' days' : 'Expired') : row.meeting_status}</td>
-                    <td class="text-center">${row.actions}</td>
-                </tr>
-            `;
-        });
+                tbody.innerHTML += `
+                    <tr class="border-b border-b-[#D9D9D9]">
+                        <td class="hidden">${row.id}</td>
+                        <td class="p-3">${row.name}</td>
+                        <td>${row.sales_name}</td>
+                        <td>${row.phone}</td>
+                        <td>${row.source}</td>
+                        <td>${row.needs}</td>
+                        <td>${row.segment_name}</td>
+                        <td>${row.city_name}</td>
+                        <td>${row.regional_name}</td>
+                        <td class="text-left">${row.expire_in !== undefined ? (row.expire_in > 0 ? row.expire_in + ' days' : 'Expired') : row.meeting_status}</td>
+                        <td class="text-center">${row.actions}</td>
+                    </tr>
+                `;
+            });
 }
 
     async function loadAllLeads() {
@@ -1481,6 +1481,7 @@
             });
         });
 
+        // ACTIVITY LOG
         $('#activityLogForm').on('submit', function(e) {
             e.preventDefault();
             const url = $(this).data('url');

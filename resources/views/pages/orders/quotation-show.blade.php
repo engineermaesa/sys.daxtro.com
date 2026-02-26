@@ -617,29 +617,25 @@
             @if($canReview)
                 <div class="bg-white border border-[#D9D9D9] rounded-lg my-4">
                     <h1 class="uppercase text-[#1E1E1E] font-semibold p-3 border-b border-b-[#D9D9D9]">Approval Section</h1>
-                    <div class="grid grid-cols-2 divide-x divide-[#D9D9D9]">
-                        {{-- REJECTING FORM --}}
-                        <div class="p-3">
-                            <h1 class="text-[#1E1E1E] font-semibold mb-2">Reject Quotation</h1>
+                    <div class="grid grid-cols-1 p-3">
+                        <textarea id="main_notes" name="notes" class="w-full! px-3! py-2! rounded-lg! border! border-[#D9D9D9]! focus:outline-none!" rows="10" placeholder="Enter notes..." required></textarea>
+
+                        {{-- APPROVING FORM --}}
+                        <div class="px-3 py-1 flex items-center justify-end gap-3">
                             <form method="POST" id="reject"
                                 action="{{ route('quotations.reject', $quotation->id) }}" require-confirmation="true">
                                 @csrf
-                                <textarea name="notes" class="w-full! px-3! py-2! rounded-lg! border! border-[#D9D9D9]! focus:outline-none!" rows="5" placeholder="Enter notes..." required></textarea>
+                                <input type="hidden" name="notes" class="hidden_notes">
                                 <div class="flex justify-end mt-3">
                                     <button class="cursor-pointer bg-[#900B09] text-white px-3 py-2 rounded-lg">
                                         Reject{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
                                     </button>
                                 </div>
                             </form>
-                        </div>
-
-                        {{-- APPROVING FORM --}}
-                        <div class="p-3">
-                            <h1 class="text-[#1E1E1E] font-semibold mb-2">Approve Quotation</h1>
                             <form method="POST" id="approve"
                                 action="{{ route('quotations.approve', $quotation->id) }}" require-confirmation="true">
                                 @csrf
-                                <textarea name="notes" class="w-full! px-3! py-2! rounded-lg! border! border-[#D9D9D9]! focus:outline-none!" rows="5" placeholder="Enter notes..." required></textarea>
+                                <input type="hidden" name="notes" class="hidden_notes">
                                 <div class="flex justify-end mt-3">
                                     <button class="cursor-pointer bg-[#115640] text-white px-3 py-2 rounded-lg">
                                         Approve{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
@@ -680,10 +676,32 @@
         }
         $(document).ready(function() {
             $("#fpDate").flatpickr({
-                dateFormat: "d/m/Y",   // format tampil
-                defaultDate: "today",  // otomatis isi tanggal sekarang
+                dateFormat: "d/m/Y",   
+                defaultDate: "today",  
                 allowInput: false
             });
         });
+
+        document.addEventListener('DOMContentLoaded', function () {
+        const mainNotes = document.getElementById('main_notes');
+        const hiddenNotes = document.querySelectorAll('.hidden_notes');
+
+        mainNotes.addEventListener('input', function () {
+            hiddenNotes.forEach(input => {
+                input.value = this.value;
+            });
+        });
+
+        const forms = document.querySelectorAll('form[require-confirmation="true"]');
+        forms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                if (mainNotes.value.trim() === '') {
+                    e.preventDefault();
+                    alert('Notes wajib diisi!');
+                    mainNotes.focus();
+                }
+            });
+        });
+    });
     </script>
 @endsection
