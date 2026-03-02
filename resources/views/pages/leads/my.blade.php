@@ -3,7 +3,7 @@
 @section('content')
 
 
-<section class="min-h-screen">
+<section class="min-h-screen sm:text-xs! lg:text-sm!">
     {{-- HEADER PAGES --}}
     <div class="pt-4">
         <div class="flex items-center gap-3">
@@ -12,13 +12,13 @@
                     d="M2 16.85C2.9 15.9667 3.94583 15.2708 5.1375 14.7625C6.32917 14.2542 7.61667 14 9 14C10.3833 14 11.6708 14.2542 12.8625 14.7625C14.0542 15.2708 15.1 15.9667 16 16.85V4H2V16.85ZM9 12C8.03333 12 7.20833 11.6583 6.525 10.975C5.84167 10.2917 5.5 9.46667 5.5 8.5C5.5 7.53333 5.84167 6.70833 6.525 6.025C7.20833 5.34167 8.03333 5 9 5C9.96667 5 10.7917 5.34167 11.475 6.025C12.1583 6.70833 12.5 7.53333 12.5 8.5C12.5 9.46667 12.1583 10.2917 11.475 10.975C10.7917 11.6583 9.96667 12 9 12ZM2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V4C0 3.45 0.195833 2.97917 0.5875 2.5875C0.979167 2.19583 1.45 2 2 2H3V1C3 0.716667 3.09583 0.479167 3.2875 0.2875C3.47917 0.0958333 3.71667 0 4 0C4.28333 0 4.52083 0.0958333 4.7125 0.2875C4.90417 0.479167 5 0.716667 5 1V2H13V1C13 0.716667 13.0958 0.479167 13.2875 0.2875C13.4792 0.0958333 13.7167 0 14 0C14.2833 0 14.5208 0.0958333 14.7125 0.2875C14.9042 0.479167 15 0.716667 15 1V2H16C16.55 2 17.0208 2.19583 17.4125 2.5875C17.8042 2.97917 18 3.45 18 4V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2Z"
                     fill="#115640" />
             </svg>
-            <h1 class="text-[#115640] font-semibold text-2xl">Leads</h1>
+            <h1 class="text-[#115640] font-semibold lg:text-2xl text-lg">Leads</h1>
         </div>
-        <p class="mt-1 text-[#115640] text-lg">My Leads</p>
+        <p class="mt-1 text-[#115640] lg:text-lg text-sm">My Leads</p>
     </div>
 
     {{-- ALL CARDS COUNTS --}}
-    <div id="forAllCardsCounts" class="grid grid-cols-4 gap-3 mt-4">
+    <div id="forAllCardsCounts" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
         {{-- COLD CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0s;">
@@ -118,7 +118,7 @@
     </div>
 
     {{-- COLD CARDS COUNTS --}}
-    <div id="forColdCardsCounts" class="hidden grid grid-cols-4 gap-3 mt-4">
+    <div id="forColdCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
         {{-- LEADS COLD COUNTS CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0s;">
@@ -228,7 +228,7 @@
     </div>
 
     {{-- WARM CARDS COUNTS --}}
-    <div id="forWarmCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+    <div id="forWarmCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
         {{-- LEADS WARM COUNTS CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.00s;">
@@ -311,7 +311,7 @@
     </div>
 
     {{-- HOT CARDS COUNTS --}}
-    <div id="forHotCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+    <div id="forHotCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
         {{-- LEADS HOT COUNTS CARDS --}}
         <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
             style="animation-delay: 0.00s;">
@@ -419,9 +419,32 @@
     <div class="mt-4 rounded-lg border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
         <div
-            class="bg-white flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg">
+            class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+            <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
+                <div class="border border-gray-300 rounded-lg flex items-center p-2">
+                    <div class="px-2">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
+                                fill="#6B7786" />
+                        </svg>
+                    </div>
+                    <input id="searchInput" type="text" placeholder="Search"
+                        class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                </div>
+                <div class=" bg-[#115640] rounded-lg flex justify-center items-center">
+                    <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-3 px-3 py-2">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
+                                fill="#E7F3EE" />
+                        </svg>
+                        <p class="text-white font-medium">Leads Manually</p>
+                    </a>
+                </div>
+            </div>
             {{-- SEARCH TABLES --}}
-            <div class="w-1/6 border border-gray-300 rounded-lg flex items-center p-2">
+            <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                 <div class="px-2">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
@@ -433,7 +456,7 @@
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
-            <div class="w-4/6 border border-[#D5D5D5] rounded-lg grid grid-cols-5">
+            <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
                 @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
                 {{-- NAVIGATION STATUS --}}
                 <div data-tab="{{ $tab }}"
@@ -461,8 +484,8 @@
                 @endforeach
             </div>
             {{-- ADD MANUAL LEADS --}}
-            <div class="w-1/6 bg-[#115640] rounded-lg">
-                <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-3 px-3 py-2">
+            <div class="lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
+                <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
@@ -482,16 +505,16 @@
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#D9D9D9]">
                             <th class="hidden">ID (hidden)</th>
-                            <th class="font-bold text-left p-3">Lead Name</th>
-                            <th>Sales Name</th>
-                            <th>Telephone</th>
-                            <th>Source</th>
-                            <th>Needs</th>
-                            <th>Customer Type</th>
-                            <th>City</th>
-                            <th>Regional</th>
-                            <th class="text-center w-12.5">Stage</th>
-                            <th class="text-center min-w-18.75">Action</th>
+                            <th class="font-bold text-left lg:p-3 sm:p-1">Lead Name</th>
+                            <th class="lg:p-3 sm:p-1">Sales Name</th>
+                            <th class="lg:p-3 sm:p-1">Telephone</th>
+                            <th class="lg:p-3 sm:p-1">Source</th>
+                            <th class="lg:p-3 sm:p-1">Needs</th>
+                            <th class="lg:p-3 sm:p-1">Customer Type</th>
+                            <th class="lg:p-3 sm:p-1">City</th>
+                            <th class="lg:p-3 sm:p-1">Regional</th>
+                            <th class="text-center">Stage</th>
+                            <th class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="allBody"></tbody>
@@ -534,14 +557,14 @@
                 {{-- HEADER TABLE --}}
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="font-bold text-left p-3">Lead Name</th>
-                        <th>Sales Name</th>
-                        <th>Telephone</th>
-                        <th>Source</th>
-                        <th>Needs</th>
-                        <th>Segment</th>
-                        <th>City</th>
-                        <th>Regional</th>
+                        <th class="font-bold text-left p-1 lg:p-3">Lead Name</th>
+                        <th class="p-1 lg:p-3">Sales Name</th>
+                        <th class="p-1 lg:p-3">Telephone</th>
+                        <th class="p-1 lg:p-3">Source</th>
+                        <th class="p-1 lg:p-3">Needs</th>
+                        <th class="p-1 lg:p-3">Segment</th>
+                        <th class="p-1 lg:p-3">City</th>
+                        <th class="p-1 lg:p-3">Regional</th>
 
                         @if ($tab === 'cold' || $tab === 'warm')
                             <th class="text-left">Status</th>
@@ -597,7 +620,7 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title text-[#083224] text-lg font-semibold">Activity Logs</h5>
+                <h5 class="modal-title text-[#1E1E1E] text-lg font-semibold">Activity Logs</h5>
                 <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -607,18 +630,18 @@
                     <table class="w-full">
                         <thead class="text-[#1E1E1E]">
                             <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="p-3">Date</th>
-                                <th>Activity</th>
-                                <th class="max-w-60">Note</th>
-                                <th>Attachment</th>
-                                <th>User</th>
+                                <th class="lg:p-3 p-1">Date</th>
+                                <th class="lg:p-3 p-1">Activity</th>
+                                <th class="lg:max-w-60 lg:p-3 p-1">Note</th>
+                                <th class="lg:p-3 p-1">Attachment</th>
+                                <th class="lg:p-3 p-1">User</th>
                             </tr>
                         </thead>
                         <tbody class="text-[#1E1E1E]"></tbody>
                     </table>
                 </div>
                 <form id="activityLogForm">
-                    <div class="w-full! grid! grid-cols-2! justify-between! gap-3! text-[#1E1E1E]!">
+                    <div class="w-full! grid! sm:grid-cols-1 lg:grid-cols-2! justify-between! gap-3! text-[#1E1E1E]!">
                         {{-- DATE AND ACTIVITY FIELD SELECT --}}
                         <div class="p-2 flex items-center border border-[#D9D9D9] justify-between rounded-lg gap-2">
                             <div class="w-1/4 flex items-center">
@@ -639,12 +662,12 @@
                         </div>
 
                         {{-- NOTE FIELD / ATTACHMENT FILES AND SUBMIT BUTTON --}}
-                        <div class="grid grid-cols-2">
+                        <div class="grid sm:grid-cols-[3fr_1fr] lg:grid-cols-2">
                             <input type="text" name="note"
                                 class="px-3 py-2 border border-[#D9D9D9] rounded-lg w-full focus:outline-none"
                                 placeholder="Type Note Here...">
                             {{-- ATTACHMENT FILES AND SUBMIT BUTTON --}}
-                            <div class="flex items-center justify-end gap-5 ">
+                            <div class="flex items-center justify-end sm:gap-2 lg:gap-5">
                                 <div class="">
                                     <input type="file" id="activity_attachment" name="attachment" class="hidden"
                                         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
@@ -663,7 +686,7 @@
                                 </div>
                                 <div>
                                     <button type="submit"
-                                        class="cursor-pointer bg-[#115640] px-5 py-2 text-white rounded-lg ">+
+                                        class="cursor-pointer bg-[#115640] px-1 lg:px-5 py-2 text-white rounded-lg ">+
                                         Activity</button>
                                 </div>
                             </div>
@@ -691,9 +714,9 @@
                     <table class="w-full">
                         <thead class="text-[#1E1E1E]">
                             <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="p-3">Date</th>
-                                <th class="p-3">Action</th>
-                                <th class="p-3">User</th>
+                                <th class="lg:p-3 p-1">Date</th>
+                                <th class="lg:p-3 p-1">Action</th>
+                                <th class="lg:p-3 p-1">User</th>
                             </tr>
                         </thead>
                         <tbody class="text-[#1E1E1E]"></tbody>
@@ -892,16 +915,16 @@
             tbody.innerHTML += `
             <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
                 <td class="hidden">${row.id}</td>
-                <td class="p-3 font-medium">${row.lead?.name ?? ''}</td>
-                <td>${row.sales?.name ?? '-'}</td>
-                <td>${row.lead?.phone ?? ''}</td>
-                <td>${row.lead?.source?.name ?? ''}</td>
-                <td>${row.lead?.needs ?? ''}</td>
-                <td>${industry}</td>
-                <td>${row.lead?.region?.name ?? ''}</td>
-                <td>${row.lead?.region?.regional?.name ?? ''}</td>
-                <td class="text-center capitalize">
-                    <span class="block px-2 py-1 rounded-sm
+                <td class="lg:p-3 sm:p-1">${row.lead?.name ?? ''}</td>
+                <td class="lg:p-3 sm:p-1">${row.sales?.name ?? '-'}</td>
+                <td class="lg:p-3 sm:p-1">${row.lead?.phone ?? ''}</td>
+                <td class="lg:p-3 sm:p-1">${row.lead?.source?.name ?? ''}</td>
+                <td class="lg:p-3 sm:p-1">${row.lead?.needs ?? ''}</td>
+                <td class="lg:p-3 sm:p-1">${industry}</td>
+                <td class="lg:p-3 sm:p-1">${row.lead?.region?.name ?? ''}</td>
+                <td class="lg:p-3 sm:p-1">${row.lead?.region?.regional?.name ?? ''}</td>
+                <td class="text-center capitalize lg:p-3 sm:p-1">
+                    <span class="lg:block lg:px-2 lg:py-1 rounded-sm
                     ${
                             row.lead?.status?.name === 'Cold' ? 'status-cold' :
                             row.lead?.status?.name === 'Warm' ? 'status-warm' :
@@ -913,7 +936,7 @@
                         ${row.lead?.status?.name ?? ''}
                     </span>
                 </td>
-                <td class="text-center">
+                <td class="text-center lg:p-3 sm:p-1">
                     ${row.actions ?? '-'}
                 </td>
             </tr>
@@ -955,24 +978,26 @@
         result.data.forEach(row => {
 
             tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9]">
+                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.lead_name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source}</td>
-                    <td>${row.needs}</td>
-                    <td>${row.segment_name}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-left">${(() => {
-                        const d = row.expire_in;
-                        if (d === null || d === undefined) return (row.meeting_status || '-');
-                        if (d > 1) return d + ' days left';
-                        if (d === 1) return 'tomorrow';
-                        if (d === 0) return 'today';
-                        return 'Expired';
-                    })()}</td>
+                    <td class="p-1 lg:p-3">${row.lead_name}</td>
+                    <td class="p-1 lg:p-3">${row.sales_name}</td>
+                    <td class="p-1 lg:p-3">${row.phone}</td>
+                    <td class="p-1 lg:p-3">${row.source_name}</td>
+                    <td class="p-1 lg:p-3">${row.needs}</td>
+                    <td class="p-1 lg:p-3">${row.segment_name}</td>
+                    <td class="p-1 lg:p-3">${row.city_name}</td>
+                    <td class="p-1 lg:p-3">${row.regional_name}</td>
+                    <td class="text-left p-1 lg:p-3">
+                        ${(() => {
+                            const d = row.expire_in;
+                            if (d === null || d === undefined) return (row.meeting_status || '-');
+                            if (d > 1) return d + ' days left';
+                            if (d === 1) return 'tomorrow';
+                            if (d === 0) return 'today';
+                            return 'Expired';
+                        })()}
+                    </td>
                     <td class="text-center">${row.actions}</td>
                 </tr>
             `;
@@ -1013,23 +1038,23 @@
         result.data.forEach(row => {
 
             tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9]">
+                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E] text-xs! lg:text-sm!">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.lead_name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source}</td>
-                    <td>${row.needs}</td>
-                    <td>${row.segment_name}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-left">${(() => {
+                    <td class="p-1 lg:p-3">${row.lead_name}</td>
+                    <td class="p-1 lg:p-3">${row.sales_name}</td>
+                    <td class="p-1 lg:p-3">${row.phone}</td>
+                    <td class="p-1 lg:p-3">${row.source_name}</td>
+                    <td class="p-1 lg:p-3">${row.needs}</td>
+                    <td class="p-1 lg:p-3">${row.segment_name}</td>
+                    <td class="p-1 lg:p-3">${row.city_name}</td>
+                    <td class="p-1 lg:p-3">${row.regional_name}</td>
+                    <td class="text-left p-1 lg:p-3">${(() => {
                         const d = row.expire_in;
                         if (d === null || d === undefined) return (row.meeting_status || '-');
-                        if (d > 7) return '<span class="span-deal px-2 py-1 rounded-sm font-normal!">' + d + ' Days left</span>';
-                        if (d > 2) return '<span class="span-warm px-2 py-1 rounded-sm font-normal!">' + d + ' Days left</span>';
-                        if (d === 1) return '<span class="span-hot px-2 py-1 rounded-sm font-normal!">Tomorrow</span>';
-                        if (d === 0) return '<span class="span-hot px-2 py-1 rounded-sm font-normal!">Today</span>';
+                        if (d > 7) return '<span class="span-deal rounded-sm font-normal! inline-block">' + d + ' Days left</span>';
+                        if (d > 2) return '<span class="span-warm rounded-sm font-normal! inline-block">' + d + ' Days left</span>';
+                        if (d === 1) return '<span class="span-hot rounded-sm font-normal! inline-block">Tomorrow</span>';
+                        if (d === 0) return '<span class="span-hot rounded-sm font-normal! inline-block">Today</span>';
                         return 'Expired';
                     })()}</td>
                     <td class="text-center">${row.actions}</td>
@@ -1072,17 +1097,17 @@
         result.data.forEach(row => {
 
             tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9]">
+                <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E] text-xs lg:text-sm">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.lead_name}</td>
-                    <td>${row.sales_name}</td>
-                    <td>${row.phone}</td>
-                    <td>${row.source_name}</td>
-                    <td>${row.needs}</td>
-                    <td>${row.segment_name}</td>
-                    <td>${row.city_name}</td>
-                    <td>${row.regional_name}</td>
-                    <td class="text-center">${row.actions}</td>
+                    <td class="p-1 lg:p-3">${row.lead_name}</td>
+                    <td class="p-1 lg:p-3">${row.sales_name}</td>
+                    <td class="p-1 lg:p-3">${row.phone}</td>
+                    <td class="p-1 lg:p-3">${row.source_name}</td>
+                    <td class="p-1 lg:p-3">${row.needs}</td>
+                    <td class="p-1 lg:p-3">${row.segment_name}</td>
+                    <td class="p-1 lg:p-3">${row.city_name}</td>
+                    <td class="p-1 lg:p-3">${row.regional_name}</td>
+                    <td class="text-center p-1 lg:p-3">${row.actions}</td>
                 </tr>
             `;
         });
@@ -1467,14 +1492,14 @@
             $.get(url, function(data) {
                 let rows = '';
                 data.forEach(function(item) {
-                    rows += '<tr class="border-b border-b-[#D9D9D9]">' +
-                        '<td class="p-3">' + item.logged_at + '</td>' +
-                        '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                        '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
-                        '<td>' + (item.attachment ? '<a href="' + item.attachment +
+                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                        '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
+                        '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item.attachment +
                             '" class="btn btn-sm btn-outline-secondary">Download</a>' : '-') +
                         '</td>' +
-                        '<td>' + item.user + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
                         '</tr>';
                 });
                 tbody.html(rows || '<tr><td colspan="5" class="text-center p-3">No logs</td></tr>');
@@ -1536,10 +1561,10 @@
             $.get(url, function(data) {
                 let rows = '';
                 data.forEach(function(item) {
-                    rows += '<tr class="border-b border-b-[#D9D9D9]">' +
-                        '<td class="p-3">' + item.logged_at + '</td>' +
-                        '<td class="p-3">' + item.action + '</td>' +
-                        '<td class="p-3">' + item.user + '</td>' +
+                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                        '<td class="lg:p-3 p-1">' + item.logged_at + '</td>' +
+                        '<td class="lg:p-3 p-1">' + item.action + '</td>' +
+                        '<td class="lg:p-3 p-1">' + item.user + '</td>' +
                         '</tr>';
                 });
                 tbody.html(rows || '<tr><td colspan="3" class="text-center">No logs</td></tr>');

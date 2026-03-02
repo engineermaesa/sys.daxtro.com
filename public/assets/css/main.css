@@ -41,12 +41,18 @@ textarea:focus {
 }
 
 .select2-container .select2-selection--single {
-    height: 40px !important;
+    height: 30px !important;
     background: #fff;
     border: 1px solid #D9D9D9 !important;
-    border-radius: 0.5rem !important; /* rounded-lg */
+    border-radius: 0.5rem !important;
     display: flex !important;
     align-items: center !important;
+}
+
+@media (min-width: 1024px) {
+    .select2-container .select2-selection--single {
+        height: 40px !important;
+    }
 }
 
 .select2-container--default .select2-selection--single .select2-selection__rendered {

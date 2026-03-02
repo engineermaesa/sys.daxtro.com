@@ -133,13 +133,13 @@ class LeadController extends Controller
                 // $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
                 // $html .= '  </button>';
                 // $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html = '    <a class="flex! items-center! gap-2! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg" href="' . e($editUrl) . '"> 
+                $html = '    <a class="flex! items-center! gap-1! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg" href="' . e($editUrl) . '"> 
                 ' . view('components.icon.detail')->render() . '
                 View </a>';
                 // $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
                 // $html .= '  </div>';
                 // $html .= '</div>';
-                $html .= '    <a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-1"></i> Claim</a>';
+                $html .= '    <a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center justify-start gap-1" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-1"></i> Claim</a>';
 
                 return $html;
             })
