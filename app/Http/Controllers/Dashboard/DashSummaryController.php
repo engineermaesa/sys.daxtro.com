@@ -198,7 +198,7 @@ class DashSummaryController extends Controller
             'segment' => 'Total',
             'cum'     => $grandTotal,
             'cold'    => $grandCold,
-            'warm'    => $grandWarm,
+            'warm'    => $grandWarm,    
             'hot'     => $grandHot,
             'deal'    => $grandDeal,
             'total_stage' => $grandTotal,
