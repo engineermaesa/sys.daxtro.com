@@ -1,9 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-    <section class="min-h-screen">
+    <section class="min-h-screen sm:text-xs lg:text-sm">
         <div class="pt-4">
-            {{-- NANTI GANTI CONDITIONAL --}}
             <div class="flex items-center gap-3">
                 <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
@@ -145,7 +144,7 @@
                         </div>
 
                         {{-- COMPANY DETAILS AND LEAD CLASSIFICATION --}}
-                        <div class="grid grid-cols-2 gap-3 mt-3">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
                             {{-- COMPANY DETAILS --}}
                             <div class="bg-white rounded-lg">
                                 <h1 class="uppercase font-semibold p-3 border-b border-b-[#D9D9D9] text-[#1E1E1E]!">Company Details</h1>

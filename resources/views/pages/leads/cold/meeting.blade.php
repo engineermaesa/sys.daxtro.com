@@ -17,7 +17,11 @@
       <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">My Leads</a>
       <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
       <a href="{{ route('leads.my.cold.meeting', $claim_id) }}" class="text-[#083224] underline">
-          Set A Meeting
+          @php
+            $meetingType = old('meeting_type_id') ?? $data?->meeting_type_id;
+          @endphp
+
+          {{ $meetingType ? 'View Meeting' : 'Set A Meeting' }}
       </a>
     </div>
 
@@ -32,8 +36,8 @@
       <input type="hidden" name="lead_id" value="{{ old('lead_id', $data->lead_id ?? $lead_id ?? '') }}">
 
       {{-- MEETING PLAN SECTION --}}
-      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
-        <div class="w-full p-3 border-b border-b-[#D9D9D9]">
+      <div class="bg-white border border-[#D9D9D9] rounded mt-4 sm:text-xs! lg:text-sm!">
+        <div class="w-full p-2 xl:p-3 border-b border-b-[#D9D9D9]">
           <div class="flex justify-between items-center">
             <h1 class="font-semibold text-[#1E1E1E] uppercase">
               Meeting Plan
@@ -93,12 +97,12 @@
         </div>
         
         {{-- MEETING TYPE AND DATE TIME --}}
-        <div class="px-3 py-2 grid grid-cols-2 gap-5">
+        <div class="p-2 lg:px-3 lg:py-2 grid grid-cols-2 gap-2 lg:gap-5">
           {{-- MEETING TYPE SELECT FIELD --}}
           <div class="text-[#1E1E1E]">
             <label for="meeting_type_id" class="text-[#1E1E1E]! mb-1!">Meeting Type <i class="required">*</i></label>
             <select name="meeting_type_id" id="meeting_type_id"
-              class="px-3 py-2 rounded-lg border border-[#D9D9D9] w-full"
+              class="p-2 lg:px-3 lg:py-2 rounded-lg border border-[#D9D9D9] w-full"
               @if($isViewOnly ?? false) disabled @endif required>
               <option value="">Select</option>
               @foreach($meetingTypes as $mt)
@@ -117,12 +121,12 @@
               <button
                   type="button"
                   id="selectDateBtn"
-                  class="px-4 py-2 rounded-lg w-full text-left border border-[#D9D9D9] cursor-pointer"
+                  class="p-2 lg:px-3 lg:py-2 rounded-lg w-full text-left border border-[#D9D9D9] cursor-pointer"
               >
                   Select Date
               </button>
 
-              <div id="dateDropdown" class="date-dropdown hidden mt-2 rounded-lg p-3 bg-white grid grid-cols-2 gap-4 border border-[#D9D9D9]">
+              <div id="dateDropdown" class="date-dropdown hidden mt-2 rounded-lg sm:p-2 lg:p-3 bg-white grid grid-cols-2 gap-4 border border-[#D9D9D9]">
                   <div class="fp-wrap relative">
                       <p class="text-sm mb-1">Start Time</p>
                       <input id="fpStart" type="text" class="rounded p-2 w-full border border-[#D9D9D9] cursor-pointer"
@@ -153,25 +157,25 @@
         </div>
         {{-- ALERT IF EXPO SELECTED --}}
         <div id="expo-info-alert" class="p-3 hidden">
-          <h1 class="bg-[#E1EBFA] text-[#3F80EA] p-3 rounded-lg">
+          <h1 class="bg-[#E1EBFA] text-[#3F80EA] p-2 lg:p-3 rounded-lg">
             <strong>EXPO Meeting Detected:</strong> Fields will be auto-filled for quick setup.
           </h1>
         </div>
 
         {{-- Online URL --}}
-        <div id="online-url-section" class="px-3 py-2 text-[#1E1E1E]!" style="display: none;">
+        <div id="online-url-section" class="p-2 lg:px-3 lg:py-2 text-[#1E1E1E]!" style="display: none;">
           <label for="meeting_url" class="text-[#1E1E1E]! mb-1!">Meeting URL <i class="required">*</i></label>
           <input type="url"
                 name="meeting_url"
                 id="meeting_url"
-                class="px-3 py-2 rounded-lg border border-[#D9D9D9] w-full"
+                class="p-2 lg:px-3 lg:py-2 rounded-lg border border-[#D9D9D9] w-full"
                 value="{{ old('meeting_url', $data->online_url ?? '') }}"
                 @if($isViewOnly ?? false) readonly @endif>
         </div>
 
         {{-- Offline Section --}}
-        <div id="offline-section" class="px-3 py-2" style="display: none;">
-          <div class="grid grid-cols-2 gap-5">
+        <div id="offline-section" class="p-2 lg:px-3 lg:py-2" style="display: none;">
+          <div class="grid grid-cols-2 gap-2 lg:gap-5">
             <div class="text-[#1E1E1E]!">
               <label for="province" class="text-[#1E1E1E]! mb-1! block">Province <i class="required">*</i></label>
               <input type="text" 
@@ -179,25 +183,27 @@
                     id="province"
                     value="{{ old('province', $data->province ?? '') }}"
                     readonly
-                    class="px-3 py-2 rounded-lg! cursor-not-allowed! bg-[#e9ecef]! w-full! border border-[#D9D9D9]!"
+                    class="p-2 lg:px-3 lg:py-2 rounded-lg! cursor-not-allowed! bg-[#e9ecef]! w-full! border border-[#D9D9D9]!"
                     @if($isViewOnly ?? false) readonly @endif>
             </div>
             
             <div class="text-[#1E1E1E]!">
               <label for="city" class="text-[#1E1E1E]! mb-1! block">City <i class="required">*</i></label>
-              <select name="city" id="city" class="select2" @if($isViewOnly ?? false) disabled @endif>
-                <option value="">Select City</option>
-                @foreach($cities as $cityOption)
-                  <option value="{{ $cityOption }}" {{ old('city', $data->city ?? '') == $cityOption ? 'selected' : '' }}>{{ $cityOption }}</option>
-                @endforeach
-              </select>
+              <div class="h-10">
+                <select name="city" id="city" class="select2 w-full px-2! py-1! lg:px-3! lg:py-2!" @if($isViewOnly ?? false) disabled @endif>
+                  <option value="">Select City</option>
+                  @foreach($cities as $cityOption)
+                    <option value="{{ $cityOption }}" {{ old('city', $data->city ?? '') == $cityOption ? 'selected' : '' }}>{{ $cityOption }}</option>
+                  @endforeach
+                </select>
+              </div>
             </div>
           </div>
           
-          <div class="text[#1E1E1E]! mt-3">
+          <div class="text-[#1E1E1E]! mt-1! lg:mt-3!">
             <label for="address" class="block! mb-1!">Address <i class="required">*</i></label>
             <textarea name="address" id="address"
-              class="px-3! py-2! rounded-lg! w-full! border border-[#D9D9D9]! focus:outline-[#115640]"
+              class="px-2! py-1! lg:px-3! lg:py-2! rounded-lg! w-full! border border-[#D9D9D9]! focus:outline-[#115640]"
               rows="5"
               @if($isViewOnly ?? false) readonly @endif>{{ old('address', $data->address ?? '') }}</textarea>
           </div>
@@ -205,17 +211,17 @@
       </div>
 
       {{-- EXPENSES SECTION --}}
-      <div id="expense-section" class="expense-table bg-white border border-[#D9D9D9] rounded mt-4">
-        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Expenses</h1>
-        <div class="px-3 py-2">
-          <div class="border border-[#D9D9D9] rounded-lg ">
+      <div id="expense-section" class="expense-table bg-white border border-[#D9D9D9] rounded mt-4 sm:text-xs! lg:text-sm!">
+        <h1 class="font-semibold text-[#1E1E1E] p-2 xl:p-3 border-b border-b-[#D9D9D9] uppercase">Expenses</h1>
+        <div class="p-2 xl:p-3">
+          <div class="border border-[#D9D9D9] rounded-lg">
             <table class=" w-full" id="expense-table">
               <thead class="text-[#1E1E1E]!">
                 <tr class="border-b border-b-[#D9D9D9]">
-                  <th class="p-3">Type</th>
-                  <th class="px-3">Notes</th>
-                  <th class="px-3">Amount</th>
-                  <th class="text-center">Action</th>
+                  <th class="p-2 lg:p-3">Type</th>
+                  <th class="p-2 lg:p-3">Notes</th>
+                  <th class="p-2 lg:p-3">Amount</th>
+                  <th class="p-2 lg:p-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -238,34 +244,36 @@
   
                 @foreach($expenseDetails as $row)
                 <tr class="text-[#1E1E1E]">
-                  <td class="px-3 py-2">
-                    <select name="expense_type_id[]" class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none" @if($isViewOnly ?? false) disabled @endif>
+                  <td class="p-2 lg:px-3 lg:py-2">
+                    <select name="expense_type_id[]" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg focus:outline-none" @if($isViewOnly ?? false) disabled @endif>
                       @foreach($expenseTypes as $et)
                         <option value="{{ $et->id }}" {{ $et->id == $row['type_id'] ? 'selected' : '' }}>{{ $et->name }}</option>
                       @endforeach
                     </select>
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="p-2 lg:px-3 lg:py-2">
                     <input type="text"
                           name="expense_notes[]"
-                          class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
+                          class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
                           value="{{ $row['notes'] }}"
                           placeholder="Type Note Here..."
                           @if($isViewOnly ?? false) readonly @endif>
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="p-2 lg:px-3 lg:py-2">
                     <input type="number" step="0.01"
                           name="expense_amount[]"
-                          class="w-full px-3 py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
+                          class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg focus:outline-none"
                           value="{{ $row['amount'] }}"
                           placeholder="Input Amount Here..."
                           @if($isViewOnly ?? false) readonly @endif>
                   </td>
                   <td class="text-center">
                     @if(!($isViewOnly ?? false))
-                      <button type="button" class="remove-expense flex items-center justify-center w-full text-[#900B09] cursor-pointer font-semibold">
+                      <button type="button" class="remove-expense flex items-center justify-center w-full text-[#900B09] cursor-pointer font-semibold gap-1">
                         @include('components.icon.trash', ['class' => 'text-[#900B09]'])
-                        Delete
+                        <span class="hidden! lg:inline!">
+                          Delete
+                        </span>
                       </button>
                     @endif
                   </td>
@@ -290,15 +298,11 @@
         @if(!$isViewOnly)
           @include('partials.template.save-btn-form', ['backUrl' => 'back'])
         @else
-        <div class="w-full flex justify-between items-center">
-          <a href="{{ route('leads.my') }}"
-            class="inline-block text-center w-[150px] px-3 py-2 border border-[#083224] text-[#083224] font-semibold rounded-lg cursor-pointer transition-all duration-300 bg-white hover:bg-[#F1F1F1]">
-              Back
-          </a>
+        <div class="w-full flex justify-end items-center">
           <div class="flex items-center gap-3">
             @if($data && !in_array(optional($data->expense)->status, ['submitted', 'canceled']) && is_null($data->result))
                 <button type="button"
-                        class="cursor-pointer text-[#900B09] bg-[#FDD3D0] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#900B09]"
+                        class="cursor-pointer text-[#900B09] bg-[#FDD3D0] font-semibold rounded-lg inline-block text-center p-1 lg:px-3 lg:py-2 border border-[#900B09]"
                         id="btnCancelMeeting"
                         data-url="{{ route('leads.my.cold.meeting.cancel', $data->id) }}"
                         data-online="{{ $data->is_online ? 1 : 0 }}"
@@ -309,13 +313,13 @@
 
             @if($canReschedule ?? false)
               <a href="{{ route('leads.my.cold.meeting.reschedule', $data->id) }}"
-                class="text-[#522504] bg-[#FFF1C2] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#522504]">Update Meeting</a>
+                class="text-[#522504] bg-[#FFF1C2] font-semibold rounded-lg inline-block text-center p-1 lg:px-3 lg:py-2 border border-[#522504]">Update Meeting</a>
             @endif
 
             @if($data && now()->gt($data->scheduled_end_at) && $data->result === null &&
               ($data->is_online || optional($data->expense)->status === 'approved'))
               <a href="{{ route('leads.my.cold.meeting.result', $data->id) }}"
-                class="cursor-pointer text-[#02542D] bg-[#CFF7D3] font-semibold rounded-lg inline-block text-center w-[150px] px-3 py-2 border border-[#02542D]">Set Meeting Result</a>
+                class="cursor-pointer text-[#02542D] bg-[#CFF7D3] font-semibold rounded-lg inline-block text-center p-1 lg:px-3 lg:py-2 border border-[#02542D]">Set Meeting Result</a>
             @endif
           </div>
         </div>
@@ -325,40 +329,40 @@
 
     {{-- RESCHEDULE HISTORY SECTION --}}
     @if( ! empty($data->reschedules) && $data->reschedules->count())
-      <div class="bg-white border border-[#D9D9D9] rounded mt-4">
-        <h1 class="font-semibold text-[#1E1E1E] p-3 border-b border-b-[#D9D9D9] uppercase">Reschedule History</h1>
+      <div class="bg-white border border-[#D9D9D9] rounded mt-4 sm:text-xs lg:text-sm">
+        <h1 class="font-semibold text-[#1E1E1E] p-2 lg:p-3 border-b border-b-[#D9D9D9] uppercase">Reschedule History</h1>
         <table class="w-full bg-white rounded-br-lg rounded-bl-lg">
             {{-- HEADER TABLE --}}
             <thead class="text-[#1E1E1E]">
                 <tr class="border-b border-b-[#D9D9D9]">
-                    <th class="p-3 text-center">#</th>
-                    <th>Old Time</th>                  
-                    <th>Old Location</th>                  
-                    <th>Old Online URL</th>
-                    <th>Reason</th>
-                    <th>By</th>
-                    <th>At</th>
+                    <th class="p-2 lg:p-3 text-center">#</th>
+                    <th class="p-2 lg:p-3">Old Time</th>                  
+                    <th class="p-2 lg:p-3">Old Location</th>                  
+                    <th class="p-2 lg:p-3">Old Online URL</th>
+                    <th class="p-2 lg:p-3">Reason</th>
+                    <th class="p-2 lg:p-3">By</th>
+                    <th class="p-2 lg:p-3">At</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($data->reschedules as $i => $r)
-                <tr class="border-b border-b-[#D9D9D9]">
-                  <td class="p-3 text-center">{{ $i + 1 }}</td>
-                  <td>
+                <tr class="border-t border-t-[#D9D9D9]">
+                  <td class="p-2 lg:p-3 text-center">{{ $i + 1 }}</td>
+                  <td class="p-2 lg:p-3">
                     {{ \Carbon\Carbon::parse($r->old_scheduled_start_at)->format('d M Y H:i') }}<br>
                     - {{ \Carbon\Carbon::parse($r->old_scheduled_end_at)->format('d M Y H:i') }}
                   </td>
-                  <td>{{ !empty($r->old_location) ? $r->old_location : '-' }}</td>
-                  <td>
+                  <td class="p-2 lg:p-3">{{ !empty($r->old_location) ? $r->old_location : '-' }}</td>
+                  <td class="p-2 lg:p-3">
                     @if(!empty($r->old_online_url))
                       <a href="{{ $r->old_online_url }}" target="_blank">Open Link</a>
                     @else
                       -
                     @endif
                   </td>
-                  <td>{{ $r->reason ?? '-' }}</td>
-                  <td>{{ $r->rescheduler->name ?? 'N/A' }}</td>
-                  <td>{{ \Carbon\Carbon::parse($r->rescheduled_at)->format('d M Y H:i') }}</td>
+                  <td class="p-2 lg:p-3">{{ $r->reason ?? '-' }}</td>
+                  <td class="p-2 lg:p-3">{{ $r->rescheduler->name ?? 'N/A' }}</td>
+                  <td class="p-2 lg:p-3">{{ \Carbon\Carbon::parse($r->rescheduled_at)->format('d M Y H:i') }}</td>
                 </tr>
                 @endforeach
               </tbody>

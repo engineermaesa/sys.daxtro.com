@@ -329,7 +329,7 @@ class TrashLeadController extends Controller
             }
 
             if ($allowedAssign) {
-                $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
+                    $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
             }
 
             $html .= '</div></div>';
