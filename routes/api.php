@@ -55,6 +55,7 @@ Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
+
 // =====================================
 // Authentication (API)
 // =====================================
@@ -85,6 +86,9 @@ Route::group([
             ->name('form');
         Route::post('/save/{id?}', [LeadController::class, 'save'])
             ->name('save');
+
+
+    
     });
 
     // FOR CLAIMING LEADS
