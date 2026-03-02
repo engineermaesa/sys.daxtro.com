@@ -4,14 +4,15 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Leads\{LeadClaim, LeadStatus, Lead};
+use App\Models\Leads\{LeadClaim, LeadStatus, Lead, LeadActivityLog};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class LeadSummaryController extends Controller
 {
-    public function grid(Request $request){
+    public function grid(Request $request)
+    {
         $user = Auth::user();
 
         // target comes from user (set by superadmin)
@@ -110,11 +111,11 @@ class LeadSummaryController extends Controller
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
                     ->on('quotations.created_at', '=', 'latest_quo.latest_date');
             })
-            ->leftJoin('lead_claims', function ($join) 
-            {
+            ->leftJoin('lead_claims', function ($join) {
                 $join->on('lead_claims.lead_id', '=', 'leads.id')
                     ->whereNull('lead_claims.deleted_at')
-                    ->whereNull('lead_claims.released_at');})
+                    ->whereNull('lead_claims.released_at');
+            })
             ->leftJoin('users', 'users.id', '=', 'lead_claims.sales_id')
             ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId]);
 
@@ -268,7 +269,7 @@ class LeadSummaryController extends Controller
         $roleCode = $user?->role?->code;
 
         $activeClaims = LeadClaim::whereNull('released_at')
-            ->with(['lead.product', 'lead.segment', 'lead.latestStatusLog', 'lead.quotation']);
+            ->with(['lead.product', 'lead.segment', 'lead.latestStatusLog', 'lead.quotation.items.product', 'lead.status']);
 
         if ($roleCode === 'sales') {
             $activeClaims->where('sales_id', $user?->id);
@@ -282,18 +283,47 @@ class LeadSummaryController extends Controller
 
         $uniqueLeads = $claims->pluck('lead')->filter()->unique('id');
 
-        // Only include Cold, Warm, Hot stages (exclude Deal and trash)
+        // Only include Cold, Warm, Hot stages
         $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
+
         $uniqueLeads = $uniqueLeads->filter(function ($l) use ($allowedStatuses) {
             return in_array($l->status_id, $allowedStatuses);
         });
 
         $result = $uniqueLeads->map(function ($lead) {
+
             $amount = (float) ($lead->quotation->grand_total ?? 0);
+
             $stage = $lead->status?->name ?? $lead->status_id;
-            $product = $lead->product?->name ?? null;
-            $segment = $lead->segment?->name ?? null;
+
+            $product = $lead->product?->name
+                ?? ($lead->quotation?->items->first()?->product?->name ?? null);
+
+            $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
+
             $lastActivity = $lead->latestStatusLog?->created_at ?? $lead->updated_at ?? null;
+
+            // Data validation checks
+            $validationChecks = [
+                'contact_info' => !empty($lead->phone) || !empty($lead->email),
+                'business_reason' => !empty($lead->business_reason),
+                'quotation_exists' => !empty($lead->quotation?->quotation_no),
+                'quotation_amount' => !empty($lead->quotation?->grand_total) && ($lead->quotation->grand_total > 0),
+                'regional_info' => !empty($lead->region_id),
+                'product_info' => !empty($lead->product_id),
+            ];
+
+            $passed = count(array_filter($validationChecks));
+
+            if ($passed >= 5) {
+                $dataValidation = 'Complete';
+            } elseif ($passed === 4) {
+                $dataValidation = 'Moderate';
+            } else {
+                $dataValidation = 'Incomplete';
+            }
+
+            $dataStatus = $passed . '/6';
 
             return [
                 'id' => $lead->id,
@@ -302,28 +332,200 @@ class LeadSummaryController extends Controller
                 'amount' => $amount,
                 'product' => $product,
                 'segment' => $segment,
+                'data_status' => $dataStatus,
                 'last_activity' => $lastActivity ? $lastActivity->toDateTimeString() : null,
+                'data_validation' => $dataValidation,
                 'created_at' => $lead->created_at ? $lead->created_at->toDateString() : null,
             ];
         })->values();
 
+        // =========================
+        // TOTAL CALCULATION
+        // =========================
+
+        $totalCold = $uniqueLeads->where('status_id', LeadStatus::COLD)->count();
+        $totalWarm = $uniqueLeads->where('status_id', LeadStatus::WARM)->count();
+        $totalHot  = $uniqueLeads->where('status_id', LeadStatus::HOT)->count();
+
+        $totalSum = $totalCold + $totalWarm + $totalHot;
+
+        $amountTotal = $result->sum('amount');
+
         return response()->json([
             'status' => 'success',
             'Data' => $result,
+            'total' => [
+                [
+                    'total_stage' => $totalSum,
+                    'total_cold' => $totalCold,
+                    'total_warm' => $totalWarm,
+                    'total_hot' => $totalHot,
+                    'amount_total' => $amountTotal
+                ]
+            ]
         ]);
     }
 
     public function LeadsPerformance(Request $request)
     {
-        // For Leads Performance
+        $user = Auth::user();
+        $roleCode = $user?->role?->code;
+
+        // Aggregate by source + segment (separate rows for same source with different segments)
+        $rows = Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
+            ->leftJoin('lead_claims', function ($join) {
+                $join->on('lead_claims.lead_id', '=', 'leads.id')
+                    ->whereNull('lead_claims.released_at');
+            })
+            ->when($roleCode === 'sales', function ($q) use ($user) {
+                $q->where('lead_claims.sales_id', $user?->id);
+            })
+            ->when($roleCode === 'branch_manager', function ($q) use ($user) {
+                $q->where('leads.branch_id', $user?->branch_id);
+            })
+            ->selectRaw(
+                "lead_sources.name as source, COALESCE(lead_segments.name, leads.customer_type) as segment,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal",
+                [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL]
+            )
+            ->groupBy('lead_sources.id', 'lead_sources.name', DB::raw('COALESCE(lead_segments.name, leads.customer_type)'))
+            ->orderBy('lead_sources.name')
+            ->orderBy(DB::raw('COALESCE(lead_segments.name, leads.customer_type)'))
+            ->get()
+            ->map(function ($row) {
+                $cold = (int) $row->cold;
+                $warm = (int) $row->warm;
+                $hot  = (int) $row->hot;
+                $deal = (int) $row->deal;
+
+                $total = $cold + $warm + $hot + $deal;
+
+                return [
+                    'source' => $row->source,
+                    'segment' => $row->segment,
+                    'cum' => $total,
+                    'persen_cum' => '0,0',
+                    'cold' => $cold,
+                    'persen_cold' => '0,0',
+                    'warm' => $warm,
+                    'persen_warm' => '0,0',
+                    'hot' => $hot,
+                    'persen_hot' => '0,0',
+                    'deal' => $deal,
+                    'persen_deal' => '0,0',
+                    'total' => $total,
+                ];
+            });
+
+        // remove groups with all zeros
+        $rows = $rows->filter(function ($r) {
+            return ($r['total'] ?? 0) > 0;
+        })->values();
+
+        // compute grand total
+        $grandTotal = $rows->sum('cum');
+
+        $rows = $rows->map(function ($row) use ($grandTotal) {
+
+            $total = $row['total'] ?? ($row['cold'] + $row['warm'] + $row['hot'] + $row['deal']);
+
+            $row['persen_cum'] = $grandTotal > 0
+                ? number_format(($row['cum'] / $grandTotal) * 100, 1, ',', '')
+                : '0,0';
+
+            $row['persen_cold'] = $total > 0
+                ? number_format(($row['cold'] / $total) * 100, 1, ',', '')
+                : '0,0';
+
+            $row['persen_warm'] = $total > 0
+                ? number_format(($row['warm'] / $total) * 100, 1, ',', '')
+                : '0,0';
+
+            $row['persen_hot'] = $total > 0
+                ? number_format(($row['hot'] / $total) * 100, 1, ',', '')
+                : '0,0';
+
+            $row['persen_deal'] = $total > 0
+                ? number_format(($row['deal'] / $total) * 100, 1, ',', '')
+                : '0,0';
+
+            return $row;
+        });
+
+        // SUMMARY TOTAL
+        $summary = [
+            'total_all' => $rows->sum('total'),
+            'total_cold' => $rows->sum('cold'),
+            'total_warm' => $rows->sum('warm'),
+            'total_hot' => $rows->sum('hot'),
+            'total_deal' => $rows->sum('deal'),
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'Data' => $rows,
+            'summary' => $summary
+        ]);
     }
 
     public function PersonalTrend(Request $request)
     {
         // For Personal Trend
     }
+
     public function Summary(Request $request)
     {
-        // For Summary
+        $user = Auth::user();
+        $roleCode = $user?->role?->code;
+
+        // Find lead ids owned by the user's active claims
+        $claimsQuery = LeadClaim::whereNull('released_at');
+
+        if ($roleCode === 'sales') {
+            $claimsQuery->where('sales_id', $user?->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claimsQuery->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user?->branch_id);
+            });
+        }
+
+        $leadIds = $claimsQuery->pluck('lead_id')->filter()->unique()->values()->all();
+
+        // Map of lowercase activity names to canonical labels we want in output
+        $wantedMap = [
+            'telepon pertama' => 'Telepon pertama',
+            'visit scheduled' => 'Visit Scheduled',
+            'quotation sent' => 'Quotation Sent',
+        ];
+
+        // Initialize counts with zero so missing activities return 0
+        $activityCounts = array_fill_keys(array_values($wantedMap), 0);
+
+        if (!empty($leadIds)) {
+            $rows = DB::table('lead_activity_logs')
+                ->join('lead_activity_lists', 'lead_activity_lists.id', '=', 'lead_activity_logs.activity_id')
+                ->whereIn('lead_activity_logs.lead_id', $leadIds)
+                ->whereNull('lead_activity_logs.deleted_at')
+                ->whereIn(DB::raw('LOWER(lead_activity_lists.name)'), array_keys($wantedMap))
+                ->select(DB::raw('LOWER(lead_activity_lists.name) as lname'), DB::raw('COUNT(DISTINCT lead_activity_logs.lead_id) as total'))
+                ->groupBy('lname')
+                ->get();
+
+            foreach ($rows as $r) {
+                $lname = $r->lname;
+                if (isset($wantedMap[$lname])) {
+                    $activityCounts[$wantedMap[$lname]] = (int) $r->total;
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'Data' => $activityCounts,
+        ]);
     }
 }
