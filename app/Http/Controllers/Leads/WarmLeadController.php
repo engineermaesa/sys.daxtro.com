@@ -16,9 +16,11 @@ class WarmLeadController extends Controller
 {
     public function myWarmList(Request $request)
     {
-        $user = $request->user();
+        AutoTrashService::triggerIfNeeded();
+
+        $user     = $request->user();
         $roleCode = $user->role?->code;
-        $perPage = 10;
+        $perPage  = $request->get('per_page', 10);
 
         $claimsQuery = LeadClaim::with([
             'lead.quotation',
@@ -27,7 +29,7 @@ class WarmLeadController extends Controller
             'lead.industry',
             'lead.region.regional',
             'sales'
-        ])
+            ])
             ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
@@ -40,6 +42,18 @@ class WarmLeadController extends Controller
             });
         }
 
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $claimsQuery->whereHas('lead', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            });
+        }
+
         // Date filter
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $claimsQuery->whereHas('lead.quotation', function ($q) use ($request) {
@@ -47,43 +61,37 @@ class WarmLeadController extends Controller
             });
         }
 
-        // Pagination
-        $claims = $claimsQuery
+        $paginated = $claimsQuery
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        // API response
-        if ($request->is('api/*')) {
+        $paginated->getCollection()->transform(function ($row) {
 
-            $data = $claims->map(function ($row) {
-                $quotation = $row->lead->quotation;
+            $lead      = $row->lead;
+            $quotation = $lead->quotation;
 
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_name' => $row->lead->name ?? '-',
-                    'sales_name' => $row->sales->name ?? '-',
-                    'phone' => $row->lead->phone ?? '-',
-                    'source_name' => $row->lead->source->name ?? '-',
-                    'needs' => $row->lead->needs ?: '-',
-                    'segment_name' => $row->lead->segment->name ?? '-',
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
+            $row->name          = $lead->name ?? '-';
+            $row->sales_name    = $row->sales->name ?? '-';
+            $row->phone         = $lead->phone ?? '-';
+            $row->source        = $lead->source->name ?? '-';
+            $row->needs         = $lead->needs ?? '-';
+            $row->segment_name  = $lead->segment->name ?? '-';
+            $row->city_name     = $lead->region->name ?? 'All Regions';
+            $row->regional_name = $lead->region->regional->name ?? 'All Regions';
+            $row->industry      = $lead->industry->name ?? ($lead->other_industry ?? '-');
 
-                    // helper
-                    'meeting_status' => $this->warmMeetingStatus($quotation),
-                    'actions' => $this->warmActions($row),
-                ];
-            });
+            $row->meeting_status = $this->warmMeetingStatus($quotation);
+            $row->actions        = $this->warmActions($row);
 
-            return response()->json([
-                'data' => $data,
-                'current_page' => $claims->currentPage(),
-                'last_page' => $claims->lastPage(),
-                'total' => $claims->total(),
-            ]);
-        }
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'total'        => $paginated->total(),
+        ]);
     }
 
 

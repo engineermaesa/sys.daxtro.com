@@ -329,12 +329,12 @@
                                                     @php $fr = $pf->paymentConfirmation->financeRequest; @endphp
 
                                                     @if ($fr && in_array($fr->status, ['approved','rejected']))
-                                                        <span class="{{ $fr->status === 'approved' ? 'span-deal' : 'span-hot' }} mt-1">
+                                                        <span class="{{ $fr->status === 'approved' ? 'span-deal' : 'span-hot' }} mt-1 inline-block">
                                                             {{ ucfirst($fr->status) }}: {{ $fr->notes }}
                                                         </span>
 
                                                     @elseif($fr)
-                                                        <span class="span-warm">Awaiting Finance</span>
+                                                        <span class="span-warm inline-block">Awaiting Finance</span>
 
                                                     @endif
                                                     @if ($fr && $fr->status !== 'rejected')
@@ -375,7 +375,7 @@
                                                         <a href="{{ route('attachments.download', $pf->invoice->attachment_id) }}"
                                                             class="flex items-center gap-2 text-[#1E1E1E] px-3 py-2 duration-300 border border-[#05261B] hover:bg-[#CFE7DE] hover:border hover:border-[#05261B] rounded-lg">
                                                             <x-icon.download/>
-                                                            Download Invoice
+                                                            Invoice
                                                         </a>
                                                     @endif
 
@@ -400,7 +400,7 @@
                                                                 <a href="{{ route('payment-confirmation.terms.payment.confirm.form', [$quotation->lead_id, $pf->term_no ?? 'bf']) }}"
                                                                     class="flex items-center gap-2 text-[#1E1E1E] px-3 py-2 duration-300 border border-[#05261B] hover:bg-[#CFE7DE] hover:border hover:border-[#05261B] rounded-lg">
                                                                         <x-icon.detail/>
-                                                                        <span>View Payment</span>
+                                                                        <span>Payment</span>
                                                                 </a>
                                                             @endif
                                                         @endif

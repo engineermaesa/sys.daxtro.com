@@ -2,23 +2,23 @@
 
 @section('content')
 
-<section class="min-h-screen">
+<section class="min-h-screen sm:text-xs! lg:text-sm!">
   {{-- HEADER PAGES --}}
   <div class="pt-4">
       <div class="flex items-center gap-3">        
       <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M2 16.85C2.9 15.9667 3.94583 15.2708 5.1375 14.7625C6.32917 14.2542 7.61667 14 9 14C10.3833 14 11.6708 14.2542 12.8625 14.7625C14.0542 15.2708 15.1 15.9667 16 16.85V4H2V16.85ZM9 12C8.03333 12 7.20833 11.6583 6.525 10.975C5.84167 10.2917 5.5 9.46667 5.5 8.5C5.5 7.53333 5.84167 6.70833 6.525 6.025C7.20833 5.34167 8.03333 5 9 5C9.96667 5 10.7917 5.34167 11.475 6.025C12.1583 6.70833 12.5 7.53333 12.5 8.5C12.5 9.46667 12.1583 10.2917 11.475 10.975C10.7917 11.6583 9.96667 12 9 12ZM2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V4C0 3.45 0.195833 2.97917 0.5875 2.5875C0.979167 2.19583 1.45 2 2 2H3V1C3 0.716667 3.09583 0.479167 3.2875 0.2875C3.47917 0.0958333 3.71667 0 4 0C4.28333 0 4.52083 0.0958333 4.7125 0.2875C4.90417 0.479167 5 0.716667 5 1V2H13V1C13 0.716667 13.0958 0.479167 13.2875 0.2875C13.4792 0.0958333 13.7167 0 14 0C14.2833 0 14.5208 0.0958333 14.7125 0.2875C14.9042 0.479167 15 0.716667 15 1V2H16C16.55 2 17.0208 2.19583 17.4125 2.5875C17.8042 2.97917 18 3.45 18 4V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2Z" fill="#115640"/>
       </svg>
-      <h1 class="text-[#115640] font-semibold text-2xl">Leads</h1>
+      <h1 class="text-[#115640] font-semibold lg:text-2xl text-lg">Leads</h1>
       </div>
-      <p class="mt-1 text-[#115640] text-lg">Trash Leads</p>
+      <p class="mt-1 text-[#115640] lg:text-lg text-sm">Trash Leads</p>
   </div>
 
   <div class="mt-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
     {{-- NAVIGATION TABLES --}}
-    <div class="flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4">
+    <div class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
         {{-- SEARCH TABLES --}}
-        <div class="w-1/6 border border-gray-300 rounded-lg flex items-center p-2">
+        <div class="lg:w-1/6 w-full border border-gray-300 rounded-lg flex items-center p-2">
             <div class="px-2">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
@@ -27,7 +27,7 @@
             <input id="searchInput" type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
         </div>
         {{-- NAVIGATION STATUS TABLES --}}
-        <div class="w-5/6 border border-[#D5D5D5] rounded-lg grid grid-cols-4">
+        <div class="lg:w-5/6 w-full border border-[#D5D5D5] rounded-lg grid grid-cols-4">
             @foreach (['all', 'cold', 'warm', 'hot'] as $tab)
                 {{-- NAVIGATION STATUS --}}
                   <div class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active" data-status="{{ $tab }}">
@@ -54,7 +54,7 @@
     </div>
 
     {{-- CONTENTS TABLES --}}
-    <div class="">
+    <div class="max-md:overflow-x-scroll">
       @foreach(['all', 'cold', 'warm', 'hot'] as $tab)
         <div data-status-wrapper="{{ $tab }}">
           <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full bg-white rounded-br-lg rounded-bl-lg">
@@ -62,25 +62,25 @@
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#CFD5DC]">
                             <th class="hidden">ID (hidden)</th>
-                            <th class="p-3">
+                            <th class="p-1 md:p-2 lg:p-3">
                                 Claimed At
                             </th>
-                            <th class="p-3">  
+                            <th class="p-1 md:p-2 lg:p-3">  
                                 Lead Name
                             </th>
-                            <th class="p-3">
+                            <th class="p-1 md:p-2 lg:p-3">
                                 Segment
                             </th>
-                            <th class="p-3">
+                            <th class="p-1 md:p-2 lg:p-3">
                                 Source
                             </th>
-                            <th class="p-3">
+                            <th class="p-1 md:p-2 lg:p-3">
                                 First Sales
                             </th>
-                            <th class="p-3">
+                            <th class="p-1 md:p-2 lg:p-3">
                               Status
                             </th>
-                            <th class="text-center p-3">
+                            <th class="text-center p-1 md:p-2 lg:p-3">
                                 Action
                             </th>
                         </tr>
@@ -163,7 +163,7 @@
 <script>
     @php
       $trashRoutes = [];
-      if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list')) {
+      if(\Illuminate\Support\Facades\Route::has('trash-leads.all.list')) {
         $trashRoutes['all'] = route('trash-leads.all.list');
       }
       if(\Illuminate\Support\Facades\Route::has('trash-leads.cold.list')) {
@@ -398,13 +398,13 @@
             tbody.innerHTML += `
                 <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
                     <td class="hidden">${row.id}</td>
-                    <td class="p-3">${row.claimed_at}</td>
-                    <td class="p-3">${row.name}</td>
-                    <td class="p-3">${row.segment_name}</td>
-                    <td class="p-3">${row.source}</td>
-                    <td class="p-3">${row.sales_name}</td>
-                    <td class="p-3">${row.status_lead}</td>
-                    <td class="text-center p-3">${row.actions}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.claimed_at}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.segment_name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.source}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.sales_name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.status_lead}</td>
+                    <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
                 </tr>
             `;
         });

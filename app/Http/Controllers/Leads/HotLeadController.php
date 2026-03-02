@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog};
+use App\Services\AutoTrashService;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Carbon;
 
@@ -13,162 +14,119 @@ class HotLeadController extends Controller
 {
     public function myHotList(Request $request)
     {
-        $claims = LeadClaim::with([
-                'lead.status',
-                'lead.statusLogs' => fn($q) => $q->where('status_id', LeadStatus::HOT)->orderByDesc('created_at'),
-                'lead.segment',
-                'lead.source',
-                'lead.industry',
-                'sales',
-                'lead.region.regional'
-            ])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
-            ->whereNull('released_at');
+        AutoTrashService::triggerIfNeeded();
+
+        $user     = $request->user();
+        $roleCode = $user->role?->code;
+        $perPage  = $request->get('per_page', 10);
+        
+        $claimsQuery = LeadClaim::with([
+            'lead.statusLogs' => fn($q) => $q->where('status_id', LeadStatus::HOT)
+                                            ->orderByDesc('created_at'),
+            'lead.segment',
+            'lead.source',
+            'lead.industry',
+            'lead.region.regional',
+            'lead.quotation',
+            'sales'
+        ])
+        ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
+        ->whereNull('released_at');
 
         $roleCode = $request->user()->role?->code;
 
         if ($roleCode === 'sales') {
-            $claims->where('sales_id', $request->user()->id);
+        $claimsQuery->where('sales_id', $user->id);
+
         } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) {
-                $q->where('branch_id', auth()->user()->branch_id);
+            $claimsQuery->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $claimsQuery->whereHas('lead', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
             });
         }
 
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function ($q) use ($request) {
+            $claimsQuery->whereHas('lead.quotation', function ($q) use ($request) {
                 $q->bookingFeeBetween($request->start_date, $request->end_date);
             });
         }
 
-        $page = $request->input('page', 1);
-        $perPage = 10;
-        // If the request is an API call, return a plain JSON payload.
-        if ($request->is('api/*')) {
-            $items = $claims->get()->map(function ($row) {
-                // Prefer the time when lead moved to HOT (from status logs). Fallback to claimed_at.
-                $hotLog = $row->lead->statusLogs->first() ?? null;
-                $hotAt = $hotLog && $hotLog->created_at ? Carbon::parse($hotLog->created_at) : null;
-                $claimedAt = $row->claimed_at ? Carbon::parse($row->claimed_at) : null;
-                // Prefer the claimed_at as the base for expiry. Fallback to HOT status timestamp.
-                $baseAt = $claimedAt ?? $hotAt;
-                $expireAt = $baseAt ? $baseAt->copy()->startOfDay()->addDays(30) : null;
-                $daysLeft = null;
-                if ($expireAt) {
-                    // If the claim date is in the future, show full 30 days until it starts.
-                    if ($baseAt->gt(Carbon::now())) {
-                        $daysLeft = 30;
-                    } else {
-                        // compute days remaining until expiry, clamp at 0
-                        $daysLeft = Carbon::now()->startOfDay()->diffInDays($expireAt, false);
-                        if ($daysLeft < 0) {
-                            $daysLeft = 0;
-                        }
+        $paginated = $claimsQuery
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $paginated->getCollection()->transform(function ($row) {
+
+            $lead = $row->lead;
+
+            // Ambil waktu HOT dari status log
+            $hotLog    = $lead->statusLogs->first();
+            $hotAt     = $hotLog?->created_at ? \Carbon\Carbon::parse($hotLog->created_at) : null;
+            $claimedAt = $row->claimed_at ? \Carbon\Carbon::parse($row->claimed_at) : null;
+
+            $baseAt   = $claimedAt ?? $hotAt;
+            $expireAt = $baseAt ? $baseAt->copy()->startOfDay()->addDays(30) : null;
+
+            $daysLeft = null;
+
+            if ($expireAt) {
+                if ($baseAt->gt(now())) {
+                    $daysLeft = 30;
+                } else {
+                    $daysLeft = now()->startOfDay()->diffInDays($expireAt, false);
+                    if ($daysLeft < 0) {
+                        $daysLeft = 0;
                     }
                 }
+            }
 
-                // determine meeting status label
+            // Meeting status
+            if ($daysLeft === null) {
                 $meetingStatus = 'Hot';
-                if ($daysLeft !== null) {
-                    if ($daysLeft > 0) {
-                        $meetingStatus = 'Hot';
-                    } elseif ($daysLeft === 0) {
-                        $meetingStatus = 'Today';
-                    } else {
-                        $meetingStatus = '<span class="status-expired">Hot</span>';
-                    }
-                }
-
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_id' => $row->lead->id,
-                    'lead_name' => $row->lead->name,
-                    'sales_id' => $row->sales->id ?? null,
-                    'sales_name' => $row->sales->name ?? null,
-                    'phone' => $row->lead->phone,
-                    'needs' => $row->lead->needs,
-                    'segment_name' => $row->lead->segment->name ?? null,
-                    'source_name' => $row->lead->source->name ?? null,
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'meeting_status' => $meetingStatus,
-                    'expire_in' => $daysLeft,
-                    'expire_at' => $expireAt ? $expireAt->toDateString() : null,
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                    'quotation' => $row->lead->quotation ? [
-                        'id' => $row->lead->quotation->id,
-                    ] : null,
-                ];
-            });
-
-            $claims = $claims->orderByDesc('id')
-                ->paginate($perPage, ['*'], 'page', $page);
-
-            $data = $claims->map(function ($row) {
-
-                // Prefer HOT status timestamp from logs; fallback to claimed_at
-                $hotLog = $row->lead->statusLogs->first() ?? null;
-                $hotAt = $hotLog && $hotLog->created_at ? Carbon::parse($hotLog->created_at) : null;
-                $claimedAt = $row->claimed_at ? Carbon::parse($row->claimed_at) : null;
-                // Prefer the claimed_at as the base for expiry. Fallback to HOT status timestamp.
-                $baseAt = $claimedAt ?? $hotAt;
-                $expireAt = $baseAt ? $baseAt->copy()->startOfDay()->addDays(30) : null;
-                $daysLeft = null;
-                if ($expireAt) {
-                    if ($baseAt->gt(Carbon::now())) {
-                        $daysLeft = 30;
-                    } else {
-                        $daysLeft = Carbon::now()->startOfDay()->diffInDays($expireAt, false);
-                        if ($daysLeft < 0) {
-                            $daysLeft = 0;
-                        }
-                    }
-                }
-
-                // determine meeting status label for paginated response
+            } elseif ($daysLeft > 0) {
+                $meetingStatus = 'Hot';
+            } elseif ($daysLeft === 0) {
+                $meetingStatus = 'Today';
+            } else {
                 $meetingStatus = '<span class="status-expired">Hot</span>';
-                if ($daysLeft !== null) {
-                    if ($daysLeft > 0) {
-                        $meetingStatus = 'Hot';
-                    } elseif ($daysLeft === 0) {
-                        $meetingStatus = 'Today';
-                    } else {
-                        $meetingStatus = '<span class="status-expired">Hot</span>';
-                    }
-                }
+            }
 
-                return [
-                    'id' => $row->id,
-                    'claimed_at' => $row->claimed_at,
-                    'lead_name' => $row->lead->name ?? '-',
-                    'sales_name' => $row->sales->name ?? '-',
-                    'phone' => $row->lead->phone ?? '-',
-                    'source_name' => $row->lead->source->name ?? '-',
-                    'needs' => $row->lead->needs ?: '-',
-                    'segment_name' => $row->lead->segment->name ?? '-',
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry_name' => $row->lead->industry->name ?? null,
-                    'other_industry' => $row->lead->other_industry ?? null,
-                    
+            $row->name          = $lead->name ?? '-';
+            $row->sales_name    = $row->sales->name ?? '-';
+            $row->phone         = $lead->phone ?? '-';
+            $row->source        = $lead->source->name ?? '-';
+            $row->needs         = $lead->needs ?? '-';
+            $row->segment_name  = $lead->segment->name ?? '-';
+            $row->city_name     = $lead->region->name ?? 'All Regions';
+            $row->regional_name = $lead->region->regional->name ?? 'All Regions';
+            $row->industry      = $lead->industry->name ?? ($lead->other_industry ?? '-');
 
-                    // helper
-                    'expire_in' => $daysLeft,
-                    'expire_at' => $expireAt ? $expireAt->toDateString() : null,
-                    'meeting_status' => $meetingStatus,
-                    'actions' => $this->hotActions($row),
-                ];
-            });
+            $row->expire_in     = $daysLeft;
+            $row->expire_at     = $expireAt ? $expireAt->toDateString() : null;
+            $row->meeting_status = $meetingStatus;
+            $row->actions        = $this->hotActions($row);
 
-            return response()->json([
-                'data' => $data,
-                'current_page' => $claims->currentPage(),
-                'last_page' => $claims->lastPage(),
-                'total' => $claims->total(),
-            ]);
-        }
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'total'        => $paginated->total(),
+        ]);
     }
 
     protected function hotActions($row)

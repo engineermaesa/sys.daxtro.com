@@ -18,9 +18,9 @@ class ColdLeadController extends Controller
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
 
-        $user = $request->user();
+        $user     = $request->user();
         $roleCode = $user->role?->code;
-        $perPage = 10;
+        $perPage  = $request->get('per_page', 10);
 
         $claimsQuery = LeadClaim::with([
             'lead.status',
@@ -30,52 +30,62 @@ class ColdLeadController extends Controller
             'lead.meetings.expense',
             'lead.industry',
             'sales'
-        ])
+            ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
             ->whereNull('released_at');
 
-        // Role filtering
         if ($roleCode === 'sales') {
             $claimsQuery->where('sales_id', $user->id);
+
         } elseif ($roleCode === 'branch_manager') {
             $claimsQuery->whereHas('sales', function ($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
         }
 
-        // Pagination
-        $claims = $claimsQuery
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $claimsQuery->whereHas('lead', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        $paginated = $claimsQuery
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        // API Response
-        if ($request->is('api/*')) {
-            $data = $claims->map(function ($row) {
-                $meeting = $row->lead->meetings()->latest()->first();
+        $paginated->getCollection()->transform(function ($row) {
 
-                return [
-                    'id' => $row->id,
-                    'name' => $row->lead->name,
-                    'sales_name' => $row->sales->name ?? '-',
-                    'phone' => $row->lead->phone,
-                    'source' => $row->lead->source->name ?? '-',
-                    'needs' => $row->lead->needs,
-                    'segment_name' => $row->lead->segment->name ?? '-',
-                    'city_name' => $row->lead->region->name ?? 'All Regions',
-                    'regional_name' => $row->lead->region->regional->name ?? 'All Regions',
-                    'industry' => $row->lead->industry->name ?? ($row->lead->other_industry ?? '-'),
-                    'meeting_status' => $this->coldMeetingStatus($row->lead, $meeting),
-                    'actions' => $this->coldActions($row),
-                ];
-            });
+            $lead    = $row->lead;
+            $meeting = $lead->meetings()->latest()->first();
 
-            return response()->json([
-                'data' => $data,
-                'current_page' => $claims->currentPage(),
-                'last_page' => $claims->lastPage(),
-                'total' => $claims->total(),
-            ]);
-        }
+            $row->name          = $lead->name ?? '-';
+            $row->sales_name    = $row->sales->name ?? '-';
+            $row->phone         = $lead->phone ?? '-';
+            $row->source        = $lead->source->name ?? '-';
+            $row->needs         = $lead->needs ?? '-';
+            $row->segment_name  = $lead->segment->name ?? '-';
+            $row->city_name     = $lead->region->name ?? 'All Regions';
+            $row->regional_name = $lead->region->regional->name ?? 'All Regions';
+            $row->industry      = $lead->industry->name ?? ($lead->other_industry ?? '-');
+
+            $row->meeting_status = $this->coldMeetingStatus($lead, $meeting);
+            $row->actions        = $this->coldActions($row);
+
+            return $row;
+        });
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'total'        => $paginated->total(),
+        ]);
     }
 
 

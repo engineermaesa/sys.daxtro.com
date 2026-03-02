@@ -1585,48 +1585,64 @@ class LeadController extends Controller
             ->rawColumns(['meeting_status', 'actions'])
             ->make(true);
     }
-
     public function myAllList(Request $request)
     {
         AutoTrashService::triggerIfNeeded();
 
-        $user = $request->user();
-
+        $user    = $request->user();
         $perPage = $request->get('per_page', 10);
 
         $claims = LeadClaim::with([
-            'lead.status',
-            'lead.segment',
-            'lead.source',
-            'lead.region.regional',
-            'lead.quotation',
-            'lead.industry',
-            'sales'
-        ])->whereNull('released_at');
+                'lead.status',
+                'lead.segment',
+                'lead.source',
+                'lead.region.regional',
+                'lead.quotation',
+                'lead.industry',
+                'sales'
+            ])
+            ->whereNull('released_at');
 
-        // Role filter
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
         }
 
-        // OPTIONAL: status filter dari frontend
         if ($request->filled('status')) {
-            $claims->whereHas(
-                'lead',
-                fn($q) =>
+            $claims->whereHas('lead', fn($q) =>
                 $q->where('status_id', $request->status)
             );
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $claims->whereHas('lead', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            });
         }
 
         $paginated = $claims
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        $paginated->getCollection()->transform(function ($row) {
+        $paginated->getCollection()->transform(function ($row) use ($user) {
 
-            $status = $row->lead?->status?->name;
+            $lead = $row->lead;
 
-            switch ($status) {
+            $row->name          = $lead->name ?? '-';
+            $row->phone         = $lead->phone ?? '-';
+            $row->email         = $lead->email ?? '-';
+            $row->source        = $lead->source->name ?? '-';
+            $row->segment_name  = $lead->segment->name ?? '-';
+            $row->regional_name = $lead->region->regional->name ?? '-';
+            $row->sales_name    = $row->sales->name ?? '-';
+            $row->status_name   = $lead->status->name ?? '-';
+
+            switch ($lead->status?->name) {
                 case 'Cold':
                     $row->actions = $this->coldActions($row);
                     break;
@@ -1646,22 +1662,16 @@ class LeadController extends Controller
                 default:
                     $row->actions = '-';
             }
+
             return $row;
         });
 
         return response()->json([
-            'data' => $paginated->items(),
-            'total' => $paginated->total(),
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
             'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
+            'last_page'    => $paginated->lastPage(),
         ]);
-
-        // return DataTables::of($claims)
-        //     ->addColumn('lead_name', fn($r) => $r->lead->name)
-        //     ->addColumn('sales_name', fn($r) => $r->sales->name ?? '-')
-        //     ->addColumn('status', fn($r) => $r->lead->status->name ?? '-')
-        //     ->addColumn('phone', fn($r) => $r->lead->phone)
-        //     ->make(true);
     }
 
     protected function coldActions($row)

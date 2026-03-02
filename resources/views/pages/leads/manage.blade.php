@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <section class="min-h-screen">
+    <section class="min-h-screen text-xs! lg:text-sm!">
         {{-- HEADER PAGES --}}
         <div class="pt-4">
             <div class="flex items-center gap-3">
@@ -10,13 +10,13 @@
                         d="M2 16.85C2.9 15.9667 3.94583 15.2708 5.1375 14.7625C6.32917 14.2542 7.61667 14 9 14C10.3833 14 11.6708 14.2542 12.8625 14.7625C14.0542 15.2708 15.1 15.9667 16 16.85V4H2V16.85ZM9 12C8.03333 12 7.20833 11.6583 6.525 10.975C5.84167 10.2917 5.5 9.46667 5.5 8.5C5.5 7.53333 5.84167 6.70833 6.525 6.025C7.20833 5.34167 8.03333 5 9 5C9.96667 5 10.7917 5.34167 11.475 6.025C12.1583 6.70833 12.5 7.53333 12.5 8.5C12.5 9.46667 12.1583 10.2917 11.475 10.975C10.7917 11.6583 9.96667 12 9 12ZM2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V4C0 3.45 0.195833 2.97917 0.5875 2.5875C0.979167 2.19583 1.45 2 2 2H3V1C3 0.716667 3.09583 0.479167 3.2875 0.2875C3.47917 0.0958333 3.71667 0 4 0C4.28333 0 4.52083 0.0958333 4.7125 0.2875C4.90417 0.479167 5 0.716667 5 1V2H13V1C13 0.716667 13.0958 0.479167 13.2875 0.2875C13.4792 0.0958333 13.7167 0 14 0C14.2833 0 14.5208 0.0958333 14.7125 0.2875C14.9042 0.479167 15 0.716667 15 1V2H16C16.55 2 17.0208 2.19583 17.4125 2.5875C17.8042 2.97917 18 3.45 18 4V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2Z"
                         fill="#115640" />
                 </svg>
-                <h1 class="text-[#115640] font-semibold text-2xl">Leads</h1>
+                <h1 class="text-[#115640] font-semibold text-lg lg:text-2xl">Leads</h1>
             </div>
-            <p class="mt-1 text-[#115640] text-lg">All Leads</p>
+            <p class="mt-1 text-[#115640] text-sm lg:text-lg">All Leads</p>
         </div>
 
         {{-- ALL CARDS COUNTS --}}
-        <div id="forAllCardsCounts" class="grid grid-cols-4 gap-3 mt-4">
+        <div id="forAllCardsCounts" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
             {{-- COLD CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
                 style="animation-delay: 0s;">
@@ -116,7 +116,7 @@
         </div>
 
         {{-- COLD CARDS COUNTS --}}
-        <div id="forColdCardsCounts" class="hidden grid grid-cols-4 gap-3 mt-4">
+        <div id="forColdCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
             {{-- LEADS COLD COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
                 style="animation-delay: 0s;">
@@ -226,7 +226,7 @@
         </div>
 
         {{-- WARM CARDS COUNTS --}}
-        <div id="forWarmCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+        <div id="forWarmCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
             {{-- LEADS WARM COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
                 style="animation-delay: 0.00s;">
@@ -309,7 +309,7 @@
         </div>
 
         {{-- HOT CARDS COUNTS --}}
-        <div id="forHotCardsCounts" class="hidden grid grid-cols-3 gap-3 mt-4">
+        <div id="forHotCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 gap-3 mt-4">
             {{-- LEADS HOT COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
                 style="animation-delay: 0.00s;">
@@ -416,9 +416,31 @@
         <div class="mt-4 rounded-lg border-[#D9D9D9]">
             {{-- NAVIGATION TABLES --}}
             <div
-                class="bg-white flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg">
+                class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+
+                {{-- FOR SMALL SCREEN SECTION --}}
+                <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
+                    <div class="border border-gray-300 rounded-lg flex items-center p-2">
+                        <div class="px-2">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
+                                    fill="#6B7786" />
+                            </svg>
+                        </div>
+                        <input id="searchInput" type="text" placeholder="Search"
+                            class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                    </div>
+                    <button id="btnExport" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center">
+                        <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
+                            <x-icon.download/>
+                            Export Excel
+                        </div>
+                    </button>
+                </div>
+
                 {{-- SEARCH TABLES --}}
-                <div class="w-1/6 border border-gray-300 rounded-lg flex items-center p-2">
+                <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                     <div class="px-2">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path
@@ -430,7 +452,7 @@
                         class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
                 {{-- NAVIGATION STATUS TABLES --}}
-                <div class="w-4/6 border border-[#D5D5D5] rounded-lg grid grid-cols-5">
+                <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
                     @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
                     {{-- NAVIGATION STATUS --}}
                     <div data-tab="{{ $tab }}"
@@ -457,8 +479,9 @@
                     </div>
                     @endforeach
                 </div>
+                
                 {{-- EXPORT EXCELS LEADS --}}
-                <button id="btnExport" class="cursor-pointer bg-[#115640] rounded-lg w-1/6">
+                <button id="btnExport" class="cursor-pointer lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
                     <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                         <x-icon.download/>
                         Export Excel
@@ -470,28 +493,30 @@
             <div>
                 {{-- ALL STAGE TABLE --}}
                 <div data-tab-container="all" class="leads-table-container">
-                    <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                        {{-- HEADER TABLE --}}
-                        <thead class="text-[#1E1E1E]">
-                            <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="hidden">ID (hidden)</th>
-                                <th class="font-bold text-left p-2">Lead Name</th>
-                                <th class="p-2">Sales Name</th>
-                                <th class="p-2">Telephone</th>
-                                <th class="p-2">Source</th>
-                                <th class="p-2">Needs</th>
-                                <th class="p-2">Industry</th>
-                                <th class="p-2">City</th>
-                                <th class="p-2">Regional</th>
-                                <th class="p-2">Customer Type</th>
-                                <th class="p-2">ACT Last Time</th>
-                                <th class="p-2">ACT Status</th>
-                                <th class="text-center w-12.5 p-2">Stage</th>
-                                <th class="text-center p-2">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="allBody"></tbody>
-                    </table>
+                    <div class="max-xl:overflow-x-scroll">
+                        <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                            {{-- HEADER TABLE --}}
+                            <thead class="text-[#1E1E1E]">
+                                <tr class="border-b border-b-[#D9D9D9]">
+                                    <th class="hidden">ID (hidden)</th>
+                                    <th class="font-bold text-left p-2">Lead Name</th>
+                                    <th class="p-2">Sales Name</th>
+                                    <th class="p-2">Telephone</th>
+                                    <th class="p-2">Source</th>
+                                    <th class="p-2">Needs</th>
+                                    <th class="p-2">Industry</th>
+                                    <th class="p-2">City</th>
+                                    <th class="p-2">Regional</th>
+                                    <th class="p-2">Customer Type</th>
+                                    <th class="p-2">ACT Last Time</th>
+                                    <th class="p-2">ACT Status</th>
+                                    <th class="text-center w-12.5 p-2">Stage</th>
+                                    <th class="text-center p-2">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allBody"></tbody>
+                        </table>
+                    </div>
 
                     {{-- NAVIGATION ROWS --}}
                     <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
@@ -526,34 +551,36 @@
             {{-- CONDITIONAL STAGE TABLE --}}
             @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
             <div data-tab-container="{{ $tab }}" class="leads-table-container">
-                <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="font-bold text-left p-2">Lead Name</th>
-                            <th class="p-2">Sales Name</th>
-                            <th class="p-2">Telephone</th>
-                            <th class="p-2">Source</th>
-                            <th class="p-2">Needs</th>
-                            <th class="p-2">Industry</th>
-                            <th class="p-2">City</th>
-                            <th class="p-2">Regional</th>
-                            <th class="p-2">Customer Type</th>
-                            <th class="p-2">Quotation Number</th>
-                            <th class="p-2">Quotation Price</th>
-                            @if ($tab === 'hot' || $tab === 'deal')
-                                <th class="p-2">Invoice</th>
-                                <th class="p-2">Invoice Price</th>
-                            @endif
-                            <th class="p-2">Quotation Created</th>
-                            <th class="p-2">Quotation End Date</th>
-                            <th class="p-2">ACT Last Time</th>
-                            <th class="p-2">ACT Status</th>
-                            <th class="text-center p-2">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="{{ $tab }}Body" class="text-[#1E1E1E]"></tbody>
-                </table>
+                <div class="max-xl:overflow-x-scroll">
+                    <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                        {{-- HEADER TABLE --}}
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="font-bold text-left p-2">Lead Name</th>
+                                <th class="p-2">Sales Name</th>
+                                <th class="p-2">Telephone</th>
+                                <th class="p-2">Source</th>
+                                <th class="p-2">Needs</th>
+                                <th class="p-2">Industry</th>
+                                <th class="p-2">City</th>
+                                <th class="p-2">Regional</th>
+                                <th class="p-2">Customer Type</th>
+                                <th class="p-2">Quotation Number</th>
+                                <th class="p-2">Quotation Price</th>
+                                @if ($tab === 'hot' || $tab === 'deal')
+                                    <th class="p-2">Invoice</th>
+                                    <th class="p-2">Invoice Price</th>
+                                @endif
+                                <th class="p-2">Quotation Created</th>
+                                <th class="p-2">Quotation End Date</th>
+                                <th class="p-2">ACT Last Time</th>
+                                <th class="p-2">ACT Status</th>
+                                <th class="text-center p-2">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="{{ $tab }}Body" class="text-[#1E1E1E]"></tbody>
+                    </table>
+                </div>
 
                 {{-- NAVIGATION ROWS --}}
                 <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
@@ -590,116 +617,117 @@
     </section>
 
     {{-- ACTIVITY LOGS MODAL --}}
-    <div class="modal fade" id="activityLogModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-[#083224] text-lg font-semibold">Activity Logs</h5>
-                    <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+<div class="modal fade" id="activityLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-[#1E1E1E] text-lg font-semibold">Activity Logs</h5>
+                <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="border border-[#D9D9D9] rounded-lg mb-3">
+                    <table class="w-full">
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="lg:p-3 p-1">Date</th>
+                                <th class="lg:p-3 p-1">Activity</th>
+                                <th class="lg:max-w-60 lg:p-3 p-1">Note</th>
+                                <th class="lg:p-3 p-1">Attachment</th>
+                                <th class="lg:p-3 p-1">User</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-[#1E1E1E]"></tbody>
+                    </table>
                 </div>
-                <div class="modal-body">
-                    <div class="border border-[#D9D9D9] rounded-lg mb-3">
-                        <table class="w-full">
-                            <thead class="text-[#1E1E1E]">
-                                <tr class="border-b border-b-[#D9D9D9]">
-                                    <th class="p-3">Date</th>
-                                    <th>Activity</th>
-                                    <th class="max-w-60">Note</th>
-                                    <th>Attachment</th>
-                                    <th>User</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-[#1E1E1E]"></tbody>
-                        </table>
-                    </div>
-                    <form id="activityLogForm">
-                        <div class="w-full! grid! grid-cols-2! justify-between! gap-3! text-[#1E1E1E]!">
-                            {{-- DATE AND ACTIVITY FIELD SELECT --}}
-                            <div class="p-2 flex items-center border border-[#D9D9D9] justify-between rounded-lg gap-2">
-                                <div class="w-1/4 flex items-center">
-                                    <input type="text" id="logged_at" name="logged_at"
-                                        class="w-full text-sm rounded-lg outline-none" value="{{ date('Y-m-d') }}"
-                                        placeholder="Select date" required>
-                                </div>
-                                <span class="w-px h-3/4 block bg-[#D9D9D9]"></span>
-                                <div class="w-3/4 flex items-center">
-                                    <select name="activity_id" class="max-w-full! text-sm rounded-lg bg-white outline-none"
-                                        required>
-                                        <option value="" class="text-center">Activity Type</option>
-                                        @foreach ($activities as $act)
-                                        <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                <form id="activityLogForm">
+                    <div class="w-full! grid! sm:grid-cols-1 lg:grid-cols-2! justify-between! gap-3! text-[#1E1E1E]!">
+                        {{-- DATE AND ACTIVITY FIELD SELECT --}}
+                        <div class="p-2 flex items-center border border-[#D9D9D9] justify-between rounded-lg gap-2">
+                            <div class="w-1/4 flex items-center">
+                                <input type="text" id="logged_at" name="logged_at"
+                                    class="w-full text-sm rounded-lg outline-none" value="{{ date('Y-m-d') }}"
+                                    placeholder="Select date" required>
                             </div>
-
-                            {{-- NOTE FIELD / ATTACHMENT FILES AND SUBMIT BUTTON --}}
-                            <div class="grid grid-cols-2">
-                                <input type="text" name="note"
-                                    class="px-3 py-2 border border-[#D9D9D9] rounded-lg w-full focus:outline-none"
-                                    placeholder="Type Note Here...">
-                                {{-- ATTACHMENT FILES AND SUBMIT BUTTON --}}
-                                <div class="flex items-center justify-end gap-5 ">
-                                    <div class="">
-                                        <input type="file" id="activity_attachment" name="attachment" class="hidden"
-                                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-
-                                        <button type="button"
-                                            onclick="document.getElementById('activity_attachment').click()"
-                                            class="p-2 cursor-pointer">
-                                            <svg width="20" height="20" viewBox="0 0 22 27" fill="none"
-                                                xmlns="http://www.w3.org/2000/svg">
-                                                <path
-                                                    d="M15.5786 22.0366C14.4231 24.0381 12.7373 25.3357 10.5213 25.9295C8.30529 26.5233 6.19655 26.2424 4.19507 25.0868C2.19359 23.9313 0.895959 22.2455 0.302185 20.0295C-0.291589 17.8135 -0.0106983 15.7048 1.14486 13.7033L7.31152 3.02232C8.14486 1.57895 9.35837 0.643746 10.9521 0.216716C12.5458 -0.210313 14.0643 -0.00716162 15.5077 0.826172C16.9511 1.6595 17.8863 2.87302 18.3133 4.46672C18.7403 6.06041 18.5372 7.57895 17.7038 9.02232L11.8705 19.126C11.3594 20.0112 10.6181 20.584 9.64673 20.8443C8.67534 21.1046 7.74701 20.9792 6.86174 20.468C5.97646 19.9569 5.40369 19.2157 5.1434 18.2443C4.88312 17.2729 5.00853 16.3446 5.51964 15.4593L11.0196 5.93301C11.2085 5.60584 11.4775 5.39549 11.8266 5.30195C12.1757 5.20841 12.5138 5.25608 12.841 5.44497C13.1682 5.63386 13.3785 5.90285 13.4721 6.25195C13.5656 6.60105 13.5179 6.93918 13.329 7.26634L7.82904 16.7926C7.6846 17.0428 7.64694 17.2969 7.71608 17.5549C7.78522 17.813 7.94488 18.0142 8.19507 18.1586C8.44525 18.3031 8.69936 18.3407 8.95739 18.2716C9.21541 18.2025 9.41665 18.0428 9.56109 17.7926L15.3944 7.68899C15.8418 6.86959 15.9524 6.0225 15.7262 5.14773C15.4999 4.27296 14.9826 3.60224 14.1743 3.13557C13.3661 2.66891 12.5217 2.55351 11.6414 2.7894C10.7611 3.02528 10.0876 3.54737 9.62092 4.35566L3.45426 15.0366C2.64612 16.3919 2.44818 17.8237 2.86043 19.3318C3.27268 20.84 4.16201 21.9886 5.5284 22.7774C6.87555 23.5552 8.29563 23.74 9.78864 23.3318C11.2816 22.9237 12.4418 22.0475 13.2692 20.7033L19.1025 10.5997C19.2914 10.2725 19.5604 10.0622 19.9095 9.96862C20.2586 9.87508 20.5967 9.92275 20.9239 10.1116C21.2511 10.3005 21.4614 10.5695 21.555 10.9186C21.6485 11.2677 21.6008 11.6058 21.4119 11.933L15.5786 22.0366Z"
-                                                    fill="#757575" />
-                                            </svg>
-
-                                        </button>
-                                    </div>
-                                    <div>
-                                        <button type="submit"
-                                            class="cursor-pointer bg-[#115640] px-5 py-2 text-white rounded-lg ">+
-                                            Activity</button>
-                                    </div>
-                                </div>
+                            <span class="w-px h-3/4 block bg-[#D9D9D9]"></span>
+                            <div class="w-3/4 flex items-center">
+                                <select name="activity_id" class="max-w-full! text-sm rounded-lg bg-white outline-none"
+                                    required>
+                                    <option value="" class="text-center">Activity Type</option>
+                                    @foreach ($activities as $act)
+                                    <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
-
                         </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    {{-- QUOTATION LOGS MODAL --}}
-    <div class="modal fade" id="quotationLogModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title text-[#083224] text-lg font-semibold">Quotation Logs</h5>
-                    <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="border border-[#D9D9D9] rounded-lg mb-3">
-                        <table class="w-full">
-                            <thead class="text-[#1E1E1E]">
-                                <tr class="border-b border-b-[#D9D9D9]">
-                                    <th class="p-3">Date</th>
-                                    <th class="p-3">Action</th>
-                                    <th class="p-3">User</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-[#1E1E1E]"></tbody>
-                        </table>
+                        {{-- NOTE FIELD / ATTACHMENT FILES AND SUBMIT BUTTON --}}
+                        <div class="grid sm:grid-cols-[3fr_1fr] lg:grid-cols-2">
+                            <input type="text" name="note"
+                                class="px-3 py-2 border border-[#D9D9D9] rounded-lg w-full focus:outline-none"
+                                placeholder="Type Note Here...">
+                            {{-- ATTACHMENT FILES AND SUBMIT BUTTON --}}
+                            <div class="flex items-center justify-end sm:gap-2 lg:gap-5">
+                                <div class="">
+                                    <input type="file" id="activity_attachment" name="attachment" class="hidden"
+                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+
+                                    <button type="button"
+                                        onclick="document.getElementById('activity_attachment').click()"
+                                        class="p-2 cursor-pointer">
+                                        <svg width="20" height="20" viewBox="0 0 22 27" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M15.5786 22.0366C14.4231 24.0381 12.7373 25.3357 10.5213 25.9295C8.30529 26.5233 6.19655 26.2424 4.19507 25.0868C2.19359 23.9313 0.895959 22.2455 0.302185 20.0295C-0.291589 17.8135 -0.0106983 15.7048 1.14486 13.7033L7.31152 3.02232C8.14486 1.57895 9.35837 0.643746 10.9521 0.216716C12.5458 -0.210313 14.0643 -0.00716162 15.5077 0.826172C16.9511 1.6595 17.8863 2.87302 18.3133 4.46672C18.7403 6.06041 18.5372 7.57895 17.7038 9.02232L11.8705 19.126C11.3594 20.0112 10.6181 20.584 9.64673 20.8443C8.67534 21.1046 7.74701 20.9792 6.86174 20.468C5.97646 19.9569 5.40369 19.2157 5.1434 18.2443C4.88312 17.2729 5.00853 16.3446 5.51964 15.4593L11.0196 5.93301C11.2085 5.60584 11.4775 5.39549 11.8266 5.30195C12.1757 5.20841 12.5138 5.25608 12.841 5.44497C13.1682 5.63386 13.3785 5.90285 13.4721 6.25195C13.5656 6.60105 13.5179 6.93918 13.329 7.26634L7.82904 16.7926C7.6846 17.0428 7.64694 17.2969 7.71608 17.5549C7.78522 17.813 7.94488 18.0142 8.19507 18.1586C8.44525 18.3031 8.69936 18.3407 8.95739 18.2716C9.21541 18.2025 9.41665 18.0428 9.56109 17.7926L15.3944 7.68899C15.8418 6.86959 15.9524 6.0225 15.7262 5.14773C15.4999 4.27296 14.9826 3.60224 14.1743 3.13557C13.3661 2.66891 12.5217 2.55351 11.6414 2.7894C10.7611 3.02528 10.0876 3.54737 9.62092 4.35566L3.45426 15.0366C2.64612 16.3919 2.44818 17.8237 2.86043 19.3318C3.27268 20.84 4.16201 21.9886 5.5284 22.7774C6.87555 23.5552 8.29563 23.74 9.78864 23.3318C11.2816 22.9237 12.4418 22.0475 13.2692 20.7033L19.1025 10.5997C19.2914 10.2725 19.5604 10.0622 19.9095 9.96862C20.2586 9.87508 20.5967 9.92275 20.9239 10.1116C21.2511 10.3005 21.4614 10.5695 21.555 10.9186C21.6485 11.2677 21.6008 11.6058 21.4119 11.933L15.5786 22.0366Z"
+                                                fill="#757575" />
+                                        </svg>
+
+                                    </button>
+                                </div>
+                                <div>
+                                    <button type="submit"
+                                        class="cursor-pointer bg-[#115640] px-1 lg:px-5 py-2 text-white rounded-lg ">+
+                                        Activity</button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- QUOTATION LOGS MODAL --}}
+<div class="modal fade" id="quotationLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-[#083224] text-lg font-semibold">Quotation Logs</h5>
+                <button type="button" class="close cursor-pointer" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="border border-[#D9D9D9] rounded-lg mb-3">
+                    <table class="w-full">
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="lg:p-3 p-1">Date</th>
+                                <th class="lg:p-3 p-1">Action</th>
+                                <th class="lg:p-3 p-1">User</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-[#1E1E1E]"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -1110,8 +1138,16 @@
 
         // SEARCH SECTION BY SEARCHINPUT
         function getSearchQuery() {
-            const el = document.getElementById('searchInput');
-            return (el?.value || '').trim();
+            const inputs = document.querySelectorAll('#searchInput');
+
+            for (let input of inputs) {
+                if (input.offsetParent !== null) { 
+                    // ini cek yang visible
+                    return input.value.trim();
+                }
+            }
+
+            return '';
         }
 
         function renderTableData(leads) {
@@ -1121,7 +1157,7 @@
             if (!leads || leads.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="14" class="text-center p-4 text-gray-500">
+                        <td colspan="14" class="text-center p-4 text-[#1E1E1E]">
                             Data tidak ditemukan
                         </td>
                     </tr>
@@ -1214,19 +1250,19 @@
         }
 
         let debounceTimer;
-        const searchInputElement = document.getElementById('searchInput');
+        const searchInputs = document.querySelectorAll('#searchInput');
 
-        if (searchInputElement) {
-            searchInputElement.addEventListener('input', function() {
-                const query = getSearchQuery();
-                
+        searchInputs.forEach(input => {
+            input.addEventListener('input', function () {
+
                 clearTimeout(debounceTimer);
-                
+
                 debounceTimer = setTimeout(() => {
-                    fetchSearchResults(query);
-                }, 500); 
+                    fetchSearchResults(this.value.trim());
+                }, 500);
+
             });
-        }
+        });
 
         // Activity Logs
         $(document).on('click', '.btn-activity-log', function(e) {
@@ -1239,14 +1275,14 @@
             $.get(url, function(data) {
                 let rows = '';
                 data.forEach(function(item) {
-                    rows += '<tr class="border-b border-b-[#D9D9D9]">' +
-                        '<td class="p-3">' + item.logged_at + '</td>' +
-                        '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                        '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
-                        '<td>' + (item.attachment ? '<a href="' + item.attachment +
+                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                        '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
+                        '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item.attachment +
                             '" class="btn btn-sm btn-outline-secondary">Download</a>' : '-') +
                         '</td>' +
-                        '<td>' + item.user + '</td>' +
+                        '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
                         '</tr>';
                 });
                 tbody.html(rows || '<tr><td colspan="5" class="text-center p-3">No logs</td></tr>');
@@ -1273,15 +1309,15 @@
                     $.get(url, function(data) {
                         let rows = '';
                         data.forEach(function(item) {
-                            rows += '<tr class="border-b border-b-[#D9D9D9]">' +
-                                '<td class="p-3">' + item.logged_at + '</td>' +
-                                '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                                '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
-                                '<td>' + (item.attachment ? '<a href="' + item
+                            rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                                '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
+                                '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
+                                '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
+                                '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item
                                     .attachment +
                                     '" class="btn btn-sm btn-outline-secondary">Download</a>' :
                                     '-') + '</td>' +
-                                '<td>' + item.user + '</td>' +
+                                '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
                                 '</tr>';
                         });
                         $('#activityLogModal tbody').html(rows ||
@@ -1308,7 +1344,7 @@
             $.get(url, function(data) {
                 let rows = '';
                 data.forEach(function(item) {
-                    rows += '<tr class="border-b border-b-[#D9D9D9]">' +
+                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
                         '<td class="p-3">' + item.logged_at + '</td>' +
                         '<td class="p-3">' + item.action + '</td>' +
                         '<td class="p-3">' + item.user + '</td>' +

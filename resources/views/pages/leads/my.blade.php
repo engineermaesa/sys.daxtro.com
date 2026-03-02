@@ -420,6 +420,8 @@
         {{-- NAVIGATION TABLES --}}
         <div
             class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+            
+            {{-- FOR SMALL SCREEN SECTION --}}
             <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
                 <div class="border border-gray-300 rounded-lg flex items-center p-2">
                     <div class="px-2">
@@ -443,6 +445,7 @@
                     </a>
                 </div>
             </div>
+
             {{-- SEARCH TABLES --}}
             <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                 <div class="px-2">
@@ -455,6 +458,7 @@
                 <input id="searchInput" type="text" placeholder="Search"
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
+
             {{-- NAVIGATION STATUS TABLES --}}
             <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
                 @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
@@ -500,25 +504,27 @@
         <div>
             {{-- ALL STAGE TABLE --}}
             <div data-tab-container="all" class="leads-table-container">
-                <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="hidden">ID (hidden)</th>
-                            <th class="font-bold text-left lg:p-3 sm:p-1">Lead Name</th>
-                            <th class="lg:p-3 sm:p-1">Sales Name</th>
-                            <th class="lg:p-3 sm:p-1">Telephone</th>
-                            <th class="lg:p-3 sm:p-1">Source</th>
-                            <th class="lg:p-3 sm:p-1">Needs</th>
-                            <th class="lg:p-3 sm:p-1">Customer Type</th>
-                            <th class="lg:p-3 sm:p-1">City</th>
-                            <th class="lg:p-3 sm:p-1">Regional</th>
-                            <th class="text-center">Stage</th>
-                            <th class="text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="allBody"></tbody>
-                </table>
+                <div class="max-xl:overflow-x-scroll">
+                    <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                        {{-- HEADER TABLE --}}
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="hidden">ID (hidden)</th>
+                                <th class="font-bold text-left lg:p-3 sm:p-1">Lead Name</th>
+                                <th class="lg:p-3 sm:p-1">Sales Name</th>
+                                <th class="lg:p-3 sm:p-1">Telephone</th>
+                                <th class="lg:p-3 sm:p-1">Source</th>
+                                <th class="lg:p-3 sm:p-1">Needs</th>
+                                <th class="lg:p-3 sm:p-1">Customer Type</th>
+                                <th class="lg:p-3 sm:p-1">City</th>
+                                <th class="lg:p-3 sm:p-1">Regional</th>
+                                <th class="text-center">Stage</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allBodyTable"></tbody>
+                    </table>
+                </div>
 
                 {{-- NAVIGATION ROWS --}}
                 <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
@@ -551,34 +557,36 @@
             </div>
         </div>
         {{-- CONDITIONAL STAGE TABLE --}}
-        @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
+        @foreach(['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
         <div data-tab-container="{{ $tab }}" class="leads-table-container">
-            <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                {{-- HEADER TABLE --}}
-                <thead class="text-[#1E1E1E]">
-                    <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="font-bold text-left p-1 lg:p-3">Lead Name</th>
-                        <th class="p-1 lg:p-3">Sales Name</th>
-                        <th class="p-1 lg:p-3">Telephone</th>
-                        <th class="p-1 lg:p-3">Source</th>
-                        <th class="p-1 lg:p-3">Needs</th>
-                        <th class="p-1 lg:p-3">Segment</th>
-                        <th class="p-1 lg:p-3">City</th>
-                        <th class="p-1 lg:p-3">Regional</th>
-
-                        @if ($tab === 'cold' || $tab === 'warm')
-                            <th class="text-left">Status</th>
-                        @endif
-
-                        @if ($tab === 'hot')
-                            <th class="text-left">Quotation Expire In</th>
-                        @endif
-
-                        <th class="text-center p-3">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="{{ $tab }}Body"></tbody>
-            </table>
+            <div class="max-xl:overflow-x-scroll">
+                <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                    {{-- HEADER TABLE --}}
+                    <thead class="text-[#1E1E1E]">
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <th class="font-bold text-left p-1 lg:p-3">Lead Name</th>
+                            <th class="p-1 lg:p-3">Sales Name</th>
+                            <th class="p-1 lg:p-3">Telephone</th>
+                            <th class="p-1 lg:p-3">Source</th>
+                            <th class="p-1 lg:p-3">Needs</th>
+                            <th class="p-1 lg:p-3">Segment</th>
+                            <th class="p-1 lg:p-3">City</th>
+                            <th class="p-1 lg:p-3">Regional</th>
+    
+                            @if ($tab === 'cold' || $tab === 'warm')
+                                <th class="text-left">Status</th>
+                            @endif
+    
+                            @if ($tab === 'hot')
+                                <th class="text-left">Quotation Expire In</th>
+                            @endif
+    
+                            <th class="text-center p-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="{{ $tab }}BodyTable"></tbody>
+                </table>
+            </div>
 
             {{-- NAVIGATION ROWS --}}
             <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
@@ -731,21 +739,41 @@
 
 @section('scripts')
 <script>
+    @php
+      $myRoutes = [];
+      if(\Illuminate\Support\Facades\Route::has('leads.my.all')) {
+        $myRoutes['all'] = route('leads.my.all');
+      }
+      if(\Illuminate\Support\Facades\Route::has('leads.my.cold.list')) {
+        $myRoutes['cold'] = route('leads.my.cold.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('leads.my.warm.list')) {
+        $myRoutes['warm'] = route('leads.my.warm.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('leads.my.hot.list')) {
+        $myRoutes['hot'] = route('leads.my.hot.list');
+      }
+      if(\Illuminate\Support\Facades\Route::has('leads.my.deal.list')) {
+        $myRoutes['deal'] = route('leads.my.deal.list');
+      }
+    @endphp
+    
+    const myRoutes = @json($myRoutes);
+
     // LEADS
     const DEFAULT_PAGE_SIZE = 10;
     const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
     const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
-    // local totals (initialize from server-rendered counts so UI shows values immediately)
+
     const totals = {
-        all: {{ $leadCounts['all'] ?? 0 }},
-        cold: {{ $leadCounts['cold'] ?? 0 }},
-        warm: {{ $leadCounts['warm'] ?? 0 }},
-        hot: {{ $leadCounts['hot'] ?? 0 }},
-        deal: {{ $leadCounts['deal'] ?? 0 }}
+        all : {{ $leadCounts['all'] ?? 0}},
+        cold : {{ $leadCounts['cold'] ?? 0}},
+        warm : {{ $leadCounts['warm'] ?? 0}},
+        hot : {{ $leadCounts['hot'] ?? 0}},
+        deal : {{ $leadCounts['deal'] ?? 0}}
     };
 
     $(document).ready(function () {
-
         const sections = {
             all: $("#forAllCardsCounts"),
             cold: $("#forColdCardsCounts"),
@@ -767,26 +795,30 @@
 
             const selected = $(this).data("tab");
 
-            // Hide all
             $.each(sections, function (key, value) {
                 value.addClass("hidden");
             });
 
-            // Show selected
             sections[selected].removeClass("hidden");
 
-            // Reset animation
             resetAnimation(sections[selected]);
 
         });
 
     });
 
-    // return trimmed search query value
     function getSearchQuery() {
-        const el = document.getElementById('searchInput');
-        return (el?.value || '').trim();
+        const inputs = document.querySelectorAll('#searchInput');
+
+        for (let input of inputs) {
+            if (input.offsetParent !== null) {
+                return input.value.trim();
+            }
+        }
+
+        return '';
     }
+
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -820,807 +852,213 @@
     function goNext(tab) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalEl = document.getElementById(tab + 'Showing');
-        // We rely on updatePagerUI to enable/disable next button correctly.
+
         pageState[tab] = (pageState[tab] || 1) + 1;
         reloadTab(tab);
     }
 
     function reloadTab(tab) {
-        if (tab === 'all') loadAllLeads();
-        if (tab === 'cold') loadColdLeads();
-        if (tab === 'warm') loadWarmLeads();
-        if (tab === 'hot') loadHotLeads();
-        if (tab === 'deal') loadDealLeads();
+        if (myRoutes[tab]) {
+            initTable(tab, myRoutes[tab]);
+        } else {
+            console.warn('No route defined for ' + tab);
+        }
     }
 
-    async function loadColdLeads() {
-        const page = pageState.cold || 1;
+    function initTailwindTable(tab){
+      if(!myRoutes[tab]){
+        console.warn('No route defined for '+tab);
+        return;
+      }
+
+      initTable(tab, myRoutes[tab]);
+    }
+
+    function showTables(status){
+        if(status === 'all'){
+            $('[data-status-wrapper]').show();
+            ['cold','warm','hot'].forEach(function(tab){
+                if(myRoutes[tab]){
+                initTailwindTable(tab);
+                }
+            });
+        } else {
+            $('[data-status-wrapper]').hide();
+            $('[data-status-wrapper="'+status+'"]').show();
+            if(myRoutes[status]){
+                initTailwindTable(status);
+            }
+        }
+        $('.nav-leads-active').removeClass('active-nav');
+        $('.nav-leads-active[data-status="'+status+'"]').addClass('active-nav');
+    }
+
+    showTables('all');
+
+    $(document).on('click', '.nav-leads-active', function(){
+        const status = $(this).data('status');
+        if(!status) return;
+        showTables(status);
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        initTable('all', `${myRoutes['all']}`);
+        initTable('cold', `${myRoutes['cold']}`);
+        initTable('warm', `${myRoutes['warm']}`);
+        initTable('hot', `${myRoutes['hot']}`);
+        initTable('deal', `${myRoutes['deal']}`);
+
+        const navTabs = document.querySelectorAll('.nav-leads-active');
+        const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
+
+        function switchTab(statusTarget) {
+            tableWrappers.forEach(wrapper => {
+                wrapper.classList.add('hidden');
+            });
+
+            const targetWrapper = document.querySelector(`[data-status-wrapper="${statusTarget}"]`);
+            if (targetWrapper) {
+                targetWrapper.classList.remove('hidden');
+            }
+
+            navTabs.forEach(tab => {
+                if (tab.getAttribute('data-status') === statusTarget) {
+                    tab.classList.add('border-b-2', 'border-b-[#115640]', 'text-white'); 
+                } else {
+                    tab.classList.remove('border-b-2', 'border-b-[#115640]', 'text-white');
+                }
+            });
+        }
+
+        switchTab('all');
+
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', function () {
+                const statusTarget = this.getAttribute('data-status');
+                switchTab(statusTarget);
+            });
+        });
+    });
+
+
+    async function initTable(selector, route) {
+        const page = pageState[selector] || 1;
+        const perPage = pageSizeState[selector] || DEFAULT_PAGE_SIZE;
 
         const params = new URLSearchParams({
             page: page,
+            per_page: perPage,
             start_date: document.getElementById('filter_start')?.value || '',
             end_date: document.getElementById('filter_end')?.value || '',
             search: getSearchQuery()
         });
 
-            const response = await fetch(`{{ route('leads.my.cold.list') }}?${params.toString()}`, {
-                headers: {
-                    "X-CSRF-TOKEN": "{{ csrf_token() }}"
-                },
-                credentials: 'same-origin'
-            });
+        const response = await fetch(`${route}?${params.toString()}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+                
+        const result = await response.json();
+        totals[selector] = result.total || 0;
 
-            const result = await response.json();
+        updatePagerUI(selector, result.total);
+        if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
 
-            console.log('loadColdLeads result:', result);
-            try { document.getElementById('leadsDebug').innerText = 'COLD → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
+        const tbody = document.getElementById(`${selector}BodyTable`);
 
-            const tbody = document.getElementById('coldBody');
-            tbody.innerHTML = '';
+        tbody.innerHTML = '';
 
-            updatePagerUI('cold', result.total);
+        if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
 
-            // update local total and badges
-            totals.cold = result.total || 0;
-            updateBadgeCounts();
+        if (typeof totals !== 'undefined') {
+            if (selector === 'cold') totals.cold = result.total || 0;
+            if (selector === 'warm') totals.warm = result.total || 0;
+            if (selector === 'hot') totals.hot = result.total || 0;
+            if (selector === 'deal') totals.deal = result.total || 0;
+        }
 
+        if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+
+        if (result.data && result.data.length > 0) {
             result.data.forEach(row => {
+                let statusContent = '';
+                let statusClass = '';
+
+                if (selector === 'all') {
+                    const statusName = row.lead?.status?.name ?? '';
+                    statusContent = statusName;
+
+                    statusClass =
+                        statusName === 'Cold' ? 'status-cold' :
+                        statusName === 'Warm' ? 'status-warm' :
+                        statusName === 'Hot'  ? 'status-hot'  :
+                        statusName === 'Deal' ? 'status-deal' :
+                        '';
+
+                } else if (selector === 'cold') {
+                    statusContent = row.meeting_status ?? '-';
+
+                } else if (selector === 'warm') {
+                    statusContent = row.meeting_status ?? '-';
+                } else {
+                    const d = row.expire_in;
+
+                    if (d === null || d === undefined) {
+                        statusContent = '-';
+                    } 
+                    else if (d > 7) {
+                        statusContent = `<span class="span-deal rounded-sm font-normal! inline-block">${d} Days left</span>`;
+                    } 
+                    else if (d > 2) {
+                        statusContent = `<span class="span-warm rounded-sm font-normal! inline-block">${d} Days left</span>`;
+                    } 
+                    else if (d === 1) {
+                        statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Tomorrow</span>`;
+                    } 
+                    else if (d === 0) {
+                        statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Today</span>`;
+                    } 
+                    else {
+                        statusContent = `<span class="status-hot">Expired</span>`;
+                    }                    
+                }
 
                 tbody.innerHTML += `
-                    <tr class="border-b border-b-[#D9D9D9]">
+                    <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
                         <td class="hidden">${row.id}</td>
-                        <td class="p-3">${row.name}</td>
-                        <td>${row.sales_name}</td>
-                        <td>${row.phone}</td>
-                        <td>${row.source}</td>
-                        <td>${row.needs}</td>
-                        <td>${row.segment_name}</td>
-                        <td>${row.city_name}</td>
-                        <td>${row.regional_name}</td>
-                        <td class="text-left">${row.expire_in !== undefined ? (row.expire_in > 0 ? row.expire_in + ' days' : 'Expired') : row.meeting_status}</td>
-                        <td class="text-center">${row.actions}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? '-'}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? '-'}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.industry?.name ?? row.lead?.other_industry ?? '-'}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? ''}</td>
+                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? ''}</td>
+
+                        ${selector !== 'deal' ? `
+                            <td class="p-1 md:p-2 lg:p-3">
+                                <span class="block lg:px-2 lg:py-1 rounded-sm ${selector === 'all' ? statusClass : ''}">
+                                    ${statusContent || '-'}
+                                </span>
+                            </td>
+                        ` : ''}
+                        
+                        <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
                     </tr>
                 `;
             });
-}
-
-    async function loadAllLeads() {
-        const page = pageState.all || 1;
-        const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
-        const response = await fetch(`/api/leads/my/all?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`, {
-            credentials: 'same-origin'
-        });
-
-        const result = await response.json();
-
-        console.log('loadAllLeads result:', result);
-        try { document.getElementById('leadsDebug').innerText = 'ALL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
-
-        updatePagerUI('all', result.total);
-
-        const tbody = document.getElementById('allBody');
-        tbody.innerHTML = '';
-
-        // update local total and badges
-        totals.all = result.total || 0;
-        updateBadgeCounts();
-
-        result.data.forEach(row => {
-
-            const industry =
-                row.lead?.industry?.name ??
-                row.lead?.other_industry ??
-                '-';
-
-            tbody.innerHTML += `
-            <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
-                <td class="hidden">${row.id}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.name ?? ''}</td>
-                <td class="lg:p-3 sm:p-1">${row.sales?.name ?? '-'}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.phone ?? ''}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.source?.name ?? ''}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.needs ?? ''}</td>
-                <td class="lg:p-3 sm:p-1">${industry}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.region?.name ?? ''}</td>
-                <td class="lg:p-3 sm:p-1">${row.lead?.region?.regional?.name ?? ''}</td>
-                <td class="text-center capitalize lg:p-3 sm:p-1">
-                    <span class="lg:block lg:px-2 lg:py-1 rounded-sm
-                    ${
-                            row.lead?.status?.name === 'Cold' ? 'status-cold' :
-                            row.lead?.status?.name === 'Warm' ? 'status-warm' :
-                            row.lead?.status?.name === 'Hot' ? 'status-hot' :
-                            row.lead?.status?.name === 'Deal' ? 'status-deal' :
-                            ''
-                    }
-                    ">
-                        ${row.lead?.status?.name ?? ''}
-                    </span>
-                </td>
-                <td class="text-center lg:p-3 sm:p-1">
-                    ${row.actions ?? '-'}
-                </td>
-            </tr>
-        `;
-    });
-}
-
-    async function loadWarmLeads() {
-        const page = pageState.warm || 1;
-
-        const params = new URLSearchParams({
-            page: page,
-            start_date: document.getElementById('filter_start')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || '',
-            search: getSearchQuery()
-        });
-
-        const response = await fetch(`{{ route('leads.my.warm.list') }}?${params.toString()}`, {
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            credentials: 'same-origin'
-        });
-
-        const result = await response.json();
-
-        console.log('loadWarmLeads result:', result);
-        try { document.getElementById('leadsDebug').innerText = 'WARM → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
-
-        const tbody = document.getElementById('warmBody');
-        tbody.innerHTML = '';
-
-        updatePagerUI('warm', result.total);
-
-        // update local total and badges
-        totals.warm = result.total || 0;
-        updateBadgeCounts();
-
-        result.data.forEach(row => {
-
-            tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-1 lg:p-3">${row.lead_name}</td>
-                    <td class="p-1 lg:p-3">${row.sales_name}</td>
-                    <td class="p-1 lg:p-3">${row.phone}</td>
-                    <td class="p-1 lg:p-3">${row.source_name}</td>
-                    <td class="p-1 lg:p-3">${row.needs}</td>
-                    <td class="p-1 lg:p-3">${row.segment_name}</td>
-                    <td class="p-1 lg:p-3">${row.city_name}</td>
-                    <td class="p-1 lg:p-3">${row.regional_name}</td>
-                    <td class="text-left p-1 lg:p-3">
-                        ${(() => {
-                            const d = row.expire_in;
-                            if (d === null || d === undefined) return (row.meeting_status || '-');
-                            if (d > 1) return d + ' days left';
-                            if (d === 1) return 'tomorrow';
-                            if (d === 0) return 'today';
-                            return 'Expired';
-                        })()}
-                    </td>
-                    <td class="text-center">${row.actions}</td>
-                </tr>
-            `;
-        });
-}
-    
-    async function loadHotLeads() {
-        const page = pageState.hot || 1;
-
-        const params = new URLSearchParams({
-            page: page,
-            start_date: document.getElementById('filter_start')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || '',
-            search: getSearchQuery()
-        });
-
-        const response = await fetch(`{{ route('leads.my.hot.list') }}?${params.toString()}`, {
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            credentials: 'same-origin'
-        });
-
-        const result = await response.json();
-
-        console.log('loadHotLeads result:', result);
-        try { document.getElementById('leadsDebug').innerText = 'HOT → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
-
-        const tbody = document.getElementById('hotBody');
-        tbody.innerHTML = '';
-
-        updatePagerUI('hot', result.total);
-
-        // update local total and badges
-        totals.hot = result.total || 0;
-        updateBadgeCounts();
-
-        result.data.forEach(row => {
-
-            tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E] text-xs! lg:text-sm!">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-1 lg:p-3">${row.lead_name}</td>
-                    <td class="p-1 lg:p-3">${row.sales_name}</td>
-                    <td class="p-1 lg:p-3">${row.phone}</td>
-                    <td class="p-1 lg:p-3">${row.source_name}</td>
-                    <td class="p-1 lg:p-3">${row.needs}</td>
-                    <td class="p-1 lg:p-3">${row.segment_name}</td>
-                    <td class="p-1 lg:p-3">${row.city_name}</td>
-                    <td class="p-1 lg:p-3">${row.regional_name}</td>
-                    <td class="text-left p-1 lg:p-3">${(() => {
-                        const d = row.expire_in;
-                        if (d === null || d === undefined) return (row.meeting_status || '-');
-                        if (d > 7) return '<span class="span-deal rounded-sm font-normal! inline-block">' + d + ' Days left</span>';
-                        if (d > 2) return '<span class="span-warm rounded-sm font-normal! inline-block">' + d + ' Days left</span>';
-                        if (d === 1) return '<span class="span-hot rounded-sm font-normal! inline-block">Tomorrow</span>';
-                        if (d === 0) return '<span class="span-hot rounded-sm font-normal! inline-block">Today</span>';
-                        return 'Expired';
-                    })()}</td>
-                    <td class="text-center">${row.actions}</td>
-                </tr>
-            `;
-        });
+        } else {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+        }
     }
 
-    async function loadDealLeads() {
-        const page = pageState.deal || 1;
-
-        const params = new URLSearchParams({
-            page: page,
-            start_date: document.getElementById('filter_start')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || '',
-            search: getSearchQuery()
-        });
-
-        const response = await fetch(`{{ route('leads.my.deal.list') }}?${params.toString()}`, {
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            credentials: 'same-origin'
-        });
-
-        const result = await response.json();
-
-        console.log('loadDealLeads result:', result);
-        try { document.getElementById('leadsDebug').innerText = 'DEAL → total:' + (result.total||0) + ' rows:' + (result.data?.length||0); } catch(e) {}
-
-        const tbody = document.getElementById('dealBody');
-        tbody.innerHTML = '';
-
-        updatePagerUI('deal', result.total);
-
-        // update local total and badges
-        totals.deal = result.total || 0;
-        updateBadgeCounts();
-
-        result.data.forEach(row => {
-
-            tbody.innerHTML += `
-                <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E] text-xs lg:text-sm">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-1 lg:p-3">${row.lead_name}</td>
-                    <td class="p-1 lg:p-3">${row.sales_name}</td>
-                    <td class="p-1 lg:p-3">${row.phone}</td>
-                    <td class="p-1 lg:p-3">${row.source_name}</td>
-                    <td class="p-1 lg:p-3">${row.needs}</td>
-                    <td class="p-1 lg:p-3">${row.segment_name}</td>
-                    <td class="p-1 lg:p-3">${row.city_name}</td>
-                    <td class="p-1 lg:p-3">${row.regional_name}</td>
-                    <td class="text-center p-1 lg:p-3">${row.actions}</td>
-                </tr>
-            `;
-        });
-    }
-
-    function initLeadTable(selector, route, type = 'default') {
-            let columns;
-
-            if (type === 'cold') {
-                columns = [{
-                        data: 'id',
-                        visible: false
-                    },
-                    {
-                        data: 'name'
-                    },
-                    {
-                        data: 'sales_name'
-                    },
-                    {
-                        data: 'phone'
-                    },
-                    {
-                        data: 'source',
-                        name: 'source'
-                    },
-                    {
-                        data: 'needs'
-                    },
-                    {
-                        data: 'industry',
-                        render: function(data, type, row) {
-                            if (row.industry && row.industry.trim() !== '') {
-                                return row.industry;
-                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== '') {
-                                return row.lead.other_industry;
-                            } else {
-                                return  'Belum Diisi';
-                            }
-                        }
-                    },
-                    {
-                        data: 'city_name'
-                    },
-                    {
-                        data: 'regional_name'
-                    },
-                    (type === 'hot' ? {
-                        data: 'expire_in',
-                        render: function(data, type, row) {
-                            if (data === null || data === undefined) return '-';
-                            return data > 0 ? data + ' days' : 'Expired';
-                        },
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    } : {
-                        data: 'meeting_status',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    }),
-                    {
-                        data: 'actions',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    }
-                ];
-            } else {
-                columns = [{
-                        data: 'id',
-                        visible: false
-                    },
-                    {
-                        data: 'claimed_at',
-                        name: 'claimed_at',
-                        render: function(data) {
-                            if (!data) return '';
-                            return new Date(data).toLocaleString('en-GB', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            });
-                        }
-                    },
-                    {
-                        data: 'lead_name',
-                        name: 'lead_name'
-                    },
-                     {
-                        data: 'industry',
-                        render: function(data, type, row) {
-                            if (row.industry && row.industry.trim() !== ''&& row.industry.trim() !== '-') {
-                                return row.industry;
-                            } else if (row.lead.other_industry && row.lead.other_industry.trim() !== ''&& row.industry.trim() !== '-') {
-                                return row.lead.other_industry;
-                            } else {
-                                return  'Belum Diisi';
-                            }
-                        }
-                    },
-                    {
-                        data: 'meeting_status',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    },
-                    {
-                        data: 'actions',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
-                    }
-                ];
-            }
-
-            return $(selector).DataTable({
-                processing: true,
-                serverSide: false,
-                ajax: {
-                    url: route,
-                    type: 'GET',
-                    dataSrc: 'data',
-                    data: function(d) {
-                        // map DataTables params into API filter params
-                        return {
-                            start_date: $('#filter_start').val(),
-                            end_date: $('#filter_end').val(),
-                            search: $('#searchInput').val().trim()
-                        };
-                    },
-                    xhrFields: {
-                        withCredentials: true
-                    }
-                },
-                columns: columns,
-                order: [
-                    [0, 'desc']
-                ]
-            });
-        } 
-        
-        $(function() {
-            const coldTable = initLeadTable('#coldLeadsTable', '{{ route('leads.my.cold.list') }}', 'cold');
-            const warmTable = initLeadTable('#warmLeadsTable', '{{ route('leads.my.warm.list') }}');
-            const hotTable = initLeadTable('#hotLeadsTable', '{{ route('leads.my.hot.list') }}', 'hot');
-            const dealTable = initLeadTable('#dealLeadsTable', '{{ route('leads.my.deal.list') }}');
-
-            // debounce helper
-            function debounce(fn, wait) {
-                let t;
-                return function(...args) {
-                    clearTimeout(t);
-                    t = setTimeout(() => fn.apply(this, args), wait);
-                };
-            }
-
-            // debounced remote reload to avoid overwriting immediate DOM filter
-            const remoteReloadDebounced = debounce(function() {
-                try { coldTable.ajax.reload(); } catch(e) {}
-                try { warmTable.ajax.reload(); } catch(e) {}
-                try { hotTable.ajax.reload(); } catch(e) {}
-                try { dealTable.ajax.reload(); } catch(e) {}
-
-                // refresh server-backed custom loaders
-                loadAllLeads();
-                loadColdLeads();
-                loadWarmLeads();
-                loadHotLeads();
-                loadDealLeads();
-
-                updateBadgeCounts();
-            }, 700);
-
-            // called when search input changes
-            function onSearchChanged() {
-                const q = getSearchQuery();
-
-                // reset pager
-                pageState.all = pageState.cold = pageState.warm = pageState.hot = pageState.deal = 1;
-
-                // For DataTables instances, use DataTables search (client-side)
-                try { coldTable.search(q).draw(); } catch(e) {}
-                try { warmTable.search(q).draw(); } catch(e) {}
-                try { hotTable.search(q).draw(); } catch(e) {}
-                try { dealTable.search(q).draw(); } catch(e) {}
-
-                // Also apply DOM filtering to our custom "New" tables immediately
-                applyDomFilterToCustomTable('allBody', q, 'all');
-                applyDomFilterToCustomTable('coldBody', q, 'cold');
-                applyDomFilterToCustomTable('warmBody', q, 'warm');
-                applyDomFilterToCustomTable('hotBody', q, 'hot');
-                applyDomFilterToCustomTable('dealBody', q, 'deal');
-
-                // If there's a query, don't immediately trigger remote reload (avoid overwrite).
-                // Only schedule remote reload when query is cleared.
-                if (!q) {
-                    remoteReloadDebounced();
-                }
-            }
-
-            function applyDomFilterToCustomTable(tbodyId, query, tab) {
-                const tbody = document.getElementById(tbodyId);
-                if (!tbody) return;
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const q = (query || '').toLowerCase();
-                let visible = 0;
-                rows.forEach(r => {
-                    if (!q) {
-                        r.style.display = '';
-                        visible++;
-                        return;
-                    }
-                    const text = r.innerText.toLowerCase();
-                    const show = text.indexOf(q) !== -1;
-                    r.style.display = show ? '' : 'none';
-                    if (show) visible++;
-                });
-
-                // update pager info for this tab to reflect filtered count
-                const showingEl = document.getElementById(tab + 'Showing');
-                if (showingEl) {
-                    showingEl.innerText = q ? `Showing 1-${visible} of ${visible}` : `Showing 0-0 of ${totals[tab] || 0}`;
-                }
-            }
-
-            const searchEl = document.getElementById('searchInput');
-            
-            if (searchEl) {
-                searchEl.addEventListener('input', debounce(onSearchChanged, 350));
-            }
-
-            const notes = {
-                warm: 'Filter tanggal berdasarkan Tanggal Approve pertama',
-                hot: 'Filter tanggal berdasarkan Booking Fee',
-                deal: 'Filter tanggal berdasarkan Termin Satu (Complete)'
-            };
-
-            const $toggleFilterBtn = $('#toggleFilterBtn');
-            const $filterCollapse = $('#filterCollapse');
-
-            window.updateBadgeCounts = function() {
-                // Use local totals (keeps UI responsive and avoids extra server call)
-                $('#cold-tab .badge').text(totals.cold || 0);
-                $('#warm-tab .badge').text(totals.warm || 0);
-                $('#hot-tab .badge').text(totals.hot || 0);
-                $('#deal-tab .badge').text(totals.deal || 0);
-
-                // update the summary nav counts
-                $('.span-cold').text(totals.cold || 0);
-                $('.span-warm').text(totals.warm || 0);
-                $('.span-hot').text(totals.hot || 0);
-                $('.span-deal').text(totals.deal || 0);
-                $('.span-all').text('(' + (totals.all || 0) + ')');
-            };
-
-            function updateFilterVisibility() {
-                const activeId = $('#leadTabs .nav-link.active').attr('id');
-                if (activeId === 'cold-tab') {
-                    $('#dateFilterRow').hide();
-                    $('#filterNote').text('');
-                    $filterCollapse.collapse('hide');
-                    $toggleFilterBtn.hide();
-                } else {
-                    $('#dateFilterRow').show();
-                    $toggleFilterBtn.show();
-                    if (activeId === 'warm-tab') $('#filterNote').text(notes.warm);
-                    if (activeId === 'hot-tab') $('#filterNote').text(notes.hot);
-                    if (activeId === 'deal-tab') $('#filterNote').text(notes.deal);
-                }
-            }
-
-            updateFilterVisibility();
-            $('#leadTabs a[data-toggle="tab"]').on('shown.bs.tab', updateFilterVisibility);
-            updateBadgeCounts();
-
-            $('#btnFilter').on('click', function() {
-                // reload both DataTables and our custom 'New' tables
-                warmTable.ajax.reload();
-                hotTable.ajax.reload();
-                dealTable.ajax.reload();
-                // reload custom loaders
-                // reset pager to first page for all custom lists
-                pageState.all = pageState.cold = pageState.warm = pageState.hot = pageState.deal = 1;
-                loadAllLeads();
-                loadColdLeads();
-                loadWarmLeads();
-                loadHotLeads();
-                loadDealLeads();
-                updateBadgeCounts();
-            });
-
-            const fileInput = document.getElementById('activity_attachment');
-            if (fileInput) {
-                fileInput.addEventListener('change', function(e) {
-                    const name = e.target.files[0]?.name || 'Attachment';
-                    e.target.nextElementSibling.innerText = name;
-                });
-            }
-
-                function setActiveNav(tab) {
-                    $('.nav-leads').removeClass('active-nav');
-                    $('.nav-leads[data-tab="' + tab + '"]').addClass('active-nav');
-                    
-                    if (tab === 'all') {
-                        $('.leads-table-container').hide();
-                        $('.leads-table-container[data-tab-container="all"]').show();
-                    } else {
-                        $('.leads-table-container').hide();
-                        $('.leads-table-container[data-tab-container="' + tab + '"]').show();
-                    }
-
-                    pageState[tab] = 1;
-                    reloadTab(tab);
-                }
-
-            // init: default to 'all'
-            setActiveNav('all');
-
-            $('.nav-leads').on('click', function() {
-                setActiveNav($(this).data('tab'));
-            });
-        });
-
-        $(document).ready(function () {
-            flatpickr("#logged_at", {
-                dateFormat: "Y-m-d",
-                defaultDate: "{{ date('Y-m-d') }}",
-                allowInput: true,
-                disableMobile: true
-            });
-        });
-
-        // Cancel Meeting
-        $(document).on('click', '.cancel-meeting', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url');
-            const isOnline = $(this).data('online') === 1 || $(this).data('online') === '1';
-            const isRejected = $(this).data('status') === 'rejected';
-            const text = isOnline || isRejected ?
-                'Are you sure you want to cancel this meeting?' :
-                'Please return the expense to finance before cancelling. Have you returned it?';
-
-            Swal.fire({
-                title: 'Cancel Meeting',
-                text: text,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Yes',
-                cancelButtonText: 'No',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#aaa'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.post(url, {
-                        _token: $('meta[name="csrf-token"]').attr('content')
-                    }, function(res) {
-                        notif(res.message || 'Meeting canceled');
-                        $('#coldLeadsTable').DataTable().ajax.reload();
-                    }).fail(function(xhr) {
-                        let err = 'Failed to cancel meeting';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            err = xhr.responseJSON.message;
-                        }
-                        notif(err, 'error');
-                    });
-                }
-            });
-        });
-
-        // Activity Logs
-        $(document).on('click', '.btn-activity-log', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url');
-            const tbody = $('#activityLogModal tbody');
-            $('#activityLogForm').data('url', url);
-            tbody.html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
-            $('#activityLogModal').modal('show');
-            $.get(url, function(data) {
-                let rows = '';
-                data.forEach(function(item) {
-                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
-                        '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
-                        '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
-                        '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
-                        '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item.attachment +
-                            '" class="btn btn-sm btn-outline-secondary">Download</a>' : '-') +
-                        '</td>' +
-                        '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
-                        '</tr>';
-                });
-                tbody.html(rows || '<tr><td colspan="5" class="text-center p-3">No logs</td></tr>');
-            });
-        });
-
-        // ACTIVITY LOG
-        $('#activityLogForm').on('submit', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url');
-            const formData = new FormData(this);
-            formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
-            $.ajax({
-                url: url,
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(res) {
-                    notif(res.message || 'Saved');
-                    $("#activityLogForm input[name='note']").val('');
-                    $('#activity_attachment').val('');
-                    $('#activity_attachment').next('.custom-file-label').text('Attachment');
-                    $.get(url, function(data) {
-                        let rows = '';
-                        data.forEach(function(item) {
-                            rows += '<tr class="border-b border-b-[#D9D9D9]">' +
-                                '<td class="p-3">' + item.logged_at + '</td>' +
-                                '<td>' + item.code + ' - ' + item.activity + '</td>' +
-                                '<td class="max-w-60 truncate">' + (item.note || '') + '</td>' +
-                                '<td>' + (item.attachment ? '<a href="' + item
-                                    .attachment +
-                                    '" class="btn btn-sm btn-outline-secondary">Download</a>' :
-                                    '-') + '</td>' +
-                                '<td>' + item.user + '</td>' +
-                                '</tr>';
-                        });
-                        $('#activityLogModal tbody').html(rows ||
-                            '<tr><td colspan="5" class="text-center">No logs</td></tr>');
-                    });
-                },
-                error: function(xhr) {
-                    let err = 'Failed to save log';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        err = xhr.responseJSON.message;
-                    }
-                    notif(err, 'error');
-                }
-            });
-        });
-
-        // Quotation Logs
-        $(document).on('click', '.btn-quotation-log', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url');
-            const tbody = $('#quotationLogModal tbody');
-            tbody.html('<tr><td colspan="3" class="text-center">Loading...</td></tr>');
-            $('#quotationLogModal').modal('show');
-            $.get(url, function(data) {
-                let rows = '';
-                data.forEach(function(item) {
-                    rows += '<tr class="border-t border-t-[#D9D9D9]">' +
-                        '<td class="lg:p-3 p-1">' + item.logged_at + '</td>' +
-                        '<td class="lg:p-3 p-1">' + item.action + '</td>' +
-                        '<td class="lg:p-3 p-1">' + item.user + '</td>' +
-                        '</tr>';
-                });
-                tbody.html(rows || '<tr><td colspan="3" class="text-center">No logs</td></tr>');
-            });
-        });
-
-        // Trash Lead
-        $(document).on('click', '.trash-lead', function(e) {
-            e.preventDefault();
-            const url = $(this).data('url');
-
-            Swal.fire({
-                title: 'Trash Lead',
-                text: 'Provide a reason for trashing this lead',
-                input: 'textarea',
-                inputAttributes: {
-                    required: true
-                },
-                inputPlaceholder: 'Enter reason here...',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Submit',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#aaa',
-                preConfirm: (note) => {
-                    if (!note) {
-                        Swal.showValidationMessage('Note is required');
-                    }
-                    return note;
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.post(url, {
-                        _token: $('meta[name="csrf-token"]').attr('content'),
-                        note: result.value
-                    }, function(res) {
-                        notif(res.message || 'Lead moved to trash');
-                        $('#coldLeadsTable').DataTable().ajax.reload();
-                        $('#warmLeadsTable').DataTable().ajax.reload();
-                    }).fail(function(xhr) {
-                        let err = 'Failed to trash lead';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            err = xhr.responseJSON.message;
-                        }
-                        notif(err, 'error');
-                    });
-                }
-            });
-        });
-    
-    // FETCH SUMMARY EVERY STAGE
     $(document).ready(function () {
         loadColdSummary();
         loadWarmSummary();
         loadHotSummary();
+        // Kalo nyari loadDealSummary() kagak ada, tariknya udah langsung $leadCounts
     });
 
     function loadColdSummary(){
@@ -1704,8 +1142,6 @@
         $("#summary-hot-expire-7-days").text(hot.expiring_7_days);
         $("#summary-hot-expire-8-days-more").text(hot.expiring_8_plus_days);
     }
-
-    
 </script>
 @endsection
 
