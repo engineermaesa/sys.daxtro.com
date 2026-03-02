@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\LeadRegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Dashboard\DashSummaryController;
+use App\Http\Controllers\Dashboard\LeadSummaryController;
 
 // LEADS (API)
 use App\Http\Controllers\Leads\LeadActivityController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Leads\HotLeadController;
 use App\Http\Controllers\Leads\DealLeadController;
 use App\Http\Controllers\Leads\MeetingController;
 use App\Http\Controllers\Leads\SummaryController;
+
 
 // MASTERS (API)
 use App\Http\Controllers\Masters\AccountController;
@@ -56,6 +58,12 @@ Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
 
+
+
+// =====================================
+// LEAD CLAIMS (API)    
+// =====================================
+
 // =====================================
 // Authentication (API)
 // =====================================
@@ -74,7 +82,14 @@ Route::group([
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
 
-    // FOR AVAILABLE LEADS (API)
+
+    // Dashboard Leads Summary (API)
+    Route::get('/grid', [LeadSummaryController::class, 'grid'])->name('grid');
+    Route::get('/active-opportunities', [LeadSummaryController::class, 'ActiveOpportunities'])->name('active-opportunities');
+    Route::get('/leads-performance', [LeadSummaryController::class, 'LeadsPerformance'])->name('leads-performance');
+    Route::get('/personal-trend', [LeadSummaryController::class, 'PersonalTrend'])->name('personal-trend');
+    Route::get('/summary', [LeadSummaryController::class, 'Summary'])->name('summary');
+
     Route::prefix('available')->name('availables.')->group(function () {
         Route::get('/index', [LeadController::class, 'available'])
             ->name('index');
@@ -86,9 +101,6 @@ Route::group([
             ->name('form');
         Route::post('/save/{id?}', [LeadController::class, 'save'])
             ->name('save');
-
-
-    
     });
 
     // FOR CLAIMING LEADS
@@ -110,7 +122,7 @@ Route::group([
             ->name('list');
         Route::get('/counts', [LeadController::class, 'manageCounts'])
             ->name('counts');
-            
+
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('form');
         Route::delete('/delete/{id}', [LeadController::class, 'delete'])
@@ -183,7 +195,7 @@ Route::group([
     Route::get('cold/list', 'TrashLeadController@coldList')->name('cold.list');
     Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
     Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');
-    
+
     Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
     Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
 });
