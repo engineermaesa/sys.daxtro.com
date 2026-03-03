@@ -858,6 +858,7 @@
                 $('#add-term-table').on('click', function() {
                     let idx = $('#terms-table-container tr.term-row').length + 1;
 
+                    // html
                     let html = `
                         <tr class="term-row border-b border-b-[#D9D9D9]">
                             <td class="flex items-center p-2 lg:p-3">
