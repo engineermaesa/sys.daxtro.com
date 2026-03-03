@@ -469,7 +469,7 @@
                                             @foreach ($terms as $i => $term)
                                                 <tr class="term-row border-b border-b-[#D9D9D9]">
                                                     <td class="flex items-center p-2 lg:p-3">
-                                                        <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg w-1/4 rounded-bl-lg">bangTerm  {{ $i + 1 }}</span>
+                                                        <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg w-1/4 rounded-bl-lg">Term  {{ $i + 1 }}</span>
                                                         <input
                                                             type="number" step="0.01"
                                                             name="term_percentage[]"
@@ -915,7 +915,7 @@
                         let html = `
                             <tr class="term-row border-b border-b-[#D9D9D9]">
                                 <td class="flex items-center p-2 lg:p-3">
-                                    <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg inline rounded-bl-lg">Term ${index + 1}</span>
+                                    <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg w-1/4 rounded-bl-lg">Term ${index + 1}</span>
                                     <input
                                         type="number" step="0.01"
                                         name="term_percentage[]"

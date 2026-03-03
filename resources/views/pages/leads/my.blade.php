@@ -2,7 +2,6 @@
 
 @section('content')
 
-
 <section class="min-h-screen sm:text-xs! lg:text-sm!">
     {{-- HEADER PAGES --}}
     <div class="pt-4">
@@ -431,8 +430,8 @@
                                 fill="#6B7786" />
                         </svg>
                     </div>
-                    <input id="searchInput" type="text" placeholder="Search"
-                        class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                    <input type="text" placeholder="Search"
+                        class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
                 <div class=" bg-[#115640] rounded-lg flex justify-center items-center">
                     <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-3 px-3 py-2">
@@ -455,16 +454,16 @@
                             fill="#6B7786" />
                     </svg>
                 </div>
-                <input id="searchInput" type="text" placeholder="Search"
-                    class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                <input type="text" placeholder="Search"
+                    class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
 
             {{-- NAVIGATION STATUS TABLES --}}
             <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
                 @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
                 {{-- NAVIGATION STATUS --}}
-                <div data-tab="{{ $tab }}"
-                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
+                <div data-status="{{ $tab }}"
+                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active">
                     <p class="text-[#083224]">
                         {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
                         <span class="{{ 
@@ -501,64 +500,8 @@
         </div>
 
         {{-- CONTENTS TABLES --}}
-        <div>
-            {{-- ALL STAGE TABLE --}}
-            <div data-tab-container="all" class="leads-table-container">
-                <div class="max-xl:overflow-x-scroll">
-                    <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                        {{-- HEADER TABLE --}}
-                        <thead class="text-[#1E1E1E]">
-                            <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="hidden">ID (hidden)</th>
-                                <th class="font-bold text-left lg:p-3 sm:p-1">Lead Name</th>
-                                <th class="lg:p-3 sm:p-1">Sales Name</th>
-                                <th class="lg:p-3 sm:p-1">Telephone</th>
-                                <th class="lg:p-3 sm:p-1">Source</th>
-                                <th class="lg:p-3 sm:p-1">Needs</th>
-                                <th class="lg:p-3 sm:p-1">Customer Type</th>
-                                <th class="lg:p-3 sm:p-1">City</th>
-                                <th class="lg:p-3 sm:p-1">Regional</th>
-                                <th class="text-center">Stage</th>
-                                <th class="text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="allBodyTable"></tbody>
-                    </table>
-                </div>
-
-                {{-- NAVIGATION ROWS --}}
-                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                    <div class="flex items-center gap-3">
-                        <p class="font-semibold">Show Rows</p>
-                        <select id="allPageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
-                            onchange="changePageSize('all', this.value)">
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <div id="allShowing" class="font-semibold">Showing 0-0 of 0</div>
-                        <div>
-                            <button id="allPrevBtn" class="btn bg-white border! border-[#D9D9D9]!"
-                                onclick="goPrev('all')">
-                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                            </button>
-                            <button id="allNextBtn" class="btn bg-white border! border-[#D9D9D9]!"
-                                onclick="goNext('all')">
-                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {{-- CONDITIONAL STAGE TABLE --}}
         @foreach(['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-        <div data-tab-container="{{ $tab }}" class="leads-table-container">
+        <div data-status-wrapper="{{ $tab }}" class="leads-table-container {{ $loop->first ? '' : 'hidden' }}">
             <div class="max-xl:overflow-x-scroll">
                 <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                     {{-- HEADER TABLE --}}
@@ -569,7 +512,13 @@
                             <th class="p-1 lg:p-3">Telephone</th>
                             <th class="p-1 lg:p-3">Source</th>
                             <th class="p-1 lg:p-3">Needs</th>
-                            <th class="p-1 lg:p-3">Segment</th>
+
+                            @if ($tab === 'all')
+                                <th class="p-1 lg:p-3">Customer Type</th>
+                            @else
+                                <th class="p-1 lg:p-3">Segment</th>
+                            @endif
+
                             <th class="p-1 lg:p-3">City</th>
                             <th class="p-1 lg:p-3">Regional</th>
     
@@ -773,51 +722,38 @@
         deal : {{ $leadCounts['deal'] ?? 0}}
     };
 
-    $(document).ready(function () {
-        const sections = {
-            all: $("#forAllCardsCounts"),
-            cold: $("#forColdCardsCounts"),
-            warm: $("#forWarmCardsCounts"),
-            hot: $("#forHotCardsCounts"),
-            deal: $("#forDealCardsCounts"),
-        };
+    let searchTimeout = null;
 
-        function resetAnimation($container) {
-            $container.find(".animate__animated").each(function () {
-                $(this)
-                    .removeClass("animate__fadeInUp")
-                    .width(); // trigger reflow
-                $(this).addClass("animate__fadeInUp");
-            });
+   function getSearchQuery() {
+        const activeInput = document.activeElement;
+        if (activeInput && activeInput.classList.contains('searchInput')) {
+            return activeInput.value.trim();
         }
 
-        $(".nav-leads").on("click", function () {
-
-            const selected = $(this).data("tab");
-
-            $.each(sections, function (key, value) {
-                value.addClass("hidden");
-            });
-
-            sections[selected].removeClass("hidden");
-
-            resetAnimation(sections[selected]);
-
+        let val = '';
+        document.querySelectorAll('.searchInput').forEach(input => {
+            if (input.value.trim() !== '') val = input.value.trim();
         });
-
-    });
-
-    function getSearchQuery() {
-        const inputs = document.querySelectorAll('#searchInput');
-
-        for (let input of inputs) {
-            if (input.offsetParent !== null) {
-                return input.value.trim();
-            }
-        }
-
-        return '';
+        return val;
     }
+
+    const searchInputs = document.querySelectorAll('.searchInput');
+    searchInputs.forEach(input => {
+        input.addEventListener('input', function () {
+            clearTimeout(searchTimeout);
+
+            searchTimeout = setTimeout(() => {
+                Object.keys(pageState).forEach(key => pageState[key] = 1);
+
+                const activeNav = document.querySelector('.nav-leads-active.text-white'); 
+                const activeTab = activeNav ? activeNav.getAttribute('data-status') : 'all';
+
+                console.log(`Searching for: "${this.value}" on tab: ${activeTab}`);
+                
+                reloadTab(activeTab);
+            }, 500);
+        });
+    });
 
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
@@ -877,7 +813,7 @@
     function showTables(status){
         if(status === 'all'){
             $('[data-status-wrapper]').show();
-            ['cold','warm','hot'].forEach(function(tab){
+            ['cold','warm','hot', 'deal'].forEach(function(tab){
                 if(myRoutes[tab]){
                 initTailwindTable(tab);
                 }
@@ -893,20 +829,43 @@
         $('.nav-leads-active[data-status="'+status+'"]').addClass('active-nav');
     }
 
-    showTables('all');
-
-    $(document).on('click', '.nav-leads-active', function(){
-        const status = $(this).data('status');
-        if(!status) return;
-        showTables(status);
-    });
-
     document.addEventListener("DOMContentLoaded", function() {
         initTable('all', `${myRoutes['all']}`);
         initTable('cold', `${myRoutes['cold']}`);
         initTable('warm', `${myRoutes['warm']}`);
         initTable('hot', `${myRoutes['hot']}`);
         initTable('deal', `${myRoutes['deal']}`);
+
+        const sections = {
+            all: $("#forAllCardsCounts"),
+            cold: $("#forColdCardsCounts"),
+            warm: $("#forWarmCardsCounts"),
+            hot: $("#forHotCardsCounts"),
+            deal: $("#forDealCardsCounts"),
+        };
+
+        function resetAnimation($container) {
+            $container.find(".animate__animated").each(function () {
+                $(this)
+                    .removeClass("animate__fadeInUp")
+                    .width(); // trigger reflow
+                $(this).addClass("animate__fadeInUp");
+            });
+        }
+
+        $(".nav-leads").on("click", function () {
+
+            const selected = $(this).data("status");
+
+            $.each(sections, function (key, value) {
+                value.addClass("hidden");
+            });
+
+            sections[selected].removeClass("hidden");
+
+            resetAnimation(sections[selected]);
+
+        });
 
         const navTabs = document.querySelectorAll('.nav-leads-active');
         const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
@@ -944,113 +903,119 @@
     async function initTable(selector, route) {
         const page = pageState[selector] || 1;
         const perPage = pageSizeState[selector] || DEFAULT_PAGE_SIZE;
+        const searchQuery = getSearchQuery();
 
         const params = new URLSearchParams({
             page: page,
             per_page: perPage,
             start_date: document.getElementById('filter_start')?.value || '',
             end_date: document.getElementById('filter_end')?.value || '',
-            search: getSearchQuery()
+            search: searchQuery
         });
 
-        const response = await fetch(`${route}?${params.toString()}`, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-                
-        const result = await response.json();
-        totals[selector] = result.total || 0;
-
-        updatePagerUI(selector, result.total);
-        if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-
-        const tbody = document.getElementById(`${selector}BodyTable`);
-
-        tbody.innerHTML = '';
-
-        if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
-
-        if (typeof totals !== 'undefined') {
-            if (selector === 'cold') totals.cold = result.total || 0;
-            if (selector === 'warm') totals.warm = result.total || 0;
-            if (selector === 'hot') totals.hot = result.total || 0;
-            if (selector === 'deal') totals.deal = result.total || 0;
-        }
-
-        if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-
-        if (result.data && result.data.length > 0) {
-            result.data.forEach(row => {
-                let statusContent = '';
-                let statusClass = '';
-
-                if (selector === 'all') {
-                    const statusName = row.lead?.status?.name ?? '';
-                    statusContent = statusName;
-
-                    statusClass =
-                        statusName === 'Cold' ? 'status-cold' :
-                        statusName === 'Warm' ? 'status-warm' :
-                        statusName === 'Hot'  ? 'status-hot'  :
-                        statusName === 'Deal' ? 'status-deal' :
-                        '';
-
-                } else if (selector === 'cold') {
-                    statusContent = row.meeting_status ?? '-';
-
-                } else if (selector === 'warm') {
-                    statusContent = row.meeting_status ?? '-';
-                } else {
-                    const d = row.expire_in;
-
-                    if (d === null || d === undefined) {
-                        statusContent = '-';
-                    } 
-                    else if (d > 7) {
-                        statusContent = `<span class="span-deal rounded-sm font-normal! inline-block">${d} Days left</span>`;
-                    } 
-                    else if (d > 2) {
-                        statusContent = `<span class="span-warm rounded-sm font-normal! inline-block">${d} Days left</span>`;
-                    } 
-                    else if (d === 1) {
-                        statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Tomorrow</span>`;
-                    } 
-                    else if (d === 0) {
-                        statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Today</span>`;
-                    } 
-                    else {
-                        statusContent = `<span class="status-hot">Expired</span>`;
-                    }                    
+        try {
+            const response = await fetch(`${route}?${params.toString()}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-
-                tbody.innerHTML += `
-                    <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.industry?.name ?? row.lead?.other_industry ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? ''}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? ''}</td>
-
-                        ${selector !== 'deal' ? `
-                            <td class="p-1 md:p-2 lg:p-3">
-                                <span class="block lg:px-2 lg:py-1 rounded-sm ${selector === 'all' ? statusClass : ''}">
-                                    ${statusContent || '-'}
-                                </span>
-                            </td>
-                        ` : ''}
-                        
-                        <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
-                    </tr>
-                `;
             });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+                    
+            const result = await response.json();
+            totals[selector] = result.total || 0;
+    
+            updatePagerUI(selector, result.total);
+            if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+    
+            const tbody = document.getElementById(`${selector}BodyTable`);
+    
+            tbody.innerHTML = '';
+    
+            if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
+    
+            if (typeof totals !== 'undefined') {
+                if (selector === 'cold') totals.cold = result.total || 0;
+                if (selector === 'warm') totals.warm = result.total || 0;
+                if (selector === 'hot') totals.hot = result.total || 0;
+                if (selector === 'deal') totals.deal = result.total || 0;
+            }
+    
+            if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+    
+            if (result.data && result.data.length > 0) {
+                result.data.forEach(row => {
+                    let statusContent = '';
+                    let statusClass = '';
+    
+                    if (selector === 'all') {
+                        const statusName = row.lead?.status?.name ?? '';
+                        statusContent = statusName;
+    
+                        statusClass =
+                            statusName === 'Cold' ? 'status-cold' :
+                            statusName === 'Warm' ? 'status-warm' :
+                            statusName === 'Hot'  ? 'status-hot'  :
+                            statusName === 'Deal' ? 'status-deal' :
+                            '';
+    
+                    } else if (selector === 'cold') {
+                        statusContent = row.meeting_status ?? '-';
+    
+                    } else if (selector === 'warm') {
+                        statusContent = row.meeting_status ?? '-';
+                    } else {
+                        const d = row.expire_in;
+    
+                        if (d === null || d === undefined) {
+                            statusContent = '-';
+                        } 
+                        else if (d > 7) {
+                            statusContent = `<span class="span-deal rounded-sm font-normal! inline-block">${d} Days left</span>`;
+                        } 
+                        else if (d > 2) {
+                            statusContent = `<span class="span-warm rounded-sm font-normal! inline-block">${d} Days left</span>`;
+                        } 
+                        else if (d === 1) {
+                            statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Tomorrow</span>`;
+                        } 
+                        else if (d === 0) {
+                            statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Today</span>`;
+                        } 
+                        else {
+                            statusContent = `<span class="status-hot">Expired</span>`;
+                        }                    
+                    }
+    
+                    tbody.innerHTML += `
+                        <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? '-'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? '-'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.segment?.name ?? row.lead?.customer_type ?? '-'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? ''}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? ''}</td>
+    
+                            ${selector !== 'deal' ? `
+                                <td class="p-1 md:p-2 lg:p-3">
+                                    <span class="block lg:px-2 lg:py-1 rounded-sm ${selector === 'all' ? statusClass : ''}">
+                                        ${statusContent || '-'}
+                                    </span>
+                                </td>
+                            ` : ''}
+                            
+                            <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+            }
+
+        } catch (error) {
+            console.error("Fetch error:", error);
         }
     }
 
@@ -1142,6 +1107,179 @@
         $("#summary-hot-expire-7-days").text(hot.expiring_7_days);
         $("#summary-hot-expire-8-days-more").text(hot.expiring_8_plus_days);
     }
+
+    // Cancel Meeting
+    $(document).on('click', '.cancel-meeting', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const isOnline = $(this).data('online') === 1 || $(this).data('online') === '1';
+        const isRejected = $(this).data('status') === 'rejected';
+        const text = isOnline || isRejected ?
+            'Are you sure you want to cancel this meeting?' :
+            'Please return the expense to finance before cancelling. Have you returned it?';
+
+        Swal.fire({
+            title: 'Cancel Meeting',
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes',
+            cancelButtonText: 'No',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#aaa'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post(url, {
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                }, function(res) {
+                    notif(res.message || 'Meeting canceled');
+                    $('#coldLeadsTable').DataTable().ajax.reload();
+                }).fail(function(xhr) {
+                    let err = 'Failed to cancel meeting';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        err = xhr.responseJSON.message;
+                    }
+                    notif(err, 'error');
+                });
+            }
+        });
+    });
+
+    // Activity Logs
+    $(document).on('click', '.btn-activity-log', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const tbody = $('#activityLogModal tbody');
+        $('#activityLogForm').data('url', url);
+        tbody.html('<tr><td colspan="5" class="text-center">Loading...</td></tr>');
+        $('#activityLogModal').modal('show');
+        $.get(url, function(data) {
+            let rows = '';
+            data.forEach(function(item) {
+                rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                    '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
+                    '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
+                    '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
+                    '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item.attachment +
+                        '" class="btn btn-sm btn-outline-secondary">Download</a>' : '-') +
+                    '</td>' +
+                    '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
+                    '</tr>';
+            });
+            tbody.html(rows || '<tr><td colspan="5" class="text-center p-3">No logs</td></tr>');
+        });
+    });
+
+    // ACTIVITY LOG
+    $('#activityLogForm').on('submit', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const formData = new FormData(this);
+        formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(res) {
+                notif(res.message || 'Saved');
+                $("#activityLogForm input[name='note']").val('');
+                $('#activity_attachment').val('');
+                $('#activity_attachment').next('.custom-file-label').text('Attachment');
+                $.get(url, function(data) {
+                    let rows = '';
+                    data.forEach(function(item) {
+                        rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                            '<td class="lg:p-3 sm:p-1">' + item.logged_at + '</td>' +
+                            '<td class="lg:p-3 sm:p-1">' + item.code + ' - ' + item.activity + '</td>' +
+                            '<td class="lg:max-w-60! lg:truncate! lg:p-3! sm:p-1!">' + (item.note || '') + '</td>' +
+                            '<td class="lg:p-3 sm:p-1">' + (item.attachment ? '<a href="' + item
+                                .attachment +
+                                '" class="btn btn-sm btn-outline-secondary">Download</a>' :
+                                '-') + '</td>' +
+                            '<td class="lg:p-3 sm:p-1">' + item.user + '</td>' +
+                            '</tr>';
+                    });
+                    $('#activityLogModal tbody').html(rows ||
+                        '<tr><td colspan="5" class="text-center">No logs</td></tr>');
+                });
+            },
+            error: function(xhr) {
+                let err = 'Failed to save log';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    err = xhr.responseJSON.message;
+                }
+                notif(err, 'error');
+            }
+        });
+    });
+
+    // Quotation Logs
+    $(document).on('click', '.btn-quotation-log', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+        const tbody = $('#quotationLogModal tbody');
+        tbody.html('<tr><td colspan="3" class="text-center">Loading...</td></tr>');
+        $('#quotationLogModal').modal('show');
+        $.get(url, function(data) {
+            let rows = '';
+            data.forEach(function(item) {
+                rows += '<tr class="border-t border-t-[#D9D9D9]">' +
+                    '<td class="lg:p-3 p-1">' + item.logged_at + '</td>' +
+                    '<td class="lg:p-3 p-1">' + item.action + '</td>' +
+                    '<td class="lg:p-3 p-1">' + item.user + '</td>' +
+                    '</tr>';
+            });
+            tbody.html(rows || '<tr><td colspan="3" class="text-center">No logs</td></tr>');
+        });
+    });
+
+    // Trash Lead
+    $(document).on('click', '.trash-lead', function(e) {
+        e.preventDefault();
+        const url = $(this).data('url');
+
+        Swal.fire({
+            title: 'Trash Lead',
+            text: 'Provide a reason for trashing this lead',
+            input: 'textarea',
+            inputAttributes: {
+                required: true
+            },
+            inputPlaceholder: 'Enter reason here...',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Submit',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#aaa',
+            preConfirm: (note) => {
+                if (!note) {
+                    Swal.showValidationMessage('Note is required');
+                }
+                return note;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post(url, {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    note: result.value
+                }, function(res) {
+                    notif(res.message || 'Lead moved to trash');
+                    $('#coldLeadsTable').DataTable().ajax.reload();
+                    $('#warmLeadsTable').DataTable().ajax.reload();
+                }).fail(function(xhr) {
+                    let err = 'Failed to trash lead';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        err = xhr.responseJSON.message;
+                    }
+                    notif(err, 'error');
+                });
+            }
+        });
+    });
+    
 </script>
 @endsection
 
