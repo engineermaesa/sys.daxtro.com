@@ -419,7 +419,7 @@
         {{-- NAVIGATION TABLES --}}
         <div
             class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
-
+            
             {{-- FOR SMALL SCREEN SECTION --}}
             <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
                 <div class="border border-gray-300 rounded-lg flex items-center p-2">
@@ -488,8 +488,7 @@
             </div>
             {{-- ADD MANUAL LEADS --}}
             <div class="lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
-                <a href="{{ route('leads.my.form') }}"
-                    class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
+                <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
@@ -522,15 +521,15 @@
 
                             <th class="p-1 lg:p-3">City</th>
                             <th class="p-1 lg:p-3">Regional</th>
-
+    
                             @if ($tab === 'cold' || $tab === 'warm')
-                            <th class="text-left">Status</th>
+                                <th class="text-left">Status</th>
                             @endif
-
+    
                             @if ($tab === 'hot')
-                            <th class="text-left">Quotation Expire In</th>
+                                <th class="text-left">Quotation Expire In</th>
                             @endif
-
+    
                             <th class="text-center p-3">Action</th>
                         </tr>
                     </thead>
@@ -724,18 +723,11 @@
     };
 
     let searchTimeout = null;
+    let searchState = '';
+    let activeTabState = 'all';
 
    function getSearchQuery() {
-        const activeInput = document.activeElement;
-        if (activeInput && activeInput.classList.contains('searchInput')) {
-            return activeInput.value.trim();
-        }
-
-        let val = '';
-        document.querySelectorAll('.searchInput').forEach(input => {
-            if (input.value.trim() !== '') val = input.value.trim();
-        });
-        return val;
+        return searchState;
     }
 
     const searchInputs = document.querySelectorAll('.searchInput');
@@ -743,13 +735,18 @@
         input.addEventListener('input', function () {
             clearTimeout(searchTimeout);
 
+            const query = this.value;
+            searchState = query.trim();
+            searchInputs.forEach(el => {
+                if (el !== this) el.value = query;
+            });
+
             searchTimeout = setTimeout(() => {
                 Object.keys(pageState).forEach(key => pageState[key] = 1);
 
-                const activeNav = document.querySelector('.nav-leads-active.text-white'); 
-                const activeTab = activeNav ? activeNav.getAttribute('data-status') : 'all';
+                const activeTab = activeTabState || 'all';
 
-                console.log(`Searching for: "${this.value}" on tab: ${activeTab}`);
+                console.log(`Searching for: "${searchState}" on tab: ${activeTab}`);
                 
                 reloadTab(activeTab);
             }, 500);
@@ -872,6 +869,7 @@
         const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
 
         function switchTab(statusTarget) {
+            activeTabState = statusTarget;
             tableWrappers.forEach(wrapper => {
                 wrapper.classList.add('hidden');
             });
@@ -920,30 +918,6 @@
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 }
-
-                tbody.innerHTML += `
-                    <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.segment?.name ?? row.lead?.customer_type ?? '-'}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? ''}</td>
-                        <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? ''}</td>
-
-                        ${selector !== 'deal' ? `
-                            <td class="p-1 md:p-2 lg:p-3">
-                                <span class="block lg:px-2 lg:py-1 rounded-sm ${selector === 'all' ? statusClass : ''}">
-                                    ${statusContent || '-'}
-                                </span>
-                            </td>
-                        ` : ''}
-                        
-                        <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
-                    </tr>
-                `;
             });
                     
             const result = await response.json();
