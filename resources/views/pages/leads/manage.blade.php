@@ -1215,7 +1215,7 @@
         }
 
         async function fetchSearchResults(query) {
-            const apiUrl = `https://sys-daxtro-com-main.test/api/leads/manage/list?search=${encodeURIComponent(query)}`;
+            const apiUrl = `/api/leads/manage/list?search=${encodeURIComponent(query)}`;
 
             try {
                 const tbody = document.getElementById('allBody');
@@ -1252,15 +1252,22 @@
         let debounceTimer;
         const searchInputs = document.querySelectorAll('#searchInput');
 
+        function handleSearchInputDebounced(input) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const query = input.value.trim();
+                const activeNav = document.querySelector('.nav-leads.active-nav');
+                const currentTab = activeNav ? activeNav.dataset.tab : 'all';
+
+                // If search is empty, reload the current tab to reset results.
+                // If search has value, reload the current tab which will include the search query via getSearchQuery().
+                reloadTab(currentTab);
+            }, 500);
+        }
+
         searchInputs.forEach(input => {
             input.addEventListener('input', function () {
-
-                clearTimeout(debounceTimer);
-
-                debounceTimer = setTimeout(() => {
-                    fetchSearchResults(this.value.trim());
-                }, 500);
-
+                handleSearchInputDebounced(this);
             });
         });
 

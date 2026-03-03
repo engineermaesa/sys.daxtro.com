@@ -35,7 +35,7 @@ class LeadSeeder extends Seeder
             DB::table('lead_sources')->updateOrInsert(['name' => $name], ['name' => $name]);
         }
 
-        $segments = ['Corporate', 'Government', 'Personal', 'FOB'];
+        $segments = ['Corporate', 'Government', 'Personal', 'SOB'];
         
         foreach ($segments as $name) {
             DB::table('lead_segments')->updateOrInsert(['name' => $name], ['name' => $name]);
