@@ -723,18 +723,11 @@
     };
 
     let searchTimeout = null;
+    let searchState = '';
+    let activeTabState = 'all';
 
    function getSearchQuery() {
-        const activeInput = document.activeElement;
-        if (activeInput && activeInput.classList.contains('searchInput')) {
-            return activeInput.value.trim();
-        }
-
-        let val = '';
-        document.querySelectorAll('.searchInput').forEach(input => {
-            if (input.value.trim() !== '') val = input.value.trim();
-        });
-        return val;
+        return searchState;
     }
 
     const searchInputs = document.querySelectorAll('.searchInput');
@@ -742,13 +735,18 @@
         input.addEventListener('input', function () {
             clearTimeout(searchTimeout);
 
+            const query = this.value;
+            searchState = query.trim();
+            searchInputs.forEach(el => {
+                if (el !== this) el.value = query;
+            });
+
             searchTimeout = setTimeout(() => {
                 Object.keys(pageState).forEach(key => pageState[key] = 1);
 
-                const activeNav = document.querySelector('.nav-leads-active.text-white'); 
-                const activeTab = activeNav ? activeNav.getAttribute('data-status') : 'all';
+                const activeTab = activeTabState || 'all';
 
-                console.log(`Searching for: "${this.value}" on tab: ${activeTab}`);
+                console.log(`Searching for: "${searchState}" on tab: ${activeTab}`);
                 
                 reloadTab(activeTab);
             }, 500);
@@ -871,6 +869,7 @@
         const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
 
         function switchTab(statusTarget) {
+            activeTabState = statusTarget;
             tableWrappers.forEach(wrapper => {
                 wrapper.classList.add('hidden');
             });
