@@ -1592,6 +1592,13 @@ class LeadController extends Controller
         $user    = $request->user();
         $perPage = $request->get('per_page', 10);
 
+        $allowedStatuses = [
+            LeadStatus::COLD,
+            LeadStatus::WARM,
+            LeadStatus::HOT,
+            LeadStatus::DEAL,
+        ];
+
         $claims = LeadClaim::with([
                 'lead.status',
                 'lead.segment',
@@ -1601,16 +1608,19 @@ class LeadController extends Controller
                 'lead.industry',
                 'sales'
             ])
-            ->whereNull('released_at');
+            ->whereNull('released_at')
+            ->whereHas('lead', function ($q) use ($request, $allowedStatuses) {
+                // Selalu batasi hanya ke status aktif (Cold/Warm/Hot/Deal)
+                $q->whereIn('status_id', $allowedStatuses);
+
+                // Optional: filter tambahan jika `status` dikirim dan masih termasuk allowed
+                if ($request->filled('status') && in_array((int) $request->status, $allowedStatuses, true)) {
+                    $q->where('status_id', (int) $request->status);
+                }
+            });
 
         if ($user->role?->code === 'sales') {
             $claims->where('sales_id', $user->id);
-        }
-
-        if ($request->filled('status')) {
-            $claims->whereHas('lead', fn($q) =>
-                $q->where('status_id', $request->status)
-            );
         }
 
         if ($request->filled('search')) {

@@ -148,7 +148,7 @@ class TrashLeadController extends Controller
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
-            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? $row->lead->customer_type ?? '-';
             $row->city_name     = $row->lead->city->name ?? '-';
             $row->regional_name = $row->lead->region->regional->name ?? '-';
             
@@ -243,7 +243,7 @@ class TrashLeadController extends Controller
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
-            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? $row->lead->customer_type ?? '-';
             $row->city_name     = $row->lead->city->name ?? '-';
             $row->regional_name = $row->lead->region->regional->name ?? '-';
             
@@ -339,7 +339,7 @@ class TrashLeadController extends Controller
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
-            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? $row->lead->customer_type ?? '-';
             $row->city_name     = $row->lead->city->name ?? '-';
             $row->regional_name = $row->lead->region->regional->name ?? '-';
             
@@ -439,7 +439,7 @@ class TrashLeadController extends Controller
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
-            $row->segment_name  = $row->lead->segment->name ?? '-';
+            $row->segment_name  = $row->lead->segment->name ?? $row->lead->customer_type ?? '-';
             $row->city_name     = $row->lead->city->name ?? '-';
             $row->regional_name = $row->lead->region->regional->name ?? '-';
             
