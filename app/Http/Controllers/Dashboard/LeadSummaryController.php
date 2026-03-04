@@ -242,9 +242,9 @@ class LeadSummaryController extends Controller
         $data = [
             'status' => 'success',
             'Data' => [
-                'AchievementTarget' => [
+                'achievement_target' => [
                     'target' => $target,
-                    'achievment' => $monetaryActual,
+                    'achievement' => $monetaryActual,
                     'percentage' => $achievementPercentage,
                 ],
                 'closed_deal' => [

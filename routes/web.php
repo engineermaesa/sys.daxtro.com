@@ -18,6 +18,7 @@ use App\Http\Controllers\Leads\SummaryController;
 // });
 
 Route::middleware('guest')->group(function () {
+    
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 

@@ -10,8 +10,9 @@
     <link href="{{ asset('sb-admin-2/css/sb-admin-2.min.css?v=1') }}" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/sweetalert2.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/main.css') }}">
+    @vite('resources/css/app.css')
 </head>
-<body class="bg-gradient-primary d-flex align-items-center justify-content-center min-vh-100">
+<body class="bg-black">
     @yield('content')
     <script src="{{ asset('sb-admin-2/vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('sb-admin-2/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>

@@ -1,48 +1,46 @@
 @extends('layouts.auth')
 
 @section('content')
-<div class="container min-vh-100 d-flex align-items-center justify-content-center">
-    <div class="row justify-content-center w-100">
-        <div class="col-xl-10 col-lg-12 col-md-9">
-            <div class="card o-hidden border-0 shadow-lg">
-                <div class="card-body p-0">
-                    <div class="row">
-                        <!-- Logo -->
-                        <div class="col-lg-6 d-none d-lg-flex align-items-center justify-content-center bg-white">
-                            <img src="{{ asset('assets/images/logo.png') }}" class="img-fluid p-4" style="max-height: 200px;" alt="Logo Daxtro">
-                        </div>
+<section class="min-h-screen! flex! items-center! justify-center! bg-[#E7F3EE]!">
+    <div class="p-10! bg-white! rounded-xl shadow-sm max-w-[425px]">
 
-                        <!-- Login Form -->
-                        <div class="col-lg-6">
-                            <div class="p-5">
-                                <div class="text-center mb-4">
-                                    <h1 class="h4 text-gray-900">DAXTRO</h1>
-                                </div>
-
-                                <form class="user" method="POST" action="{{ route('login') }}">
-                                    @csrf
-                                    <div class="form-group">
-                                        <input type="email" name="email" class="form-control form-control-user" id="email" placeholder="Enter Email Address..." required autofocus>
-                                    </div>
-                                    <div class="form-group">
-                                        <input type="password" name="password" class="form-control form-control-user" id="password" placeholder="Password" required>
-                                    </div>
-                                    <button type="submit" style="background:#115641;" class="btn btn-primary btn-user btn-block">Login</button>
-                                </form>
-
-                                <hr>
-                                <div class="text-center">
-                                    <a class="small" href="{{ route('password.request') }}">Forgot Password?</a>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- End Login Form -->
-                    </div>
-                </div>
-            </div>
+        {{-- LOGO DAXTRO --}}
+        <div class="flex justify-center">
+            <img src="{{ asset('assets/images/logo.png') }}" style="max-height: 60px;" alt="Logo Daxtro">
         </div>
+
+        {{-- ACCENT TEXT --}}
+        <h1 class="text-2xl! font-bold text-[#1E1E1E] mt-10">Login to Daxtro ERP</h1>
+        <p class="text-[#757575] text-base! mt-1">Manage your business operations in one integrated system.</p>
+
+        <form class="my-5" method="POST" action="{{ route('login') }}">
+            @csrf
+
+            {{-- EMAIL --}}
+            <div>
+                <label for="email" class="text-[#1E1E1E]">Email</label>    
+                <input type="email" name="email" class="w-full rounded-lg px-3 py-2 border border-[#D9D9D9] focus:outline-[#115640]" id="email" placeholder="Enter your email address" required autofocus>
+            </div>
+            
+            {{-- PASSWORD --}}
+            <div class="mt-4">
+                <label for="password" class="text-[#1E1E1E]">Password</label>
+                <input type="password" name="password" class="w-full rounded-lg px-3 py-2 border border-[#D9D9D9] focus:outline-[#115640]" id="password" placeholder="Password" required>
+            </div>
+
+            <div class="mt-10">
+                <button type="submit" class="bg-[#115640] w-full rounded-lg text-white py-3 cursor-pointer">Login</button>
+
+                <a class="small" href="{{ route('password.request') }}">
+                    <div class="w-full bg-white text-[#1E1E1E] text-center border border-[#D9D9D9] py-3 rounded-lg mt-3">
+                        Forgot Password?
+                    </div>
+                </a>
+            </div>
+            
+        </form>
     </div>
-</div>
+</section>
 @endsection
 
 @push('scripts')

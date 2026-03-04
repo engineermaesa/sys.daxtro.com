@@ -2687,8 +2687,13 @@
 
 @section('content')
 
-{{-- MARKETING DASHBOARD HEADER NEW --}}
 @include('pages.templates.main-headers')
+
+@if(auth()->user()->role?->code === 'sales')
+    @include('pages.dashboard.sales')
+@else
+
+{{-- MARKETING DASHBOARD HEADER NEW --}}
 
 {{-- PROCESS FLOW NEW --}}
 <div>
@@ -4487,7 +4492,9 @@
                     </div>
                 </div>
             </div>
-
+        </div>
+    </div>
+@endif
 
             @endsection
 
