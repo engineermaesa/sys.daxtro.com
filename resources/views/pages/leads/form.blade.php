@@ -483,7 +483,6 @@
                                         </div>
                                     </div>
 
-<<<<<<< HEAD
                                     {{-- NEEDS SELECT FIELD --}}
                                     <div class="grid grid-cols-2 gap-3 mt-3">
                                         <div class="grid grid-cols-1">
@@ -586,26 +585,6 @@
                                                 <label class="text-[#1E1E1E]! mb-2! block!">Tonage Remark</label>
                                                 <textarea name="{{ $isCreate ? 'tonage_remark[]' : 'tonage_remark' }}" class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none! w-full!" rows="8" placeholder="Type Here...">{{ old('tonage_remark', $form_data->tonage_remark) }}</textarea>
                                             </div>
-=======
-                                    {{-- RIGHT ITEMS FIELD --}}
-                                    <div class="w-full grid grid-cols-1">
-                                        {{-- TONASE FIELD NUMBER --}}
-                                        <div class="w-full">
-                                            <label class="text-[#1E1E1E]! mb-2! block!">Tonase</label>
-                                            <input type="number" step="0.01"
-                                                name="{{ $isCreate ? 'tonase[]' : 'tonase' }}"
-                                                class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! appearance-none bg-white w-full!"
-                                                value="{{ old('tonase', $form_data->tonase) }}" placeholder="0.00">
-                                        </div>
-
-                                        {{-- TONNAGE REMARK FIELD --}}
-                                        <div class="w-full mt-3">
-                                            <label class="text-[#1E1E1E]! mb-2! block!">Tonage Remark</label>
-                                            <textarea name="{{ $isCreate ? 'tonage_remark[]' : 'tonage_remark' }}"
-                                                class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none! w-full!"
-                                                rows="5"
-                                                placeholder="Type Here...">{{ old('tonage_remark', $form_data->tonage_remark) }}</textarea>
->>>>>>> b1a897ebb8eb0af67988c015153be9284f369a93
                                         </div>
                                     </div>
                                 </div>
