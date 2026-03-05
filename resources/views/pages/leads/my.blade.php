@@ -612,8 +612,15 @@
                                 <select name="activity_id" class="max-w-full! text-sm rounded-lg bg-white outline-none"
                                     required>
                                     <option value="" class="text-center">Activity Type</option>
+                                    <option disabled>──────────── Initiation ────────────</option>
                                     @foreach ($activities as $act)
-                                    <option value="{{ $act->id }}">{{ $act->code }} - {{ $act->name }}</option>
+                                        @if ($act->id == 5)
+                                            <option disabled>──────────── Hold Cold ────────────</option>
+                                        @endif
+
+                                        <option value="{{ $act->id }}">
+                                            {{ $act->code }} - {{ $act->name }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>

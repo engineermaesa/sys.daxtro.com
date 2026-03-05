@@ -287,9 +287,6 @@ class LeadSummaryController extends Controller
             });
         }
 
-        // =========================
-        // STAGE FILTER
-        // =========================
         $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
 
         $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
@@ -298,6 +295,14 @@ class LeadSummaryController extends Controller
 
             if ($request->filled('stage')) {
                 $q->where('status_id', $request->stage);
+            }
+
+            if ($request->filled('source_id')) {
+                $q->where('source_id', $request->source_id);
+            }
+
+            if ($request->filled('segment')) {
+                $q->where('segment_id', $request->source_id);
             }
 
             if ($request->filled('search')) {
@@ -316,6 +321,7 @@ class LeadSummaryController extends Controller
             if ($request->filled('end_date')) {
                 $q->whereDate('created_at', '<=', $request->end_date);
             }
+
         });
 
         // =========================
@@ -326,6 +332,12 @@ class LeadSummaryController extends Controller
                 ->from('lead_claims as lc2')
                 ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
                 ->groupBy('lead_id');
+        });
+
+        $amountQuery = clone $query;
+
+        $totalAmount = $amountQuery->get()->sum(function ($claim) {
+            return (float) ($claim->lead->quotation->grand_total ?? 0);
         });
 
         $paginated = $query->orderByDesc('id')->paginate($perPage);
@@ -385,6 +397,7 @@ class LeadSummaryController extends Controller
             'status' => 'success',
             'data' => $paginated->items(),
             'total' => $paginated->total(),
+            'total_amount' => $totalAmount,
             'current_page' => $paginated->currentPage(),
             'last_page' => $paginated->lastPage(),
         ]);
