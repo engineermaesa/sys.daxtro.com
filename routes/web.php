@@ -65,6 +65,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('attachments/{id}', [\App\Http\Controllers\AttachmentController::class, 'download'])->name('attachments.download');
 
+    // Download all attachments for a specific meeting
+    Route::get('leads/meetings/{id}/attachments/download', [\App\Http\Controllers\Leads\MeetingController::class, 'downloadAttachments'])
+        ->name('leads.meetings.attachments.download');
+
 
     // =====================================
     // LEADS ✔

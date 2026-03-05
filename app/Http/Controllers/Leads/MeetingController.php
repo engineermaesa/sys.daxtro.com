@@ -15,6 +15,107 @@ use App\Models\Orders\{MeetingExpense, MeetingExpenseDetail, FinanceRequest};
 
 class MeetingController extends Controller
 {
+    public function downloadAttachments($id)
+    {
+        $meeting = LeadMeeting::with('attachments')->findOrFail($id);
+
+        $attachments = $meeting->attachments;
+
+        if ($attachments->isEmpty()) {
+            return response()->json([
+                'message' => 'No attachments found for this meeting.',
+            ], 404);
+        }
+
+        // If only one attachment, reuse the existing single-file download route
+        if ($attachments->count() === 1) {
+            return redirect()->route('attachments.download', $attachments->first()->id);
+        }
+
+        $zip = new \ZipArchive();
+
+        $tempDir = storage_path('app/temp');
+        if (! is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $zipFileName = 'meeting_' . $meeting->id . '_attachments_' . time() . '.zip';
+        $zipPath = $tempDir . DIRECTORY_SEPARATOR . $zipFileName;
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return response()->json([
+                'message' => 'Unable to create ZIP archive.',
+            ], 500);
+        }
+
+        $addedFiles = 0;
+
+        foreach ($attachments as $attachment) {
+            $absolutePath = $this->resolveAttachmentFilePath($attachment);
+
+            if (! $absolutePath) {
+                continue;
+            }
+
+            $fileNameInZip = basename($absolutePath);
+            $zip->addFile($absolutePath, $fileNameInZip);
+            $addedFiles++;
+        }
+
+        $zip->close();
+
+        if ($addedFiles === 0 || ! is_file($zipPath)) {
+            @unlink($zipPath);
+
+            return response()->json([
+                'message' => 'No attachment files could be found on disk.',
+            ], 404);
+        }
+
+        return response()->download($zipPath)->deleteFileAfterSend(true);
+    }
+
+    protected function resolveAttachmentFilePath(Attachment $attachment): ?string
+    {
+        if (empty($attachment->file_path)) {
+            return null;
+        }
+
+        $filePath = str_replace('\\', '/', $attachment->file_path);
+        $filePath = ltrim($filePath, '/');
+
+        $candidatePaths = [];
+
+        if (str_starts_with($filePath, 'storage/')) {
+            $relativePath = ltrim(substr($filePath, strlen('storage/')), '/');
+
+            foreach (['public', 'local'] as $disk) {
+                try {
+                    $candidatePaths[] = Storage::disk($disk)->path($relativePath);
+                } catch (\Throwable $e) {
+                    // Ignore invalid disk configuration
+                }
+            }
+        } else {
+            foreach (['public', 'local'] as $disk) {
+                try {
+                    $candidatePaths[] = Storage::disk($disk)->path($filePath);
+                } catch (\Throwable $e) {
+                    // Ignore invalid disk configuration
+                }
+            }
+        }
+
+        $candidatePaths = array_values(array_unique($candidatePaths));
+
+        foreach ($candidatePaths as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
 
     public function save(Request $request, $id = null)
     {
