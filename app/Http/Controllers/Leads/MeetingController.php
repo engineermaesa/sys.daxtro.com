@@ -210,16 +210,16 @@ class MeetingController extends Controller
         foreach ($leadNames as $index => $name) {
             if (\Illuminate\Support\Facades\Schema::hasTable('lead_meeting_details')) {
                 \Illuminate\Support\Facades\DB::table('lead_meeting_details')->insert([
-                'lead_meeting_id' => $meeting->id,
-                'name'            => $name,
-                'type'            => $types[$index] ?? 'office',
-                'province'        => $provinces[$index] ?? null,
-                'city'            => $cities[$index] ?? null,
-                'product_id'      => $productIds[$index] ?? null,
-                'price'           => isset($prices[$index]) ? str_replace(['.', ','], ['', '.'], $prices[$index]) : null,
-                'description'     => $descriptions[$index] ?? null,
-                'created_at'      => now(),
-                'updated_at'      => now(),
+                    'lead_meeting_id' => $meeting->id,
+                    'name'            => $name,
+                    'type'            => $types[$index] ?? 'office',
+                    'province'        => $provinces[$index] ?? null,
+                    'city'            => $cities[$index] ?? null,
+                    'product_id'      => $productIds[$index] ?? null,
+                    'price'           => isset($prices[$index]) ? str_replace(['.', ','], ['', '.'], $prices[$index]) : null,
+                    'description'     => $descriptions[$index] ?? null,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
                 ]);
             }
         }
@@ -343,13 +343,25 @@ class MeetingController extends Controller
     {
         $meeting = LeadMeeting::with('expense')->findOrFail($id);
 
-        if (!$meeting->is_online && optional($meeting->expense)->status !== 'approved') {
+        if (! $meeting->is_online && optional($meeting->expense)->status !== 'approved') {
+            if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Finance approval is required before submitting result.',
+                ], 403);
+            }
+
             abort(403, 'Finance approval is required before submitting result.');
         }
 
         $data = LeadMeeting::with('lead')->findOrFail($id);
 
         if ($data->result && $data->result !== 'waiting') {
+            if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Meeting result already submitted.',
+                ], 403);
+            }
+
             abort(403, 'Meeting result already submitted.');
         }
 
@@ -363,9 +375,14 @@ class MeetingController extends Controller
     public function result($id, Request $request)
     {
         $request->validate([
-            'result'        => 'required|in:yes,no,waiting',
-            'summary'       => 'required|string',
-            'attachment_id' => $request->result === 'yes' ? 'required|file|mimes:pdf,jpg,png,docx,doc|max:5120' : 'nullable',
+            'result'         => 'required|in:yes,no,waiting',
+            'interest_level' => $request->result === 'yes' ? 'required|integer|min:1|max:5' : 'nullable',
+            'summary'        => 'required|string',
+            // Attachment: array, wajib ada minimal 1 file untuk Interested & Waiting
+            'attachment_id'   => in_array($request->result, ['yes', 'waiting'])
+                ? 'required|array|min:1'
+                : 'nullable|array',
+            'attachment_id.*' => 'file|mimes:pdf,jpg,png,docx,doc|max:5120',
         ]);
 
         $meeting = LeadMeeting::findOrFail($id);
@@ -373,28 +390,44 @@ class MeetingController extends Controller
         $meeting->result  = $request->result;
         $meeting->summary = $request->summary;
 
-        if ($request->result === 'yes' && $request->hasFile('attachment_id')) {
-            $file = $request->file('attachment_id');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('meetings', $filename, 'local');
+        if ($request->hasFile('attachment_id')) {
+            $files = $request->file('attachment_id');
 
-            // Simpan data ke tabel attachments
-            $attachment = Attachment::create([
-                'type'        => 'meeting',
-                'file_path'   => 'storage/' . $path,
-                'mime_type'   => $file->getClientMimeType(),
-                'size'        => $file->getSize(),
-                'uploaded_by' => $request->user()->id ?? null,
-            ]);
+            if (! is_array($files)) {
+                $files = [$files];
+            }
 
-            $meeting->attachment_id = $attachment->id;
+            $attachmentIds = [];
+
+            foreach ($files as $file) {
+                $filename = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+                $path = $file->storeAs('meetings', $filename, 'local');
+
+                $attachment = Attachment::create([
+                    'type'        => 'meeting',
+                    'file_path'   => 'storage/' . $path,
+                    'mime_type'   => $file->getClientMimeType(),
+                    'size'        => $file->getSize(),
+                    'uploaded_by' => $request->user()->id ?? null,
+                ]);
+
+                $attachmentIds[] = $attachment->id;
+            }
+
+            if (! empty($attachmentIds)) {
+                $meeting->attachment_id = $attachmentIds[0];
+
+                $meeting->attachments()->syncWithoutDetaching($attachmentIds);
+            }
         }
 
         $meeting->save();
 
-        // Update lead status when result is final
         if ($request->result !== 'waiting') {
             $lead = $meeting->lead;
+            $lead->interest_level = $request->result === 'yes'
+                ? (int) $request->interest_level
+                : null;
             $newStatus = $request->result === 'yes'
                 ? LeadStatus::WARM
                 : LeadStatus::TRASH_COLD;

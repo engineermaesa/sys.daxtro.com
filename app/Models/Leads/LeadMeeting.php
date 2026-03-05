@@ -51,6 +51,11 @@ class LeadMeeting extends Model
         return $this->belongsTo(\App\Models\Attachment::class, 'attachment_id');
     }
 
+    public function attachments()
+    {
+        return $this->belongsToMany(\App\Models\Attachment::class, 'lead_meeting_attachments', 'meeting_id', 'attachment_id');
+    }
+
     public function meetingType()
     {
         return $this->belongsTo(\App\Models\Masters\MeetingType::class, 'meeting_type_id');
