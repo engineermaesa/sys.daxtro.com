@@ -223,6 +223,7 @@
           }, 500);
       });
     }
+    
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));

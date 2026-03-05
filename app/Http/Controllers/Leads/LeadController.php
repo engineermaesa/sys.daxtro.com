@@ -40,25 +40,25 @@ class LeadController extends Controller
     {
         $user = auth()->user();
 
-        $leads = Lead::with(['region', 'source', 'segment', 'status'])
+        $leads = Lead::with([
+                'region',
+                'region.branch',
+                'source',
+                'segment',
+                'status',
+                'industry' 
+            ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (!in_array($user->role?->code, ['super_admin'])) {
             $leads->where(function ($q) use ($user) {
                 $q->whereNull('region_id')
-                    ->orWhereHas(
-                        'region',
-                        fn($q) =>
-                        $q->where('branch_id', $user->branch_id)
-                    );
+                ->orWhereHas('region', function ($q) use ($user) {
+                    $q->where('branch_id', $user->branch_id);
+                });
             });
         }
 
-        if ($request->filled('region_id')) {
-            $leads->where('region_id', $request->region_id);
-        }
-
-        // Filter
         if ($request->filled('branch_id')) {
             $leads->whereHas('region.branch', function ($q) use ($request) {
                 $q->where('id', $request->branch_id);
@@ -66,54 +66,51 @@ class LeadController extends Controller
         }
 
         if ($request->filled('region_id')) {
-            $leads->whereHas('region', function ($q) use ($request) {
-                $q->where('id', $request->region_id);
-            });
+            $leads->where('region_id', $request->region_id);
         }
 
-        // Date range filter (expects YYYY-MM-DD)
         if ($request->filled('start_date') || $request->filled('end_date')) {
             if ($request->filled('start_date') && $request->filled('end_date')) {
-                $start = $request->start_date;
-                $end = $request->end_date;
-                $leads->whereDate('published_at', '>=', $start)
-                      ->whereDate('published_at', '<=', $end);
+                $leads->whereDate('published_at', '>=', $request->start_date)
+                    ->whereDate('published_at', '<=', $request->end_date);
             } elseif ($request->filled('start_date')) {
-                $start = $request->start_date;
-                $leads->whereDate('published_at', '>=', $start);
+                $leads->whereDate('published_at', '>=', $request->start_date);
             } else {
-                $end = $request->end_date;
-                $leads->whereDate('published_at', '<=', $end);
+                $leads->whereDate('published_at', '<=', $request->end_date);
             }
         }
 
-        // Source filter (by id) — allow either single id or array of ids
+        // Source filter
         if ($request->filled('source_id')) {
             $source = $request->source_id;
-            if (is_array($source)) {
-                $leads->whereIn('source_id', $source);
-            } else {
-                $leads->where('source_id', $source);
-            }
+            is_array($source)
+                ? $leads->whereIn('source_id', $source)
+                : $leads->where('source_id', $source);
         }
 
-        // Global text search across name, branch, region, source, segment
+        if ($request->filled('industry_id')) {
+            $leads->where('industry_id', $request->industry_id);
+        }
+
         if ($request->filled('q')) {
             $term = $request->q;
             $leads->where(function ($q) use ($term) {
                 $q->where('name', 'like', "%{$term}%")
-                  ->orWhereHas('region', function ($qr) use ($term) {
-                      $qr->where('name', 'like', "%{$term}%")
-                         ->orWhereHas('branch', function ($qb) use ($term) {
-                             $qb->where('name', 'like', "%{$term}%");
-                         });
-                  })
-                  ->orWhereHas('source', function ($qs) use ($term) {
-                      $qs->where('name', 'like', "%{$term}%");
-                  })
-                  ->orWhereHas('segment', function ($qseg) use ($term) {
-                      $qseg->where('name', 'like', "%{$term}%");
-                  });
+                ->orWhereHas('region', function ($qr) use ($term) {
+                    $qr->where('name', 'like', "%{$term}%")
+                        ->orWhereHas('branch', function ($qb) use ($term) {
+                            $qb->where('name', 'like', "%{$term}%");
+                        });
+                })
+                ->orWhereHas('source', function ($qs) use ($term) {
+                    $qs->where('name', 'like', "%{$term}%");
+                })
+                ->orWhereHas('segment', function ($qseg) use ($term) {
+                    $qseg->where('name', 'like', "%{$term}%");
+                })
+                ->orWhereHas('industry', function ($qind) use ($term) {
+                    $qind->where('name', 'like', "%{$term}%");
+                });
             });
         }
 
@@ -122,31 +119,27 @@ class LeadController extends Controller
             ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
             ->addColumn('source_name', fn($row) => $row->source->name ?? '')
             ->addColumn('segment_name', fn($row) => $row->segment->name ?? 'Not Set')
+            ->addColumn('industry_name', fn($row) => $row->industry->name ?? 'Not Set') // ✅ INI YANG KAMU MAU
             ->addColumn('status_name', fn($row) => $row->status->name ?? '')
             ->addColumn('published_at', fn($row) => $row->published_at)
             ->addColumn('actions', function ($row) {
+
                 $editUrl  = route('leads.form', $row->id);
                 $claimUrl = route('leads.claim', $row->id);
 
-                // $html  = '<div class="dropdown">';
-                // $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                // $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                // $html .= '  </button>';
-                // $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html = '    <a class="flex! items-center! gap-1! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg" href="' . e($editUrl) . '"> 
-                ' . view('components.icon.detail')->render() . '
-                View </a>';
-                // $html .= '    <a class="dropdown-item claim-lead" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-2"></i> Claim</a>';
-                // $html .= '  </div>';
-                // $html .= '</div>';
-                $html .= '    <a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center justify-start gap-1" href="' . e($claimUrl) . '"><i class="bi bi-check-circle mr-1"></i> Claim</a>';
+                $html  = '<a class="inline-flex! items-center! gap-1! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg bgst" href="' . e($editUrl) . '">'
+                        . view('components.icon.detail')->render() .
+                        ' View </a>';
+
+                $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead inline-flex! items-center justify-start gap-1" href="' . e($claimUrl) . '">
+                            <i class="bi bi-check-circle mr-1"></i> Claim
+                        </a>';
 
                 return $html;
             })
             ->rawColumns(['actions'])
             ->make(true);
     }
-
     public function form(Request $request, $id = null)
     {
         $form_data = $id
@@ -1898,5 +1891,5 @@ class LeadController extends Controller
 
         return $html;
     }
-    
+
 }

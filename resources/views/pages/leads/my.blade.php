@@ -870,6 +870,7 @@
 
         function switchTab(statusTarget) {
             activeTabState = statusTarget;
+            
             tableWrappers.forEach(wrapper => {
                 wrapper.classList.add('hidden');
             });
@@ -879,6 +880,7 @@
                 targetWrapper.classList.remove('hidden');
             }
 
+            // ===== NAV ACTIVE STYLE =====
             navTabs.forEach(tab => {
                 if (tab.getAttribute('data-status') === statusTarget) {
                     tab.classList.add('border-b-2', 'border-b-[#115640]', 'text-white'); 
@@ -886,6 +888,35 @@
                     tab.classList.remove('border-b-2', 'border-b-[#115640]', 'text-white');
                 }
             });
+
+            // ===== CARDS SWITCH =====
+            const allCards = [
+                'forAllCardsCounts',
+                'forColdCardsCounts',
+                'forWarmCardsCounts',
+                'forHotCardsCounts',
+                'forDealCardsCounts'
+            ];
+
+            // hide semua dulu
+            allCards.forEach(id => {
+                document.getElementById(id)?.classList.add('hidden');
+            });
+
+            // mapping status ke card
+            const map = {
+                all: 'forAllCardsCounts',
+                cold: 'forColdCardsCounts',
+                warm: 'forWarmCardsCounts',
+                hot: 'forHotCardsCounts',
+                deal: 'forDealCardsCounts'
+            };
+
+            const targetCard = map[statusTarget?.toLowerCase()];
+
+            if (targetCard) {
+                document.getElementById(targetCard)?.classList.remove('hidden');
+            }
         }
 
         switchTab('all');
@@ -981,7 +1012,7 @@
                             statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Today</span>`;
                         } 
                         else {
-                            statusContent = `<span class="status-hot">Expired</span>`;
+                            statusContent = `<span class="span-hot rounded-sm font-normal! inline-block">Expired</span>`;
                         }                    
                     }
     

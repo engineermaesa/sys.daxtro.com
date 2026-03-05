@@ -268,42 +268,86 @@ class LeadSummaryController extends Controller
         $user = Auth::user();
         $roleCode = $user?->role?->code;
 
-        $activeClaims = LeadClaim::whereNull('released_at')
-            ->with(['lead.product', 'lead.segment', 'lead.latestStatusLog', 'lead.quotation.items.product', 'lead.status']);
+        $perPage = $request->get('per_page', 5);
+
+        $query = LeadClaim::whereNull('released_at')
+            ->with([
+                'lead.product', 
+                'lead.segment', 
+                'lead.latestStatusLog', 
+                'lead.quotation.items.product', 
+                'lead.status'
+            ]);
 
         if ($roleCode === 'sales') {
-            $activeClaims->where('sales_id', $user?->id);
+            $query->where('sales_id', $user?->id);
         } elseif ($roleCode === 'branch_manager') {
-            $activeClaims->whereHas('sales', function ($q) use ($user) {
+            $query->whereHas('sales', function ($q) use ($user) {
                 $q->where('branch_id', $user?->branch_id);
             });
         }
 
-        $claims = $activeClaims->get();
-
-        $uniqueLeads = $claims->pluck('lead')->filter()->unique('id');
-
-        // Only include Cold, Warm, Hot stages
+        // =========================
+        // STAGE FILTER
+        // =========================
         $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
 
-        $uniqueLeads = $uniqueLeads->filter(function ($l) use ($allowedStatuses) {
-            return in_array($l->status_id, $allowedStatuses);
+        $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
+
+            $q->whereIn('status_id', $allowedStatuses);
+
+            if ($request->filled('stage')) {
+                $q->where('status_id', $request->stage);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('company', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('start_date')) {
+                $q->whereDate('created_at', '>=', $request->start_date);
+            }
+
+            if ($request->filled('end_date')) {
+                $q->whereDate('created_at', '<=', $request->end_date);
+            }
         });
 
-        $result = $uniqueLeads->map(function ($lead) {
+        // =========================
+        // GET LATEST CLAIM PER LEAD
+        // =========================
+        $query->whereIn('id', function ($q) {
+            $q->select(DB::raw('MAX(id)'))
+                ->from('lead_claims as lc2')
+                ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
+                ->groupBy('lead_id');
+        });
+
+        $paginated = $query->orderByDesc('id')->paginate($perPage);
+
+        // =========================
+        // TRANSFORM DATA
+        // =========================
+        $paginated->getCollection()->transform(function ($claim) {
+
+            $lead = $claim->lead;
 
             $amount = (float) ($lead->quotation->grand_total ?? 0);
-
-            $stage = $lead->status?->name ?? $lead->status_id;
+            $stage = $lead->status?->name ?? null;
 
             $product = $lead->product?->name
                 ?? ($lead->quotation?->items->first()?->product?->name ?? null);
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
 
-            $lastActivity = $lead->latestStatusLog?->created_at ?? $lead->updated_at ?? null;
+            $lastActivity = $lead->latestStatusLog?->created_at
+                ?? $lead->updated_at;
 
-            // Data validation checks
             $validationChecks = [
                 'contact_info' => !empty($lead->phone) || !empty($lead->email),
                 'business_reason' => !empty($lead->business_reason),
@@ -323,8 +367,6 @@ class LeadSummaryController extends Controller
                 $dataValidation = 'Incomplete';
             }
 
-            $dataStatus = $passed . '/6';
-
             return [
                 'id' => $lead->id,
                 'customer_name' => $lead->name ?? $lead->company,
@@ -332,37 +374,19 @@ class LeadSummaryController extends Controller
                 'amount' => $amount,
                 'product' => $product,
                 'segment' => $segment,
-                'data_status' => $dataStatus,
-                'last_activity' => $lastActivity ? $lastActivity->toDateTimeString() : null,
+                'data_status' => $passed . '/6',
+                'last_activity' => $lastActivity?->toDateTimeString(),
                 'data_validation' => $dataValidation,
-                'created_at' => $lead->created_at ? $lead->created_at->toDateString() : null,
+                'created_at' => $lead->created_at?->toDateString(),
             ];
-        })->values();
-
-        // =========================
-        // TOTAL CALCULATION
-        // =========================
-
-        $totalCold = $uniqueLeads->where('status_id', LeadStatus::COLD)->count();
-        $totalWarm = $uniqueLeads->where('status_id', LeadStatus::WARM)->count();
-        $totalHot  = $uniqueLeads->where('status_id', LeadStatus::HOT)->count();
-
-        $totalSum = $totalCold + $totalWarm + $totalHot;
-
-        $amountTotal = $result->sum('amount');
+        });
 
         return response()->json([
             'status' => 'success',
-            'Data' => $result,
-            'total' => [
-                [
-                    'total_stage' => $totalSum,
-                    'total_cold' => $totalCold,
-                    'total_warm' => $totalWarm,
-                    'total_hot' => $totalHot,
-                    'amount_total' => $amountTotal
-                ]
-            ]
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
         ]);
     }
 
