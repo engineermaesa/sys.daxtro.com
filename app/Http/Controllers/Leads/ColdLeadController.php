@@ -46,11 +46,32 @@ class ColdLeadController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
 
-            $claimsQuery->whereHas('lead', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+            $claimsQuery->where(function ($query) use ($search) {
+                // Lead basic fields + needs + customer type
+                $query->whereHas('lead', function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('needs', 'like', "%{$search}%")
+                            ->orWhere('customer_type', 'like', "%{$search}%");
+                    });
+                })
+                // Sales name
+                ->orWhereHas('sales', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // Source name
+                ->orWhereHas('lead.source', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // City name
+                ->orWhereHas('lead.region', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // Regional name
+                ->orWhereHas('lead.region.regional', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
                 });
             });
         }
