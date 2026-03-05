@@ -551,7 +551,7 @@
             {{-- CONDITIONAL STAGE TABLE --}}
             @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
             <div data-tab-container="{{ $tab }}" class="leads-table-container">
-                <div class="max-xl:overflow-x-scroll">
+                <div class="overflow-x-scroll">
                     <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                         {{-- HEADER TABLE --}}
                         <thead class="text-[#1E1E1E]">

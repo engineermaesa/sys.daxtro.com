@@ -118,7 +118,8 @@ class LeadController extends Controller
             ->addColumn('region_name', fn($row) => $row->region->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
             ->addColumn('source_name', fn($row) => $row->source->name ?? '')
-            ->addColumn('segment_name', fn($row) => $row->segment->name ?? 'Not Set')
+            // Fallback ke customer_type kalau segment belum di-set
+            ->addColumn('segment_name', fn($row) => $row->segment->name ?? $row->customer_type ?? 'Not Set')
             ->addColumn('industry_name', fn($row) => $row->industry->name ?? 'Not Set') // ✅ INI YANG KAMU MAU
             ->addColumn('status_name', fn($row) => $row->status->name ?? '')
             ->addColumn('published_at', fn($row) => $row->published_at)
@@ -1085,7 +1086,13 @@ class LeadController extends Controller
     {
         $user = $request->user();
 
-        $leads = Lead::with(['region.branch', 'source', 'segment'])
+        $leads = Lead::with([
+                'region',
+                'region.branch',
+                'source',
+                'segment',
+                'industry',
+            ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (! in_array($user->role?->code, ['super_admin'])) {
@@ -1100,31 +1107,96 @@ class LeadController extends Controller
         }
 
         if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
+            $leads->whereHas('region.branch', function ($q) use ($request) {
+                $q->where('id', $request->branch_id);
+            });
         }
 
         if ($request->filled('region_id')) {
             $leads->where('region_id', $request->region_id);
         }
 
+        // Date range filter (published_at) – same as availableList
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $leads->whereDate('published_at', '>=', $request->start_date)
+                    ->whereDate('published_at', '<=', $request->end_date);
+            } elseif ($request->filled('start_date')) {
+                $leads->whereDate('published_at', '>=', $request->start_date);
+            } else {
+                $leads->whereDate('published_at', '<=', $request->end_date);
+            }
+        }
+
+        // Source filter
+        if ($request->filled('source_id')) {
+            $source = $request->source_id;
+            is_array($source)
+                ? $leads->whereIn('source_id', $source)
+                : $leads->where('source_id', $source);
+        }
+
+        // Industry filter
+        if ($request->filled('industry_id')) {
+            $leads->where('industry_id', $request->industry_id);
+        }
+
+        // Global search (same as availableList)
+        if ($request->filled('q')) {
+            $term = $request->q;
+            $leads->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                    ->orWhereHas('region', function ($qr) use ($term) {
+                        $qr->where('name', 'like', "%{$term}%")
+                            ->orWhereHas('branch', function ($qb) use ($term) {
+                                $qb->where('name', 'like', "%{$term}%");
+                            });
+                    })
+                    ->orWhereHas('source', function ($qs) use ($term) {
+                        $qs->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('segment', function ($qseg) use ($term) {
+                        $qseg->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('industry', function ($qind) use ($term) {
+                        $qind->where('name', 'like', "%{$term}%");
+                    });
+            });
+        }
+
         $rows   = [];
-        $rows[] = ['Published At', 'Sales Name', 'Name', 'Branch', 'Region', 'Source', 'Segment', 'Customer Type', 'Product Description', 'Quotation Number', 'Quotation Price', 'Invoice', 'Invoice Price'];
+        $rows[] = [
+            'Published At',
+            'Name',
+            'Branch',
+            'Industry To Be',
+            'Industry Existing',
+            'Industry',
+            'Product',
+            'Tonage',
+            'Regional',
+            'Source',
+            'Segment',
+        ];
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $rows[] = [
                 $lead->published_at,
-                $claim?->sales?->name ?? '-',
                 $lead->name,
-                $lead->region->branch->name ?? '',
-                $lead->region->name ?? '',
-                $lead->source->name ?? '',
-                $lead->segment->name ?? '',
-                $lead->customer_type ?? '',
-                $lead->product_id ? ($lead->product->name ?? '') : ($lead->needs ?? ''),
-                $lead->quotation ? ($lead->quotation->number ?? '-') : '-',
-                $lead->quotation ? ($lead->quotation->total_price ? number_format($lead->quotation->total_price, 2) : '-') : '-',
-                $lead->invoice ? ($lead->invoice->number ?? '-') : '-',
-                $lead->invoice ? ($lead->invoice->total_price ? number_format($lead->invoice->total_price, 2) : '-') : '-',
+                $lead->region->branch->name ?? '-',
+                // Match "Industry To Be" column in table (industry_name)
+                $lead->industry->name ?? '-',
+                // "Industry Existing" – currently same data as view uses
+                $lead->industry->name ?? '-',
+                // "Industry" – same again (view shows industry.name)
+                $lead->industry->name ?? '-',
+                // Product column in view uses needs
+                $lead->needs ?? '-',
+                $lead->tonase ?? '-',
+                $lead->region->name ?? '-',
+                $lead->source->name ?? '-',
+                // Sama seperti kolom Segment di list: pakai segment, fallback ke customer_type
+                $lead->segment->name ?? $lead->customer_type ?? 'Not Set',
             ];
         }
 
