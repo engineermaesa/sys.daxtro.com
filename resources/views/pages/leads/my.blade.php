@@ -419,7 +419,7 @@
         {{-- NAVIGATION TABLES --}}
         <div
             class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
-            
+
             {{-- FOR SMALL SCREEN SECTION --}}
             <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
                 <div class="border border-gray-300 rounded-lg flex items-center p-2">
@@ -488,7 +488,8 @@
             </div>
             {{-- ADD MANUAL LEADS --}}
             <div class="lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
-                <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
+                <a href="{{ route('leads.my.form') }}"
+                    class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
@@ -514,22 +515,22 @@
                             <th class="p-1 lg:p-3">Needs</th>
 
                             @if ($tab === 'all')
-                                <th class="p-1 lg:p-3">Customer Type</th>
+                            <th class="p-1 lg:p-3">Customer Type</th>
                             @else
-                                <th class="p-1 lg:p-3">Segment</th>
+                            <th class="p-1 lg:p-3">Segment</th>
                             @endif
 
                             <th class="p-1 lg:p-3">City</th>
                             <th class="p-1 lg:p-3">Regional</th>
-    
+
                             @if ($tab === 'cold' || $tab === 'warm')
-                                <th class="text-left">Status</th>
+                            <th class="text-left">Status</th>
                             @endif
-    
+
                             @if ($tab === 'hot')
-                                <th class="text-left">Quotation Expire In</th>
+                            <th class="text-left">Quotation Expire In</th>
                             @endif
-    
+
                             <th class="text-center p-3">Action</th>
                         </tr>
                     </thead>

@@ -157,8 +157,12 @@ Route::group([
             Route::get('meeting/{claim}', [ColdLeadController::class, 'meeting'])->name('meeting');
             Route::get('meeting/{id}/reschedule', [ColdLeadController::class, 'reschedule'])->name('meeting.reschedule');
             Route::post('meeting/save/{id?}', [MeetingController::class, 'save'])->name('meeting.save');
-            Route::get('meeting/{id}/result', [MeetingController::class, 'resultForm'])->name('meeting.result');
-            Route::post('meeting/{id}/result', [MeetingController::class, 'result'])->name('meeting.result.save');
+            Route::get('meeting/{id}/result', [MeetingController::class, 'resultForm'])
+                ->name('meeting.result')
+                ->withoutMiddleware(['web', 'auth']);
+            Route::post('meeting/{id}/result', [MeetingController::class, 'result'])
+                ->name('meeting.result.save')
+                ->withoutMiddleware(['web', 'auth']);
             Route::post('meeting/{id}/cancel', [MeetingController::class, 'cancel'])->name('meeting.cancel');
             Route::post('trash/{claim}', [ColdLeadController::class, 'trash'])->name('trash');
         });

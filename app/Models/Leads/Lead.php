@@ -31,6 +31,7 @@ class Lead extends Model
         'jabatan_id',
         'province',
         'status_id',
+        'interest_level',
         'product_id',
         'company',
         'company_address',
