@@ -322,27 +322,35 @@
                                     </div>
 
                                     {{-- NEEDS SELECT FIELD --}}
-                                    <div class="grid grid-cols-1 mt-3">
-                                        <label class="text-[#1E1E1E]! mb-2! block!">Needs (Ice Machine Type)<i class="required">*</i></label>
-                                        <select name="{{ $isCreate ? 'needs[]' : 'needs' }}" class="select2 px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!" required>
-                                            <option value="" disabled selected>Pilih</option>
-                                            @php
-                                                $needsOptions = [
-                                                    'Tube Ice',
-                                                    'Cube Ice',
-                                                    'Block Ice',
-                                                    'Flake ice',
-                                                    'Slurry Ice',
-                                                    'Flake Ice',
-                                                    'Cold Room',
-                                                    'Other ( Keperluan Kustom )',
-                                                ];
-                                                $selectedNeed = old('needs', $form_data->needs);
-                                            @endphp
-                                            @foreach ($needsOptions as $need)
-                                                <option value="{{ $need }}" {{ $selectedNeed == $need ? 'selected' : '' }}>{{ $need }}</option>
-                                            @endforeach
-                                        </select>
+                                    <div class="grid grid-cols-2 gap-3 mt-3">
+                                        <div class="grid grid-cols-1">
+                                            <label class="text-[#1E1E1E]! mb-2! block!">Needs (Ice Machine Type)<i class="required">*</i></label>
+                                            <select name="{{ $isCreate ? 'needs[]' : 'needs' }}" class="select2 px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!" required>
+                                                <option value="" disabled selected>Pilih</option>
+                                                @php
+                                                    $needsOptions = [
+                                                        'Tube Ice',
+                                                        'Cube Ice',
+                                                        'Block Ice',
+                                                        'Flake ice',
+                                                        'Slurry Ice',
+                                                        'Flake Ice',
+                                                        'Cold Room',
+                                                        'Other ( Keperluan Kustom )',
+                                                    ];
+                                                    $selectedNeed = old('needs', $form_data->needs);
+                                                @endphp
+                                                @foreach ($needsOptions as $need)
+                                                    <option value="{{ $need }}" {{ $selectedNeed == $need ? 'selected' : '' }}>{{ $need }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        {{-- TONASE FIELD NUMBER --}}
+                                        <div class="grid grid-cols-1">
+                                            <label class="text-[#1E1E1E]! mb-2! block!">Tonase</label>
+                                            <input type="number" step="0.01" name="{{ $isCreate ? 'tonase[]' : 'tonase' }}" class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! appearance-none bg-white w-full!" value="{{ old('tonase', $form_data->tonase) }}" placeholder="0.00">
+                                        </div>
                                     </div>
 
                                     {{-- CITY / PROVINCE / INDUSTRY / TONNAGE FIELD --}}
@@ -409,16 +417,11 @@
 
                                         {{-- RIGHT ITEMS FIELD --}}
                                         <div class="w-full grid grid-cols-1">
-                                            {{-- TONASE FIELD NUMBER --}}
-                                            <div class="w-full">
-                                                <label class="text-[#1E1E1E]! mb-2! block!">Tonase</label>
-                                                <input type="number" step="0.01" name="{{ $isCreate ? 'tonase[]' : 'tonase' }}" class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! appearance-none bg-white w-full!" value="{{ old('tonase', $form_data->tonase) }}" placeholder="0.00">
-                                            </div>
 
                                             {{-- TONNAGE REMARK FIELD --}}
                                             <div class="w-full mt-3">
                                                 <label class="text-[#1E1E1E]! mb-2! block!">Tonage Remark</label>
-                                                <textarea name="{{ $isCreate ? 'tonage_remark[]' : 'tonage_remark' }}" class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none! w-full!" rows="5" placeholder="Type Here...">{{ old('tonage_remark', $form_data->tonage_remark) }}</textarea>
+                                                <textarea name="{{ $isCreate ? 'tonage_remark[]' : 'tonage_remark' }}" class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none! w-full!" rows="8" placeholder="Type Here...">{{ old('tonage_remark', $form_data->tonage_remark) }}</textarea>
                                             </div>
                                         </div>
                                     </div>

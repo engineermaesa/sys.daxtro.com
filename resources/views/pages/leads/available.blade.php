@@ -13,7 +13,7 @@
     <p class="mt-1 text-[#115640] sm:text-sm! lg:text-base!">Available Leads</p>
   </div>
 
-  <section class="bg-white rounded-lg mt-3">
+  <section class="bg-white rounded-lg mt-3 mb-4">
 
     {{-- NAVIGATION --}}
     <div class="lg:flex lg:px-3 lg:py-4 gap-3 grid grid-cols-1 px-2 py-3">
@@ -107,7 +107,7 @@
             </div>
         </div>
 
-        {{-- BUTTON EXCEL EXPORT --}}
+        {{-- ADD LEADS MANUALLY AND BUTTON EXCEL EXPORT  --}}
         <div class="lg:w-1/4! flex items-center gap-3">
 
           <a href="{{ route('leads.my.form') }}" class="flex justify-center items-center gap-2 p-2 w-full h-full rounded-lg bg-white border border-[#115640]">
@@ -125,8 +125,8 @@
         </div>
     </div>
     {{-- TABLES AVAILABLE LEADS --}}
-    <div class="bg-white rounded px-3">
-      <table id="availableLeadsTable" class="w-full table-fixed text-[#1E1E1E]">
+    <div class="bg-white rounded px-3 max-xl:overflow-x-scroll">
+      <table id="availableLeadsTable" class="w-full text-[#1E1E1E]">
         <thead class="border-b border-b-[#CFD5DC] border-t border-t-[#D9D9D9]">
           <tr>
             {{-- <th>ID</th> --}}
@@ -284,6 +284,17 @@ $(function () {
 
               const rows = res.data ?? res;
 
+              if (!rows || rows.length === 0) {
+                tbody.append(`
+                    <tr>
+                        <td colspan="12" class="text-center py-6 text-gray-500">
+                            No Leads available
+                        </td>
+                    </tr>
+                `);
+                return;
+              }
+
               rows.forEach(row => {
 
                   const date = row.published_at
@@ -297,7 +308,7 @@ $(function () {
                       : '';
 
                   tbody.append(`
-                      <tr class="border-b border-b-[#CFD5DC]">
+                      <tr class="border-t border-t-[#D9D9D9]">
                           <td class="lg:p-3 sm:p-1">${date}</td>
                           <td class="lg:p-3 sm:p-1">${row.name ?? '-'}</td>
                           <td class="lg:p-3 sm:p-1">${row.branch_name ?? '-'}</td>
@@ -332,7 +343,7 @@ $(function () {
       }
   });
 
-  $('#btnExport').on('click', function(){
+  $(document).on('click', '#btnExport', function () {
     const params = new URLSearchParams();
     const branchInput = $('#filter_branch');
     const regionInput = $('#filter_region');
