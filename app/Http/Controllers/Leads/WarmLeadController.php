@@ -29,8 +29,8 @@ class WarmLeadController extends Controller
             'lead.industry',
             'lead.region.regional',
             'sales'
-            ])
-            ->whereHas('lead', fn ($q) => $q->where('status_id', LeadStatus::WARM))
+        ])
+            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
             ->whereNull('released_at');
 
         // Role filter
@@ -455,7 +455,7 @@ class WarmLeadController extends Controller
         }
     }
 
-   protected function warmMeetingStatus($quotation)
+    protected function warmMeetingStatus($quotation)
     {
         if (! $quotation) {
             return '<span class="status-grey">No Quotation</span>';
@@ -500,6 +500,7 @@ class WarmLeadController extends Controller
 
         return '<span class="bg-light text-dark">' . ucfirst($status) . '</span>';
     }
+
     protected function warmActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -520,36 +521,36 @@ class WarmLeadController extends Controller
         $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
             . '
-            '.view('components.icon.detail')->render().' 
+            ' . view('components.icon.detail')->render() . ' 
             View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        '.view('components.icon.log')->render().' 
+        ' . view('components.icon.log')->render() . ' 
         View / Add Activity</button>';
 
         if (! $quotation) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
                 . '    
-                '.view('components.icon.generate-quotation')->render().'
+                ' . view('components.icon.generate-quotation')->render() . '
                 Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    
-                '.view('components.icon.view-quotation')->render().' 
+                ' . view('components.icon.view-quotation')->render() . ' 
                 View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
                 . '    
-                '.view('components.icon.download')->render().' 
+                ' . view('components.icon.download')->render() . ' 
                 Download</a>';
             $logUrl = route('quotations.logs', $quotation->id);
             $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
-            '. view('components.icon.quotation-log')->render().' 
+            ' . view('components.icon.quotation-log')->render() . ' 
             Quotation Log</button>';
         }
 
         if (! $quotation || $quotation->status !== 'published') {
             $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Trash Lead</button>';
         }
         $html .= '  </div>';

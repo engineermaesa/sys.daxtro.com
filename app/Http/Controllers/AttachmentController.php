@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attachment;
+use Illuminate\Support\Facades\Storage;
 
 class AttachmentController extends Controller
 {
 
-public function download($id)
+    public function download($id)
     {
         $attachment = Attachment::findOrFail($id);
 
@@ -15,37 +16,61 @@ public function download($id)
             return response()->json(['message' => 'File path not set in attachment record.'], 400);
         }
 
-        // Simplify path handling
-        $filePath = $attachment->file_path;
-        
-        // Check both with and without storage/ prefix
-        $publicPaths = [
-            storage_path('app/public/' . $filePath),
-            storage_path('app/public/storage/' . $filePath),
-            storage_path('app/public/' . ltrim($filePath, 'storage/'))
-        ];
-        
-        // Try each possible path
-        foreach ($publicPaths as $path) {
-            if (file_exists($path)) {
-                return response()->download($path, basename($filePath));
+        $filePath = str_replace('\\', '/', $attachment->file_path);
+        $filePath = ltrim($filePath, '/');
+
+        $candidatePaths = [];
+
+        // Normalise common "storage/" prefix used in DB
+        if (str_starts_with($filePath, 'storage/')) {
+            $relativePath = ltrim(substr($filePath, strlen('storage/')), '/');
+
+            foreach (['public', 'local'] as $disk) {
+                try {
+                    $candidatePaths[] = Storage::disk($disk)->path($relativePath);
+                } catch (\Throwable $e) {
+                }
+            }
+        } else {
+            foreach (['public', 'local'] as $disk) {
+                try {
+                    $candidatePaths[] = Storage::disk($disk)->path($filePath);
+                } catch (\Throwable $e) {
+                }
             }
         }
 
-        // For existing proformas that may have been saved with incorrect paths
+        // Remove duplicates
+        $candidatePaths = array_values(array_unique($candidatePaths));
+
+        // Try each possible path
+        foreach ($candidatePaths as $path) {
+            if (is_file($path)) {
+                return response()->download($path, basename($path));
+            }
+        }
+
+        // Fallback for old proforma files that may have inconsistent paths
         if (str_contains($filePath, 'PROFORMA_')) {
             $fileName = basename($filePath);
-            $fixedPath = storage_path('app/public/proformas/' . $fileName);
-            
-            if (file_exists($fixedPath)) {
-                return response()->download($fixedPath, $fileName);
+
+            foreach (['public', 'local'] as $disk) {
+                try {
+                    $fixedPath = Storage::disk($disk)->path('proformas/' . $fileName);
+                } catch (\Throwable $e) {
+                    continue;
+                }
+
+                if (is_file($fixedPath)) {
+                    return response()->download($fixedPath, $fileName);
+                }
             }
         }
 
         return response()->json([
             'message' => 'File not found',
             'path' => $filePath,
-            'tried_paths' => $publicPaths
+            'tried_paths' => $candidatePaths,
         ], 404);
     }
 }
