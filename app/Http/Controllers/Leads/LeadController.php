@@ -31,9 +31,10 @@ class LeadController extends Controller
         }
 
         return view('pages.leads.available', compact(
-            'branches', 
+            'branches',
             'regions',
-            'leadSources'));
+            'leadSources'
+        ));
     }
 
     public function availableList(Request $request)
@@ -41,21 +42,21 @@ class LeadController extends Controller
         $user = auth()->user();
 
         $leads = Lead::with([
-                'region',
-                'region.branch',
-                'source',
-                'segment',
-                'status',
-                'industry' 
-            ])
+            'region',
+            'region.branch',
+            'source',
+            'segment',
+            'status',
+            'industry'
+        ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (!in_array($user->role?->code, ['super_admin'])) {
             $leads->where(function ($q) use ($user) {
                 $q->whereNull('region_id')
-                ->orWhereHas('region', function ($q) use ($user) {
-                    $q->where('branch_id', $user->branch_id);
-                });
+                    ->orWhereHas('region', function ($q) use ($user) {
+                        $q->where('branch_id', $user->branch_id);
+                    });
             });
         }
 
@@ -96,21 +97,21 @@ class LeadController extends Controller
             $term = $request->q;
             $leads->where(function ($q) use ($term) {
                 $q->where('name', 'like', "%{$term}%")
-                ->orWhereHas('region', function ($qr) use ($term) {
-                    $qr->where('name', 'like', "%{$term}%")
-                        ->orWhereHas('branch', function ($qb) use ($term) {
-                            $qb->where('name', 'like', "%{$term}%");
-                        });
-                })
-                ->orWhereHas('source', function ($qs) use ($term) {
-                    $qs->where('name', 'like', "%{$term}%");
-                })
-                ->orWhereHas('segment', function ($qseg) use ($term) {
-                    $qseg->where('name', 'like', "%{$term}%");
-                })
-                ->orWhereHas('industry', function ($qind) use ($term) {
-                    $qind->where('name', 'like', "%{$term}%");
-                });
+                    ->orWhereHas('region', function ($qr) use ($term) {
+                        $qr->where('name', 'like', "%{$term}%")
+                            ->orWhereHas('branch', function ($qb) use ($term) {
+                                $qb->where('name', 'like', "%{$term}%");
+                            });
+                    })
+                    ->orWhereHas('source', function ($qs) use ($term) {
+                        $qs->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('segment', function ($qseg) use ($term) {
+                        $qseg->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('industry', function ($qind) use ($term) {
+                        $qind->where('name', 'like', "%{$term}%");
+                    });
             });
         }
 
@@ -118,7 +119,8 @@ class LeadController extends Controller
             ->addColumn('region_name', fn($row) => $row->region->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
             ->addColumn('source_name', fn($row) => $row->source->name ?? '')
-            ->addColumn('segment_name', fn($row) => $row->segment->name ?? 'Not Set')
+            // Fallback ke customer_type kalau segment belum di-set
+            ->addColumn('segment_name', fn($row) => $row->segment->name ?? $row->customer_type ?? 'Not Set')
             ->addColumn('industry_name', fn($row) => $row->industry->name ?? 'Not Set') // ✅ INI YANG KAMU MAU
             ->addColumn('status_name', fn($row) => $row->status->name ?? '')
             ->addColumn('published_at', fn($row) => $row->published_at)
@@ -128,8 +130,8 @@ class LeadController extends Controller
                 $claimUrl = route('leads.claim', $row->id);
 
                 $html  = '<a class="inline-flex! items-center! gap-1! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg bgst" href="' . e($editUrl) . '">'
-                        . view('components.icon.detail')->render() .
-                        ' View </a>';
+                    . view('components.icon.detail')->render() .
+                    ' View </a>';
 
                 $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead inline-flex! items-center justify-start gap-1" href="' . e($claimUrl) . '">
                             <i class="bi bi-check-circle mr-1"></i> Claim
@@ -860,7 +862,14 @@ class LeadController extends Controller
             },
             'activityLogs.activity',
             'meetings'
-        ]);
+        ])
+            // All Stages tab should only consider pipeline stages
+            ->whereIn('status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ]);
 
         // =========================
         // FILTER SECTION
@@ -873,7 +882,7 @@ class LeadController extends Controller
             $stage = strtolower($request->stage);
 
             $statusMap = [
-                
+
                 'cold' => LeadStatus::COLD,
                 'warm' => LeadStatus::WARM,
                 'hot'  => LeadStatus::HOT,
@@ -904,7 +913,7 @@ class LeadController extends Controller
         if ($request->filled('sales_id')) {
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
-                ->whereNull('released_at');
+                    ->whereNull('released_at');
             });
         }
 
@@ -935,15 +944,15 @@ class LeadController extends Controller
 
             $leads->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%")
-                ->orWhere('needs', 'like', "%{$search}%")
-                ->orWhere('customer_type', 'like', "%{$search}%")
-                ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
-                ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('needs', 'like', "%{$search}%")
+                    ->orWhere('customer_type', 'like', "%{$search}%")
+                    ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
             });
         }
 
@@ -985,23 +994,23 @@ class LeadController extends Controller
             $html .= '<i class="bi bi-three-dots"></i>';
             $html .= '</button>';
             $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
-            $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="'.e($editUrl).'"> ' . view('components.icon.detail')->render() . 'View Lead Detail</a>';
-            $html .= '<button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="'.e($activityUrl).'">
+            $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '"> ' . view('components.icon.detail')->render() . 'View Lead Detail</a>';
+            $html .= '<button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-url="' . e($activityUrl) . '">
             ' . view('components.icon.log')->render() . '
             View / Add Activity Log</button>';
 
-            if (in_array($role, ['branch_manager','sales_director','sales']) && $quote) {
-                $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="'.e($quoteUrl).'">'.view('components.icon.view-quotation')->render().' View Quotation</a>';
+            if (in_array($role, ['branch_manager', 'sales_director', 'sales']) && $quote) {
+                $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">' . view('components.icon.view-quotation')->render() . ' View Quotation</a>';
             }
 
             if ($claim && $lead->status_id === LeadStatus::COLD && ! $meeting) {
                 $trashUrl = route('leads.my.cold.trash', $claim->id);
-                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="'.e($trashUrl).'">' . view('components.icon.trash')->render() . 'Move To Trash Lead</button>';
+                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="' . e($trashUrl) . '">' . view('components.icon.trash')->render() . 'Move To Trash Lead</button>';
             }
 
             if ($claim && $lead->status_id === LeadStatus::WARM && (! $quote || $quote->status !== 'published')) {
                 $trashUrl = route('leads.my.warm.trash', $claim->id);
-                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="'.e($trashUrl).'">' . view('components.icon.trash')->render() . 'Trash Lead</button>';
+                $html .= '<button class="dropdown-item text-danger trash-lead cursor-pointer flex! items-center! gap-2! text-[#900B09]! trash-lead" data-url="' . e($trashUrl) . '">' . view('components.icon.trash')->render() . 'Trash Lead</button>';
             }
 
             $html .= '</div></div>';
@@ -1013,6 +1022,9 @@ class LeadController extends Controller
                 'lead_name' => $lead->name ?? '-',
                 'sales_name' => $claim?->sales?->name ?? '-',
                 'phone' => $lead->phone,
+                'claimed_at' => $claim?->claimed_at
+                    ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
+                    : '-',
                 'source_name' => $lead->source->name ?? '',
                 'needs' => $lead->needs,
                 'existing_industries' => $lead->industry->name ?? '-',
@@ -1085,7 +1097,13 @@ class LeadController extends Controller
     {
         $user = $request->user();
 
-        $leads = Lead::with(['region.branch', 'source', 'segment'])
+        $leads = Lead::with([
+            'region',
+            'region.branch',
+            'source',
+            'segment',
+            'industry',
+        ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
         if (! in_array($user->role?->code, ['super_admin'])) {
@@ -1100,31 +1118,96 @@ class LeadController extends Controller
         }
 
         if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
+            $leads->whereHas('region.branch', function ($q) use ($request) {
+                $q->where('id', $request->branch_id);
+            });
         }
 
         if ($request->filled('region_id')) {
             $leads->where('region_id', $request->region_id);
         }
 
+        // Date range filter (published_at) – same as availableList
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $leads->whereDate('published_at', '>=', $request->start_date)
+                    ->whereDate('published_at', '<=', $request->end_date);
+            } elseif ($request->filled('start_date')) {
+                $leads->whereDate('published_at', '>=', $request->start_date);
+            } else {
+                $leads->whereDate('published_at', '<=', $request->end_date);
+            }
+        }
+
+        // Source filter
+        if ($request->filled('source_id')) {
+            $source = $request->source_id;
+            is_array($source)
+                ? $leads->whereIn('source_id', $source)
+                : $leads->where('source_id', $source);
+        }
+
+        // Industry filter
+        if ($request->filled('industry_id')) {
+            $leads->where('industry_id', $request->industry_id);
+        }
+
+        // Global search (same as availableList)
+        if ($request->filled('q')) {
+            $term = $request->q;
+            $leads->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                    ->orWhereHas('region', function ($qr) use ($term) {
+                        $qr->where('name', 'like', "%{$term}%")
+                            ->orWhereHas('branch', function ($qb) use ($term) {
+                                $qb->where('name', 'like', "%{$term}%");
+                            });
+                    })
+                    ->orWhereHas('source', function ($qs) use ($term) {
+                        $qs->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('segment', function ($qseg) use ($term) {
+                        $qseg->where('name', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('industry', function ($qind) use ($term) {
+                        $qind->where('name', 'like', "%{$term}%");
+                    });
+            });
+        }
+
         $rows   = [];
-        $rows[] = ['Published At', 'Sales Name', 'Name', 'Branch', 'Region', 'Source', 'Segment', 'Customer Type', 'Product Description', 'Quotation Number', 'Quotation Price', 'Invoice', 'Invoice Price'];
+        $rows[] = [
+            'Published At',
+            'Name',
+            'Branch',
+            'Industry To Be',
+            'Industry Existing',
+            'Industry',
+            'Product',
+            'Tonage',
+            'Regional',
+            'Source',
+            'Segment',
+        ];
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
             $rows[] = [
                 $lead->published_at,
-                $claim?->sales?->name ?? '-',
                 $lead->name,
-                $lead->region->branch->name ?? '',
-                $lead->region->name ?? '',
-                $lead->source->name ?? '',
-                $lead->segment->name ?? '',
-                $lead->customer_type ?? '',
-                $lead->product_id ? ($lead->product->name ?? '') : ($lead->needs ?? ''),
-                $lead->quotation ? ($lead->quotation->number ?? '-') : '-',
-                $lead->quotation ? ($lead->quotation->total_price ? number_format($lead->quotation->total_price, 2) : '-') : '-',
-                $lead->invoice ? ($lead->invoice->number ?? '-') : '-',
-                $lead->invoice ? ($lead->invoice->total_price ? number_format($lead->invoice->total_price, 2) : '-') : '-',
+                $lead->region->branch->name ?? '-',
+                // Match "Industry To Be" column in table (industry_name)
+                $lead->industry->name ?? '-',
+                // "Industry Existing" – currently same data as view uses
+                $lead->industry->name ?? '-',
+                // "Industry" – same again (view shows industry.name)
+                $lead->industry->name ?? '-',
+                // Product column in view uses needs
+                $lead->needs ?? '-',
+                $lead->tonase ?? '-',
+                $lead->region->name ?? '-',
+                $lead->source->name ?? '-',
+                // Sama seperti kolom Segment di list: pakai segment, fallback ke customer_type
+                $lead->segment->name ?? $lead->customer_type ?? 'Not Set',
             ];
         }
 
@@ -1257,6 +1340,7 @@ class LeadController extends Controller
     }
 
     private function createXlsx(array $rows): string
+    
     {
         $contentTypes = <<<XML
         <?xml version="1.0" encoding="UTF-8"?>
@@ -1593,14 +1677,14 @@ class LeadController extends Controller
         ];
 
         $claims = LeadClaim::with([
-                'lead.status',
-                'lead.segment',
-                'lead.source',
-                'lead.region.regional',
-                'lead.quotation',
-                'lead.industry',
-                'sales'
-            ])
+            'lead.status',
+            'lead.segment',
+            'lead.source',
+            'lead.region.regional',
+            'lead.quotation',
+            'lead.industry',
+            'sales'
+        ])
             ->whereNull('released_at')
             ->whereHas('lead', function ($q) use ($request, $allowedStatuses) {
                 // Selalu batasi hanya ke status aktif (Cold/Warm/Hot/Deal)
@@ -1619,11 +1703,32 @@ class LeadController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
 
-            $claims->whereHas('lead', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+            $claims->where(function ($query) use ($search) {
+                // Lead basic fields + needs + customer type
+                $query->whereHas('lead', function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%")
+                            ->orWhere('needs', 'like', "%{$search}%")
+                            ->orWhere('customer_type', 'like', "%{$search}%");
+                    });
+                })
+                // Sales name
+                ->orWhereHas('sales', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // Source name
+                ->orWhereHas('lead.source', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // City name
+                ->orWhereHas('lead.region', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                // Regional name
+                ->orWhereHas('lead.region.regional', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
                 });
             });
         }
@@ -1762,36 +1867,36 @@ class LeadController extends Controller
         $html .= '  <div class="dropdown-menu dropdown-menu-right text-[#1E1E1E]!" aria-labelledby="' . $btnId . '">';
         $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($viewUrl) . '">'
             . '
-            '.view('components.icon.detail')->render().' 
+            ' . view('components.icon.detail')->render() . ' 
             View Lead</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
-        '.view('components.icon.log')->render().' 
+        ' . view('components.icon.log')->render() . ' 
         View / Add Activity</button>';
 
         if (! $quotation) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
                 . '    
-                '.view('components.icon.generate-quotation')->render().'
+                ' . view('components.icon.generate-quotation')->render() . '
                 Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '    
-                '.view('components.icon.view-quotation')->render().' 
+                ' . view('components.icon.view-quotation')->render() . ' 
                 View Quotation</a>';
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
                 . '    
-                '.view('components.icon.download')->render().' 
+                ' . view('components.icon.download')->render() . ' 
                 Download</a>';
             $logUrl = route('quotations.logs', $quotation->id);
             $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
-            '. view('components.icon.quotation-log')->render().' 
+            ' . view('components.icon.quotation-log')->render() . ' 
             Quotation Log</button>';
         }
 
         if (! $quotation || $quotation->status !== 'published') {
             $html .= '  <button class="dropdown-item text-[#900B09]! cursor-pointer trash-lead flex! items-center! gap-2!" data-url="' . e($trashUrl) . '">
-            '.view('components.icon.trash')->render().'
+            ' . view('components.icon.trash')->render() . '
             Trash Lead</button>';
         }
         $html .= '  </div>';
@@ -1828,7 +1933,7 @@ class LeadController extends Controller
         if (! $quotation) {
             $html .= '  <a class="dropdown-item" href="' . route('leads.my.warm.quotation.create', $row->id) . '">'
                 . '
-                '.view('components.icon.generate-quotation')->render().'
+                ' . view('components.icon.generate-quotation')->render() . '
                 Generate Quotation</a>';
         } else {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
@@ -1846,7 +1951,7 @@ class LeadController extends Controller
 
         return $html;
     }
-    
+
     protected function dealActions($row)
     {
         $quotation = $row->lead->quotation;
@@ -1891,5 +1996,4 @@ class LeadController extends Controller
 
         return $html;
     }
-
 }
