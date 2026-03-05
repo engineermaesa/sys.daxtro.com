@@ -12,7 +12,7 @@ use App\Models\Masters\{Branch, Region, ExpenseType, Product};
 use Illuminate\Support\Facades\DB;
 
 class ColdLeadController extends Controller
-{
+{   
     public function myColdList(Request $request)
     {
         // Trigger auto-trash if needed (non-blocking)

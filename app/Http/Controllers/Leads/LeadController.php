@@ -1022,6 +1022,9 @@ class LeadController extends Controller
                 'lead_name' => $lead->name ?? '-',
                 'sales_name' => $claim?->sales?->name ?? '-',
                 'phone' => $lead->phone,
+                'claimed_at' => $claim?->claimed_at
+                    ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
+                    : '-',
                 'source_name' => $lead->source->name ?? '',
                 'needs' => $lead->needs,
                 'existing_industries' => $lead->industry->name ?? '-',
