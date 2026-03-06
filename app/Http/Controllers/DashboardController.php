@@ -1778,9 +1778,10 @@ class DashboardController extends Controller
             'user_id'    => 'nullable|integer',
         ]);
 
-        $currentYear = now()->year;
-        $start = $validated['start_date'] ?? Carbon::create($currentYear, 1, 1)->toDateString();
-        $end = $validated['end_date'] ?? Carbon::create($currentYear, 12, 31)->toDateString();
+        // Default range: current month, so users.target can be treated
+        // as a monthly target by default.
+        $start = $validated['start_date'] ?? now()->startOfMonth()->toDateString();
+        $end = $validated['end_date'] ?? now()->endOfMonth()->toDateString();
 
         $statusId = LeadStatus::DEAL;
 

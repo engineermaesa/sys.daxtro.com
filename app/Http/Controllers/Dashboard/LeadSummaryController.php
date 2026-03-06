@@ -8,6 +8,7 @@ use App\Models\Leads\{LeadClaim, LeadStatus, Lead, LeadActivityLog};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class LeadSummaryController extends Controller
 {
@@ -272,10 +273,10 @@ class LeadSummaryController extends Controller
 
         $query = LeadClaim::whereNull('released_at')
             ->with([
-                'lead.product', 
-                'lead.segment', 
-                'lead.latestStatusLog', 
-                'lead.quotation.items.product', 
+                'lead.product',
+                'lead.segment',
+                'lead.latestStatusLog',
+                'lead.quotation.items.product',
                 'lead.status'
             ]);
 
@@ -321,7 +322,6 @@ class LeadSummaryController extends Controller
             if ($request->filled('end_date')) {
                 $q->whereDate('created_at', '<=', $request->end_date);
             }
-
         });
 
         // =========================
@@ -433,9 +433,7 @@ class LeadSummaryController extends Controller
                     $sub->whereRaw('LOWER(lead_sources.name) LIKE ?', ["%{$search}%"])
                         ->orWhereRaw('LOWER(lead_segments.name) LIKE ?', ["%{$search}%"])
                         ->orWhereRaw('LOWER(leads.customer_type) LIKE ?', ["%{$search}%"]);
-
                 });
-
             })
             ->selectRaw(
                 "lead_sources.name as source, COALESCE(lead_segments.name, leads.customer_type) as segment,
@@ -527,7 +525,219 @@ class LeadSummaryController extends Controller
 
     public function PersonalTrend(Request $request)
     {
-        // For Personal Trend
+        $year = $request->year ?? now()->year;
+        $month = $request->month;
+        $monthFrom = $request->month_from;
+        $monthTo = $request->month_to;
+
+        $groupBy = 'month';
+
+        // Determine grouping
+        if ($month) {
+            $groupBy = 'week';
+            $monthFrom = $month;
+            $monthTo = $month;
+        } elseif ($monthFrom && $monthTo) {
+            if ($monthFrom == 1 && $monthTo == 12) {
+                $groupBy = 'quarter';
+            } else {
+                $groupBy = 'month';
+            }
+        }
+
+        // Legacy implementation relied on a non-existent `sales` table.
+        // When that table is missing, we derive personal trend data from
+        // the same achievement logic used in `grid`, using the logged-in
+        // user's monthly target and realized achievement per period.
+        if (! Schema::hasTable('sales')) {
+            $user = Auth::user();
+            $monthlyTarget = $user && $user->target ? (float) $user->target : 0.0;
+
+            $labels = [];
+            $sales = [];
+            $targets = [];
+
+            if ($groupBy === 'month') {
+                $from = $monthFrom ? (int) $monthFrom : 1;
+                $to = $monthTo ? (int) $monthTo : 12;
+
+                for ($m = $from; $m <= $to; $m++) {
+                    $periodStart = Carbon::create($year, $m, 1)->startOfMonth()->toDateString();
+                    $periodEnd = Carbon::create($year, $m, 1)->endOfMonth()->toDateString();
+
+                    $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+
+                    $labels[] = date('M', mktime(0, 0, 0, $m, 1));
+                    $sales[] = (int) round($amount);
+                    $targets[] = (int) round($monthlyTarget);
+                }
+            } elseif ($groupBy === 'quarter') {
+                for ($q = 1; $q <= 4; $q++) {
+                    $startMonth = 1 + (($q - 1) * 3);
+                    $endMonth = $startMonth + 2;
+
+                    $periodStart = Carbon::create($year, $startMonth, 1)->startOfMonth()->toDateString();
+                    $periodEnd = Carbon::create($year, $endMonth, 1)->endOfMonth()->toDateString();
+
+                    $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+
+                    $labels[] = 'Q' . $q;
+                    $sales[] = (int) round($amount);
+                    $targets[] = (int) round($monthlyTarget * 3);
+                }
+            } else {
+                // For weekly view (groupBy === 'week'), fall back to a
+                // single aggregated point for the selected month.
+                $monthVal = $month ?: now()->month;
+                $periodStart = Carbon::create($year, $monthVal, 1)->startOfMonth()->toDateString();
+                $periodEnd = Carbon::create($year, $monthVal, 1)->endOfMonth()->toDateString();
+
+                $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+
+                $labels[] = 'MTD';
+                $sales[] = (int) round($amount);
+                $targets[] = (int) round($monthlyTarget);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'filter' => [
+                    'year' => $year,
+                    'month' => $month,
+                    'month_from' => $monthFrom,
+                    'month_to' => $monthTo,
+                ],
+                'group_by' => $groupBy,
+                'labels' => $labels,
+                'datasets' => [
+                    [
+                        'name' => 'Target',
+                        'data' => $targets,
+                    ],
+                    [
+                        'name' => 'Sales',
+                        'data' => $sales,
+                    ],
+                ],
+            ]);
+        }
+
+        $query = DB::table('sales')
+            ->selectRaw('SUM(amount) as sales, SUM(target) as target');
+
+        if ($groupBy == 'week') {
+
+            $query->selectRaw('WEEK(created_at,1) - WEEK(DATE_SUB(created_at, INTERVAL DAYOFMONTH(created_at)-1 DAY),1) + 1 as label')
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->groupBy('label');
+        } elseif ($groupBy == 'month') {
+
+            $query->selectRaw('MONTH(created_at) as label')
+                ->whereYear('created_at', $year)
+                ->whereBetween(DB::raw('MONTH(created_at)'), [$monthFrom, $monthTo])
+                ->groupBy('label');
+        } elseif ($groupBy == 'quarter') {
+
+            $query->selectRaw('QUARTER(created_at) as label')
+                ->whereYear('created_at', $year)
+                ->groupBy('label');
+        }
+        $data = $query->orderBy('label')->get();
+        $labels = [];
+        $sales = [];
+        $targets = [];
+
+        foreach ($data as $row) {
+
+            if ($groupBy == 'week') {
+                $labels[] = "Week " . $row->label;
+            }
+
+            if ($groupBy == 'month') {
+                $labels[] = date("M", mktime(0, 0, 0, $row->label, 1));
+            }
+
+            if ($groupBy == 'quarter') {
+                $labels[] = "Q" . $row->label;
+            }
+
+            $sales[] = (int) $row->sales;
+            $targets[] = (int) $row->target;
+        }
+
+        return response()->json([
+            "status" => "success",
+            "filter" => [
+                "year" => $year,
+                "month" => $month,
+                "month_from" => $monthFrom,
+                "month_to" => $monthTo
+            ],
+            "group_by" => $groupBy,
+            "labels" => $labels,
+            "datasets" => [
+                [
+                    "name" => "Target",
+                    "data" => $targets
+                ],
+                [
+                    "name" => "Sales",
+                    "data" => $sales
+                ]
+            ]
+        ]);
+    }
+
+    private function calculateUserAchievementForPeriod($user, string $startDate, string $endDate): float
+    {
+        $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
+            ->whereHas('lead', function ($q) {
+                $q->where('status_id', LeadStatus::DEAL);
+            })
+            ->whereNull('released_at');
+
+        $roleCode = $user?->role?->code;
+
+        if ($roleCode === 'sales') {
+            $claims->where('sales_id', $user?->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $claims->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user?->branch_id);
+            });
+        }
+
+        // Use the same first-term payment window semantics as `grid`
+        $claims->whereHas('lead.quotation', function ($q) use ($startDate, $endDate) {
+            $q->firstTermPaidBetween($startDate, $endDate);
+        });
+
+        $monetaryActual = 0;
+
+        foreach ($claims->get() as $claim) {
+            $quotation = $claim->lead?->quotation;
+            if (! $quotation) {
+                continue;
+            }
+
+            $proformas = $quotation->proformas ?? collect();
+            $totalPayments = $proformas->count();
+
+            $confirmedProformas = $proformas->filter(function ($p) {
+                return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
+            });
+
+            $approvedPayments = $confirmedProformas->count();
+
+            // Only count deals that have all proformas confirmed, as in `grid`.
+            if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
+                $monetaryActual += (float) $confirmedProformas->sum(function ($p) {
+                    return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
+                });
+            }
+        }
+
+        return round($monetaryActual, 2);
     }
 
     public function Summary(Request $request)
