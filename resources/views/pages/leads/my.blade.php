@@ -524,14 +524,18 @@
                             <th class="p-1 lg:p-3">Regional</th>
 
                             @if ($tab === 'cold' || $tab === 'warm')
-                            <th class="text-left">Status</th>
+                            <th class="p-1 lg:p-3">Status</th>
                             @endif
 
                             @if ($tab === 'hot')
-                            <th class="text-left">Quotation Expire In</th>
+                            <th class="p-1 lg:p-3">Quotation Expire In</th>
                             @endif
 
-                            <th class="text-center p-3">Action</th>
+                            @if ($tab === 'all')
+                            <th class="p-1 lg:p-3 text-center">Stage</th>
+                            @endif
+                            
+                            <th class="p-1 lg:p-3 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="{{ $tab }}BodyTable"></tbody>
@@ -990,10 +994,10 @@
                         statusContent = statusName;
     
                         statusClass =
-                            statusName === 'Cold' ? 'status-cold' :
-                            statusName === 'Warm' ? 'status-warm' :
-                            statusName === 'Hot'  ? 'status-hot'  :
-                            statusName === 'Deal' ? 'status-deal' :
+                            statusName === 'Cold' ? 'px-3 py-2 status-cold' :
+                            statusName === 'Warm' ? 'px-3 py-2 status-warm' :
+                            statusName === 'Hot'  ? 'px-3 py-2 status-hot'  :
+                            statusName === 'Deal' ? 'px-3 py-2 status-deal' :
                             '';
     
                     } else if (selector === 'cold') {
@@ -1038,7 +1042,7 @@
     
                             ${selector !== 'deal' ? `
                                 <td class="p-1 md:p-2 lg:p-3">
-                                    <span class="block lg:px-2 lg:py-1 rounded-sm ${selector === 'all' ? statusClass : ''}">
+                                    <span class="${selector === 'all' ? statusClass : ''}">
                                         ${statusContent || '-'}
                                     </span>
                                 </td>

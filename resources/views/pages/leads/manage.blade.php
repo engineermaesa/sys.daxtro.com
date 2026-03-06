@@ -510,6 +510,7 @@
                                     <th class="p-2">Customer Type</th>
                                     <th class="p-2">ACT Last Time</th>
                                     <th class="p-2">ACT Status</th>
+                                    <th class="p-2">Claimed At</th>
                                     <th class="text-center w-12.5 p-2">Stage</th>
                                     <th class="text-center p-2">Action</th>
                                 </tr>
@@ -575,6 +576,7 @@
                                 <th class="p-2">Quotation End Date</th>
                                 <th class="p-2">ACT Last Time</th>
                                 <th class="p-2">ACT Status</th>
+                                <th class="p-2">Claimed At</th>
                                 <th class="text-center p-2">Action</th>
                             </tr>
                         </thead>
@@ -876,6 +878,7 @@
                     <td class="p-2">${row.customer_type ?? ''}</td>
                     <td class="p-2">${row.act_last_time ?? ''}</td>
                     <td class="p-2">${row.act_status ?? ''}</td>
+                    <td class="p-2">${row.claimed_at ?? ''}</td>
                     <td class="text-center capitalize p-2">
                         <span class="block px-2 py-1 rounded-sm flex items-center justify-center 
                             ${
@@ -940,6 +943,7 @@
                         <td class="p-2">${row.quot_end_date ?? ''}</td>
                         <td class="p-2">${row.act_last_time ?? ''}</td>
                         <td class="p-2">${row.act_status ?? ''}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2 text-center">${row.actions ?? ''}</td>
                     </tr>
                 `;
@@ -979,6 +983,7 @@
                         <td class="p-2">${row.quot_end_date ?? ''}</td>
                         <td class="p-2">${row.act_last_time ?? ''}</td>
                         <td class="p-2">${row.act_status ?? ''}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2 text-center">${row.actions ?? ''}</td>
                     </tr>
                 `;
@@ -1020,6 +1025,7 @@
                         <td class="p-2">${row.quot_end_date ?? ''}</td>
                         <td class="p-2">${row.act_last_time ?? ''}</td>
                         <td class="p-2">${row.act_status ?? ''}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2 text-center">${row.actions ?? ''}</td>
                     </tr>
                 `;
@@ -1061,6 +1067,7 @@
                         <td class="p-2">${row.quot_end_date ?? ''}</td>
                         <td class="p-2">${row.act_last_time ?? ''}</td>
                         <td class="p-2">${row.act_status ?? ''}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2 text-center">${row.actions ?? ''}</td>
                     </tr>
                 `;

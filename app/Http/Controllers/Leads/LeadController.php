@@ -129,11 +129,11 @@ class LeadController extends Controller
                 $editUrl  = route('leads.form', $row->id);
                 $claimUrl = route('leads.claim', $row->id);
 
-                $html  = '<a class="inline-flex! items-center! gap-1! text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg bgst" href="' . e($editUrl) . '">'
+                $html  = '<a class="flex items-center gap-1 text-[#1E1E1E]! px-3! py-1! border border-[#D9D9D9] rounded-lg" href="' . e($editUrl) . '">'
                     . view('components.icon.detail')->render() .
                     ' View </a>';
 
-                $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead inline-flex! items-center justify-start gap-1" href="' . e($claimUrl) . '">
+                $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
                             <i class="bi bi-check-circle mr-1"></i> Claim
                         </a>';
 

@@ -421,6 +421,22 @@ class LeadSummaryController extends Controller
             ->when($roleCode === 'branch_manager', function ($q) use ($user) {
                 $q->where('leads.branch_id', $user?->branch_id);
             })
+            ->when($request->source_id, function ($q) use ($request) {
+                $q->where('leads.source_id', $request->source_id);
+            })
+            ->when($request->filled('search'), function ($q) use ($request) {
+
+                $search = strtolower($request->search);
+
+                $q->where(function ($sub) use ($search) {
+
+                    $sub->whereRaw('LOWER(lead_sources.name) LIKE ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(lead_segments.name) LIKE ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(leads.customer_type) LIKE ?', ["%{$search}%"]);
+
+                });
+
+            })
             ->selectRaw(
                 "lead_sources.name as source, COALESCE(lead_segments.name, leads.customer_type) as segment,
             SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
@@ -504,7 +520,7 @@ class LeadSummaryController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'Data' => $rows,
+            'data' => $rows,
             'summary' => $summary
         ]);
     }
