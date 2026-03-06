@@ -963,6 +963,7 @@ class LeadController extends Controller
         $perPage = $request->get('per_page', 10);
 
         $paginated = $leads
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 
@@ -1340,7 +1341,6 @@ class LeadController extends Controller
     }
 
     private function createXlsx(array $rows): string
-    
     {
         $contentTypes = <<<XML
         <?xml version="1.0" encoding="UTF-8"?>

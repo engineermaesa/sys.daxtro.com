@@ -111,7 +111,15 @@ class TrashLeadController extends Controller
             });
         }
 
+        $claims->addSelect([
+            'trashed_at' => DB::table('lead_status_logs as lsl')
+                ->selectRaw('MAX(lsl.created_at)')
+                ->whereColumn('lsl.lead_id', 'lead_claims.lead_id')
+                ->where('lsl.status_id', LeadStatus::TRASH_COLD),
+        ]);
+
         $paginated = $claims
+            ->orderByDesc('trashed_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 
@@ -206,7 +214,15 @@ class TrashLeadController extends Controller
             });
         }
 
+        $claims->addSelect([
+            'trashed_at' => DB::table('lead_status_logs as lsl')
+                ->selectRaw('MAX(lsl.created_at)')
+                ->whereColumn('lsl.lead_id', 'lead_claims.lead_id')
+                ->where('lsl.status_id', LeadStatus::TRASH_WARM),
+        ]);
+
         $paginated = $claims
+            ->orderByDesc('trashed_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 
@@ -302,7 +318,15 @@ class TrashLeadController extends Controller
             });
         }
 
+        $claims->addSelect([
+            'trashed_at' => DB::table('lead_status_logs as lsl')
+                ->selectRaw('MAX(lsl.created_at)')
+                ->whereColumn('lsl.lead_id', 'lead_claims.lead_id')
+                ->where('lsl.status_id', LeadStatus::TRASH_HOT),
+        ]);
+
         $paginated = $claims
+            ->orderByDesc('trashed_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 
@@ -404,7 +428,21 @@ class TrashLeadController extends Controller
             });
         }
 
+        $trashStatusIds = [
+            LeadStatus::TRASH_COLD,
+            LeadStatus::TRASH_WARM,
+            LeadStatus::TRASH_HOT,
+        ];
+
+        $claims->addSelect([
+            'trashed_at' => DB::table('lead_status_logs as lsl')
+                ->selectRaw('MAX(lsl.created_at)')
+                ->whereColumn('lsl.lead_id', 'lead_claims.lead_id')
+                ->whereIn('lsl.status_id', $trashStatusIds),
+        ]);
+
         $paginated = $claims
+            ->orderByDesc('trashed_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 
