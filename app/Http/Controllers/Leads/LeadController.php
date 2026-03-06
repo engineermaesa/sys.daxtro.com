@@ -963,6 +963,7 @@ class LeadController extends Controller
         $perPage = $request->get('per_page', 10);
 
         $paginated = $leads
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 

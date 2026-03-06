@@ -32,7 +32,7 @@
                 {{-- NAVIGATION STATUS --}}
                   <div class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active" data-status="{{ $tab }}">
                     <p class="text-[#083224]">
-                        {{ $loop->first ? 'All Status' : ucfirst($tab) }}
+                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
                         <span 
                             class="{{ 
                                 $tab === 'all' 
@@ -63,7 +63,10 @@
                         <tr class="border-b border-b-[#CFD5DC]">
                             <th class="hidden">ID (hidden)</th>
                             <th class="p-1 md:p-2 lg:p-3">
-                                Claimed At
+                              Claimed At
+                            </th>
+                            <th class="p-1 md:p-2 lg:p-3">
+                              To Trash At
                             </th>
                             <th class="p-1 md:p-2 lg:p-3">  
                                 Lead Name
@@ -400,6 +403,7 @@
                 <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
                     <td class="hidden">${row.id}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.claimed_at}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.trashed_at ?? '-'}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.segment_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.source}</td>
