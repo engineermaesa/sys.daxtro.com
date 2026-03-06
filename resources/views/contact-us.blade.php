@@ -14,7 +14,16 @@
   
   <div class="min-h-screen! text-xs lg:text-sm! bg-[#E8EFEC] px-40 pt-20 flex items-start justify-center">
       <div id="lead-entries">
-        <h1 class="text-4xl text-[#1E1E1E] font-bold mb-5">Daxtro - Contact Us</h1>
+        @auth
+            @if(auth()->user()->role?->code === 'branch_manager')
+                <h1 class="text-4xl text-[#1E1E1E] font-bold mb-5">Adds Manually Leads</h1>
+            @endif
+        @endauth
+        
+        @guest
+            <h1 class="text-4xl text-[#1E1E1E] font-bold mb-5">Daxtro - Contact Us</h1>
+        @endguest
+
         <div class="lead-entry">
             @if(session('success'))
             <div id="success-message"></div>
@@ -301,7 +310,15 @@
                 </div>
                 </div>
             </div>
-                <div class="flex justify-end mt-3">
+                <div class="flex justify-end gap-3 mt-3">
+                    @auth
+                        @if(auth()->user()->role?->code === 'branch_manager')
+                            <a href="{{ route('leads.available') }}"
+                            class="inline-block text-center w-[125px] px-3 py-2 border border-[#083224] text-[#083224] font-semibold rounded-lg cursor-pointer transition-all duration-300 bg-white">
+                            Back
+                            </a>
+                        @endif
+                    @endauth
                     <button type="submit" class="inline-block text-center w-[125px] px-3 py-2 bg-[#115640] transition-all duration-300 hover:bg-[#083224] text-white font-semibold rounded-lg cursor-pointer">Save</button>
                 </div>
             </form>

@@ -5,7 +5,7 @@
     <div class="grid grid-cols-4 gap-3 mt-2">
         
         {{-- ACHIEVEMENT VS TARGET SECTION--}}
-        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg">
+        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
 
             <div class="flex justify-between items-center">
                 
@@ -31,7 +31,7 @@
         </div>
         
         {{-- CLOSED DEAL SECTION--}}
-        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg">
+        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.30s;">
 
             <div class="flex justify-between items-center">
                 
@@ -44,7 +44,9 @@
 
             <div>
                 <div class="mt-3 text-[#757575]">
-                    <p id="totalDeals">0/</p>
+                    <p id="totalDeals">
+                        0
+                    /</p>
                     <p id="totalAmount"></p>
                 </div>
 
@@ -57,7 +59,7 @@
         </div>
 
         {{-- TOTAL ACTIVE LEADS SECTION--}}
-        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg">
+        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.45s;">
 
             <div class="flex justify-between items-center">
                 
@@ -95,7 +97,7 @@
         </div>
 
         {{-- POTENTIAL DEALING SECTION--}}
-        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg">
+        <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.60s;">
 
             <div class="flex justify-between items-center">
                 
@@ -266,9 +268,9 @@
         </div>
     </div>
 
-    {{-- ACTIVITE OPPORTUNITIES --}}
+    {{-- LEADS PERFORMANCE--}}
     <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">My Leads Performance</h1>
-    <div class="mt-2 mb-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
+    <div class="mt-2 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
         <div class="bg-white lg:grid lg:grid-cols-[1fr_3fr] border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
             {{-- SEARCH TABLES --}}
@@ -380,8 +382,40 @@
                 <tfoot id="salesFootTableLeadsPerformance"></tfoot>
             </table>
         </div>
+
+        {{-- NAVIGATION ROWS --}}
+        <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent border-t border-t-[#D9D9D9]">
+            <div class="flex items-center gap-3">
+                <p class="font-semibold">Show Rows</p>
+                <select id="tabPageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                    onchange="loadLead('size', this.value)">
+                    <option value="5" selected>5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
     </div>
 
+    {{-- SUMMARY --}}
+    <div class="bg-[#F1F6FD] text-[#183057] p-3 rounded-lg border border-[#183057] flex items-center justify-start gap-3 mt-5 mb-5">
+        <div class="w-5 h-5 flex items-center justify-center 
+            border-2 border-[#183057] text-[#183057] text-xs rounded-full cursor-pointer font-semibold">
+            i
+        </div>
+        <div class="text-[#183057]">
+            <h1 class="font-semibold uppercase text-lg">Summary</h1>
+            <div class="flex items-center gap-10 mt-3">
+                <p>Telpon Pertama : <span id="firstCall">0</span></p>
+                <p>Quotation Sent : <span id="quotationSent">0</span></p>
+            </div>
+            <p class="mt-1">Visit Scheduled : <span id="visitScheduled">0</span></p>
+            <span class="w-full bg-[#183057] h-[1px] block my-3"></span>
+            <p>Status: Slightly Behind Target (Need +30M more to achieve target)</p>
+        </div>
+    </div>
 
 </section>
 
@@ -390,6 +424,7 @@
         loadDashboardGrid();
         loadActivity();
         loadLead();
+        loadSummary();
 
         function initFlatpickr() {
             var input = document.getElementById('source-date-range');
@@ -464,24 +499,28 @@
             }
 
             const data = result.Data;
-
             
             const achievementSalesFormatted = formatRupiah(data.achievement_target.achievement);
-            $("#achievementSales").text(achievementSalesFormatted + "/").addClass('font-semibold text-2xl text-[#1E1E1E]');
-
+            
             const targetSalesFormatted = formatRupiah(data.achievement_target.target);
             $("#targetSales").text(targetSalesFormatted).addClass('font-semibold text-2xl text-[#1E1E1E]');
             
             if ( data.achievement_target.percentage > 70 ){
                 $("#percentageAchievement").text(data.achievement_target.percentage + "%").addClass('font-semibold! status-finish');
+
+                $("#achievementSales").text(achievementSalesFormatted + "/").addClass('text-2xl font-semibold! text-[#009951]');
             }
             else if ( data.achievement_target.percentage > 35 ){
                 $("#percentageAchievement").text(data.achievement_target.percentage + "%").addClass('font-semibold! status-waiting');
+                
+                $("#achievementSales").text(achievementSalesFormatted + "/").addClass('text-2xl font-semibold! text-[#E8B931]');
             } else {
                 $("#percentageAchievement").text(data.achievement_target.percentage + "%").addClass('font-semibold! status-expired');
+
+                $("#achievementSales").text(achievementSalesFormatted + "/").addClass('text-2xl font-semibold! text-[#900B09]');
             }
 
-            $("#totalDeals").text(data.closed_deal.total_deals).addClass('font-semibold text-3xl text-[#1E1E1E]');;
+            $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-3xl text-[#1E1E1E]');
 
             const totalAmountFormatted = formatRupiah(data.closed_deal.total_amount);
             $("#totalAmount").text("Amount: " + totalAmountFormatted);
@@ -508,8 +547,10 @@
     const DEFAULT_PAGE_SIZE = 5;
 
     let activityPage = 1;
-    let activityPageSize = DEFAULT_PAGE_SIZE;
     let activityTotal = 0;
+    
+    let activityPageSize = DEFAULT_PAGE_SIZE;
+    let leadsPerformancePageSize = DEFAULT_PAGE_SIZE;
 
     // FILTER STATE
     let filterSource = '';
@@ -692,18 +733,36 @@
         });
     }
 
-    async function loadLead(action = 'init', value = null){
+    async function loadLead(action = 'init', value = null) {
         const API_URL = '/api/leads/leads-performance';
+
+        if (action === 'size' && value) {
+            leadsPerformancePageSize = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
+            applyLeadRowLimit();
+            return;
+        }
 
         const params = new URLSearchParams({
             search: typeof getSearchQuery === 'function' ? getSearchQuery() : ''
         });
 
-        if (filterSource) params.append('source_id', filterSource); 
+        if (filterSource) params.append('source_id', filterSource);
         if (filterStartDate) params.append('start_date', filterStartDate);
         if (filterEndDate) params.append('end_date', filterEndDate);
 
+        const tbody = document.getElementById('salesBodyTableLeadsPerformance');
+        const tfoot = document.getElementById('salesFootTableLeadsPerformance');
+        
         try {
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-3 text-[#1E1E1E]">
+                            Loading data...
+                        </td>
+                    </tr>
+                `;
+            }
 
             const response = await fetch(`${API_URL}?${params.toString()}`, {
                 headers: {
@@ -716,72 +775,75 @@
 
             if (!result || result.status !== 'success') return;
 
-            const paginatedData = result.data || [];
+            const leadData = result.data || [];
             const summary = result.summary || {};
 
-            const tbody = document.getElementById('salesBodyTableLeadsPerformance');
             tbody.innerHTML = '';
-
-            const tfoot = document.getElementById('salesFootTableLeadsPerformance');
             tfoot.innerHTML = '';
 
-            if (paginatedData.length === 0) {
+            if (leadData.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center py-3 text-[#1E1E1E]">
+                        <td colspan="7" class="text-center py-3 text-[#1E1E1E]">
                             No data found
                         </td>
                     </tr>
                 `;
-            } else {
-
-                paginatedData.forEach(item => {
-                    tbody.innerHTML += `
-                        <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
-                            <td class="p-1 lg:p-3">${item.source ?? '-'}</td>
-                            <td class="p-1 lg:p-3">${item.segment ?? '-'}</td>
-                            <td class="p-1 lg:p-3">
-                                ${item.cum ?? '-'}
-                                <span class="opacity-50 text-xs">(${item.persen_cum ?? '-'}%)</span>
-                            </td>
-                            <td class="p-1 lg:p-3">
-                                ${item.cold ?? '-'}
-                                <span class="opacity-50 text-xs">(${item.persen_cold ?? '-'}%)</span>
-                            </td>
-                            <td class="p-1 lg:p-3">
-                                ${item.warm ?? '-'}
-                                <span class="opacity-50 text-xs">(${item.persen_warm ?? '-'}%)</span>
-                            </td>
-                            <td class="p-1 lg:p-3">
-                                ${item.hot ?? '-'}
-                                <span class="opacity-50 text-xs">(${item.persen_hot ?? '-'}%)</span>
-                            </td>
-                            <td class="p-1 lg:p-3">
-                                ${item.deal ?? '-'}
-                                <span class="opacity-50 text-xs">(${item.persen_deal ?? '-'}%)</span>
-                            </td>
-                        </tr>
-                    `;
-                
-                });
-                tfoot.innerHTML = `
-                    <tr class="font-semibold border-t border-t-[#D9D9D9] text-[#1E1E1E]">
-                        <td class="p-2 lg:p-3">Total</td>
-                        <td class="p-2 lg:p-3"></td>
-                        <td class="p-2 lg:p-3">${summary.total_all ?? 0}</td>
-                        <td class="p-2 lg:p-3">${summary.total_cold ?? 0}</td>
-                        <td class="p-2 lg:p-3">${summary.total_warm ?? 0}</td>
-                        <td class="p-2 lg:p-3">${summary.total_hot ?? 0}</td>
-                        <td class="p-2 lg:p-3">${summary.total_deal ?? 0}</td>
-                    </tr>
-                `;
+                return;
             }
 
+            let rowsHtml = '';
+
+            leadData.forEach((item, index) => {
+                rowsHtml += `
+                    <tr data-row-index="${index}" class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
+                        <td class="p-1 lg:p-3">${item.source ?? '-'}</td>
+                        <td class="p-1 lg:p-3">${item.segment ?? '-'}</td>
+                        <td class="p-1 lg:p-3">
+                            ${item.cum ?? '-'}
+                            <span class="opacity-50 text-xs">(${item.persen_cum ?? '-'}%)</span>
+                        </td>
+                        <td class="p-1 lg:p-3">
+                            ${item.cold ?? '-'}
+                            <span class="opacity-50 text-xs">(${item.persen_cold ?? '-'}%)</span>
+                        </td>
+                        <td class="p-1 lg:p-3">
+                            ${item.warm ?? '-'}
+                            <span class="opacity-50 text-xs">(${item.persen_warm ?? '-'}%)</span>
+                        </td>
+                        <td class="p-1 lg:p-3">
+                            ${item.hot ?? '-'}
+                            <span class="opacity-50 text-xs">(${item.persen_hot ?? '-'}%)</span>
+                        </td>
+                        <td class="p-1 lg:p-3">
+                            ${item.deal ?? '-'}
+                            <span class="opacity-50 text-xs">(${item.persen_deal ?? '-'}%)</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = rowsHtml;
+
+            tfoot.innerHTML = `
+                <tr class="font-semibold border-t border-t-[#D9D9D9] text-[#1E1E1E]">
+                    <td class="p-2 lg:p-3">Total</td>
+                    <td class="p-2 lg:p-3"></td>
+                    <td class="p-2 lg:p-3">${summary.total_all ?? 0}</td>
+                    <td class="p-2 lg:p-3">${summary.total_cold ?? 0}</td>
+                    <td class="p-2 lg:p-3">${summary.total_warm ?? 0}</td>
+                    <td class="p-2 lg:p-3">${summary.total_hot ?? 0}</td>
+                    <td class="p-2 lg:p-3">${summary.total_deal ?? 0}</td>
+                </tr>
+            `;
+
+            applyLeadRowLimit();
+
         } catch (error) {
-            console.error('Load Activity Error:', error);
+            console.error('Load Lead Error:', error);
         }
     }
-    
+
     const leadSourceSelect = document.getElementById('salesLeadPerformanceSource');
 
     if (leadSourceSelect) {
@@ -810,6 +872,22 @@
 
         });
     }
+    
+    function applyLeadRowLimit() {
+        const tbody = document.getElementById('salesBodyTableLeadsPerformance');
+        if (!tbody) return;
+
+        const rows = tbody.querySelectorAll('tr[data-row-index]');
+
+        rows.forEach((row, index) => {
+            if (index < leadsPerformancePageSize) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+    }
+
     function formatRupiah(number) {
         return new Intl.NumberFormat("id-ID", {
             style: "currency",
@@ -818,4 +896,28 @@
         }).format(number);
     }
 
+    async function loadSummary(){
+        try {
+            const response = await fetch("/api/leads/summary");
+            
+            if (!response.ok) {
+                throw new Error("Network response was not ok");
+            }
+
+            const result = await response.json();
+
+            if (result.status !== "success") {
+                throw new Error("API returned failed status");
+            }
+
+            const data = result.Data;
+            
+            $("#firstCall").text(data.telpon_pertama);
+            $("#quotationSent").text(data.quotation_sent);
+            $("#visitScheduled").text(data.visi_scheduled);
+
+        } catch (error) {
+            console.error("Error loading summary:", error);
+        }
+    }
 </script>

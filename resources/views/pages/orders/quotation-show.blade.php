@@ -511,6 +511,7 @@
                 <div class="bg-white border border-[#D9D9D9] rounded-lg my-4">
                     <h1 class="uppercase text-[#1E1E1E] font-semibold px-3 py-2 border-b border-b-[#D9D9D9]">Upload Signed Document</h1>
                     <form action="{{ route('quotations.signed-documents.upload', $quotation->id) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
                         <div class="flex justify-between items-end gap-3">
                             <div class="w-[30%] px-3 py-2">
                                 <label for="signed_file" class="text-[#1E1E1E]!">

@@ -17,13 +17,13 @@ use App\Http\Controllers\Leads\SummaryController;
 //     ]);
 // });
 
+Route::get('contact-us', [\App\Http\Controllers\ContactUsController::class, 'create'])->name('contact-us');
+Route::post('contact-us', [\App\Http\Controllers\ContactUsController::class, 'store'])->name('contact-us.store');
+
 Route::middleware('guest')->group(function () {
     
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
-
-    Route::get('contact-us', [\App\Http\Controllers\ContactUsController::class, 'create'])->name('contact-us');
-    Route::post('contact-us', [\App\Http\Controllers\ContactUsController::class, 'store'])->name('contact-us.store');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');

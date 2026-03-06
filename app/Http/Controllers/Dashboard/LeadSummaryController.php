@@ -550,9 +550,9 @@ class LeadSummaryController extends Controller
 
         // Map of lowercase activity names to canonical labels we want in output
         $wantedMap = [
-            'telepon pertama' => 'Telepon pertama',
-            'visit scheduled' => 'Visit Scheduled',
-            'quotation sent' => 'Quotation Sent',
+            'telepon pertama' => 'telpon_pertama',
+            'visit scheduled' => 'visit_scheduled',
+            'quotation sent' => 'quotation_sent',
         ];
 
         // Initialize counts with zero so missing activities return 0
