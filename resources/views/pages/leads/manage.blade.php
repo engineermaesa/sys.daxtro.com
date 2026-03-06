@@ -499,6 +499,7 @@
                             <thead class="text-[#1E1E1E]">
                                 <tr class="border-b border-b-[#D9D9D9]">
                                     <th class="hidden">ID (hidden)</th>
+                                    <th class="p-2">Claimed At</th>
                                     <th class="font-bold text-left p-2">Lead Name</th>
                                     <th class="p-2">Sales Name</th>
                                     <th class="p-2">Telephone</th>
@@ -556,6 +557,7 @@
                         {{-- HEADER TABLE --}}
                         <thead class="text-[#1E1E1E]">
                             <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="p-2">Claimed At</th>
                                 <th class="font-bold text-left p-2">Lead Name</th>
                                 <th class="p-2">Sales Name</th>
                                 <th class="p-2">Telephone</th>
@@ -858,6 +860,7 @@
                 tbody.innerHTML += `
                 <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
                     <td class="hidden">${row.id}</td>
+                    <td class="p-2">${row.claimed_at ?? ''}</td>
                     <td class="p-2 font-medium">${row.lead_name ?? ''}</td>
                     <td class="p-2">${row.sales_name ?? '-'}</td>
                     <td class="p-2">${row.phone ?? ''}</td>
@@ -918,6 +921,7 @@
                 tbody.innerHTML += `
                     <tr class="border-b border-b-[#D9D9D9]">
                         <td class="hidden">${row.id}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2">${row.lead_name ?? ''}</td>
                         <td class="p-2">${row.sales_name ?? ''}</td>
                         <td class="p-2">${row.phone ?? ''}</td>
@@ -957,6 +961,7 @@
                 tbody.innerHTML += `
                     <tr class="border-b border-b-[#D9D9D9]">
                         <td class="hidden">${row.id}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2">${row.lead_name ?? ''}</td>
                         <td class="p-2">${row.sales_name ?? ''}</td>
                         <td class="p-2">${row.phone ?? ''}</td>
@@ -996,6 +1001,7 @@
                 tbody.innerHTML += `
                     <tr class="border-b border-b-[#D9D9D9]">
                         <td class="hidden">${row.id}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2">${row.lead_name ?? ''}</td>
                         <td class="p-2">${row.sales_name ?? ''}</td>
                         <td class="p-2">${row.phone ?? ''}</td>
@@ -1037,6 +1043,7 @@
                 tbody.innerHTML += `
                     <tr class="border-b border-b-[#D9D9D9]">
                         <td class="hidden">${row.id}</td>
+                        <td class="p-2">${row.claimed_at ?? ''}</td>
                         <td class="p-2">${row.lead_name ?? ''}</td>
                         <td class="p-2">${row.sales_name ?? ''}</td>
                         <td class="p-2">${row.phone ?? ''}</td>

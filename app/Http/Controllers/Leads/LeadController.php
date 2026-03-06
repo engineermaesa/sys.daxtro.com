@@ -1340,7 +1340,6 @@ class LeadController extends Controller
     }
 
     private function createXlsx(array $rows): string
-    
     {
         $contentTypes = <<<XML
         <?xml version="1.0" encoding="UTF-8"?>
