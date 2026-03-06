@@ -54,8 +54,45 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'target' => 'decimal:2'
         ];
+    }
+
+    /**
+     * Ambil breakdown target bulanan dari field target (format: total|json).
+     */
+    public function getMonthlyTargetsAttribute(): array
+    {
+        $raw = $this->attributes['target'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return [];
+        }
+
+        if (! str_contains($raw, '|')) {
+            return [];
+        }
+
+        [, $json] = explode('|', $raw, 2);
+
+        $decoded = json_decode($json, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Ambil total target tahunan dari field target (bagian sebelum '|').
+     */
+    public function getTargetTotalAttribute(): float
+    {
+        $raw = $this->attributes['target'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return 0.0;
+        }
+
+        $parts = explode('|', $raw, 2);
+
+        return (float) ($parts[0] ?? 0);
     }
 
     public function role()

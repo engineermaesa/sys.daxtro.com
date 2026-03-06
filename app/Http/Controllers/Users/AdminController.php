@@ -51,23 +51,55 @@ class AdminController extends Controller
             $query->where('branch_id', $request->branch_id);
         }
 
-
+        // Jika yang login adalah Branch Manager (BM), batasi hanya melihat Sales di cabangnya sendiri
         if ($user->role?->code === 'branch_manager') {
-            $query->where('branch_id', $user->branch_id);
+            $salesRoleId = UserRole::where('code', 'sales')->value('id');
+
+            if ($salesRoleId) {
+                $query->where('branch_id', $user->branch_id)
+                      ->where('role_id', $salesRoleId);
+            } else {
+                // Kalau role sales belum ada, jangan tampilkan data apa pun
+                $query->whereRaw('1 = 0');
+            }
         }
 
         return DataTables::of($query)
             ->addColumn('role_name', fn($row) => $row->role->name ?? '')
             ->addColumn('company_name', fn($row) => $row->branch?->company?->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->branch?->name ?? '')
-            ->addColumn('target', fn($row) => $row->target !== null ? number_format($row->target, 2) : null)
+            ->addColumn('target', function ($row) {
+                $raw = $row->getRawOriginal('target');
+
+                if ($raw === null) {
+                    return null;
+                }
+
+                return number_format($row->target_total, 2);
+            })
             ->addColumn('created_by_data', fn($row) => $row->created_by?->name ?? '')
             ->addColumn('updated_by_data', fn($row) => $row->updated_by?->name ?? '')
-            ->addColumn('actions', function ($row) {
-                $edit = route('users.form', $row->id);
-                $del  = route('users.delete', $row->id);
-                return '<a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a> '
-                    . '<a href="' . $del . '" data-id="' . $row->id . '" data-table="adminsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>';
+            ->addColumn('actions', function ($row) use ($user) {
+                $roleCode = $user->role?->code;
+
+                // Hanya Super Admin yang bisa Edit & Delete
+                if ($roleCode === 'super_admin') {
+                    $edit = route('users.form', $row->id);
+                    $del  = route('users.delete', $row->id);
+
+                    return '<a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a> '
+                        . '<a href="' . $del . '" data-id="' . $row->id . '" data-table="adminsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>';
+                }
+
+                // Branch Manager: hanya tombol Set Target
+                if ($roleCode === 'branch_manager') {
+                    $targetUrl = route('users.form', $row->id); // pakai form yg sama, nanti BM fokus set target
+
+                    return '<a href="' . $targetUrl . '" class="btn btn-sm btn-warning"><i class="bi bi-bullseye"></i> Set Target</a>';
+                }
+
+                // Role lain: tidak ada action (atau bisa diisi sesuai kebutuhan nanti)
+                return '';
             })
             ->rawColumns(['actions'])
             ->make(true);
@@ -99,10 +131,62 @@ class AdminController extends Controller
     {
         $authUser  = $request->user();
         $roleCode  = $request->user()->role->code;
-
         $branchReq = $roleCode === 'branch_manager';
 
-        // Override branch_id from session if role is branch_manager
+        // Jika Branch Manager, dia hanya boleh update target saja pada user yang sudah ada
+        if ($roleCode === 'branch_manager') {
+            if (! $id) {
+                return $this->setJsonResponse('Branch Manager tidak diizinkan membuat user baru', [], 403);
+            }
+
+            $rules = [
+                'target' => 'nullable|numeric|min:0',
+            ];
+
+            $request->validate($rules);
+
+            try {
+                DB::beginTransaction();
+
+                $user   = User::findOrFail($id);
+                $before = $user->toArray();
+
+                // Ambil breakdown bulanan dari request (kalau ada)
+                $monthly = $request->input('monthly_targets', []);
+                $total   = $request->target ?: 0;
+
+                // Simpan dalam format: total|json_bulanan
+                if (! empty($monthly)) {
+                    $encoded = json_encode($monthly);
+                    $user->target = $total . '|' . $encoded;
+                } else {
+                    $user->target = $total ?: null;
+                }
+
+                $user->updated_by = $authUser->id;
+                $user->save();
+
+                $after = $user->fresh()->toArray();
+
+                ActivityLogger::writeLog(
+                    'update_admin_target',
+                    'Branch Manager updated target user',
+                    $user,
+                    ['before' => $before, 'after' => $after],
+                    $authUser
+                );
+
+                DB::commit();
+                return $this->setJsonResponse('Target updated successfully');
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                return $this->setJsonResponse('Failed to update target', [], 500, $th);
+            }
+        }
+
+        // Selain Branch Manager (mis. Super Admin) bisa kelola semua field
+
+        // Override branch_id from request (boleh pilih bebas)
         $branchId = $branchReq ? $authUser->branch_id : $request->branch_id;
 
         $rules = [
@@ -143,7 +227,17 @@ class AdminController extends Controller
             $user->email        = $request->email;
             $user->nip          = $request->nip;
             $user->phone        = $request->phone;
-            $user->target       = $request->target ?: null;
+
+            $monthly = $request->input('monthly_targets', []);
+            $total   = $request->target ?: 0;
+
+            if (! empty($monthly)) {
+                $encoded = json_encode($monthly);
+                $user->target = $total . '|' . $encoded;
+            } else {
+                $user->target = $total ?: null;
+            }
+
             $user->created_by   = $id ? $user->created_by : $authUser->id;
             $user->updated_by   = $authUser->id;
             $user->save();
