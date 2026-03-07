@@ -955,7 +955,19 @@
             search: searchQuery
         });
 
+        const tbody = document.getElementById(`${selector}BodyTable`);
+
         try {
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="12" class="text-center py-3 text-[#1E1E1E]">
+                            Loading data...
+                        </td>
+                    </tr>
+                `;
+            }
+
             const response = await fetch(`${route}?${params.toString()}`, {
                 headers: {
                     'Accept': 'application/json',
@@ -968,9 +980,7 @@
     
             updatePagerUI(selector, result.total);
             if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-    
-            const tbody = document.getElementById(`${selector}BodyTable`);
-    
+                
             tbody.innerHTML = '';
     
             if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);

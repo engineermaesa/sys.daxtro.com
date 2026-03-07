@@ -2,7 +2,7 @@
 
 @section('content')
 
-<section class="min-h-screen">
+<section class="min-h-screen text-[#1E1E1E]">
   <div class="pt-4">
 
     <div class="flex items-center gap-3">
