@@ -35,6 +35,9 @@ use App\Http\Controllers\Users\AdminController;
 use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
 
+// Purchasing
+use App\Http\Controllers\Purchasing\PurchaseController;
+
 Route::post('leads/register', [LeadRegisterController::class, 'store'])->name('api.leads.register');
 Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('api.leads.sources');
 Route::get('leads/segments', [LeadRegisterController::class, 'segments'])->name('api.leads.segments');
@@ -396,3 +399,20 @@ Route::group([
     Route::post('permissions/save/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'save'])->name('permissions-settings.save');
     Route::get('seeder', [\App\Http\Controllers\Users\SeederController::class, 'run'])->name('seeder.run');
 });
+
+
+// =====================================
+// PURCHASING (API)
+// =====================================
+
+// route::group([
+//     'prefix' => 'purchasing',
+//     'as' => 'purchasing.',
+//     'namespace' => 'App\\Http\\Controllers\\Purchasing',
+//     'middleware' => ['api', 'web', 'auth'],
+// ], function () {
+//     Route::get('/list', [PurchaseController::class, 'list'])->name('list');
+//     Route::get('/form/{id?}', [PurchaseController::class, 'form'])->name('form');
+//     Route::post('/save/{id?}', [PurchaseController::class, 'save'])->name('save');
+//     Route::delete('/delete/{id}', [PurchaseController::class, 'delete'])->name('delete');
+// }); 

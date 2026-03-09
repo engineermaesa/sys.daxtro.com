@@ -153,6 +153,13 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
+    // PURCHASING LOG
+    // =====================================
+    Route::get('purchasing-log', function () {
+        return view('pages.purchasing.index');
+    })->name('purchasing-log.index');
+
+    // =====================================
     // EXPENSE REALIZATIONS (Arahnya Kemana X)
     // =====================================
 

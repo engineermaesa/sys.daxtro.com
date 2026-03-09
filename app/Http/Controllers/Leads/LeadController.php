@@ -1048,6 +1048,9 @@ class LeadController extends Controller
                     ? \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y')
                     : '-',
                 'act_status' => $latestActivity?->activity?->name ?? '-',
+                'created_at' => $lead->created_at
+                    ? \Carbon\Carbon::parse($lead->created_at)->format('d/m/Y')
+                    : '-',
                 'status_name' => $lead->status?->name ?? '-',
                 'actions' => $html
             ];

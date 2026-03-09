@@ -1,0 +1,1 @@
+<h1>Purchasing Page</h1>

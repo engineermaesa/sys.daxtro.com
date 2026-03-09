@@ -609,6 +609,10 @@ class FinanceRequestController extends Controller
         } elseif ($type === 'down_payment') {
             $lead->update(['status_id' => LeadStatus::DEAL]);
             LeadStatusLog::create(['lead_id' => $lead->id, 'status_id' => LeadStatus::DEAL]);
+
+            // Saat status lead menjadi DEAL, delegasikan ke PurchaseController
+            app(\App\Http\Controllers\Purchasing\PurchaseController::class)
+                ->handleLeadDeal($lead->id);
         }
     }
 
@@ -626,9 +630,6 @@ class FinanceRequestController extends Controller
 
         if ($allPaid) {
             $order->update(['order_status' => 'done']);
-
-            // Incentive already released on first down payment
-            // so no further balance increment is required here.
         }
     }
 
