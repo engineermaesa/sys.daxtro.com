@@ -275,70 +275,81 @@ $(function () {
   }
 
   function loadAvailableLeads(startDate = null, endDate = null) {
-      const data = {
-          branch_id: $('#filter_branch').val(),
-          region_id: $('#filter_region').val(),
-          source_id: $('#source-filter-new').length ? $('#source-filter-new').val() : null,
-          q: getGlobalSearchValue(),
-          _token: '{{ csrf_token() }}'
-      };
+    const data = {
+        branch_id: $('#filter_branch').val(),
+        region_id: $('#filter_region').val(),
+        source_id: $('#source-filter-new').length ? $('#source-filter-new').val() : null,
+        q: getGlobalSearchValue(),
+        _token: '{{ csrf_token() }}'
+    };
 
-      if (startDate) data.start_date = startDate;
-      if (endDate) data.end_date = endDate;
+    if (startDate) data.start_date = startDate;
+    if (endDate) data.end_date = endDate;
 
-      $.ajax({
-          url: '{{ route("leads.availables.list") }}',
-          method: 'GET',
-          data: data,
-          success: function(res) {
+    const tbody = $('#availableLeadsBody');
 
-              const tbody = $('#availableLeadsBody');
-              tbody.empty();
+    $.ajax({
+        url: '{{ route("leads.availables.list") }}',
+        method: 'GET',
+        data: data,
 
-              const rows = res.data ?? res;
+        beforeSend: function () {
+            tbody.html(`
+                <tr>
+                    <td colspan="12" class="text-center py-6 text-[#1E1E1E] opacity-50">
+                        Loading for Available Leads...
+                    </td>
+                </tr>
+            `);
+        },
 
-              if (!rows || rows.length === 0) {
+        success: function(res) {
+            tbody.empty();
+
+            const rows = res.data ?? res;
+
+            if (!rows || rows.length === 0) {
+              tbody.append(`
+                  <tr>
+                      <td colspan="12" class="text-center py-6 text-[#1E1E1E] opacity-50">
+                          No Leads available
+                      </td>
+                  </tr>
+              `);
+              return;
+            }
+
+            rows.forEach(row => {
+
+                const date = row.published_at
+                    ? new Date(row.published_at).toLocaleString('en-GB', {
+                        day:'2-digit',
+                        month:'short',
+                        year:'numeric',
+                        hour:'2-digit',
+                        minute:'2-digit'
+                    })
+                    : '';
+
                 tbody.append(`
-                    <tr>
-                        <td colspan="12" class="text-center py-6 text-[#1E1E1E] opacity-50">
-                            No Leads available
-                        </td>
+                    <tr class="border-t border-t-[#D9D9D9]">
+                        <td class="lg:p-3 sm:p-1">${date}</td>
+                        <td class="lg:p-3 sm:p-1">${row.name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.branch_name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.industry_name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.industry?.name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.industry?.name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.needs ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.tonase ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.region_name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.source_name ?? '-'}</td>
+                        <td class="lg:p-3 sm:p-1">${row.segment_name ?? '-'}</td>
+                        <td class="py-3 grid grid-cols-1 gap-2 ">${row.actions ?? '-'}</td>
                     </tr>
                 `);
-                return;
-              }
-
-              rows.forEach(row => {
-
-                  const date = row.published_at
-                      ? new Date(row.published_at).toLocaleString('en-GB', {
-                          day:'2-digit',
-                          month:'short',
-                          year:'numeric',
-                          hour:'2-digit',
-                          minute:'2-digit'
-                      })
-                      : '';
-
-                  tbody.append(`
-                      <tr class="border-t border-t-[#D9D9D9]">
-                          <td class="lg:p-3 sm:p-1">${date}</td>
-                          <td class="lg:p-3 sm:p-1">${row.name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.branch_name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.industry_name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.industry?.name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.industry?.name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.needs ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.tonase ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.region_name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.source_name ?? '-'}</td>
-                          <td class="lg:p-3 sm:p-1">${row.segment_name ?? '-'}</td>
-                          <td class="py-3 grid grid-cols-1 gap-2 ">${row.actions ?? '-'}</td>
-                      </tr>
-                  `);
-              });
-          }
-      });
+            });
+        }
+    });
   }
 
   // FIRST LOAD

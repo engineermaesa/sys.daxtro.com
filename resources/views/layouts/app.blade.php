@@ -134,6 +134,7 @@
     <script src="{{ asset('assets/js/sweetalert2.min.js') }}?ver=1.0.4"></script>
 	<script src="{{ asset('assets/js/main.js') }}?ver=1.0.4"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         var notyf = new Notyf({
             position: {

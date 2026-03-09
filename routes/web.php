@@ -152,6 +152,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', 'OrderController@show')->name('show');
     });
 
+    
+    // =====================================
+    // PRODUCTION STATUS
+    // =====================================
+    Route::group([
+        'prefix' => 'production-status',
+        'as' => 'production-status.',
+    ], function () {
+        Route::get('/', function () {
+            return view('pages.production-status.index');
+        })->name('index');
+    });
+
     // =====================================
     // EXPENSE REALIZATIONS (Arahnya Kemana X)
     // =====================================
@@ -186,6 +199,7 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // PAYMENT CONFIRMATION CC ✔
     // =====================================
+    
     Route::group([
         'prefix' => 'payment-confirmation',
         'as' => 'payment-confirmation.',
@@ -199,6 +213,7 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // QUOTATIONS 
     // =====================================
+    
     Route::group([
         'prefix' => 'quotations',
         'as' => 'quotations.',
@@ -215,6 +230,7 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // FINANCE REQUEST (API) ✔
     // =====================================
+    
     Route::prefix('finance-requests')
         ->name('finance-requests.')
         ->group(function () {

@@ -2690,7 +2690,7 @@
 @include('pages.templates.main-headers')
 
 @if(auth()->user()->role?->code === 'sales')
-    @include('pages.dashboard.sales')
+    @include('pages.dashboard.sales.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}
