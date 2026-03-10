@@ -402,17 +402,17 @@ Route::group([
 
 
 // =====================================
-// PURCHASING (API)
+// PURCHASING (API) - PUBLIC (NO AUTH)
 // =====================================
 
-// route::group([
-//     'prefix' => 'purchasing',
-//     'as' => 'purchasing.',
-//     'namespace' => 'App\\Http\\Controllers\\Purchasing',
-//     'middleware' => ['api', 'web', 'auth'],
-// ], function () {
-//     Route::get('/list', [PurchaseController::class, 'list'])->name('list');
-//     Route::get('/form/{id?}', [PurchaseController::class, 'form'])->name('form');
-//     Route::post('/save/{id?}', [PurchaseController::class, 'save'])->name('save');
-//     Route::delete('/delete/{id}', [PurchaseController::class, 'delete'])->name('delete');
-// }); 
+Route::group([
+    'prefix' => 'purchasing',
+    'as' => 'purchasing.',
+    'namespace' => 'App\\Http\\Controllers\\Purchasing',
+    'middleware' => ['api'],
+], function () {
+    Route::get('/list', [PurchaseController::class, 'list'])->name('list');
+    Route::get('/form/{id?}', [PurchaseController::class, 'form'])->name('form');
+    Route::post('/save/{id?}', [PurchaseController::class, 'save'])->name('save');
+    // Route::delete('/delete/{id}', [PurchaseController::class, 'delete'])->name('delete');
+});

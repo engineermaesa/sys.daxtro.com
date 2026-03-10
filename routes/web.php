@@ -153,22 +153,12 @@ Route::middleware('auth')->group(function () {
     });
 
     
-    // =====================================
-    // PRODUCTION STATUS
-    // =====================================
-    Route::group([
-        'prefix' => 'production-status',
-        'as' => 'production-status.',
-    ], function () {
-        Route::get('/', function () {
-            return view('pages.production-status.index');
-        })->name('index');
-    });
+    
 
     // =====================================
     // PURCHASING LOG
     // =====================================
-    Route::get('purchasing-log', function () {
+    Route::get('purchasing', function () {
         return view('pages.purchasing.index');
     })->name('purchasing-log.index');
 

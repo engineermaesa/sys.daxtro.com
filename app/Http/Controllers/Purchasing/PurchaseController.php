@@ -9,10 +9,129 @@ use Illuminate\Support\Facades\Schema;
 
 class PurchaseController extends Controller
 {
-    /**
-     * Simpan data purchasing (log per stage) untuk lead tertentu.
-     * Dipakai oleh controller lain (mis. FinanceRequestController).
-     */
+    public function list(Request $request)
+    {
+        if (! Schema::hasTable('purchasings')) {
+            return response()->json([
+                'data' => [],
+                'message' => 'Table purchasings not found',
+            ], 200);
+        }
+
+        $query = DB::table('purchasings');
+
+        if ($request->filled('lead_id')) {
+            $query->where('lead_id', $request->input('lead_id'));
+        }
+
+        $purchasings = $query->orderByDesc('created_at')->get();
+
+        return response()->json([
+            'data' => $purchasings,
+        ]);
+    }
+
+    public function save(Request $request, $id = null)
+    {
+        if (! Schema::hasTable('purchasings')) {
+            return response()->json([
+                'message' => 'Table purchasings not found',
+            ], 404);
+        }
+
+        $existing = null;
+        if ($id !== null) {
+            $existing = DB::table('purchasings')->where('id', $id)->first();
+
+            if (! $existing) {
+                return response()->json([
+                    'message' => 'Purchasing record not found',
+                ], 404);
+            }
+        }
+
+        // Tentukan status_code, nama status, dan stage berdasarkan input
+        $statusInput      = $request->input('status');
+        $statusCodeInput  = $request->input('status_code');
+        $statusCode       = null;
+        $statusName       = $statusInput;
+
+        if ($statusCodeInput !== null) {
+            $statusCode = (int) $statusCodeInput;
+            $statusName = $this->mapStatusCodeToName($statusCode);
+        } elseif ($statusInput !== null) {
+            // Coba cari kode berdasarkan nama status yang dikirim (case-insensitive)
+            for ($i = 1; $i <= 19; $i++) {
+                if (strtolower($this->mapStatusCodeToName($i)) === strtolower($statusInput)) {
+                    $statusCode = $i;
+                    $statusName = $this->mapStatusCodeToName($i);
+                    break;
+                }
+            }
+        }
+
+        // Default stage
+        $stage = $existing ? $existing->stage : 'Invoice Received';
+        if ($statusCode !== null) {
+            $stage = $this->mapStatusToStage($statusCode);
+        }
+
+        $rules = [
+            'status_code' => 'nullable|integer|min:1|max:19',
+            'status'      => 'required_without:status_code|string|max:100',
+            'notes'       => 'nullable|string',
+        ];
+
+        // Wajib upload file kalau ada perubahan status dari data sebelumnya
+        if ($existing && $existing->status !== $statusName) {
+            $rules['file'] = 'required|file';
+        } else {
+            $rules['file'] = 'nullable|file';
+        }
+
+        // Untuk create baru, lead_id wajib diisi
+        if ($id === null) {
+            $rules['lead_id'] = 'required|integer';
+        }
+
+        $validated = $request->validate($rules);
+
+        $filesJson = $existing ? $existing->files : null;
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('purchasing');
+            $filesJson = json_encode([$path]);
+        }
+
+        if ($id !== null) {
+            DB::table('purchasings')
+                ->where('id', $id)
+                ->update([
+                    'stage'      => $stage,
+                    'status'     => $statusName ?? $validated['status'],
+                    'notes'      => $validated['notes'] ?? null,
+                    'files'      => $filesJson,
+                    'updated_at' => now(),
+                ]);
+        } else {
+            $id = DB::table('purchasings')->insertGetId([
+                'lead_id'    => $validated['lead_id'],
+                'stage'      => $stage,
+                'status'     => $statusName ?? $validated['status'],
+                'notes'      => $validated['notes'] ?? null,
+                'files'      => $filesJson,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $record = DB::table('purchasings')->where('id', $id)->first();
+
+        return response()->json([
+            'data' => $record,
+        ]);
+    }
+
     public function storeFromLead(int $leadId, string $stage = 'Invoice Received', string $status = 'Waiting', ?string $notes = null, $files = null): void
     {
         if (! Schema::hasTable('purchasings')) {
@@ -40,9 +159,7 @@ class PurchaseController extends Controller
         ]);
     }
 
-    /**
-     * Pemetaan kode status detail (1-19) ke stage level tinggi.
-     */
+   
     private function mapStatusToStage(int $status): string
     {
         if ($status >= 1 && $status <= 3) {
@@ -73,10 +190,7 @@ class PurchaseController extends Controller
         return 'Invoice Received';
     }
 
-    /**
-     * Pemetaan kode status detail (1-19) ke nama status
-     * sesuai tabel ref_purchasing_statuses.
-     */
+   
     private function mapStatusCodeToName(int $status): string
     {
         $map = [
@@ -104,10 +218,7 @@ class PurchaseController extends Controller
         return $map[$status] ?? 'Waiting';
     }
 
-    /**
-     * Simpan log purchasing berdasarkan kode status (1-19),
-     * otomatis menentukan stages dari status.
-     */
+  
     public function storeFromLeadWithStatus(int $leadId, int $statusCode, $file = null): void
     {
         $stage = $this->mapStatusToStage($statusCode);
@@ -117,9 +228,6 @@ class PurchaseController extends Controller
         $this->storeFromLead($leadId, $stage, $statusName, null, $file ? [$file] : null);
     }
 
-    /**
-     * Dipanggil ketika status lead berubah menjadi DEAL.
-     */
     public function handleLeadDeal(int $leadId): void
     {
         // Saat lead pertama kali DEAL, set stage awal = "Invoice Received"
