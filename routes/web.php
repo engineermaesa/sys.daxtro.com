@@ -156,7 +156,7 @@ Route::middleware('auth')->group(function () {
     
 
     // =====================================
-    // PURCHASING LOG
+    // PURCHASING 
     // =====================================
     Route::get('purchasing', function () {
         return view('pages.purchasing.index');
