@@ -76,17 +76,17 @@
 
             <div class="flex items-center justify-start gap-3 mt-3">
                 <div class="flex items-center gap-1">
-                    <span class="w-[8px] h-[8px] rounded-full block bg-[#3F80EA]"></span>
+                    <span class="w-2 h-2 rounded-full block bg-[#3F80EA]"></span>
                     <p id="coldLeads">0 Cold</p>
                 </div>
 
                 <div class="flex items-center gap-1">
-                    <span class="w-[8px] h-[8px] rounded-full block bg-[#E8B931]"></span>
+                    <span class="w-2 h-2 rounded-full block bg-[#E8B931]"></span>
                     <p id="warmLeads">0 Warm</p>
                 </div>
 
                 <div class="flex items-center gap-1">
-                    <span class="w-[8px] h-[8px] rounded-full block bg-[#EC221F]"></span>
+                    <span class="w-2 h-2 rounded-full block bg-[#EC221F]"></span>
                     <p id="hotLeads">0 Hot</p>
                 </div>
             </div>
