@@ -106,7 +106,7 @@
             border: none;
         }
     </style>
-    
+    {{-- bg-[#E8EFEC] --}}
     @yield('styles')
 </head>
 <body id="page-top">
@@ -117,7 +117,7 @@
         </div>
         <div class="flex flex-col w-5/6">
             <div id="content" class="flex-1">
-                <div class="bg-[#E8EFEC] px-6 min-h-full">
+                <div class="bg-[#F5F5F5] px-6 min-h-full">
                     @yield('content')
                 </div>
             </div>
