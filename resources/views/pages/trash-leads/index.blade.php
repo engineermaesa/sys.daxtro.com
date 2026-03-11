@@ -459,7 +459,7 @@ $(function () {
   });
 
   function loadSales(branchId) {
-    const url = '{{ url('users/sales-by-branch') }}/' + branchId;
+    const url = '{{ url('api/users/sales-by-branch') }}/' + branchId;
     const $sales = $('#assign_sales_id');
     $sales.html('<option value="">-- Select Sales --</option>');
     if(!branchId) return;
