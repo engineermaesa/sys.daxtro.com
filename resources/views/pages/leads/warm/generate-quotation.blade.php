@@ -52,7 +52,7 @@
                     @endif
                     {{-- PRODUCTS --}}
                     <div class="p-3">
-                        <div class="border border-[#D9D9D9] rounded-lg max-lg:overflow-x-scroll">
+                        <div class="border border-[#D9D9D9] rounded-lg max-2xl:overflow-x-scroll">
                             <table class="max-lg:min-w-max w-full" id="items-table">
                                 <thead class="text-[#1E1E1E] font-semibold">
                                     <tr class="border-b border-b-[#D9D9D9]">
@@ -214,7 +214,7 @@
                                         @endforeach
                                     @else
                                     {{-- New quotation - single empty row --}}
-                                    <tr class="border-b border-b-[#D9D9D9]" data-item-id="new">
+                                    <tr class="border-b border-b-[#D9D9D9] align-top" data-item-id="new">
                                         <td class="p-2 lg:p-3">
                                             <select name="product_id[]" class="w-full item-product select2"
                                                 {{ $disabled }} required>
@@ -238,8 +238,8 @@
                                             <input type="text" name="description[]"
                                                 class="form-control item-desc text-start max-lg:h-7!" readonly {{ $disabled }}>
                                         </td>
-                                        <td class="p-2 lg:p-3 max-w-20!">
-                                            <input type="number" name="qty[]" class="form-control item-qty max-lg:h-7!"
+                                        <td class="p-2 lg:p-3">
+                                            <input type="number" name="qty[]" class="form-control max-w-20 item-qty max-lg:h-7!"
                                                 value="1" {{ $disabled }} required>
                                         </td>
                                         <td>
@@ -289,7 +289,7 @@
                                                     <svg width="16" height="13" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                         <path d="M1 3.66667H2.33333M2.33333 3.66667H13M2.33333 3.66667L2.33333 13C2.33333 13.3536 2.47381 13.6928 2.72386 13.9428C2.97391 14.1929 3.31304 14.3333 3.66667 14.3333H10.3333C10.687 14.3333 11.0261 14.1929 11.2761 13.9428C11.5262 13.6928 11.6667 13.3536 11.6667 13V3.66667M4.33333 3.66667V2.33333C4.33333 1.97971 4.47381 1.64057 4.72386 1.39052C4.97391 1.14048 5.31304 1 5.66667 1H8.33333C8.68696 1 9.02609 1.14048 9.27614 1.39052C9.52619 1.64057 9.66667 1.97971 9.66667 2.33333V3.66667M5.66667 7V11M8.33333 7V11" stroke="#900B09" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                                     </svg>
-                                                    <span class="max-lg:hidden">
+                                                    <span class="max-2xl:hidden">
                                                         Delete
                                                     </span>
                                                 </button>

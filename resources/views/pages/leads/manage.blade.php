@@ -854,231 +854,349 @@
         async function loadAllLeads() {
             const page = pageState.all || 1;
             const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
-
-            const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`, {
-                credentials: 'same-origin'
-            });
-            const result = await response.json();
-
-            updatePagerUI('all', result.total);
             const tbody = document.getElementById('allBody');
-            tbody.innerHTML = '';
-            totals.all = result.total || 0;
 
-            result.data.forEach(row => {
-                tbody.innerHTML += `
-                <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
-                    <td class="hidden">${row.id}</td>
-                    <td class="p-2 font-medium">${row.lead_name ?? ''}</td>
-                    <td class="p-2">${row.sales_name ?? '-'}</td>
-                    <td class="p-2">${row.phone ?? ''}</td>
-                    <td class="p-2">${row.source_name ?? ''}</td>
-                    <td class="p-2">${row.needs ?? ''}</td>
-                    <td class="p-2">${row.existing_industries ?? ''}</td>
-                    <td class="p-2">${row.city_name ?? ''}</td>
-                    <td class="p-2">${row.regional_name ?? ''}</td>
-                    <td class="p-2">${row.customer_type ?? ''}</td>
-                    <td class="p-2">${row.act_last_time ?? ''}</td>
-                    <td class="p-2">${row.act_status ?? ''}</td>
-                    <td class="p-2">${row.created_at ?? ''}</td>
-                    <td class="p-2">${row.claimed_at ?? ''}</td>
-                    <td class="text-center capitalize p-2">
-                        <span class="block px-2 py-1 rounded-sm flex items-center justify-center 
-                            ${
-                                    row.status_name === 'Published' ? 'status-trash' :
-                                    row.status_name === 'Cold' ? 'status-cold' :
-                                    row.status_name === 'Warm' ? 'status-warm' :
-                                    row.status_name === 'Hot' ? 'status-hot' :
-                                    row.status_name === 'Deal' ? 'status-deal' :
-                                    row.status_name === 'Trash Cold' ? 'status-trash' :
-                                    row.status_name === 'Trash Warm' ? 'status-trash' :
-                                    row.status_name === 'Trash Hot' ? 'status-trash' :
-                                    ''
-                            }">
-                                ${row.status_name ?? ''}
-                                <span class="
-                                ${
-                                    row.status_name === 'Trash Cold' ? 'dot-trash-cold' :
-                                    row.status_name === 'Trash Warm' ? 'dot-trash-warm' :
-                                    row.status_name === 'Trash Hot' ? 'dot-trash-hot' :
-                                    ''
-                                }"></span>
-                        </span>
-                    </td>
-                    <td class="text-center p-2">
-                        ${row.actions ?? '-'}
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
+                        Loading data...
                     </td>
                 </tr>
             `;
-            });
+
+            try {
+                const response = await fetch(
+                    `/api/leads/manage/list?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`,
+                    { credentials: 'same-origin' }
+                );
+
+                const result = await response.json();
+
+                updatePagerUI('all', result.total);
+                tbody.innerHTML = '';
+                totals.all = result.total || 0;
+
+                if (!result.data || result.data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="17" class="p-4 text-center text-gray-500">
+                                Data tidak ditemukan
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                result.data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-2 font-medium">${row.lead_name ?? ''}</td>
+                            <td class="p-2">${row.sales_name ?? '-'}</td>
+                            <td class="p-2">${row.phone ?? ''}</td>
+                            <td class="p-2">${row.source_name ?? ''}</td>
+                            <td class="p-2">${row.needs ?? ''}</td>
+                            <td class="p-2">${row.existing_industries ?? ''}</td>
+                            <td class="p-2">${row.city_name ?? ''}</td>
+                            <td class="p-2">${row.regional_name ?? ''}</td>
+                            <td class="p-2">${row.customer_type ?? ''}</td>
+                            <td class="p-2">${row.act_last_time ?? ''}</td>
+                            <td class="p-2">${row.act_status ?? ''}</td>
+                            <td class="p-2">${row.created_at ?? ''}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="text-center capitalize p-2">
+                                <span class="block px-2 py-1 rounded-sm flex items-center justify-center 
+                                    ${
+                                        row.status_name === 'Published' ? 'status-trash' :
+                                        row.status_name === 'Cold' ? 'status-cold' :
+                                        row.status_name === 'Warm' ? 'status-warm' :
+                                        row.status_name === 'Hot' ? 'status-hot' :
+                                        row.status_name === 'Deal' ? 'status-deal' :
+                                        row.status_name === 'Trash Cold' ? 'status-trash' :
+                                        row.status_name === 'Trash Warm' ? 'status-trash' :
+                                        row.status_name === 'Trash Hot' ? 'status-trash' :
+                                        ''
+                                    }">
+                                        ${row.status_name ?? ''}
+                                        <span class="
+                                            ${
+                                                row.status_name === 'Trash Cold' ? 'dot-trash-cold' :
+                                                row.status_name === 'Trash Warm' ? 'dot-trash-warm' :
+                                                row.status_name === 'Trash Hot' ? 'dot-trash-hot' :
+                                                ''
+                                            }"></span>
+                                </span>
+                            </td>
+                            <td class="text-center p-2">
+                                ${row.actions ?? '-'}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Gagal load leads:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="17" class="p-4 text-center text-red-500">
+                            Gagal memuat data
+                        </td>
+                    </tr>
+                `;
+            }
         }
         
         async function loadColdLeads() {
             const page = pageState.cold || 1;
             const perPage = pageSizeState.cold || DEFAULT_PAGE_SIZE;
-
-            const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=cold&search=${encodeURIComponent(getSearchQuery())}`, { 
-                credentials: 'same-origin' 
-            });
-            const result = await response.json();
-
             const tbody = document.getElementById('coldBody');
-            tbody.innerHTML = '';
-            updatePagerUI('cold', result.total);
-            totals.cold = result.total || 0;
 
-            result.data.forEach(row => {
-                tbody.innerHTML += `
-                    <tr class="border-b border-b-[#D9D9D9]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-2">${row.lead_name ?? ''}</td>
-                        <td class="p-2">${row.sales_name ?? ''}</td>
-                        <td class="p-2">${row.phone ?? ''}</td>
-                        <td class="p-2">${row.source_name ?? ''}</td>
-                        <td class="p-2">${row.needs ?? ''}</td>
-                        <td class="p-2">${row.existing_industries ?? ''}</td>
-                        <td class="p-2">${row.city_name ?? ''}</td>
-                        <td class="p-2">${row.regional_name ?? ''}</td>
-                        <td class="p-2">${row.customer_type ?? ''}</td>
-                        <td class="p-2">${row.quotation_number ?? ''}</td>
-                        <td class="p-2">${row.quotation_price ?? ''}</td>
-                        <td class="p-2">${row.quot_created ?? ''}</td>
-                        <td class="p-2">${row.quot_end_date ?? ''}</td>
-                        <td class="p-2">${row.act_last_time ?? ''}</td>
-                        <td class="p-2">${row.act_status ?? ''}</td>
-                        <td class="p-2">${row.created_at ?? ''}</td>
-                        <td class="p-2">${row.claimed_at ?? ''}</td>
-                        <td class="p-2 text-center">${row.actions ?? ''}</td>
+            // Tampilkan loading lebih dulu
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
+                        Loading data...
+                    </td>
+                </tr>
+            `;
+            
+            try {
+                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=cold&search=${encodeURIComponent(getSearchQuery())}`, { 
+                    credentials: 'same-origin' 
+                });
+                const result = await response.json();
+    
+                tbody.innerHTML = '';
+                updatePagerUI('cold', result.total);
+                totals.cold = result.total || 0;
+    
+                result.data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-2">${row.lead_name ?? ''}</td>
+                            <td class="p-2">${row.sales_name ?? ''}</td>
+                            <td class="p-2">${row.phone ?? ''}</td>
+                            <td class="p-2">${row.source_name ?? ''}</td>
+                            <td class="p-2">${row.needs ?? ''}</td>
+                            <td class="p-2">${row.existing_industries ?? ''}</td>
+                            <td class="p-2">${row.city_name ?? ''}</td>
+                            <td class="p-2">${row.regional_name ?? ''}</td>
+                            <td class="p-2">${row.customer_type ?? ''}</td>
+                            <td class="p-2">${row.quotation_number ?? ''}</td>
+                            <td class="p-2">${row.quotation_price ?? ''}</td>
+                            <td class="p-2">${row.quot_created ?? ''}</td>
+                            <td class="p-2">${row.quot_end_date ?? ''}</td>
+                            <td class="p-2">${row.act_last_time ?? ''}</td>
+                            <td class="p-2">${row.act_status ?? ''}</td>
+                            <td class="p-2">${row.created_at ?? ''}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="p-2 text-center">${row.actions ?? ''}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Gagal load leads:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="17" class="p-4 text-center text-red-500">
+                            Gagal memuat data
+                        </td>
                     </tr>
                 `;
-            });
+            }
         }
 
         async function loadWarmLeads() {
             const page = pageState.warm || 1;
             const perPage = pageSizeState.warm || DEFAULT_PAGE_SIZE;
-
-            const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=warm&search=${encodeURIComponent(getSearchQuery())}`, { 
-                credentials: 'same-origin' 
-            });
-            const result = await response.json();
-
             const tbody = document.getElementById('warmBody');
-            tbody.innerHTML = '';
-            updatePagerUI('warm', result.total);
-            totals.warm = result.total || 0;
 
-            result.data.forEach(row => {
-                tbody.innerHTML += `
-                    <tr class="border-b border-b-[#D9D9D9]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-2">${row.lead_name ?? ''}</td>
-                        <td class="p-2">${row.sales_name ?? ''}</td>
-                        <td class="p-2">${row.phone ?? ''}</td>
-                        <td class="p-2">${row.source_name ?? ''}</td>
-                        <td class="p-2">${row.needs ?? ''}</td>
-                        <td class="p-2">${row.existing_industries ?? ''}</td>
-                        <td class="p-2">${row.city_name ?? ''}</td>
-                        <td class="p-2">${row.regional_name ?? ''}</td>
-                        <td class="p-2">${row.customer_type ?? ''}</td>
-                        <td class="p-2">${row.quotation_number ?? ''}</td>
-                        <td class="p-2">${row.quotation_price ?? ''}</td>
-                        <td class="p-2">${row.quot_created ?? ''}</td>
-                        <td class="p-2">${row.quot_end_date ?? ''}</td>
-                        <td class="p-2">${row.act_last_time ?? ''}</td>
-                        <td class="p-2">${row.act_status ?? ''}</td>
-                        <td class="p-2">${row.created_at ?? ''}</td>
-                        <td class="p-2">${row.claimed_at ?? ''}</td>
-                        <td class="p-2 text-center">${row.actions ?? ''}</td>
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
+                        Loading data...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=warm&search=${encodeURIComponent(getSearchQuery())}`, { 
+                    credentials: 'same-origin' 
+                });
+                const result = await response.json();
+    
+                const tbody = document.getElementById('warmBody');
+                tbody.innerHTML = '';
+                updatePagerUI('warm', result.total);
+                totals.warm = result.total || 0;
+    
+                result.data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-2">${row.lead_name ?? ''}</td>
+                            <td class="p-2">${row.sales_name ?? ''}</td>
+                            <td class="p-2">${row.phone ?? ''}</td>
+                            <td class="p-2">${row.source_name ?? ''}</td>
+                            <td class="p-2">${row.needs ?? ''}</td>
+                            <td class="p-2">${row.existing_industries ?? ''}</td>
+                            <td class="p-2">${row.city_name ?? ''}</td>
+                            <td class="p-2">${row.regional_name ?? ''}</td>
+                            <td class="p-2">${row.customer_type ?? ''}</td>
+                            <td class="p-2">${row.quotation_number ?? ''}</td>
+                            <td class="p-2">${row.quotation_price ?? ''}</td>
+                            <td class="p-2">${row.quot_created ?? ''}</td>
+                            <td class="p-2">${row.quot_end_date ?? ''}</td>
+                            <td class="p-2">${row.act_last_time ?? ''}</td>
+                            <td class="p-2">${row.act_status ?? ''}</td>
+                            <td class="p-2">${row.created_at ?? ''}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="p-2 text-center">${row.actions ?? ''}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Gagal load leads:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="17" class="p-4 text-center text-red-500">
+                            Gagal memuat data
+                        </td>
                     </tr>
                 `;
-            });
+            }
         }
         
         async function loadHotLeads() {
             const page = pageState.hot || 1;
             const perPage = pageSizeState.hot || DEFAULT_PAGE_SIZE;
-
-            const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=hot&search=${encodeURIComponent(getSearchQuery())}`, { 
-                credentials: 'same-origin' 
-            });
-            const result = await response.json();
-
             const tbody = document.getElementById('hotBody');
-            tbody.innerHTML = '';
-            updatePagerUI('hot', result.total);
-            totals.hot = result.total || 0;
 
-            result.data.forEach(row => {
-                tbody.innerHTML += `
-                    <tr class="border-b border-b-[#D9D9D9]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-2">${row.lead_name ?? ''}</td>
-                        <td class="p-2">${row.sales_name ?? ''}</td>
-                        <td class="p-2">${row.phone ?? ''}</td>
-                        <td class="p-2">${row.source_name ?? ''}</td>
-                        <td class="p-2">${row.needs ?? ''}</td>
-                        <td class="p-2">${row.existing_industries ?? ''}</td>
-                        <td class="p-2">${row.city_name ?? ''}</td>
-                        <td class="p-2">${row.regional_name ?? ''}</td>
-                        <td class="p-2">${row.customer_type ?? ''}</td>
-                        <td class="p-2">${row.quotation_number ?? ''}</td>
-                        <td class="p-2">${row.quotation_price ?? ''}</td>
-                        <td class="p-2">${row.invoice_number ?? ''}</td>
-                        <td class="p-2">${row.invoice_price ?? ''}</td>
-                        <td class="p-2">${row.quot_created ?? ''}</td>
-                        <td class="p-2">${row.quot_end_date ?? ''}</td>
-                        <td class="p-2">${row.act_last_time ?? ''}</td>
-                        <td class="p-2">${row.act_status ?? ''}</td>
-                        <td class="p-2">${row.created_at ?? ''}</td>
-                        <td class="p-2">${row.claimed_at ?? ''}</td>
-                        <td class="p-2 text-center">${row.actions ?? ''}</td>
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
+                        Loading data...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=hot&search=${encodeURIComponent(getSearchQuery())}`, { 
+                    credentials: 'same-origin' 
+                });
+                const result = await response.json();
+                
+                tbody.innerHTML = '';
+                updatePagerUI('hot', result.total);
+                totals.hot = result.total || 0;
+    
+                result.data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-2">${row.lead_name ?? ''}</td>
+                            <td class="p-2">${row.sales_name ?? ''}</td>
+                            <td class="p-2">${row.phone ?? ''}</td>
+                            <td class="p-2">${row.source_name ?? ''}</td>
+                            <td class="p-2">${row.needs ?? ''}</td>
+                            <td class="p-2">${row.existing_industries ?? ''}</td>
+                            <td class="p-2">${row.city_name ?? ''}</td>
+                            <td class="p-2">${row.regional_name ?? ''}</td>
+                            <td class="p-2">${row.customer_type ?? ''}</td>
+                            <td class="p-2">${row.quotation_number ?? ''}</td>
+                            <td class="p-2">${row.quotation_price ?? ''}</td>
+                            <td class="p-2">${row.invoice_number ?? ''}</td>
+                            <td class="p-2">${row.invoice_price ?? ''}</td>
+                            <td class="p-2">${row.quot_created ?? ''}</td>
+                            <td class="p-2">${row.quot_end_date ?? ''}</td>
+                            <td class="p-2">${row.act_last_time ?? ''}</td>
+                            <td class="p-2">${row.act_status ?? ''}</td>
+                            <td class="p-2">${row.created_at ?? ''}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="p-2 text-center">${row.actions ?? ''}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Gagal load leads:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="17" class="p-4 text-center text-red-500">
+                            Gagal memuat data
+                        </td>
                     </tr>
                 `;
-            });
+            }
         }
 
         async function loadDealLeads() {
             const page = pageState.deal || 1;
             const perPage = pageSizeState.deal || DEFAULT_PAGE_SIZE;
-
-            const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=deal&search=${encodeURIComponent(getSearchQuery())}`, { 
-                credentials: 'same-origin' 
-            });
-            const result = await response.json();
-
             const tbody = document.getElementById('dealBody');
-            tbody.innerHTML = '';
-            updatePagerUI('deal', result.total);
-            totals.deal = result.total || 0;
 
-            result.data.forEach(row => {
-                tbody.innerHTML += `
-                    <tr class="border-b border-b-[#D9D9D9]">
-                        <td class="hidden">${row.id}</td>
-                        <td class="p-2">${row.claimed_at ?? ''}</td>
-                        <td class="p-2">${row.lead_name ?? ''}</td>
-                        <td class="p-2">${row.sales_name ?? ''}</td>
-                        <td class="p-2">${row.phone ?? ''}</td>
-                        <td class="p-2">${row.source_name ?? ''}</td>
-                        <td class="p-2">${row.needs ?? ''}</td>
-                        <td class="p-2">${row.existing_industries ?? ''}</td>
-                        <td class="p-2">${row.city_name ?? ''}</td>
-                        <td class="p-2">${row.regional_name ?? ''}</td>
-                        <td class="p-2">${row.customer_type ?? ''}</td>
-                        <td class="p-2">${row.quotation_number ?? ''}</td>
-                        <td class="p-2">${row.quotation_price ?? ''}</td>
-                        <td class="p-2">${row.invoice_number ?? ''}</td>
-                        <td class="p-2">${row.invoice_price ?? ''}</td>
-                        <td class="p-2">${row.quot_created ?? ''}</td>
-                        <td class="p-2">${row.quot_end_date ?? ''}</td>
-                        <td class="p-2">${row.act_last_time ?? ''}</td>
-                        <td class="p-2">${row.act_status ?? ''}</td>
-                        <td class="p-2">${row.claimed_at ?? ''}</td>
-                        <td class="p-2 text-center">${row.actions ?? ''}</td>
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
+                        Loading data...
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=deal&search=${encodeURIComponent(getSearchQuery())}`, { 
+                    credentials: 'same-origin' 
+                });
+                const result = await response.json();
+                
+                tbody.innerHTML = ''
+    
+    
+                tbody.innerHTML = '';
+                updatePagerUI('deal', result.total);
+                totals.deal = result.total || 0;
+    
+                result.data.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <td class="hidden">${row.id}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="p-2">${row.lead_name ?? ''}</td>
+                            <td class="p-2">${row.sales_name ?? ''}</td>
+                            <td class="p-2">${row.phone ?? ''}</td>
+                            <td class="p-2">${row.source_name ?? ''}</td>
+                            <td class="p-2">${row.needs ?? ''}</td>
+                            <td class="p-2">${row.existing_industries ?? ''}</td>
+                            <td class="p-2">${row.city_name ?? ''}</td>
+                            <td class="p-2">${row.regional_name ?? ''}</td>
+                            <td class="p-2">${row.customer_type ?? ''}</td>
+                            <td class="p-2">${row.quotation_number ?? ''}</td>
+                            <td class="p-2">${row.quotation_price ?? ''}</td>
+                            <td class="p-2">${row.invoice_number ?? ''}</td>
+                            <td class="p-2">${row.invoice_price ?? ''}</td>
+                            <td class="p-2">${row.quot_created ?? ''}</td>
+                            <td class="p-2">${row.quot_end_date ?? ''}</td>
+                            <td class="p-2">${row.act_last_time ?? ''}</td>
+                            <td class="p-2">${row.act_status ?? ''}</td>
+                            <td class="p-2">${row.claimed_at ?? ''}</td>
+                            <td class="p-2 text-center">${row.actions ?? ''}</td>
+                        </tr>
+                    `;
+                });
+
+            } catch (error) {
+                console.error('Gagal load leads:', error);
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="17" class="p-4 text-center text-red-500">
+                            Gagal memuat data
+                        </td>
                     </tr>
                 `;
-            });
+            }
         }
         
         // LOAD THE SUMMARY ON CARDS (FORCardsCounts)

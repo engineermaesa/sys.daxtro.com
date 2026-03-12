@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Finance\FinanceRequestController;
 use App\Http\Controllers\Leads\SummaryController;
+use App\Http\Controllers\Purchasing\PurchaseController;
 
 // Temporary debug route to inspect session id and CSRF token
 // Route::get('/debug/csrf', function () {
@@ -158,9 +159,17 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // PURCHASING 
     // =====================================
-    Route::get('purchasing', function () {
-        return view('pages.purchasing.index');
-    })->name('purchasing-log.index');
+
+    Route::group([
+        'prefix' => 'purchasing',
+        'as' => 'purchasing.',
+    ], function () {
+        Route::get('/', [PurchaseController::class, 'index'])->name('index');
+
+        Route::get('form/{id}', [PurchaseController::class, 'form'])->name('form');
+
+        Route::get('update/{id}', [PurchaseController::class, 'update'])->name('update');
+    });
 
     // =====================================
     // EXPENSE REALIZATIONS (Arahnya Kemana X)

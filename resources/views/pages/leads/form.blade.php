@@ -343,13 +343,13 @@
                             <div class="p-3">
                                 {{-- CONTACT / COMPETITOR / OPEN / INDUSTRY FIELD --}}
                                 <div class="grid grid-cols-4 gap-3">
+    
                                     {{-- CONTACTING US FIELD --}}
                                     <div class="w-full grid grid-cols-1">
-                                        <label
-                                            class="form-label contact-reason-label text-[#1E1E1E]! mb-2! block!">Reason
-                                            of Contacting Us</label>
+                                        <label class="form-label contact-reason-label text-[#1E1E1E]! mb-2! block!">Reason of Contacting Us</label>
+                                        {{-- Tambahkan class 'sync-textarea' dan 'resize-y' --}}
                                         <textarea name="{{ $isCreate ? 'contact_reason[]' : 'contact_reason' }}"
-                                            class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
+                                            class="sync-textarea resize-y px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
                                             rows="2"
                                             placeholder="Type Here...">{{ old('contact_reason', $form_data->contact_reason) }}</textarea>
                                     </div>
@@ -358,7 +358,7 @@
                                     <div class="w-full grid grid-cols-1">
                                         <label class="text-[#1E1E1E]! mb-2! block!">Competitor Offer</label>
                                         <textarea name="{{ $isCreate ? 'competitor_offer[]' : 'competitor_offer' }}"
-                                            class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
+                                            class="sync-textarea resize-y px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
                                             rows="2"
                                             placeholder="Type Here...">{{ old('competitor_offer', $form_data->competitor_offer) }}</textarea>
                                     </div>
@@ -367,7 +367,7 @@
                                     <div class="w-full grid grid-cols-1">
                                         <label class="text-[#1E1E1E]! mb-2! block!">Reason to Open Business</label>
                                         <textarea name="{{ $isCreate ? 'business_reason[]' : 'business_reason' }}"
-                                            class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
+                                            class="sync-textarea resize-y px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
                                             rows="2"
                                             placeholder="Type Here...">{{ old('business_reason', $form_data->business_reason) }}</textarea>
                                     </div>
@@ -376,10 +376,11 @@
                                     <div class="w-full grid grid-cols-1">
                                         <label class="text-[#1E1E1E]! mb-2! block!">Industry Remark</label>
                                         <textarea name="{{ $isCreate ? 'industry_remark[]' : 'industry_remark' }}"
-                                            class="px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
+                                            class="sync-textarea resize-y px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!"
                                             placeholder="Additional comments about the industry"
                                             rows="2">{{ old('industry_remark', $form_data->industry_remark) }}</textarea>
                                     </div>
+                                    
                                 </div>
 
                                 {{-- NEEDS SELECT FIELD --}}
@@ -974,6 +975,27 @@
             });
         });
     });
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const textareas = document.querySelectorAll('.sync-textarea');
+        
+        const observer = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const newHeight = entry.target.style.height;
+                
+                if (newHeight) {
+                    textareas.forEach(ta => {
+                        if (ta !== entry.target) {
+                            ta.style.height = newHeight;
+                        }
+                    });
+                }
+            }
+        });
+
+        // Terapkan observer ke setiap textarea
+        textareas.forEach(ta => observer.observe(ta));
     });
 </script>
 

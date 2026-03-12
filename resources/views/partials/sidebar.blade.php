@@ -214,12 +214,15 @@
         {{-- PURCHASING LOG --}}
         @if(auth()->check() && auth()->user()->hasPermission('purchasing.log'))
         <li
-            class="{{ request()->routeIs('purchasing-log.*') ? 'bg-[#E8EFEC]' : 'bg-white' }} lg:flex lg:items-center lg:justify-start rounded-lg mt-2 px-3 py-2 sm:grid sm:grid-cols-1 sm:place-items-center">
+            class="{{ request()->routeIs('purchasing.*') ? 'bg-[#E8EFEC]' : 'bg-white' }} lg:flex lg:items-center lg:justify-start rounded-lg mt-2 px-3 py-2 sm:grid sm:grid-cols-1 sm:place-items-center">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
-                href="{{ route('purchasing-log.index') }}">
-                <i class="fas fa-fw fa-clipboard-list"></i>
+                href="{{ route('purchasing.index') }}">                
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5.99984 0.666687V2.66669M9.99984 0.666687V2.66669M5.99984 13.3334V15.3334M9.99984 13.3334V15.3334M13.3332 6.00002H15.3332M13.3332 9.33335H15.3332M0.666504 6.00002H2.6665M0.666504 9.33335H2.6665M3.99984 2.66669H11.9998C12.7362 2.66669 13.3332 3.26364 13.3332 4.00002V12C13.3332 12.7364 12.7362 13.3334 11.9998 13.3334H3.99984C3.26346 13.3334 2.6665 12.7364 2.6665 12V4.00002C2.6665 3.26364 3.26346 2.66669 3.99984 2.66669ZM5.99984 6.00002H9.99984V10H5.99984V6.00002Z" stroke="{{ request()->routeIs('purchasing*') ? '#115640' : '#0D0F11' }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+
                 <span
-                    class="{{ request()->routeIs('purchasing-log.*') ? 'text-[#115640]' : 'text-[#0D0F11]' }} font-semibold sm:hidden lg:inline">Purchasing
+                    class="{{ request()->routeIs('purchasing.*') ? 'text-[#115640]' : 'text-[#0D0F11]' }} font-semibold sm:hidden lg:inline">Purchasing
                     Log</span>
             </a>
         </li>

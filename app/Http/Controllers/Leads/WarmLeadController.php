@@ -115,7 +115,6 @@ class WarmLeadController extends Controller
         ]);
     }
 
-
     public function trash($claimId)
     {
         $claim = LeadClaim::with('lead')->findOrFail($claimId);

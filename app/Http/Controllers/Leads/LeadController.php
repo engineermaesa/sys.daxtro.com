@@ -115,6 +115,8 @@ class LeadController extends Controller
             });
         }
 
+        $leads->orderByDesc('published_at');
+
         return DataTables::of($leads)
             ->addColumn('region_name', fn($row) => $row->region->name ?? '')
             ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
@@ -1000,7 +1002,7 @@ class LeadController extends Controller
             ' . view('components.icon.log')->render() . '
             View / Add Activity Log</button>';
 
-            if (in_array($role, ['branch_manager', 'sales_director', 'sales']) && $quote) {
+            if (in_array($role, ['branch_manager', 'sales_director', 'sales', 'finance']) && $quote) {
                 $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">' . view('components.icon.view-quotation')->render() . ' View Quotation</a>';
             }
 

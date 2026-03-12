@@ -11,11 +11,19 @@ use App\Models\Leads\Lead;
 
 class PurchaseController extends Controller
 {
+
+    public function index()
+    {
+        return view('pages.purchasing.index');
+    }
     public function list(Request $request)
     {
         if (! Schema::hasTable('purchasings')) {
             return response()->json([
                 'data' => [],
+                'total' => 0,
+                'current_page' => 1,
+                'last_page' => 1,
                 'message' => 'Table purchasings not found',
             ], 200);
         }
@@ -26,7 +34,74 @@ class PurchaseController extends Controller
             $query->where('lead_id', $request->input('lead_id'));
         }
 
-        $purchasings = $query->orderByDesc('created_at')->get();
+        if ($request->filled('stage')) {
+            $stage = $request->input('stage');
+
+            $stageMap = [
+                'invoiceReceived'  => 'Invoice Received',
+                'vendorProcessing' => 'Vendor Processing',
+                'readyForHandover' => 'Ready for Handover',
+                'completed'        => 'Completed',
+                'pending'          => 'Pending',
+                'canceled'         => 'Canceled',
+            ];
+
+            if (isset($stageMap[$stage])) {
+                $query->where('stage', $stageMap[$stage]);
+            }
+        }
+
+        $perPage = (int) $request->input('per_page', 10);
+        
+        $paginated = $query
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        $items = collect($paginated->items());
+
+
+        // Ambil semua lead terkait dan tempelkan sebagai anak di setiap item (field "lead" tepat setelah lead_id)
+        $leadIds = $items->pluck('lead_id')->filter()->unique();
+
+        $leads = $leadIds->isEmpty()
+            ? collect()
+            : Lead::with([
+                'status',
+                'source',
+                'segment',
+                'region',
+                'product',
+                'meetings.expense.details.expenseType',
+                'meetings.expense.financeRequest',
+                'meetings.attachment',
+                'quotation.items',
+                'quotation.proformas',
+                'quotation.order.orderItems',
+                'quotation.reviews.reviewer',
+                'picExtensions',
+                'factoryCity',
+            ])->whereIn('id', $leadIds)->get()->keyBy('id');
+
+        $data = $items->map(function ($row) use ($leads) {
+
+            $detailUrl = route('purchasing.form', $row->id);
+            $editUrl = route('purchasing.update', $row->id);
+
+            $html  = '<div class="dropdown">';
+            $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+            $html .= '<i class="bi bi-three-dots"></i>';
+            $html .= '</button>';
+            $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+            $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($detailUrl) . '"> ' . view('components.icon.detail')->render() . 'Purchasing Detail</a>';
+            $html .= '<a class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">
+            ' . view('components.icon.edit')->render() . '
+            Edit </a>'; 
+            $html .= '</div></div>';
+
+            $row->lead = $leads->get($row->lead_id);
+            $row->actions = $html;
+            return $row;
+        })->values();
 
         // Ambil semua lead terkait dan tempelkan sebagai anak di setiap item (field "lead" tepat setelah lead_id)
         $leadIds = $purchasings->pluck('lead_id')->filter()->unique();
@@ -56,10 +131,13 @@ class PurchaseController extends Controller
         });
 
         return response()->json([
-            'data' => $purchasings,
+            'data'         => $data,
+            'total'        => $paginated->total(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
         ]);
     }
-
+    
     public function save(Request $request, $id = null)
     {
         if (! Schema::hasTable('purchasings')) {
@@ -201,9 +279,8 @@ class PurchaseController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-    }
+    }  
 
-   
     private function mapStatusToStage(int $status): string
     {
         if ($status >= 1 && $status <= 3) {
@@ -234,7 +311,6 @@ class PurchaseController extends Controller
         return 'Invoice Received';
     }
 
-   
     private function mapStatusCodeToName(int $status): string
     {
         $map = [
@@ -260,9 +336,8 @@ class PurchaseController extends Controller
         ];
 
         return $map[$status] ?? 'Waiting';
-    }
+    }  
 
-  
     public function storeFromLeadWithStatus(int $leadId, int $statusCode, $file = null): void
     {
         $stage = $this->mapStatusToStage($statusCode);
@@ -277,5 +352,61 @@ class PurchaseController extends Controller
         // Saat lead pertama kali DEAL, set stage awal = "Invoice Received"
         // dan status awal = "Waiting" (sesuai ref_purchasing_statuses id = 1).
         $this->storeFromLead($leadId, 'Invoice Received', 'Waiting');
+    }
+
+    public function form(Request $request, $id)
+    {
+        $purchasing = DB::table('purchasings')->where('id', $id)->first();
+
+        $lead = Lead::with([
+            'status',
+            'source',
+            'segment',
+            'region',
+            'product',
+            'meetings.expense.details.expenseType',
+            'meetings.expense.financeRequest',
+            'meetings.attachment',
+            'quotation.items',
+            'quotation.proformas',
+            'quotation.order.orderItems',
+            'quotation.reviews.reviewer',
+            'picExtensions',
+            'factoryCity',
+        ])->find($purchasing->lead_id);
+
+        return view('pages.purchasing.form', compact('purchasing', 'lead'));        
+    }
+
+    public function update(Request $request, $id)
+    {
+        $purchasing = DB::table('purchasings')->where('id', $id)->first();
+
+        if (! $purchasing) {
+            return redirect()->route('purchasing.index');
+        }
+
+        if (! $purchasing->lead_id) {
+            return redirect()->route('purchasing.index');
+        }
+
+        $lead = Lead::with([
+            'status',
+            'source',
+            'segment',
+            'region',
+            'product',
+            'meetings.expense.details.expenseType',
+            'meetings.expense.financeRequest',
+            'meetings.attachment',
+            'quotation.items',
+            'quotation.proformas',
+            'quotation.order.orderItems',
+            'quotation.reviews.reviewer',
+            'picExtensions',
+            'factoryCity',
+        ])->find($purchasing->lead_id);
+
+        return view('pages.purchasing.update', compact('purchasing', 'lead'));        
     }
 }
