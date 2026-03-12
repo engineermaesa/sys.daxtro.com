@@ -30,6 +30,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Orders', 'code' => 'orders', 'description' => 'Manage orders'],
             ['name' => 'Incentive Dashboard', 'code' => 'incentives.view', 'description' => 'View incentive balance and logs'],
             ['name' => 'Finance Requests', 'code' => 'finance.requests', 'description' => 'Handle finance approvals'],
+            ['name' => 'Purchasing Log', 'code' => 'purchasing.log', 'description' => 'Access purchasing log'],
             ['name' => 'Manage Users', 'code' => 'users.manage', 'description' => 'Manage users'],
             ['name' => 'Roles', 'code' => 'users.roles', 'description' => 'Manage roles'],
             ['name' => 'Permissions Settings', 'code' => 'settings.permissions-settings', 'description' => 'Manage permissions settings'],

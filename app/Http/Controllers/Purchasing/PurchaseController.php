@@ -1,5 +1,6 @@
 <?php
 
+// Test Replace
 namespace App\Http\Controllers\Purchasing;
 
 use App\Http\Controllers\Controller;
@@ -16,6 +17,7 @@ class PurchaseController extends Controller
     {
         return view('pages.purchasing.index');
     }
+
     public function list(Request $request)
     {
         if (! Schema::hasTable('purchasings')) {
@@ -52,7 +54,7 @@ class PurchaseController extends Controller
         }
 
         $perPage = (int) $request->input('per_page', 10);
-        
+
         $paginated = $query
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -95,7 +97,7 @@ class PurchaseController extends Controller
             $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($detailUrl) . '"> ' . view('components.icon.detail')->render() . 'Purchasing Detail</a>';
             $html .= '<a class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">
             ' . view('components.icon.edit')->render() . '
-            Edit </a>'; 
+            Edit </a>';
             $html .= '</div></div>';
 
             $row->lead = $leads->get($row->lead_id);
@@ -110,7 +112,7 @@ class PurchaseController extends Controller
             'last_page'    => $paginated->lastPage(),
         ]);
     }
-    
+
     public function save(Request $request, $id = null)
     {
         if (! Schema::hasTable('purchasings')) {
@@ -252,7 +254,7 @@ class PurchaseController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-    }  
+    }
 
     private function mapStatusToStage(int $status): string
     {
@@ -309,7 +311,7 @@ class PurchaseController extends Controller
         ];
 
         return $map[$status] ?? 'Waiting';
-    }  
+    }
 
     public function storeFromLeadWithStatus(int $leadId, int $statusCode, $file = null): void
     {
@@ -331,6 +333,42 @@ class PurchaseController extends Controller
     {
         $purchasing = DB::table('purchasings')->where('id', $id)->first();
 
+        // Panggilan dari API (/api/...) => selalu kembalikan JSON
+        if ($request->segment(1) === 'api') {
+            if (! $purchasing) {
+                return response()->json([
+                    'message' => 'Purchasing record not found',
+                ], 404);
+            }
+
+            $lead = Lead::with([
+                'status',
+                'source',
+                'segment',
+                'region',
+                'product',
+                'meetings.expense.details.expenseType',
+                'meetings.expense.financeRequest',
+                'meetings.attachment',
+                'quotation.items',
+                'quotation.proformas',
+                'quotation.order.orderItems',
+                'quotation.reviews.reviewer',
+                'picExtensions',
+                'factoryCity',
+            ])->find($purchasing->lead_id);
+
+            return response()->json([
+                'purchasing' => $purchasing,
+                'lead'       => $lead,
+            ]);
+        }
+
+        // Panggilan dari web (/purchasing/...) => kembalikan view
+        if (! $purchasing) {
+            return redirect()->route('purchasing.index');
+        }
+
         $lead = Lead::with([
             'status',
             'source',
@@ -348,7 +386,7 @@ class PurchaseController extends Controller
             'factoryCity',
         ])->find($purchasing->lead_id);
 
-        return view('pages.purchasing.form', compact('purchasing', 'lead'));        
+        return view('pages.purchasing.form', compact('purchasing', 'lead'));
     }
 
     public function update(Request $request, $id)
@@ -408,7 +446,7 @@ class PurchaseController extends Controller
             'factoryCity',
         ])->find($purchasing->lead_id);
 
-        return view('pages.purchasing.form', compact('purchasing', 'lead'));        
+        return view('pages.purchasing.update', compact('purchasing', 'lead'));
     }
 
     public function download(Request $request, $id)
@@ -441,7 +479,7 @@ class PurchaseController extends Controller
             ], 404);
         }
 
-        // Saat ini kolom files berisi array path file.
+        // Saat ini kolom `files` berisi array path file.
         // Kita ambil file pertama sebagai file untuk status saat ini.
         $path = $files[0];
 

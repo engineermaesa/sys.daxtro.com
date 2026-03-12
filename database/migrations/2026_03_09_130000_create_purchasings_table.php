@@ -13,9 +13,13 @@ return new class extends Migration
     {
         Schema::create('purchasings', function (Blueprint $table) {
             $table->id();
+
             $table->foreignId('lead_id')->constrained('leads');
-            $table->tinyInteger('stage');
-            $table->tinyInteger('status');
+
+            // langsung gunakan string sesuai perubahan
+            $table->string('stage', 100);
+            $table->string('status', 100);
+
             $table->text('notes')->nullable();
             $table->json('files')->nullable();
 

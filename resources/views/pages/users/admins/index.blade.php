@@ -47,10 +47,12 @@
     </div>
 
     <div class="card-body pt-4">
+      @if(auth()->check() && auth()->user()->role?->code === 'super_admin')
       @include('partials.common.create-btn', [
           'url' => route('users.form'),
           'title' => 'Admin'
       ])
+      @endif
 
       <div class="table-responsive overflow-auto">
         <table id="adminsTable" class="table table-bordered table-sm nowrap w-100">
