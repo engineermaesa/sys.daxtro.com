@@ -54,6 +54,7 @@
                             <th class="p-3">Notes</th>
                             <td class="p-3">{{ $purchasing->notes ?? '-' }}</td>
                         </tr>
+                        {{-- GANTI JADI DOWNLOAD BTN AMBIL DARI API --}}
                         <tr class="border-t border-t-[#D9D9D9]">
                             <th class="p-3">Files</th>
                             <td class="p-3">{{ $purchasing->files ?? '-' }}</td>
