@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Leads\Lead;
 
 class PurchaseController extends Controller
@@ -16,6 +17,7 @@ class PurchaseController extends Controller
     {
         return view('pages.purchasing.index');
     }
+
     public function list(Request $request)
     {
         if (! Schema::hasTable('purchasings')) {
@@ -52,7 +54,7 @@ class PurchaseController extends Controller
         }
 
         $perPage = (int) $request->input('per_page', 10);
-        
+
         $paginated = $query
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -95,40 +97,13 @@ class PurchaseController extends Controller
             $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($detailUrl) . '"> ' . view('components.icon.detail')->render() . 'Purchasing Detail</a>';
             $html .= '<a class="dropdown-item btn-activity-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">
             ' . view('components.icon.edit')->render() . '
-            Edit </a>'; 
+            Edit </a>';
             $html .= '</div></div>';
 
             $row->lead = $leads->get($row->lead_id);
             $row->actions = $html;
             return $row;
         })->values();
-
-        // Ambil semua lead terkait dan tempelkan sebagai anak di setiap item (field "lead" tepat setelah lead_id)
-        $leadIds = $purchasings->pluck('lead_id')->filter()->unique();
-
-        $leads = $leadIds->isEmpty()
-            ? collect()
-            : Lead::with([
-                'status',
-                'source',
-                'segment',
-                'region',
-                'product',
-                'meetings.expense.details.expenseType',
-                'meetings.expense.financeRequest',
-                'meetings.attachment',
-                'quotation.items',
-                'quotation.proformas',
-                'quotation.order.orderItems',
-                'quotation.reviews.reviewer',
-                'picExtensions',
-                'factoryCity',
-            ])->whereIn('id', $leadIds)->get()->keyBy('id');
-
-        $purchasings = $purchasings->map(function ($row) use ($leads) {
-            $row->lead = $leads->get($row->lead_id);
-            return $row;
-        });
 
         return response()->json([
             'data'         => $data,
@@ -137,7 +112,7 @@ class PurchaseController extends Controller
             'last_page'    => $paginated->lastPage(),
         ]);
     }
-    
+
     public function save(Request $request, $id = null)
     {
         if (! Schema::hasTable('purchasings')) {
@@ -279,7 +254,7 @@ class PurchaseController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-    }  
+    }
 
     private function mapStatusToStage(int $status): string
     {
@@ -336,7 +311,7 @@ class PurchaseController extends Controller
         ];
 
         return $map[$status] ?? 'Waiting';
-    }  
+    }
 
     public function storeFromLeadWithStatus(int $leadId, int $statusCode, $file = null): void
     {
@@ -358,6 +333,42 @@ class PurchaseController extends Controller
     {
         $purchasing = DB::table('purchasings')->where('id', $id)->first();
 
+        // Panggilan dari API (/api/...) => selalu kembalikan JSON
+        if ($request->segment(1) === 'api') {
+            if (! $purchasing) {
+                return response()->json([
+                    'message' => 'Purchasing record not found',
+                ], 404);
+            }
+
+            $lead = Lead::with([
+                'status',
+                'source',
+                'segment',
+                'region',
+                'product',
+                'meetings.expense.details.expenseType',
+                'meetings.expense.financeRequest',
+                'meetings.attachment',
+                'quotation.items',
+                'quotation.proformas',
+                'quotation.order.orderItems',
+                'quotation.reviews.reviewer',
+                'picExtensions',
+                'factoryCity',
+            ])->find($purchasing->lead_id);
+
+            return response()->json([
+                'purchasing' => $purchasing,
+                'lead'       => $lead,
+            ]);
+        }
+
+        // Panggilan dari web (/purchasing/...) => kembalikan view
+        if (! $purchasing) {
+            return redirect()->route('purchasing.index');
+        }
+
         $lead = Lead::with([
             'status',
             'source',
@@ -375,7 +386,7 @@ class PurchaseController extends Controller
             'factoryCity',
         ])->find($purchasing->lead_id);
 
-        return view('pages.purchasing.form', compact('purchasing', 'lead'));        
+        return view('pages.purchasing.form', compact('purchasing', 'lead'));
     }
 
     public function update(Request $request, $id)
@@ -407,6 +418,51 @@ class PurchaseController extends Controller
             'factoryCity',
         ])->find($purchasing->lead_id);
 
-        return view('pages.purchasing.update', compact('purchasing', 'lead'));        
+        return view('pages.purchasing.update', compact('purchasing', 'lead'));
+    }
+
+    public function download(Request $request, $id)
+    {
+        if (! Schema::hasTable('purchasings')) {
+            return response()->json([
+                'message' => 'Table purchasings not found',
+            ], 404);
+        }
+
+        $purchasing = DB::table('purchasings')->where('id', $id)->first();
+
+        if (! $purchasing) {
+            return response()->json([
+                'message' => 'Purchasing record not found',
+            ], 404);
+        }
+
+        if (empty($purchasing->files)) {
+            return response()->json([
+                'message' => 'No file available for this status',
+            ], 404);
+        }
+
+        $files = json_decode($purchasing->files, true) ?: [];
+
+        if (! is_array($files) || empty($files)) {
+            return response()->json([
+                'message' => 'No file available for this status',
+            ], 404);
+        }
+
+        // Saat ini kolom `files` berisi array path file.
+        // Kita ambil file pertama sebagai file untuk status saat ini.
+        $path = $files[0];
+
+        if (! is_string($path) || $path === '' || ! Storage::exists($path)) {
+            return response()->json([
+                'message' => 'Stored file not found on disk',
+            ], 404);
+        }
+
+        $downloadName = basename($path);
+
+        return Storage::download($path, $downloadName);
     }
 }
