@@ -393,11 +393,39 @@ class PurchaseController extends Controller
     {
         $purchasing = DB::table('purchasings')->where('id', $id)->first();
 
-        if (! $purchasing) {
-            return redirect()->route('purchasing.index');
+        // Panggilan dari API (/api/...) => selalu kembalikan JSON
+        if ($request->segment(1) === 'api') {
+            if (! $purchasing) {
+                return response()->json([
+                    'message' => 'Purchasing record not found',
+                ], 404);
+            }
+
+            $lead = Lead::with([
+                'status',
+                'source',
+                'segment',
+                'region',
+                'product',
+                'meetings.expense.details.expenseType',
+                'meetings.expense.financeRequest',
+                'meetings.attachment',
+                'quotation.items',
+                'quotation.proformas',
+                'quotation.order.orderItems',
+                'quotation.reviews.reviewer',
+                'picExtensions',
+                'factoryCity',
+            ])->find($purchasing->lead_id);
+
+            return response()->json([
+                'purchasing' => $purchasing,
+                'lead'       => $lead,
+            ]);
         }
 
-        if (! $purchasing->lead_id) {
+        // Panggilan dari web (/purchasing/...) => kembalikan view
+        if (! $purchasing) {
             return redirect()->route('purchasing.index');
         }
 

@@ -7,6 +7,106 @@
             <h1 class="font-semibold lg:text-2xl text-lg">Purchasing Log</h1>
         </div>
 
+        {{-- FOR ALL STAGE --}}
+        <div id="forAllCardsCounts" class="grid grid-cols-1 xl:grid-cols-3 gap-3 mt-4">
+            {{-- INVOICE RECEIVED --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Invoice Received</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#417866]">
+                        <x-icon.task/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countInvoiceReceived" class="text-2xl font-semibold text-[#1E1E1E]">0 Invoice Received</p>
+                </div>
+            </div>
+
+            {{-- VENDOR PROCESSING --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.15s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Vendor Processing</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#417866]">
+                        <x-icon.refresh/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countVendorProcessing" class="text-2xl font-semibold text-[#1E1E1E]">0 Vendor Processing</p>
+                </div>
+            </div>
+
+            {{-- READY FOR HANDOVER --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.30s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Ready For Handover</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#417866]">
+                        <x-icon.package/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countReadyForHandover" class="text-2xl font-semibold text-[#1E1E1E]">0 Ready For Handover</p>
+                </div>
+            </div>
+
+            {{-- COMPLETED --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.40s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Completed</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#417866]">
+                        <x-icon.check/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countAllCompleted" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                </div>
+            </div>
+
+            {{-- PENDING --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.55s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Pending</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#E8B931]">
+                        <x-icon.clock/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countAllPending" class="text-2xl font-semibold text-[#1E1E1E]">0 Pendings</p>
+                </div>
+            </div>
+
+            {{-- CANCELED --}}
+            <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.65s;">
+                <div class="flex justify-between items-center">
+                    
+                    <h1 class="text-[#757575] font-semibold">Canceled</h1>
+                    
+                    <div class="p-3 border border-[#D9D9D9] rounded-md text-[#EC221F]">
+                        <x-icon.cross/>
+                    </div>
+                </div>
+
+                <div>
+                    <p id="countAllCanceled" class="text-2xl font-semibold text-[#1E1E1E]">0 Canceled</p>
+                </div>
+            </div>
+
+        </div>
+
         {{-- INVOICE RECEIVED CARDS --}}
         <div id="forInvoiceReceivedCardsCounts" class="grid grid-cols-1 xl:grid-cols-3 gap-3 mt-4">
             
@@ -249,13 +349,13 @@
                 </div>
 
                 <div>
-                    <p id="countCompleted" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                    <p id="countCompletedOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
                 </div>
             </div>
         </div>
 
-        {{-- PENDING - CANCELED --}}
-        <div id="forPendingAndCanceledCardsCounts" class="grid grid-cols-1 xl:grid-cols-2 gap-3 mt-4">
+        {{-- PENDING --}}
+        <div id="forPendingCardsCounts" class="grid grid-cols-1 mt-4">
 
             {{-- PENDING --}}
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
@@ -269,9 +369,14 @@
                 </div>
 
                 <div>
-                    <p id="countCompleted" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                    <p id="countPendingOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Pending</p>
                 </div>
             </div>
+
+        </div>
+
+        {{-- CANCELED  --}}
+        <div id="forCancelCardsCounts" class="grid grid-cols-1 mt-4">
 
             {{-- CANCELED --}}
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.30s;">
@@ -285,9 +390,10 @@
                 </div>
 
                 <div>
-                    <p id="countCompleted" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                    <p id="countCanceledOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Canceled</p>
                 </div>
             </div>
+
         </div>
 
         {{-- TABLES CONTENTS --}}
@@ -328,7 +434,7 @@
             @foreach(['all', 'invoiceReceived', 'vendorProcessing', 'readyForHandover', 'completed', 'pending', 'canceled'] as $tab)
             <div data-status-wrapper="{{ $tab }}" class="purchasing-table-container {{ $loop->first ? '' : 'hidden' }}">
                 <div class="max-xl:overflow-x-scroll">
-                    <table id="{{ $tab }}PurchasingTable" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                    <table id="{{ $tab }}PurchasingTable" class="w-full bg-white rounded-br-lg rounded-bl-lg]">
                         {{-- HEADER TABLE --}}
                         <thead class="text-[#1E1E1E]">
                             <tr class="border-b border-b-[#D9D9D9]">
@@ -466,10 +572,38 @@
     @include('pages.purchasing.script-load-api');
 
     document.addEventListener('DOMContentLoaded', function () {
+        const sections = {
+            all: $("#forAllCardsCounts"),
+            invoiceReceived: $("#forInvoiceReceivedCardsCounts"),
+            vendorProcessing: $("#forVendorProcessingCardsCounts"),
+            readyForHandover: $("#forReadyHandoverCardsCounts"),
+            completed: $("#forCompletedCardsCounts"),
+            pending: $("#forPendingCardsCounts"),
+            canceled: $("#forCancelCardsCounts"),
+        };
+
+        function resetAnimation($container) {
+            $container.find(".animate__animated").each(function () {
+                $(this)
+                    .removeClass("animate__fadeInUp")
+                    .width(); // trigger reflow
+                $(this).addClass("animate__fadeInUp");
+            });
+        }
+
+        function showSection(status) {
+            $.each(sections, function (_, $section) {
+                $section.addClass('hidden');
+            });
+
+            if (sections[status] && sections[status].length) {
+                sections[status].removeClass('hidden');
+                resetAnimation(sections[status]);
+            }
+        }
+
         $('.nav-purchase').on('click', function () {
             const status = $(this).data('status');
-
-            console.log(status);
 
             $('.purchasing-table-container').addClass('hidden');
             $(`[data-status-wrapper='${status}']`).removeClass('hidden');
@@ -478,9 +612,10 @@
             $(this).addClass('active-nav');
 
             reloadTab(status);
+            showSection(status);
         });
 
-        $(`.nav-purchase[data-status='all']`).trigger('click');
+        $('.nav-purchase[data-status="all"]').trigger('click');
     });
     </script>
 @endsection
