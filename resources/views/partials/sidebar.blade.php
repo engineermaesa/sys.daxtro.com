@@ -212,7 +212,7 @@
         @endif
 
         {{-- PURCHASING LOG --}}
-        @if(auth()->check() && auth()->user()->role?->code === 'purchasing')
+        @if(auth()->check() && auth()->user()->hasPermission('purchasing.log'))
         <li
             class="{{ request()->routeIs('purchasing-log.*') ? 'bg-[#E8EFEC]' : 'bg-white' }} lg:flex lg:items-center lg:justify-start rounded-lg mt-2 px-3 py-2 sm:grid sm:grid-cols-1 sm:place-items-center">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
@@ -554,6 +554,11 @@
                 <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
                     {{-- USERS MANAGE --}}
                     @if(auth()->check() && auth()->user()->hasPermission('users.manage'))
+                    @php
+                        $manageUsersLabel = auth()->user()->role?->code === 'branch_manager'
+                            ? 'Manage Sales'
+                            : 'Manage Users';
+                    @endphp
                     <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('users*') || request()->routeIs('users/form')}}"
                         href="{{ route('users.index') }}">
                         <span
@@ -561,7 +566,7 @@
                         </span>
                         <span
                             class="{{ request()->is('users') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
-                            Manage Users
+                            {{ $manageUsersLabel }}
                         </span>
                     </a>
                     @endif

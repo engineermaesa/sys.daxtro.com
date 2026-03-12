@@ -7,94 +7,101 @@
       <div class="card">
         <div class="card-body pt-3">
           @php
-            $roleCode = auth()->user()?->role?->code ?? null;
-            $isBranchManager = $roleCode === 'branch_manager';
+          $roleCode = auth()->user()?->role?->code ?? null;
+          $isBranchManager = $roleCode === 'branch_manager';
           @endphp
 
-          <form id="form" method="POST" action="{{ route('users.save', ['id' => $data->id ?? '']) }}" back-url="{{ route('users.index') }}">
+          <form id="form" method="POST" action="{{ route('users.save', ['id' => $data->id ?? '']) }}"
+            back-url="{{ route('users.index') }}">
             @csrf
 
             <div class="mb-3">
               <label for="role_id" class="form-label">Role <i class="required">*</i></label>
-              <select name="role_id" id="role_id" class="form-select select2" {{ $isBranchManager ? 'disabled' : 'required' }}>
+              <select name="role_id" id="role_id" class="form-select select2" {{ $isBranchManager ? 'disabled'
+                : 'required' }}>
                 <option value="">-- Select Role --</option>
                 @php
-                  $authIsSuperAdmin = auth()->user()?->role?->code === 'super_admin';
-                  $filteredRoles = $authIsSuperAdmin ? $roles : $roles->reject(fn($r) => $r->code === 'super_admin');
+                $authIsSuperAdmin = auth()->user()?->role?->code === 'super_admin';
+                $filteredRoles = $authIsSuperAdmin ? $roles : $roles->reject(fn($r) => $r->code === 'super_admin');
                 @endphp
 
                 @foreach($filteredRoles as $role)
-                  <option value="{{ $role->id }}" {{ old('role_id', $data->role_id ?? '') == $role->id ? 'selected' : '' }}>
-                    {{ $role->name }}
-                  </option>
+                <option value="{{ $role->id }}" {{ old('role_id', $data->role_id ?? '') == $role->id ? 'selected' : ''
+                  }}>
+                  {{ $role->name }}
+                </option>
                 @endforeach
               </select>
             </div>
 
             <div class="mb-3">
               <label for="company_id" class="form-label">Company <i class="required">*</i></label>
-              <select name="company_id" id="company_id" class="form-select select2" {{ $isBranchManager ? 'disabled' : 'required' }}>
+              <select name="company_id" id="company_id" class="form-select select2" {{ $isBranchManager ? 'disabled'
+                : 'required' }}>
                 <option value="">-- Select Company --</option>
                 @foreach($companies as $company)
-                  <option value="{{ $company->id }}" {{ old('company_id', $data->company_id ?? '') == $company->id ? 'selected' : '' }}>
-                    {{ $company->name }}
-                  </option>
+                <option value="{{ $company->id }}" {{ old('company_id', $data->company_id ?? '') == $company->id ?
+                  'selected' : '' }}>
+                  {{ $company->name }}
+                </option>
                 @endforeach
               </select>
             </div>
 
             <div class="mb-3">
               <label for="branch_id" class="form-label">Branch <i class="required">*</i></label>
-              <select name="branch_id" id="branch_id" class="form-select select2" {{ $isBranchManager ? 'disabled' : 'required' }}>
-                <option value="">-- Select Branch --</option>                
-                  @foreach($branches as $b)
-                    <option value="{{ $b->id }}"
-                      {{ old('branch_id', $data->branch_id ?? '') == $b->id ? 'selected' : '' }}>
-                      {{ $b->name }}
-                    </option>
-                  @endforeach
+              <select name="branch_id" id="branch_id" class="form-select select2" {{ $isBranchManager ? 'disabled'
+                : 'required' }}>
+                <option value="">-- Select Branch --</option>
+                @foreach($branches as $b)
+                <option value="{{ $b->id }}" {{ old('branch_id', $data->branch_id ?? '') == $b->id ? 'selected' : '' }}>
+                  {{ $b->name }}
+                </option>
+                @endforeach
               </select>
             </div>
 
 
             <div class="mb-3">
               <label for="name" class="form-label">Name <i class="required">*</i></label>
-              <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $data->name ?? '') }}" {{ $isBranchManager ? 'readonly' : 'required' }}>
+              <input type="text" name="name" id="name" class="form-control" value="{{ old('name', $data->name ?? '') }}"
+                {{ $isBranchManager ? 'readonly' : 'required' }}>
             </div>
 
             <div class="mb-3">
               <label for="email" class="form-label">Email <i class="required">*</i></label>
-              <input type="email" name="email" id="email" class="form-control" value="{{ old('email', $data->email ?? '') }}" {{ $isBranchManager ? 'readonly' : 'required' }}>
+              <input type="email" name="email" id="email" class="form-control"
+                value="{{ old('email', $data->email ?? '') }}" {{ $isBranchManager ? 'readonly' : 'required' }}>
             </div>
 
             <div class="mb-3">
               <label for="nip" class="form-label">NIP <i class="required">*</i></label>
-              <input type="text" name="nip" id="nip" class="form-control" value="{{ old('nip', $data->nip ?? '') }}" {{ $isBranchManager ? 'readonly' : 'required' }}>
+              <input type="text" name="nip" id="nip" class="form-control" value="{{ old('nip', $data->nip ?? '') }}" {{
+                $isBranchManager ? 'readonly' : 'required' }}>
             </div>
 
             <div class="mb-3">
               <label for="phone" class="form-label">Phone</label>
-              <input type="text" name="phone" id="phone" class="form-control" value="{{ old('phone', $data->phone ?? '') }}" {{ $isBranchManager ? 'readonly' : '' }}>
+              <input type="text" name="phone" id="phone" class="form-control"
+                value="{{ old('phone', $data->phone ?? '') }}" {{ $isBranchManager ? 'readonly' : '' }}>
             </div>
 
             @php
-              $months = [
-                1 => 'Januari',
-                2 => 'Februari',
-                3 => 'Maret',
-                4 => 'April',
-                5 => 'Mei',
-                6 => 'Juni',
-                7 => 'Juli',
-                8 => 'Agustus',
-                9 => 'September',
-                10 => 'Oktober',
-                11 => 'November',
-                12 => 'Desember',
-              ];
-
-              // Prefill dari request lama atau dari breakdown yang tersimpan di field target (via accessor monthly_targets)
-              $oldMonthlyTargets = old('monthly_targets', $data->monthly_targets ?? []);
+            $months = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+            ];
+            $oldMonthlyTargets = old('monthly_targets', $data->monthly_targets ?? []);
             @endphp
 
             <div class="mb-3">
@@ -114,37 +121,22 @@
                   </thead>
                   <tbody>
                     @foreach($months as $monthIndex => $monthName)
-                      @php
-                        $rowOld = $oldMonthlyTargets[$monthIndex] ?? [];
-                        $percentage = $rowOld['percentage'] ?? null;
-                        $amount = $rowOld['amount'] ?? null;
-                      @endphp
-                      <tr>
-                        <td>{{ $monthName }}</td>
-                        <td>
-                          <input
-                            type="number"
-                            name="monthly_targets[{{ $monthIndex }}][percentage]"
-                            class="form-control"
-                            value="{{ $percentage }}"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            placeholder="0"
-                          >
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            name="monthly_targets[{{ $monthIndex }}][amount]"
-                            class="form-control monthly-amount"
-                            value="{{ $amount }}"
-                            min="0"
-                            step="0.01"
-                            placeholder="0"
-                          >
-                        </td>
-                      </tr>
+                    @php
+                    $rowOld = $oldMonthlyTargets[$monthIndex] ?? [];
+                    $percentage = $rowOld['percentage'] ?? null;
+                    $amount = $rowOld['amount'] ?? null;
+                    @endphp
+                    <tr>
+                      <td>{{ $monthName }}</td>
+                      <td>
+                        <input type="number" name="monthly_targets[{{ $monthIndex }}][percentage]" class="form-control"
+                          value="{{ $percentage }}" min="0" max="100" step="0.01" placeholder="0">
+                      </td>
+                      <td>
+                        <input type="number" name="monthly_targets[{{ $monthIndex }}][amount]"
+                          class="form-control monthly-amount" value="{{ $amount }}" min="0" step="0.01" placeholder="0">
+                      </td>
+                    </tr>
                     @endforeach
                   </tbody>
                   <tfoot>
@@ -164,29 +156,32 @@
             </div>
 
             @unless($isBranchManager)
-              <div class="mb-3">
-                <label for="password" class="form-label">
-                  Password{!! empty($data->id) ? ' <i class="required">*</i>' : '' !!}
-                </label>
-                <div class="input-group">
-                  <input type="password" name="password" id="password" class="form-control" {{ empty($data->id) ? 'required' : '' }}>
-                  <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">
+                Password{!! empty($data->id) ? ' <i class="required">*</i>' : '' !!}
+              </label>
+              <div class="input-group">
+                <input type="password" name="password" id="password" class="form-control" {{ empty($data->id) ?
+                'required' : '' }}>
+                <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password">
+                  <i class="bi bi-eye"></i>
+                </button>
               </div>
+            </div>
 
-              <div class="mb-3">
-                <label for="password_confirmation" class="form-label">
-                  Confirm Password{!! empty($data->id) ? ' <i class="required">*</i>' : '' !!}
-                </label>
-                <div class="input-group">
-                  <input type="password" name="password_confirmation" id="password_confirmation" class="form-control" {{ empty($data->id) ? 'required' : '' }}>
-                  <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password_confirmation">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                </div>
+            <div class="mb-3">
+              <label for="password_confirmation" class="form-label">
+                Confirm Password{!! empty($data->id) ? ' <i class="required">*</i>' : '' !!}
+              </label>
+              <div class="input-group">
+                <input type="password" name="password_confirmation" id="password_confirmation" class="form-control" {{
+                  empty($data->id) ? 'required' : '' }}>
+                <button class="btn btn-outline-secondary toggle-password" type="button"
+                  data-target="password_confirmation">
+                  <i class="bi bi-eye"></i>
+                </button>
               </div>
+            </div>
             @endunless
 
             @include('partials.common.save-btn-form', ['backUrl' => route('users.index')])
@@ -199,7 +194,7 @@
 @endsection
 @section('scripts')
 <script>
-$(function () {  
+  $(function () {  
   const $branch = $('#branch_id');
   const role = @json(auth()->user()->role?->code ?? '');
   const userBranchId = @json(auth()->user()->branch_id ?? null);

@@ -1,11 +1,13 @@
 <?php
 
+// Test Replace
 namespace App\Http\Controllers\Purchasing;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Leads\Lead;
 
 class PurchaseController extends Controller
 {
@@ -25,6 +27,33 @@ class PurchaseController extends Controller
         }
 
         $purchasings = $query->orderByDesc('created_at')->get();
+
+        // Ambil semua lead terkait dan tempelkan sebagai anak di setiap item (field "lead" tepat setelah lead_id)
+        $leadIds = $purchasings->pluck('lead_id')->filter()->unique();
+
+        $leads = $leadIds->isEmpty()
+            ? collect()
+            : Lead::with([
+                'status',
+                'source',
+                'segment',
+                'region',
+                'product',
+                'meetings.expense.details.expenseType',
+                'meetings.expense.financeRequest',
+                'meetings.attachment',
+                'quotation.items',
+                'quotation.proformas',
+                'quotation.order.orderItems',
+                'quotation.reviews.reviewer',
+                'picExtensions',
+                'factoryCity',
+            ])->whereIn('id', $leadIds)->get()->keyBy('id');
+
+        $purchasings = $purchasings->map(function ($row) use ($leads) {
+            $row->lead = $leads->get($row->lead_id);
+            return $row;
+        });
 
         return response()->json([
             'data' => $purchasings,
@@ -76,14 +105,29 @@ class PurchaseController extends Controller
             $stage = $this->mapStatusToStage($statusCode);
         }
 
+        // Tentukan kewajiban notes / file berdasarkan status
+        $isPendingOrCancel = false;
+        $isWaitingToCompleted = false;
+
+        if ($statusCode !== null) {
+            if (in_array($statusCode, [18, 19], true)) {
+                // Pending atau Cancel
+                $isPendingOrCancel = true;
+            } elseif ($statusCode >= 1 && $statusCode <= 17) {
+                // Waiting sampai Completed
+                $isWaitingToCompleted = true;
+            }
+        }
+
         $rules = [
             'status_code' => 'nullable|integer|min:1|max:19',
             'status'      => 'required_without:status_code|string|max:100',
-            'notes'       => 'nullable|string',
+            // Pending atau Cancel: notes wajib, selain itu opsional
+            'notes'       => $isPendingOrCancel ? 'required|string' : 'nullable|string',
         ];
 
-        // Wajib upload file kalau ada perubahan status dari data sebelumnya
-        if ($existing && $existing->status !== $statusName) {
+        // Waiting sampai Completed: file wajib, selain itu opsional
+        if ($isWaitingToCompleted) {
             $rules['file'] = 'required|file';
         } else {
             $rules['file'] = 'nullable|file';

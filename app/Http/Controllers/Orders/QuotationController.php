@@ -12,6 +12,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use Carbon\Carbon;
 
 class QuotationController extends Controller
 {
@@ -407,8 +408,10 @@ class QuotationController extends Controller
         $data = $request->validate([
             'file'        => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120',
             'description'  => 'nullable|string|max:255',
-            'signed_date'  => 'required|date',
+            'signed_date'  => 'required|date_format:d/m/Y',
         ]);
+
+        $signedDate = Carbon::createFromFormat('d/m/Y', $data['signed_date'])->format('Y-m-d');
 
         $file = $request->file('file');
         $filename = time().'_'.$file->getClientOriginalName();
@@ -425,11 +428,16 @@ class QuotationController extends Controller
         $quotation->signedDocuments()->create([
             'attachment_id' => $attachment->id,
             'description'   => $data['description'] ?? null,
-            'signed_date'   => $data['signed_date'],
+            'signed_date'   => $signedDate,
             'uploader_id'   => $request->user()->id,
         ]);
 
         return back()->with('status', 'Signed document uploaded');
+    }
+
+    public function signedDocuments(Request $request, $id)
+    {
+        return redirect()->route('quotations.show', $id);
     }
 
     public function logs($id)
