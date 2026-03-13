@@ -171,6 +171,22 @@
                     @error('file')
                         <small class="text-red-500">{{ $message }}</small>
                     @enderror
+
+                    @php
+                        $downloadUrl = $purchasing ? route('purchasing.download', $purchasing->id) : null;
+                    @endphp
+                    
+                    @if (!empty($purchasing->files))
+                        <div class="mt-3">
+                            <p>Old File</p>
+                            <a href="{{ e($downloadUrl) }}" class="inline-flex items-center gap-2 border border-[#D9D9D9] rounded-lg p-3">
+                                <x-icon.download/>
+                                Download
+                            </a>
+
+                        </div>
+                    @endif
+                    
                 </div>
 
                 {{-- Notes --}}

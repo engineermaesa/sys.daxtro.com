@@ -54,10 +54,19 @@
                             <th class="p-3">Notes</th>
                             <td class="p-3">{{ $purchasing->notes ?? '-' }}</td>
                         </tr>
-                        {{-- GANTI JADI DOWNLOAD BTN AMBIL DARI API --}}
+
+                        @php
+                            $downloadUrl = $purchasing ? route('purchasing.download', $purchasing->id) : null;
+                        @endphp
+
                         <tr class="border-t border-t-[#D9D9D9]">
                             <th class="p-3">Files</th>
-                            <td class="p-3">{{ $purchasing->files ?? '-' }}</td>
+                            <td class="p-3">
+                                <a href="{{ e($downloadUrl) }}" class="inline-flex items-center gap-2 border border-[#D9D9D9] rounded-lg p-3">
+                                    <x-icon.download/>
+                                    Download
+                                </a>
+                            </td>
                         </tr>
                         <tr class="border-t border-t-[#D9D9D9]">
                             <th class="p-3">Latest Update</th>
@@ -71,7 +80,7 @@
         </div>
 
         {{-- LEAD & QUOTATION --}}
-        <div class="grid grid-cols-2 gap-5 my-4">
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 my-4">
 
             {{-- LEAD --}}
             <div class="bg-white border border-[#D9D9D9] rounded-lg">

@@ -8,7 +8,7 @@
         </div>
 
         {{-- FOR ALL STAGE --}}
-        <div id="forAllCardsCounts" class="grid grid-cols-1 xl:grid-cols-3 gap-3 mt-4">
+        <div id="forAllCardsCounts" class="grid max-xl:grid-cols-2 grid-cols-3 gap-3 mt-4">
             {{-- INVOICE RECEIVED --}}
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
                 <div class="flex justify-between items-center">
@@ -21,7 +21,7 @@
                 </div>
 
                 <div>
-                    <p id="countInvoiceReceived" class="text-2xl font-semibold text-[#1E1E1E]">0 Invoice Received</p>
+                    <p id="countInvoiceReceived" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Invoice Received</p>
                 </div>
             </div>
 
@@ -37,7 +37,7 @@
                 </div>
 
                 <div>
-                    <p id="countVendorProcessing" class="text-2xl font-semibold text-[#1E1E1E]">0 Vendor Processing</p>
+                    <p id="countVendorProcessing" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Vendor Processing</p>
                 </div>
             </div>
 
@@ -53,7 +53,7 @@
                 </div>
 
                 <div>
-                    <p id="countReadyForHandover" class="text-2xl font-semibold text-[#1E1E1E]">0 Ready For Handover</p>
+                    <p id="countReadyForHandover" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Ready For Handover</p>
                 </div>
             </div>
 
@@ -69,7 +69,7 @@
                 </div>
 
                 <div>
-                    <p id="countAllCompleted" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                    <p id="countAllCompleted" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Completed</p>
                 </div>
             </div>
 
@@ -85,7 +85,7 @@
                 </div>
 
                 <div>
-                    <p id="countAllPending" class="text-2xl font-semibold text-[#1E1E1E]">0 Pendings</p>
+                    <p id="countAllPending" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Pendings</p>
                 </div>
             </div>
 
@@ -101,14 +101,14 @@
                 </div>
 
                 <div>
-                    <p id="countAllCanceled" class="text-2xl font-semibold text-[#1E1E1E]">0 Canceled</p>
+                    <p id="countAllCanceled" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Canceled</p>
                 </div>
             </div>
 
         </div>
 
-        {{-- INVOICE RECEIVED CARDS --}}
-        <div id="forInvoiceReceivedCardsCounts" class="grid grid-cols-1 xl:grid-cols-3 gap-3 mt-4">
+        {{-- STAGE INVOICE RECEIVED CARDS --}}
+        <div id="forInvoiceReceivedCardsCounts" class="grid grid-cols-3 gap-3 mt-4">
             
             {{-- WAITING COUNT CARDS --}}
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
@@ -122,7 +122,7 @@
                 </div>
 
                 <div>
-                    <p id="countWaitingList" class="text-2xl font-semibold text-[#1E1E1E]">0 Waiting List</p>
+                    <p id="countWaitingList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Waiting List</p>
                 </div>
             </div>
 
@@ -138,7 +138,7 @@
                 </div>
 
                 <div>
-                    <p id="countAcceptedList" class="text-2xl font-semibold text-[#1E1E1E]">0 Accepted</p>
+                    <p id="countAcceptedList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Accepted</p>
                 </div>
             </div>
 
@@ -154,13 +154,13 @@
                 </div>
 
                 <div>
-                    <p id="countOnProgressList" class="text-2xl font-semibold text-[#1E1E1E]">0 In Progress Production</p>
+                    <p id="countOnProgressList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 On Progress Production</p>
                 </div>
             </div>
         </div>
 
-        {{-- VENDOR PROCESSING --}}
-        <div id="forVendorProcessingCardsCounts" class="grid grid-cols-1 xl:grid-cols-4 gap-3 mt-4">
+        {{-- STAGE VENDOR PROCESSING --}}
+        <div id="forVendorProcessingCardsCounts" class="grid grid-cols-2 2xl:grid-cols-4 gap-3 mt-4">
             
             {{-- PERCENTAGE PRODUCTION --}}
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
@@ -168,13 +168,13 @@
                     
                     <h1 class="text-[#757575] font-semibold">In Production</h1>
                     
-                    <div class="p-2 border border-[#D9D9D9] rounded-md text-[#417866]">
+                <div class="p-2 border border-[#D9D9D9] rounded-md text-[#417866]">
                         <x-icon.bar/>
                     </div>
                 </div>
 
                 <div class="mb-5">
-                    <p id="countOnProduction" class="text-2xl font-semibold text-[#1E1E1E]">0 In Production</p>
+                    <p id="countOnProduction" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 On Production</p>
                 </div>
 
                 <div class="flex items-center justify-start gap-1 text-xs">
@@ -210,7 +210,7 @@
                 </div>
 
                 <div>
-                    <p id="countRunningTestList" class="text-2xl font-semibold text-[#1E1E1E]">0 Running Tested</p>
+                    <p id="countRunningTestList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Running Tested</p>
                 </div>
             </div>
 
@@ -226,7 +226,7 @@
                 </div>
 
                 <div>
-                    <p id="countMachineCompletedList" class="text-2xl font-semibold text-[#1E1E1E]">0 Machine Completed</p>
+                    <p id="countMachineCompletedList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Machine Completed</p>
                 </div>
             </div>
 
@@ -242,7 +242,7 @@
                 </div>
 
                 <div>
-                    <p id="countDocumentRegisterList" class="text-2xl font-semibold text-[#1E1E1E]">0 Document Registered</p>
+                    <p id="countDocumentRegisterList" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Document Registered</p>
                 </div>
             </div>
 
@@ -258,7 +258,7 @@
                 </div>
 
                 <div class="mb-5">
-                    <p id="countTotalDelivery" class="text-2xl font-semibold text-[#1E1E1E]">0 Total Delivery</p>
+                    <p id="countTotalDelivery" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Total Delivery</p>
                 </div>
 
                 <span id="countWaitingDelivery" class="text-xs block">0 Waiting To Delivery</span>
@@ -278,7 +278,7 @@
                 </div>
 
                 <div>
-                    <p id="countDeliveryCustomer" class="text-2xl font-semibold text-[#1E1E1E]">0 Delivery Customer</p>
+                    <p id="countDeliveryCustomer" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Delivery Customer</p>
                 </div>
             </div>
 
@@ -286,7 +286,7 @@
             <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0.75s;">
                 <div class="flex justify-between items-center">
                     
-                    <h1 class="text-[#757575] font-semibold">On Progress Instead</h1>
+                    <h1 class="text-[#757575] font-semibold">On Progress Install</h1>
                     
                     <div class="p-2 border border-[#D9D9D9] rounded-md text-[#417866]">
                         <x-icon.refresh/>
@@ -294,7 +294,7 @@
                 </div>
 
                 <div>
-                    <p id="countProgressInstead" class="text-2xl font-semibold text-[#1E1E1E]">0 Progress Instead</p>
+                    <p id="countProgressInstall" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Progress Install</p>
                 </div>
             </div>
 
@@ -310,7 +310,7 @@
                 </div>
 
                 <div>
-                    <p id="countRunningTestFinal" class="text-2xl font-semibold text-[#1E1E1E]">0 Running Test Final</p>
+                    <p id="countRunningTestFinal" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Running Test Final</p>
                 </div>
             </div>
         </div>
@@ -330,7 +330,7 @@
                 </div>
 
                 <div>
-                    <p id="countBAST" class="text-2xl font-semibold text-[#1E1E1E]">0 BAST</p>
+                    <p id="countBAST" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 BAST</p>
                 </div>
             </div>
         </div>
@@ -349,7 +349,7 @@
                 </div>
 
                 <div>
-                    <p id="countCompletedOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Completed</p>
+                    <p id="countCompletedOnly" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Completed</p>
                 </div>
             </div>
         </div>
@@ -369,7 +369,7 @@
                 </div>
 
                 <div>
-                    <p id="countPendingOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Pending</p>
+                    <p id="countPendingOnly" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Pending</p>
                 </div>
             </div>
 
@@ -390,7 +390,7 @@
                 </div>
 
                 <div>
-                    <p id="countCanceledOnly" class="text-2xl font-semibold text-[#1E1E1E]">0 Canceled</p>
+                    <p id="countCanceledOnly" class="2xl:text-xl text-lg font-semibold text-[#1E1E1E]">0 Canceled</p>
                 </div>
             </div>
 
@@ -400,10 +400,19 @@
         <div class="mt-4 rounded-lg border-[#D9D9D9]">
             {{-- NAVIGATION TABLES --}}
             <div
-                class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+                class="bg-white items-stretch lg:flex justify-between border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
 
                 {{-- SEARCH TABLES --}}
-                <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
+                <div class="border border-gray-300 rounded-lg flex items-center gap-3 px-2 lg:hidden">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
+                            fill="#6B7786" />
+                    </svg>
+                    <input type="text" placeholder="Search"
+                        class="searchInput w-full px-3 py-3 border-none focus:outline-[#115640] " />
+                </div>
+                <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center hidden">
                     <div class="px-2">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path
@@ -412,7 +421,7 @@
                         </svg>
                     </div>
                     <input type="text" placeholder="Search"
-                        class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640] " />
+                        class="searchInput w-full px-3 py-3 border-none focus:outline-[#115640]" />
                 </div>
 
                 {{-- NAVIGATION STATUS TABLES --}}
@@ -420,7 +429,7 @@
                     @foreach(['all', 'invoiceReceived', 'vendorProcessing', 'readyForHandover', 'completed', 'pending', 'canceled'] as $tab)
                     {{-- NAVIGATION STATUS --}}
                     <div data-status="{{ $tab }}"
-                        class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-purchase">
+                        class="max-lg:text-sm text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-purchase">
                         <p class="text-[#1E1E1E]">
                             {{ $loop->first ? 'All Stage' : ucwords(preg_replace('/([a-z])([A-Z])/', '$1 $2', $tab)) }}
 
@@ -558,7 +567,9 @@
         reloadTab(tab);
     }
 
-    function reloadTab(tab) {
+    function reloadTab(tab, page = 1) {
+        pageState[tab] = page;
+
         if (tab === 'all') loadAll();
         else if (tab === 'invoiceReceived') loadInvoiceReceived();
         else if (tab === 'vendorProcessing') loadVendorProcessing();
@@ -570,6 +581,35 @@
 
     // LOAD API EVERY TAB/STAGE NAVIGATION 
     @include('pages.purchasing.script-load-api');
+
+    $(document).on('input', '.searchInput', function () {
+        const value = $(this).val();
+
+        $('.searchInput').not(this).val(value);
+    });
+
+    let searchTimer = null;
+
+    $(document).on('input', '.searchInput', function () {
+        const value = $(this).val();
+
+        $('.searchInput').not(this).val(value);
+
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            pageState.all = 1;
+            pageState.invoiceReceived = 1;
+            pageState.vendorProcessing = 1;
+            pageState.readyForHandover = 1;
+            pageState.completed = 1;
+            pageState.pending = 1;
+            pageState.canceled = 1;
+
+            const activeTab = $('.nav-purchase.active-nav').data('status') || 'all';
+
+            reloadTab(activeTab, 1);
+        }, 500);
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         const sections = {
@@ -616,7 +656,87 @@
         });
 
         $('.nav-purchase[data-status="all"]').trigger('click');
+
+        loadGrid();        
     });
+
+    async function loadGrid() {
+        try {
+            const response = await fetch("api/purchasing/summary");
+
+            if(!response.ok) {
+                throw new Error("Network response was not ok");
+            }
+
+            const result = await response.json();
+
+            if (result.status !== "success") {
+                throw new Error("API returned failed status");
+            }
+
+            const data = result.Data;
+
+            // FOR LOAD ALL STAGE 
+            // (#forAllCardsCounts)
+            $("#countInvoiceReceived").text(data.invoice_received.total + " Invoice Received");
+            $("#countVendorProcessing").text(data.vendor_processing.total + " Vendor Processing");
+            $("#countReadyForHandover").text(data.handover.total + " Ready For Handover");
+            $("#countAllCompleted").text(data.completed.total + " Completed");
+            $("#countAllPending").text(data.pending.total + " Pending");
+            $("#countAllCanceled").text(data.canceled.total + " Canceled");
+
+            // FOR LOAD INVOICE RECEIVED STAGE
+            // (#forInvoiceReceivedCardsCounts)
+            $("#countWaitingList").text(data.invoice_received.waiting + " Waiting List");
+            $("#countAcceptedList").text(data.invoice_received.accepted + " Accepted");
+            $("#countOnProgressList").text(data.invoice_received.on_progress_production + " On Progress Production");
+
+            // FOR VENDOR PROCESSING
+            // (#forVendorProcessingCardsCounts)
+            const totalOnProduction = data.vendor_processing.half_pct + data.vendor_processing.almst_pct + data.vendor_processing.full_pct
+
+            $("#countOnProduction").text(totalOnProduction + " On Production");
+            $("#fiftyPercentsCounts").text(data.vendor_processing.half_pct);
+            $("#seventyPercentsCounts").text(data.vendor_processing.almst_pct);
+            $("#hundredPercentsCounts").text(data.vendor_processing.full_pct);
+            $("#countRunningTestList").text(data.vendor_processing.running_test + " Running Test");
+            $("#countDocumentRegisterList").text(data.vendor_processing.document_registration + " Document Registration");
+
+            const totalOnDelivery = data.vendor_processing.waiting_to_delivery + data.vendor_processing.document_registration + 
+            $("#countTotalDelivery").text(data.vendor_processing.waiting_to_deliver + " Total Delivery");
+            $("#countWaitingDelivery").text(data.vendor_processing.waiting_to_deliver + " Waiting To Delivery");
+            $("#countOnDelivery").text(data.vendor_processing.delivery_to_indonesia + " On Delivery To Indonesia");
+            $("#countArrivedDelivery").text(data.vendor_processing.arrived_in_indonesia + " Arrived In Indonesia");
+            
+            $("#countDeliveryCustomer").text(data.vendor_processing.delivery_to_customer + " Delivery Customer");
+            $("#countProgressInstall").text(data.vendor_processing.on_progress_install + " Progress Install");
+            $("#countRunningTestFinal").text(data.vendor_processing.on_progress_install + " Running Test Final");
+            
+            $("#countBAST").text(data.handover.bast + " BAST");
+            $("#countCompletedOnly").text(data.completed.total + " Completed");
+            $("#countPendingOnly").text(data.pending.total + " Pending");
+            $("#countCanceledOnly").text(data.canceled.total + " Cancel");
+
+
+
+        } catch (error) {
+            console.error("Error loading:", error);
+        }
+    }
+    
+    function getSearchValue() {
+        let value = '';
+
+        $('.searchInput').each(function () {
+            const currentVal = $(this).val().trim();
+            if (currentVal !== '') {
+                value = currentVal;
+                return false;
+            }
+        });
+
+        return value;
+    }
     </script>
 @endsection
 
