@@ -415,5 +415,6 @@ Route::group([
     Route::get('/form/{id?}', [PurchaseController::class, 'form'])->name('form');
     Route::post('/save/{id?}', [PurchaseController::class, 'save'])->name('save');
     Route::get('/download/{id}', [PurchaseController::class, 'download'])->name('download');
+    Route::get('/summary', [PurchaseController::class, 'summary'])->name('summary');
     // Route::delete('/delete/{id}', [PurchaseController::class, 'delete'])->name('delete');
 });

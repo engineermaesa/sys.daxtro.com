@@ -53,6 +53,33 @@ class PurchaseController extends Controller
             }
         }
 
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+
+            $query->where(function ($q) use ($search) {
+                $q->where('purchasings.stage', 'like', '%' . $search . '%')
+                ->orWhere('purchasings.status', 'like', '%' . $search . '%')
+                ->orWhere('purchasings.notes', 'like', '%' . $search . '%')
+                ->orWhere('purchasings.id', 'like', '%' . $search . '%')
+                ->orWhere('purchasings.lead_id', 'like', '%' . $search . '%')
+                ->orWhereExists(function ($leadQuery) use ($search) {
+                    $leadQuery->select(DB::raw(1))
+                        ->from('leads')
+                        ->whereColumn('leads.id', 'purchasings.lead_id')
+                        ->where(function ($leadWhere) use ($search) {
+                            $leadWhere->where('leads.name', 'like', '%' . $search . '%')
+                                ->orWhere('leads.company', 'like', '%' . $search . '%')
+                                ->orWhere('leads.phone', 'like', '%' . $search . '%')
+                                ->orWhere('leads.email', 'like', '%' . $search . '%')
+                                ->orWhere('leads.needs', 'like', '%' . $search . '%')
+                                ->orWhere('leads.customer_type', 'like', '%' . $search . '%')
+                                ->orWhere('leads.province', 'like', '%' . $search . '%')
+                                ->orWhere('leads.factory_province', 'like', '%' . $search . '%');
+                        });
+                });
+            });
+        }
+
         $perPage = (int) $request->input('per_page', 10);
 
         $paginated = $query
@@ -492,5 +519,112 @@ class PurchaseController extends Controller
         $downloadName = basename($path);
 
         return Storage::download($path, $downloadName);
+    }
+
+    public function summary()
+    {
+        // ===============================
+        // -- BASE STAGE --
+        // ===============================
+
+        $invoiceBase = DB::table('purchasings')
+            ->where('stage', 'invoice received');
+        $totalInvoice = $invoiceBase->count();
+
+        $vendorProcessingBase = DB::table('purchasings')
+            ->where('stage', 'vendor processing');
+        $totalVendor = $vendorProcessingBase->count();
+
+        $handoverBase = DB::table('purchasings')
+            ->where('stage', 'ready for handover');
+        $totalHandover = $handoverBase->count();
+
+        $completedBase = DB::table('purchasings')
+            ->where('stage', 'completed');
+        $totalCompleted = $completedBase->count();
+
+        $pendingBase = DB::table('purchasings')
+            ->where('stage', 'pending');
+        $totalPending = $pendingBase->count();
+
+        $canceledBase = DB::table('purchasings')
+            ->where('stage', 'canceled');
+        $totalCanceled = $canceledBase->count();
+
+        // ===============================
+        // -- BASE STATUS --
+        // ===============================
+        $invoiceStatusBase = DB::table('purchasings')
+            ->selectRaw("
+                COUNT(CASE WHEN status = 'Waiting' THEN 1 END) as waiting_count,
+                COUNT(CASE WHEN status = 'Accepted' THEN 1 END) as accepted_count,
+                COUNT(CASE WHEN status = 'On Progress Production' THEN 1 END) as on_progress_production_count
+            ")
+            ->where('stage', 'Invoice Received')
+            ->first();
+
+        $vendorStatusBase = DB::table('purchasings')
+            ->selectRaw("
+                COUNT(CASE WHEN status = '50% production' THEN 1 END) as half_pct_count,
+                COUNT(CASE WHEN status = '70% production' THEN 1 END) as almst_pct_count,
+                COUNT(CASE WHEN status = '100% production' THEN 1 END) as full_pct_count,
+                COUNT(CASE WHEN status = 'running test' THEN 1 END) as running_test_count,
+                COUNT(CASE WHEN status = 'machine completed' THEN 1 END) as machine_completed_count,
+                COUNT(CASE WHEN status = 'document registration' THEN 1 END) as document_registration_count,
+                COUNT(CASE WHEN status = 'waiting to deliver' THEN 1 END) as waiting_deliver_count,
+                COUNT(CASE WHEN status = 'on delivery to indonesia' THEN 1 END) as delivery_to_indonesia_count,
+                COUNT(CASE WHEN status = 'arrived in indonesia' THEN 1 END) as arrived_in_indonesia_count,
+                COUNT(CASE WHEN status = 'delivery to customer' THEN 1 END) as delivery_to_customer_count,
+                COUNT(CASE WHEN status = 'on progress install' THEN 1 END) as on_progress_install_count,
+                COUNT(CASE WHEN status = 'running test final' THEN 1 END) as running_test_final_count
+            ")
+            ->where('stage', 'vendor processing')
+            ->first();
+
+        $handoverStatusBase = DB::table('purchasings')
+            ->where('stage', 'ready for handover')
+            ->where('status', 'bast');
+        $totalBAST = $handoverStatusBase->count();
+
+        return response()->json([
+            'status' => 'success',
+            'Data' => [
+                'invoice_received' => [
+                    'total' => $totalInvoice,
+                    'waiting' => $invoiceStatusBase->waiting_count ?? 0,
+                    'accepted' => $invoiceStatusBase->accepted_count ?? 0,
+                    'on_progress_production' => $invoiceStatusBase->on_progress_production_count ?? 0,
+                ],
+                'vendor_processing' => [
+                    'total' => $totalVendor,
+                    'half_pct' => $vendorStatusBase->half_pct_count ?? 0,
+                    'almst_pct' => $vendorStatusBase->almst_pct_count ?? 0,
+                    'full_pct' => $vendorStatusBase->full_pct_count ?? 0,
+                    'running_test' => $vendorStatusBase->running_test_count ?? 0,
+                    'machine_completed' => $vendorStatusBase->machine_completed_count ?? 0,
+                    'document_registration' => $vendorStatusBase->document_registration_count ?? 0,
+                    'waiting_to_deliver' => $vendorStatusBase->waiting_deliver_count ?? 0,
+                    'delivery_to_indonesia' => $vendorStatusBase->delivery_to_indonesia_count ?? 0,
+                    'arrived_in_indonesia' => $vendorStatusBase->arrived_in_indonesia_count ?? 0,
+                    'delivery_to_customer' => $vendorStatusBase->delivery_to_customer_count ?? 0,
+                    'on_progress_install' => $vendorStatusBase->on_progress_install_count ?? 0,
+                    'running_test_final' => $vendorStatusBase->running_test_final_count ?? 0,
+                ],
+                'handover' => [
+                    'total' => $totalHandover,
+                    'bast' => $totalBAST,
+                ],
+                'completed' => [
+                    'total' => $totalCompleted,
+                ],
+                'pending' => [
+                    'total' => $totalPending,
+                ],
+                'canceled' => [
+                    'total' => $totalCanceled,
+                ],
+            ]
+        ]);
+
     }
 }
