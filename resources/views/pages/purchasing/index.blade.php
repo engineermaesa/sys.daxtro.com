@@ -610,56 +610,7 @@
             reloadTab(activeTab, 1);
         }, 500);
     });
-
-    document.addEventListener('DOMContentLoaded', function () {
-        const sections = {
-            all: $("#forAllCardsCounts"),
-            invoiceReceived: $("#forInvoiceReceivedCardsCounts"),
-            vendorProcessing: $("#forVendorProcessingCardsCounts"),
-            readyForHandover: $("#forReadyHandoverCardsCounts"),
-            completed: $("#forCompletedCardsCounts"),
-            pending: $("#forPendingCardsCounts"),
-            canceled: $("#forCancelCardsCounts"),
-        };
-
-        function resetAnimation($container) {
-            $container.find(".animate__animated").each(function () {
-                $(this)
-                    .removeClass("animate__fadeInUp")
-                    .width(); // trigger reflow
-                $(this).addClass("animate__fadeInUp");
-            });
-        }
-
-        function showSection(status) {
-            $.each(sections, function (_, $section) {
-                $section.addClass('hidden');
-            });
-
-            if (sections[status] && sections[status].length) {
-                sections[status].removeClass('hidden');
-                resetAnimation(sections[status]);
-            }
-        }
-
-        $('.nav-purchase').on('click', function () {
-            const status = $(this).data('status');
-
-            $('.purchasing-table-container').addClass('hidden');
-            $(`[data-status-wrapper='${status}']`).removeClass('hidden');
-
-            $('.nav-purchase').removeClass('active-nav');
-            $(this).addClass('active-nav');
-
-            reloadTab(status);
-            showSection(status);
-        });
-
-        $('.nav-purchase[data-status="all"]').trigger('click');
-
-        loadGrid();        
-    });
-
+    
     async function loadGrid() {
         try {
             const response = await fetch("api/purchasing/summary");
@@ -737,6 +688,56 @@
 
         return value;
     }
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const sections = {
+            all: $("#forAllCardsCounts"),
+            invoiceReceived: $("#forInvoiceReceivedCardsCounts"),
+            vendorProcessing: $("#forVendorProcessingCardsCounts"),
+            readyForHandover: $("#forReadyHandoverCardsCounts"),
+            completed: $("#forCompletedCardsCounts"),
+            pending: $("#forPendingCardsCounts"),
+            canceled: $("#forCancelCardsCounts"),
+        };
+
+        function resetAnimation($container) {
+            $container.find(".animate__animated").each(function () {
+                $(this)
+                    .removeClass("animate__fadeInUp")
+                    .width(); // trigger reflow
+                $(this).addClass("animate__fadeInUp");
+            });
+        }
+
+        function showSection(status) {
+            $.each(sections, function (_, $section) {
+                $section.addClass('hidden');
+            });
+
+            if (sections[status] && sections[status].length) {
+                sections[status].removeClass('hidden');
+                resetAnimation(sections[status]);
+            }
+        }
+
+        $('.nav-purchase').on('click', function () {
+            const status = $(this).data('status');
+
+            $('.purchasing-table-container').addClass('hidden');
+            $(`[data-status-wrapper='${status}']`).removeClass('hidden');
+
+            $('.nav-purchase').removeClass('active-nav');
+            $(this).addClass('active-nav');
+
+            reloadTab(status);
+            showSection(status);
+        });
+
+        $('.nav-purchase[data-status="all"]').trigger('click');
+
+        loadGrid();        
+    });
     </script>
 @endsection
 
