@@ -13,7 +13,7 @@ function loadAll() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -87,7 +87,7 @@ function loadInvoiceReceived() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -164,7 +164,7 @@ function loadVendorProcessing() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -242,7 +242,7 @@ function loadHandover() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -321,7 +321,7 @@ function loadCompleted() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -399,7 +399,7 @@ function loadPending() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,
@@ -477,7 +477,7 @@ function loadCanceled() {
     `;
 
     $.ajax({
-        url: '/api/purchasing/list',
+        url: 'api/purchasing/list',
         type: 'GET',
         data: {
             page: page,

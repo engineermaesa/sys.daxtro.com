@@ -582,35 +582,6 @@
     // LOAD API EVERY TAB/STAGE NAVIGATION 
     @include('pages.purchasing.script-load-api');
 
-    $(document).on('input', '.searchInput', function () {
-        const value = $(this).val();
-
-        $('.searchInput').not(this).val(value);
-    });
-
-    let searchTimer = null;
-
-    $(document).on('input', '.searchInput', function () {
-        const value = $(this).val();
-
-        $('.searchInput').not(this).val(value);
-
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(function () {
-            pageState.all = 1;
-            pageState.invoiceReceived = 1;
-            pageState.vendorProcessing = 1;
-            pageState.readyForHandover = 1;
-            pageState.completed = 1;
-            pageState.pending = 1;
-            pageState.canceled = 1;
-
-            const activeTab = $('.nav-purchase.active-nav').data('status') || 'all';
-
-            reloadTab(activeTab, 1);
-        }, 500);
-    });
-    
     async function loadGrid() {
         try {
             const response = await fetch("api/purchasing/summary");
@@ -653,8 +624,12 @@
             $("#countRunningTestList").text(data.vendor_processing.running_test + " Running Test");
             $("#countDocumentRegisterList").text(data.vendor_processing.document_registration + " Document Registration");
 
-            const totalOnDelivery = data.vendor_processing.waiting_to_delivery + data.vendor_processing.document_registration + 
-            $("#countTotalDelivery").text(data.vendor_processing.waiting_to_deliver + " Total Delivery");
+            const totalOnDelivery = 
+                data.vendor_processing.waiting_to_deliver +
+                data.vendor_processing.delivery_to_indonesia +
+                data.vendor_processing.arrived_in_indonesia; 
+
+            $("#countTotalDelivery").text(totalOnDelivery + " Total Delivery");
             $("#countWaitingDelivery").text(data.vendor_processing.waiting_to_deliver + " Waiting To Delivery");
             $("#countOnDelivery").text(data.vendor_processing.delivery_to_indonesia + " On Delivery To Indonesia");
             $("#countArrivedDelivery").text(data.vendor_processing.arrived_in_indonesia + " Arrived In Indonesia");
@@ -688,7 +663,36 @@
 
         return value;
     }
+    
 
+    $(document).on('input', '.searchInput', function () {
+        const value = $(this).val();
+
+        $('.searchInput').not(this).val(value);
+    });
+
+    let searchTimer = null;
+
+    $(document).on('input', '.searchInput', function () {
+        const value = $(this).val();
+
+        $('.searchInput').not(this).val(value);
+
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            pageState.all = 1;
+            pageState.invoiceReceived = 1;
+            pageState.vendorProcessing = 1;
+            pageState.readyForHandover = 1;
+            pageState.completed = 1;
+            pageState.pending = 1;
+            pageState.canceled = 1;
+
+            const activeTab = $('.nav-purchase.active-nav').data('status') || 'all';
+
+            reloadTab(activeTab, 1);
+        }, 500);
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         const sections = {
@@ -738,6 +742,7 @@
 
         loadGrid();        
     });
+
     </script>
 @endsection
 
