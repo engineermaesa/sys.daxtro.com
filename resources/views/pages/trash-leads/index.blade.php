@@ -58,68 +58,68 @@
       @foreach(['all', 'cold', 'warm', 'hot'] as $tab)
         <div data-status-wrapper="{{ $tab }}">
           <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#CFD5DC]">
-                            <th class="hidden">ID (hidden)</th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              Claimed At
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              To Trash At
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">  
-                                Lead Name
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                Segment
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                Source
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                First Sales
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              Status
-                            </th>
-                            <th class="text-center p-1 md:p-2 lg:p-3">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="{{ $tab }}BodyTable"></tbody>
-                </table>
-                {{-- NAVIGATION ROWS --}}
-                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                    <div class="flex items-center gap-3">
-                        <p class="font-semibold">Show Rows</p>
-                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
-                            onchange="changePageSize('{{ $tab }}', this.value)">
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
+            {{-- HEADER TABLE --}}
+            <thead class="text-[#1E1E1E]">
+                <tr class="border-b border-b-[#CFD5DC]">
+                    <th class="hidden">ID (hidden)</th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      Claimed At
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      To Trash At
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">  
+                        Lead Name
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Segment
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Source
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        First Sales
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      Status
+                    </th>
+                    <th class="text-center p-1 md:p-2 lg:p-3">
+                        Action
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="{{ $tab }}BodyTable"></tbody>
+          </table>
+          {{-- NAVIGATION ROWS --}}
+          <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+            <div class="flex items-center gap-3">
+              <p class="font-semibold">Show Rows</p>
+              <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                  onchange="changePageSize('{{ $tab }}', this.value)">
+                  <option value="5">5</option>
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+              </select>
+            </div>
 
-                    <div class="flex items-center gap-2">
-                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
-                        <div>
-                            <button id="{{ $tab }}PrevBtn"
-                                class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                                onclick="goPrev('{{ $tab }}')">
-                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                            </button>
-                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                                onclick="goNext('{{ $tab }}')">
-                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                            </button>
-                        </div>
-                    </div>
+            <div class="flex items-center gap-2">
+                <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                <div>
+                  <button id="{{ $tab }}PrevBtn"
+                      class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                      onclick="goPrev('{{ $tab }}')">
+                      <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                  </button>
+                  <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                      onclick="goNext('{{ $tab }}')">
+                      <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                  </button>
                 </div>
             </div>
+          </div>
+        </div>
         @endforeach
     </div>
   </div>

@@ -134,6 +134,7 @@
 
             const data = result.Data;
             
+            // ACHIEVEMENT VS TARGET FETCH DATA CARDS
             const achievementSalesFormatted = formatRupiah(data.achievement_target.achievement);
             
             const targetSalesFormatted = formatRupiah(data.achievement_target.target);
@@ -154,13 +155,21 @@
                 $("#achievementSales").text(achievementSalesFormatted + "/").addClass('text-lg lg:text-2xl font-semibold! text-[#900B09]');
             }
 
+            // CLOSED DEAL (MTD) FETCH DATA CARDS
             $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-lg lg:text-3xl text-[#1E1E1E]');
 
             const totalAmountFormatted = formatRupiah(data.closed_deal.total_amount);
             $("#totalAmount").text("Amount: " + totalAmountFormatted).addClass('text-xs lg:text-sm');
 
-            $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('text-xs lg:text-sm');
+            if (data.closed_deal.conversion_rate > 75) {
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-finish text-xs lg:text-sm');
+            } else if (data.closed_deal.conversion_rate > 35) {
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-waiting text-xs lg:text-sm');
+            } else {
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-expired text-xs lg:text-sm');
+            }
 
+            // TOTAL ACTIVE LEADS FETCH DATA CARDS
             $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-lg lg:text-3xl');
             $("#totalTrash").text("Trash Leads: " + data.active_leads.trash).addClass('text-xs lg:text-sm');
 
@@ -168,6 +177,7 @@
             $("#warmLeads").text(data.active_leads.warm + ' Warm').addClass('text-xs lg:text-sm');
             $("#hotLeads").text((data.active_leads?.hot ?? 0) + " Hot").addClass('text-xs lg:text-sm');
 
+            // POTENTIAL DEALING FETCH DATA CARDS
             const potentialAmountFormatted = formatRupiah(data.potential_dealing.total_amount);
             $("#potentialTotalAmount").text(potentialAmountFormatted).addClass('font-semibold text-lg lg:text-3xl text-[#1E1E1E]');
             $("#potentialTotalOpportunity").text(data.potential_dealing.total_opportunity + ' Active Opportunity').addClass('text-right text-xs lg:text-sm');

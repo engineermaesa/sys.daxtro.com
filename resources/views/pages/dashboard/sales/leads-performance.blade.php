@@ -50,7 +50,7 @@
                 <h3 class="font-semibold mb-2">Select Date Range</h3>
 
                     <div class="flex justify-center items-center">
-                    <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
+                        <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
                     </div>
 
                 <div class="flex justify-end gap-2 mt-3">
