@@ -29,6 +29,7 @@ class User extends Authenticatable
         'nip',
         'phone',
         'password',
+        'grade',
         'target',
         'created_by',
         'updated_by',

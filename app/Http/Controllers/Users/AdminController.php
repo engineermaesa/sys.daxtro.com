@@ -196,6 +196,7 @@ class AdminController extends Controller
             'nip'       => 'required|string|max:50|unique:users,nip' . ($id ? ',' . $id : ''),
             'email'     => 'required|email|unique:users,email' . ($id ? ',' . $id : ''),
             'phone'     => 'nullable|string|max:20',
+            'grade'     => 'required|integer|min:1|max:8',
             'target'    => 'nullable|numeric|min:0',
         ];
 
@@ -227,6 +228,7 @@ class AdminController extends Controller
             $user->email        = $request->email;
             $user->nip          = $request->nip;
             $user->phone        = $request->phone;
+            $user->grade        = $request->grade;
 
             $monthly = $request->input('monthly_targets', []);
             $total   = $request->target ?: 0;
