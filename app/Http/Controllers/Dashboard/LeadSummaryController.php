@@ -409,11 +409,26 @@ class LeadSummaryController extends Controller
         $roleCode = $user?->role?->code;
 
         // Aggregate by source + segment (separate rows for same source with different segments)
+        // Also join latest published quotation per lead to compute monetary nominal values.
+
+        $latestQuotationSubquery = DB::table('quotations')
+            ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
+            ->where('status', 'published')
+            ->whereNull('deleted_at')
+            ->groupBy('lead_id');
+
         $rows = Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
             ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
             ->leftJoin('lead_claims', function ($join) {
                 $join->on('lead_claims.lead_id', '=', 'leads.id')
                     ->whereNull('lead_claims.released_at');
+            })
+            ->leftJoinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
+                $join->on('latest_quo.lead_id', '=', 'leads.id');
+            })
+            ->leftJoin('quotations', function ($join) {
+                $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
+                    ->on('quotations.created_at', '=', 'latest_quo.latest_date');
             })
             ->when($roleCode === 'sales', function ($q) use ($user) {
                 $q->where('lead_claims.sales_id', $user?->id);
@@ -440,8 +455,19 @@ class LeadSummaryController extends Controller
             SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
             SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
             SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
-            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal",
-                [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL]
+            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal,
+            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_warm,
+            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_hot,
+            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_deal",
+                [
+                    LeadStatus::COLD,
+                    LeadStatus::WARM,
+                    LeadStatus::HOT,
+                    LeadStatus::DEAL,
+                    LeadStatus::WARM,
+                    LeadStatus::HOT,
+                    LeadStatus::DEAL,
+                ]
             )
             ->groupBy('lead_sources.id', 'lead_sources.name', DB::raw('COALESCE(lead_segments.name, leads.customer_type)'))
             ->orderBy('lead_sources.name')
@@ -455,19 +481,40 @@ class LeadSummaryController extends Controller
 
                 $total = $cold + $warm + $hot + $deal;
 
+                $nominalWarm = (float) ($row->nominal_warm ?? 0);
+                $nominalHot  = (float) ($row->nominal_hot ?? 0);
+                $nominalDeal = (float) ($row->nominal_deal ?? 0);
+                $amountCum   = $nominalWarm + $nominalHot + $nominalDeal;
+
                 return [
                     'source' => $row->source,
                     'segment' => $row->segment,
+
                     'cum' => $total,
                     'persen_cum' => '0,0',
+                    // Total nominal (semua stage) berdasarkan quotation published
+                    'amount_cum' => $amountCum,
+                    // // Alias: total nominal per source+segment
+                    // 'nominal_cum' => $amountCum,
+
                     'cold' => $cold,
                     'persen_cold' => '0,0',
+
                     'warm' => $warm,
                     'persen_warm' => '0,0',
+                    // Nominal WARM: total harga produk dari quotation published
+                    'nominal_warm' => $nominalWarm,
+
                     'hot' => $hot,
                     'persen_hot' => '0,0',
+                    // Nominal HOT: total harga produk dari quotation published
+                    'nominal_hot' => $nominalHot,
+
                     'deal' => $deal,
                     'persen_deal' => '0,0',
+                    // Nominal DEAL: grand total quotation published (tetap dihitung walau sudah dibayar)
+                    'nominal_deal' => $nominalDeal,
+
                     'total' => $total,
                 ];
             });
@@ -514,6 +561,8 @@ class LeadSummaryController extends Controller
             'total_warm' => $rows->sum('warm'),
             'total_hot' => $rows->sum('hot'),
             'total_deal' => $rows->sum('deal'),
+            // Total nominal dari semua source + segment (jumlah amount_cum)
+            'nominal_total' => $rows->sum('amount_cum'),
         ];
 
         return response()->json([
