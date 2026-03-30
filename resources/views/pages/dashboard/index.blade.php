@@ -4498,7 +4498,7 @@
 
             @endsection
 
-            @section('scripts')
+            {{-- @section('scripts')
             @parent
             <script src="{{ asset('sb-admin-2/vendor/chart.js/Chart.min.js') }}"></script>
             <script>
@@ -6998,4 +6998,4 @@ loadBranchSalesTrend();
                 });
             });
             </script>
-            @endsection
+            @endsection --}}
