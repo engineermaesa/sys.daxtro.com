@@ -194,7 +194,8 @@ Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-    'middleware' => ['api', 'web', 'auth'],
+    'middleware' => ['api'],
+    // 'middleware' => ['api', 'web', 'auth'], Ini untuk akses dengan autentikasi
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
 
@@ -203,7 +204,7 @@ Route::group([
     Route::get('warm/list', 'TrashLeadController@warmList')->name('warm.list');
     Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');
 
-    Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
+    Route::post('restore/{claim?}', 'TrashLeadController@restore')->name('restore');
     Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
 });
 
