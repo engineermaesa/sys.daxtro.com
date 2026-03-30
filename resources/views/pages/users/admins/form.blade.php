@@ -81,6 +81,23 @@
             </div>
 
             <div class="mb-3">
+              <label for="grade" class="form-label">Grade <i class="required">*</i></label>
+              <select
+                name="grade"
+                id="grade"
+                class="form-select select2"
+                {{ $isBranchManager ? 'disabled' : 'required' }}
+              >
+                <option value="">-- Select Grade --</option>
+                @for ($g = 1; $g <= 8; $g++)
+                  <option value="{{ $g }}" {{ (int) old('grade', $data->grade ?? '') === $g ? 'selected' : '' }}>
+                    {{ $g }}
+                  </option>
+                @endfor
+              </select>
+            </div>
+
+            <div class="mb-3">
               <label for="phone" class="form-label">Phone</label>
               <input type="text" name="phone" id="phone" class="form-control"
                 value="{{ old('phone', $data->phone ?? '') }}" {{ $isBranchManager ? 'readonly' : '' }}>
