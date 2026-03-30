@@ -13,7 +13,21 @@ class AutoTrashService
             DB::beginTransaction();
 
             $expiredColdClaims = LeadClaim::with('lead')
-                ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::COLD))
+                ->whereHas('lead', function ($q) {
+                    // Hanya auto-trash lead COLD yang masih RAW LEAD:
+                    // - status COLD
+                    // - tidak punya meeting
+                    // - tidak punya initiation activity (A01-A04)
+                    $initCodes = ['A01', 'A02', 'A03', 'A04'];
+
+                    $q->where('status_id', LeadStatus::COLD)
+                        ->whereDoesntHave('meetings')
+                        ->whereDoesntHave('activityLogs', function ($logQuery) use ($initCodes) {
+                            $logQuery->whereHas('activity', function ($activityQuery) use ($initCodes) {
+                                $activityQuery->whereIn('code', $initCodes);
+                            });
+                        });
+                })
                 ->whereNull('released_at')
                 ->where('claimed_at', '<', now()->subDays(3))
                 ->get();
@@ -27,7 +41,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_COLD]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Cold lead expired after 10 days'
+                    'trash_note' => 'Auto trashed - Cold lead expired after 3 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,
@@ -36,7 +50,12 @@ class AutoTrashService
             }
 
             $expiredWarmClaims = LeadClaim::with('lead')
-                ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::WARM))
+                ->whereHas('lead', function ($q) {
+                    // Hanya auto-trash lead WARM yang statusnya "No Quotation"
+                    // (belum pernah punya quotation sama sekali)
+                    $q->where('status_id', LeadStatus::WARM)
+                        ->whereDoesntHave('quotation');
+                })
                 ->whereNull('released_at')
                 ->where('claimed_at', '<', now()->subDays(7))
                 ->get();
@@ -50,7 +69,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_WARM]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Warm lead expired after 30 days'
+                    'trash_note' => 'Auto trashed - Warm lead expired after 7 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,

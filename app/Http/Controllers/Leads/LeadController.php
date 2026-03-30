@@ -856,10 +856,13 @@ class LeadController extends Controller
             'segment',
             'status',
             'quotation',
+            'quotation.createdBy',
             'industry',
+            // Ambil semua klaim (aktif & historis) agar kita bisa
+            // menentukan Sales Name dari klaim aktif, lalu klaim historis,
+            // lalu first_sales.
             'claims' => function ($query) {
-                $query->whereNull('released_at')
-                    ->latest('claimed_at')
+                $query->latest('claimed_at')
                     ->with('sales');
             },
             'activityLogs.activity',
@@ -983,9 +986,31 @@ class LeadController extends Controller
                 })
                 ->first();
 
-            $claim = $lead->claims->first();
+            // Klaim aktif = belum direlease; jika tidak ada, gunakan klaim terbaru.
+            $activeClaim = $lead->claims
+                ->firstWhere('released_at', null);
+
+            $latestClaim = $lead->claims
+                ->sortByDesc('claimed_at')
+                ->first();
+
+            $claim = $activeClaim ?: $latestClaim;
             $meeting = $lead->meetings->first();
             $quote = $lead->quotation;
+
+            // Determine sales name with fallback:
+            // 1) current active claim's sales
+            // 2) first_sales (original sales who first handled the lead)
+            // This ensures Sales Name tetap tampil setelah restore/assign,
+            // meskipun tidak ada klaim aktif.
+            // Urutan prioritas sumber nama sales:
+            // 1) Sales dari klaim aktif (atau klaim terakhir jika tidak ada yang aktif)
+            // 2) first_sales (sales pertama yang pernah pegang lead)
+            // 3) Pembuat quotation (created_by) jika ada quotation
+            $salesName = $claim?->sales?->name
+                ?? $lead->firstSales?->name
+                ?? $quote?->createdBy?->name
+                ?? '-';
 
             // ================= ACTIONS =================
             $editUrl   = route('leads.manage.form', $lead->id);
@@ -1023,7 +1048,7 @@ class LeadController extends Controller
             return [
                 'id' => $lead->id,
                 'lead_name' => $lead->name ?? '-',
-                'sales_name' => $claim?->sales?->name ?? '-',
+                'sales_name' => $salesName,
                 'phone' => $lead->phone,
                 'claimed_at' => $claim?->claimed_at
                     ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
