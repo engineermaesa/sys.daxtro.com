@@ -50,7 +50,7 @@
 
             <div class="flex items-center justify-start gap-1 mt-3">
                 <p id="conversionRate">0</p>
-                <p id="percentageAchievement" class="text-[#1E1E1E]">Conversion from Total Active Leads</p>
+                <p id="conversionCaption" class="text-[#1E1E1E]">Conversion from Total Active Leads</p>
             </div>
         </div>
 

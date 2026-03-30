@@ -303,7 +303,7 @@ class LeadSummaryController extends Controller
             }
 
             if ($request->filled('segment')) {
-                $q->where('segment_id', $request->source_id);
+                $q->where('segment_id', $request->segment);
             }
 
             if ($request->filled('search')) {
@@ -493,6 +493,9 @@ class LeadSummaryController extends Controller
                     'cum' => $total,
                     'persen_cum' => '0,0',
                     // Total nominal (semua stage) berdasarkan quotation published
+                    'nomimal_warm' => $nominalWarm,
+                    'nomimal_hot' => $nominalHot,
+                    'nomimal_deal' => $nominalDeal,
                     'amount_cum' => $amountCum,
                     // // Alias: total nominal per source+segment
                     // 'nominal_cum' => $amountCum,
@@ -562,6 +565,9 @@ class LeadSummaryController extends Controller
             'total_hot' => $rows->sum('hot'),
             'total_deal' => $rows->sum('deal'),
             // Total nominal dari semua source + segment (jumlah amount_cum)
+            'nominal_total_warm' => $rows->sum('nominal_warm'),
+            'nominal_total_hot' => $rows->sum('nominal_hot'),
+            'nominal_total_deal' => $rows->sum('nominal_deal'),
             'nominal_total' => $rows->sum('amount_cum'),
         ];
 

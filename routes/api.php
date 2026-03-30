@@ -194,8 +194,8 @@ Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-    'middleware' => ['api'],
-    // 'middleware' => ['api', 'web', 'auth'], Ini untuk akses dengan autentikasi
+    // 'middleware' => ['api'],
+    'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
 
