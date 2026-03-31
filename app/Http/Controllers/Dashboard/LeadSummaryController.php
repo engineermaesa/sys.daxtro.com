@@ -408,9 +408,6 @@ class LeadSummaryController extends Controller
         $user = Auth::user();
         $roleCode = $user?->role?->code;
 
-        // Aggregate by source + segment (separate rows for same source with different segments)
-        // Also join latest published quotation per lead to compute monetary nominal values.
-
         $latestQuotationSubquery = DB::table('quotations')
             ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
             ->where('status', 'published')
@@ -439,26 +436,19 @@ class LeadSummaryController extends Controller
             ->when($request->source_id, function ($q) use ($request) {
                 $q->where('leads.source_id', $request->source_id);
             })
-            ->when($request->filled('search'), function ($q) use ($request) {
-
-                $search = strtolower($request->search);
-
-                $q->where(function ($sub) use ($search) {
-
-                    $sub->whereRaw('LOWER(lead_sources.name) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw('LOWER(lead_segments.name) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw('LOWER(leads.customer_type) LIKE ?', ["%{$search}%"]);
-                });
-            })
             ->selectRaw(
-                "lead_sources.name as source, COALESCE(lead_segments.name, leads.customer_type) as segment,
-            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
-            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
-            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
-            SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal,
-            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_warm,
-            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_hot,
-            SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total, 0) ELSE 0 END) as nominal_deal",
+                "lead_sources.name as source,
+        COALESCE(lead_segments.name, leads.customer_type) as segment,
+
+        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
+        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as warm,
+        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as hot,
+        SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as deal,
+
+        SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total,0) ELSE 0 END) as nominal_warm,
+        SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total,0) ELSE 0 END) as nominal_hot,
+        SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total,0) ELSE 0 END) as nominal_deal
+        ",
                 [
                     LeadStatus::COLD,
                     LeadStatus::WARM,
@@ -466,115 +456,127 @@ class LeadSummaryController extends Controller
                     LeadStatus::DEAL,
                     LeadStatus::WARM,
                     LeadStatus::HOT,
-                    LeadStatus::DEAL,
+                    LeadStatus::DEAL
                 ]
             )
-            ->groupBy('lead_sources.id', 'lead_sources.name', DB::raw('COALESCE(lead_segments.name, leads.customer_type)'))
+            ->groupBy(
+                'lead_sources.id',
+                'lead_sources.name',
+                DB::raw('COALESCE(lead_segments.name, leads.customer_type)')
+            )
             ->orderBy('lead_sources.name')
-            ->orderBy(DB::raw('COALESCE(lead_segments.name, leads.customer_type)'))
             ->get()
             ->map(function ($row) {
-                $cold = (int) $row->cold;
-                $warm = (int) $row->warm;
-                $hot  = (int) $row->hot;
-                $deal = (int) $row->deal;
+
+                $cold = (int)$row->cold;
+                $warm = (int)$row->warm;
+                $hot  = (int)$row->hot;
+                $deal = (int)$row->deal;
 
                 $total = $cold + $warm + $hot + $deal;
 
-                $nominalWarm = (float) ($row->nominal_warm ?? 0);
-                $nominalHot  = (float) ($row->nominal_hot ?? 0);
-                $nominalDeal = (float) ($row->nominal_deal ?? 0);
-                $amountCum   = $nominalWarm + $nominalHot + $nominalDeal;
+                $nominalWarm = (float)$row->nominal_warm;
+                $nominalHot  = (float)$row->nominal_hot;
+                $nominalDeal = (float)$row->nominal_deal;
 
                 return [
                     'source' => $row->source,
                     'segment' => $row->segment,
 
-                    'cum' => $total,
-                    'persen_cum' => '0,0',
-                    // Total nominal (semua stage) berdasarkan quotation published
-                    'nomimal_warm' => $nominalWarm,
-                    'nomimal_hot' => $nominalHot,
-                    'nomimal_deal' => $nominalDeal,
-                    'amount_cum' => $amountCum,
-                    // // Alias: total nominal per source+segment
-                    // 'nominal_cum' => $amountCum,
-
                     'cold' => $cold,
-                    'persen_cold' => '0,0',
-
                     'warm' => $warm,
-                    'persen_warm' => '0,0',
-                    // Nominal WARM: total harga produk dari quotation published
-                    'nominal_warm' => $nominalWarm,
-
                     'hot' => $hot,
-                    'persen_hot' => '0,0',
-                    // Nominal HOT: total harga produk dari quotation published
-                    'nominal_hot' => $nominalHot,
-
                     'deal' => $deal,
-                    'persen_deal' => '0,0',
-                    // Nominal DEAL: grand total quotation published (tetap dihitung walau sudah dibayar)
+
+                    'nominal_warm' => $nominalWarm,
+                    'nominal_hot' => $nominalHot,
                     'nominal_deal' => $nominalDeal,
 
-                    'total' => $total,
+                    'amount_cum' => $nominalWarm + $nominalHot + $nominalDeal,
+                    'total' => $total
                 ];
             });
 
-        // remove groups with all zeros
-        $rows = $rows->filter(function ($r) {
-            return ($r['total'] ?? 0) > 0;
+        $rows = $rows->filter(fn($r) => $r['total'] > 0)->values();
+
+        $bySource = $rows->groupBy('source')->map(function ($items, $source) {
+
+            return [
+                'source' => $source,
+
+                'total' => $items->sum('total'),
+                'cold' => $items->sum('cold'),
+                'warm' => $items->sum('warm'),
+                'hot' => $items->sum('hot'),
+                'deal' => $items->sum('deal'),
+
+                'nominal_warm' => $items->sum('nominal_warm'),
+                'nominal_hot' => $items->sum('nominal_hot'),
+                'nominal_deal' => $items->sum('nominal_deal'),
+                'amount_cum' => $items->sum('amount_cum'),
+
+                'segments' => $items->values()
+            ];
         })->values();
 
-        // compute grand total
-        $grandTotal = $rows->sum('cum');
+        $summaryBySource = [
+            'total_all' => $bySource->sum('total'),
+            'total_cold' => $bySource->sum('cold'),
+            'total_warm' => $bySource->sum('warm'),
+            'total_hot' => $bySource->sum('hot'),
+            'total_deal' => $bySource->sum('deal'),
 
-        $rows = $rows->map(function ($row) use ($grandTotal) {
+            'nominal_total_warm' => $bySource->sum('nominal_warm'),
+            'nominal_total_hot' => $bySource->sum('nominal_hot'),
+            'nominal_total_deal' => $bySource->sum('nominal_deal'),
+            'nominal_total' => $bySource->sum('amount_cum')
+        ];
 
-            $total = $row['total'] ?? ($row['cold'] + $row['warm'] + $row['hot'] + $row['deal']);
+        $bySegment = $rows->groupBy('segment')->map(function ($items, $segment) {
 
-            $row['persen_cum'] = $grandTotal > 0
-                ? number_format(($row['cum'] / $grandTotal) * 100, 1, ',', '')
-                : '0,0';
+            return [
+                'segment' => $segment,
 
-            $row['persen_cold'] = $total > 0
-                ? number_format(($row['cold'] / $total) * 100, 1, ',', '')
-                : '0,0';
+                'total' => $items->sum('total'),
+                'cold' => $items->sum('cold'),
+                'warm' => $items->sum('warm'),
+                'hot' => $items->sum('hot'),
+                'deal' => $items->sum('deal'),
 
-            $row['persen_warm'] = $total > 0
-                ? number_format(($row['warm'] / $total) * 100, 1, ',', '')
-                : '0,0';
+                'nominal_warm' => $items->sum('nominal_warm'),
+                'nominal_hot' => $items->sum('nominal_hot'),
+                'nominal_deal' => $items->sum('nominal_deal'),
+                'amount_cum' => $items->sum('amount_cum'),
 
-            $row['persen_hot'] = $total > 0
-                ? number_format(($row['hot'] / $total) * 100, 1, ',', '')
-                : '0,0';
+                'sources' => $items->values()
+            ];
+        })->values();
 
-            $row['persen_deal'] = $total > 0
-                ? number_format(($row['deal'] / $total) * 100, 1, ',', '')
-                : '0,0';
+        $summaryBySegment = [
+            'total_all' => $bySegment->sum('total'),
+            'total_cold' => $bySegment->sum('cold'),
+            'total_warm' => $bySegment->sum('warm'),
+            'total_hot' => $bySegment->sum('hot'),
+            'total_deal' => $bySegment->sum('deal'),
 
-            return $row;
-        });
-
-        // SUMMARY TOTAL
-        $summary = [
-            'total_all' => $rows->sum('total'),
-            'total_cold' => $rows->sum('cold'),
-            'total_warm' => $rows->sum('warm'),
-            'total_hot' => $rows->sum('hot'),
-            'total_deal' => $rows->sum('deal'),
-            // Total nominal dari semua source + segment (jumlah amount_cum)
-            'nominal_total_warm' => $rows->sum('nominal_warm'),
-            'nominal_total_hot' => $rows->sum('nominal_hot'),
-            'nominal_total_deal' => $rows->sum('nominal_deal'),
-            'nominal_total' => $rows->sum('amount_cum'),
+            'nominal_total_warm' => $bySegment->sum('nominal_warm'),
+            'nominal_total_hot' => $bySegment->sum('nominal_hot'),
+            'nominal_total_deal' => $bySegment->sum('nominal_deal'),
+            'nominal_total' => $bySegment->sum('amount_cum')
         ];
 
         return response()->json([
             'status' => 'success',
-            'data' => $rows,
-            'summary' => $summary
+
+            'by_source' => [
+                'data' => $bySource,
+                'summary' => $summaryBySource
+            ],
+
+            'by_segment' => [
+                'data' => $bySegment,
+                'summary' => $summaryBySegment
+            ]
         ]);
     }
 
