@@ -61,6 +61,15 @@
               <th>lead_needs</th>
               <th>nip_sales</th>
               <th>published_at</th>
+              <th>status_stage</th>
+              <th>quotation_number</th>
+              <th>quotation_date</th>
+              <th>quotation_total</th>
+              <th>total_terms</th>
+              <th>paid_terms</th>
+              <th>paid_amount</th>
+              <th>remaining_amount</th>
+              <th>deal_closed_at</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -106,6 +115,24 @@
                 </select>
               </td>
               <td><input type="text" name="rows[{{ $idx }}][published_at]" value="{{ $row['published_at'] }}" class="form-control form-control-sm"></td>
+              <td>
+                <select name="rows[{{ $idx }}][status_stage]" class="form-control form-control-sm">
+                  @php($stage = $row['status_stage'] ?? '')
+                  <option value="" {{ $stage === '' ? 'selected' : '' }}>--</option>
+                  <option value="cold" {{ $stage === 'cold' ? 'selected' : '' }}>cold</option>
+                  <option value="warm" {{ $stage === 'warm' ? 'selected' : '' }}>warm</option>
+                  <option value="hot" {{ $stage === 'hot' ? 'selected' : '' }}>hot</option>
+                  <option value="deal" {{ $stage === 'deal' ? 'selected' : '' }}>deal</option>
+                </select>
+              </td>
+              <td><input type="text" name="rows[{{ $idx }}][quotation_number]" value="{{ $row['quotation_number'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][quotation_date]" value="{{ $row['quotation_date'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][quotation_total]" value="{{ $row['quotation_total'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][total_terms]" value="{{ $row['total_terms'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][paid_terms]" value="{{ $row['paid_terms'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][paid_amount]" value="{{ $row['paid_amount'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][remaining_amount]" value="{{ $row['remaining_amount'] ?? '' }}" class="form-control form-control-sm"></td>
+              <td><input type="text" name="rows[{{ $idx }}][deal_closed_at]" value="{{ $row['deal_closed_at'] ?? '' }}" class="form-control form-control-sm"></td>
               <td>
                 @if($row['error'])
                   <span class="badge badge-danger">{{ $row['error'] }}</span>

@@ -118,30 +118,41 @@
             11 => 'November',
             12 => 'Desember',
             ];
-            $oldMonthlyTargets = old('monthly_targets', $data->monthly_targets ?? []);
+            $oldMonthlyTargets       = old('monthly_targets', $data->monthly_targets ?? []);
+            $oldMonthlyLeadsTargets  = old('monthly_leads_targets', $data->monthly_leads_targets ?? []);
+            $oldMonthlyVisitTargets  = old('monthly_visit_targets', $data->monthly_visit_targets ?? []);
             @endphp
 
             <div class="mb-3">
               <label class="form-label">Target:</label>
 
               {{-- total tahunan yang akan dikirim ke backend (field target lama) --}}
-              <input type="hidden" name="target" id="target" value="{{ old('target', $data->target ?? 0) }}">
+              <input type="hidden" name="target" id="target" value="{{ old('target', $data->target_total ?? 0) }}">
+              <input type="hidden" name="target_leads" id="target_leads" value="{{ old('target_leads', $data->target_leads_total ?? 0) }}">
+              <input type="hidden" name="target_visit" id="target_visit" value="{{ old('target_visit', $data->target_visit_total ?? 0) }}">
 
               <div class="table-responsive">
                 <table class="table table-bordered align-middle mb-2">
                   <thead class="table-light">
                     <tr>
-                      <th style="width: 30%">Bulan</th>
-                      <th style="width: 20%">Percentage (%)</th>
-                      <th style="width: 50%">Amount (Rp)</th>
+                      <th style="width: 25%">Bulan</th>
+                      <th style="width: 15%">Percentage (%)</th>
+                      <th style="width: 20%">Amount (Rp)</th>
+                      <th style="width: 20%">Target Leads</th>
+                      <th style="width: 20%">Target Visit</th>
                     </tr>
                   </thead>
                   <tbody>
                     @foreach($months as $monthIndex => $monthName)
                     @php
-                    $rowOld = $oldMonthlyTargets[$monthIndex] ?? [];
+                    $rowOld        = $oldMonthlyTargets[$monthIndex] ?? [];
+                    $rowOldLeads   = $oldMonthlyLeadsTargets[$monthIndex] ?? [];
+                    $rowOldVisit   = $oldMonthlyVisitTargets[$monthIndex] ?? [];
+
                     $percentage = $rowOld['percentage'] ?? null;
-                    $amount = $rowOld['amount'] ?? null;
+                    $amount     = $rowOld['amount'] ?? null;
+                    $leads      = $rowOldLeads['leads'] ?? null;
+                    $visits     = $rowOldVisit['visits'] ?? null;
                     @endphp
                     <tr>
                       <td>{{ $monthName }}</td>
@@ -153,14 +164,28 @@
                         <input type="number" name="monthly_targets[{{ $monthIndex }}][amount]"
                           class="form-control monthly-amount" value="{{ $amount }}" min="0" step="0.01" placeholder="0">
                       </td>
+                      <td>
+                        <input type="number" name="monthly_leads_targets[{{ $monthIndex }}][leads]"
+                          class="form-control monthly-leads" value="{{ $leads }}" min="0" step="1" placeholder="0">
+                      </td>
+                      <td>
+                        <input type="number" name="monthly_visit_targets[{{ $monthIndex }}][visits]"
+                          class="form-control monthly-visits" value="{{ $visits }}" min="0" step="1" placeholder="0">
+                      </td>
                     </tr>
                     @endforeach
                   </tbody>
                   <tfoot>
                     <tr>
-                      <th colspan="2" class="text-end">Total Amount</th>
+                      <th colspan="2" class="text-end">Total</th>
                       <th>
                         Rp <span id="target_total_display">0</span>
+                      </th>
+                      <th>
+                        <span id="target_leads_total_display">0</span> Leads
+                      </th>
+                      <th>
+                        <span id="target_visit_total_display">0</span> Visit
                       </th>
                     </tr>
                   </tfoot>
@@ -232,26 +257,51 @@
 
   const initialBranchId = "{{ old('branch_id', $data->branch_id ?? '') }}";
 
-  function recalcTargetTotal() {
-    let total = 0;
+  function recalcTargetTotals() {
+    let totalAmount = 0;
+    let totalLeads  = 0;
+    let totalVisits = 0;
 
     $('.monthly-amount').each(function () {
       const val = parseFloat($(this).val());
       if (!isNaN(val)) {
-        total += val;
+        totalAmount += val;
+      }
+    });
+
+    $('.monthly-leads').each(function () {
+      const val = parseFloat($(this).val());
+      if (!isNaN(val)) {
+        totalLeads += val;
+      }
+    });
+
+    $('.monthly-visits').each(function () {
+      const val = parseFloat($(this).val());
+      if (!isNaN(val)) {
+        totalVisits += val;
       }
     });
 
     $('#target_total_display').text(
-      total.toLocaleString('id-ID', { maximumFractionDigits: 2 })
+      totalAmount.toLocaleString('id-ID', { maximumFractionDigits: 2 })
     );
-    $('#target').val(total);
+    $('#target_leads_total_display').text(
+      totalLeads.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+    );
+    $('#target_visit_total_display').text(
+      totalVisits.toLocaleString('id-ID', { maximumFractionDigits: 0 })
+    );
+
+    $('#target').val(totalAmount);
+    $('#target_leads').val(totalLeads);
+    $('#target_visit').val(totalVisits);
   }
 
-  $(document).on('input change', '.monthly-amount', recalcTargetTotal);
+  $(document).on('input change', '.monthly-amount, .monthly-leads, .monthly-visits', recalcTargetTotals);
 
   // Hitung total di awal saat form dibuka
-  recalcTargetTotal();
+  recalcTargetTotals();
 });
 </script>
 @endsection

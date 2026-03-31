@@ -42,10 +42,32 @@ class ImportLeadController extends Controller
         $this->authorizeSuperAdmin();
 
         // --- Import sheet ---
+        // Kolom dasar (dipakai semua stage)
         $importHeaders = [
-            'source_id*', 'segment_id*', 'region_id',
-            'lead_name', 'lead_email', 'lead_phone',
-            'lead_needs', 'nip_sales', 'published_at',
+            'source_id*',          // master lead source
+            'segment_id*',         // master lead segment
+            'region_id',           // boleh null = all regions / no region
+            'lead_name',
+            'lead_email',
+            'lead_phone',
+            'lead_needs',
+            'nip_sales',           // kalau diisi dan status_stage cold/warm/hot/deal → langsung ke sales tsb
+            'published_at',
+            'status_stage',        // cold | warm | hot | deal (opsional, akan dipakai di logic import lanjutan)
+
+            // Field khusus WARM (quotation)
+            'quotation_number',    // nomor quotation
+            'quotation_date',      // tanggal quotation
+            'quotation_total',     // total nilai quotation
+
+            // Field khusus HOT (progress pembayaran / terms)
+            'total_terms',         // total termin pembayaran yang disepakati
+            'paid_terms',          // sudah bayar berapa termin
+            'paid_amount',         // total nominal yang sudah dibayar
+            'remaining_amount',    // sisa nominal yang belum dibayar
+
+            // Field khusus DEAL
+            'deal_closed_at',      // tanggal deal / closing
         ];
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -59,9 +81,10 @@ class ImportLeadController extends Controller
                 'startColor' => ['rgb' => '4F81BD'],
             ],
         ];
-        $sheet->getStyle('A1:I1')->applyFromArray($headerStyle);
+        $lastCol = chr(ord('A') + count($importHeaders) - 1); // hitung kolom terakhir dinamis
+        $sheet->getStyle('A1:'.$lastCol.'1')->applyFromArray($headerStyle);
         $sheet->freezePane('A2');
-        foreach (range('A', 'I') as $col) {
+        foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -71,9 +94,11 @@ class ImportLeadController extends Controller
         $regions  = Region::with(['regional', 'province', 'branch'])->orderBy('id')->get();
         $users    = User::select('nip', 'name')->orderBy('nip')->get();
 
-        // Sample rows
+        // Sample rows (contoh pengisian untuk masing-masing stage)
         for ($i = 0; $i < 5; $i++) {
-            $sheet->fromArray([
+            $sampleStages = ['cold', 'warm', 'hot', 'deal', ''];
+
+            $base = [
                 $sources[$i % max(1, $sources->count())]->id ?? '',
                 $segments[$i % max(1, $segments->count())]->id ?? '',
                 $regions[$i % max(1, $regions->count())]->id ?? '',
@@ -83,7 +108,38 @@ class ImportLeadController extends Controller
                 'Sample needs '.($i + 1),
                 $users[$i % max(1, $users->count())]->nip ?? '',
                 Carbon::now()->subDays($i)->toDateString(),
-            ], null, 'A'.($i + 2));
+                $sampleStages[$i] ?? '',
+            ];
+
+            // default kosong utk kolom tambahan
+            $extra = array_fill(0, count($importHeaders) - count($base), '');
+
+            // isi contoh sesuai stage
+            if ($sampleStages[$i] === 'warm') {
+                // warm → sudah ada quotation
+                $extra[0] = 'Q-2026-0001';                     // quotation_number
+                $extra[1] = Carbon::now()->subDays(1)->toDateString(); // quotation_date
+                $extra[2] = 100000000;                         // quotation_total
+            } elseif ($sampleStages[$i] === 'hot') {
+                $extra[0] = 'Q-2026-0002';
+                $extra[1] = Carbon::now()->subDays(5)->toDateString();
+                $extra[2] = 150000000;
+                $extra[3] = 3;        // total_terms
+                $extra[4] = 1;        // paid_terms
+                $extra[5] = 50000000; // paid_amount
+                $extra[6] = 100000000;// remaining_amount
+            } elseif ($sampleStages[$i] === 'deal') {
+                $extra[0] = 'Q-2026-0003';
+                $extra[1] = Carbon::now()->subDays(10)->toDateString();
+                $extra[2] = 200000000;
+                $extra[3] = 4;        // total_terms
+                $extra[4] = 4;        // paid_terms
+                $extra[5] = 200000000;// paid_amount
+                $extra[6] = 0;        // remaining_amount
+                $extra[7] = Carbon::now()->toDateString(); // deal_closed_at
+            }
+
+            $sheet->fromArray(array_merge($base, $extra), null, 'A'.($i + 2));
         }
 
         // Other master sheets
@@ -196,16 +252,28 @@ class ImportLeadController extends Controller
             }
 
             $data = [
-                'source_id'    => $row['A'],
-                'segment_id'   => $row['B'],
-                'region_id'    => $regionId,
-                'lead_name'    => $row['D'],
-                'lead_email'   => $row['E'],
-                'lead_phone'   => $row['F'],
-                'lead_needs'   => $row['G'],
-                'nip_sales'    => $row['H'],
-                'published_at' => $published,
-                'error'        => '',
+                'source_id'        => $row['A'],
+                'segment_id'       => $row['B'],
+                'region_id'        => $regionId,
+                'lead_name'        => $row['D'],
+                'lead_email'       => $row['E'],
+                'lead_phone'       => $row['F'],
+                'lead_needs'       => $row['G'],
+                'nip_sales'        => $row['H'],
+                'published_at'     => $published,
+
+                // kolom tambahan untuk stage & detail (dibaca untuk preview)
+                'status_stage'     => isset($row['J']) ? trim((string)$row['J']) : '',
+                'quotation_number' => isset($row['K']) ? (string)$row['K'] : '',
+                'quotation_date'   => isset($row['L']) ? (string)$row['L'] : '',
+                'quotation_total'  => isset($row['M']) ? (string)$row['M'] : '',
+                'total_terms'      => isset($row['N']) ? (string)$row['N'] : '',
+                'paid_terms'       => isset($row['O']) ? (string)$row['O'] : '',
+                'paid_amount'      => isset($row['P']) ? (string)$row['P'] : '',
+                'remaining_amount' => isset($row['Q']) ? (string)$row['Q'] : '',
+                'deal_closed_at'   => isset($row['R']) ? (string)$row['R'] : '',
+
+                'error'            => '',
             ];
 
             if (empty($data['lead_name'])) {

@@ -31,6 +31,8 @@ class User extends Authenticatable
         'password',
         'grade',
         'target',
+        'target_visit',
+        'target_leads',
         'created_by',
         'updated_by',
     ];
@@ -86,6 +88,82 @@ class User extends Authenticatable
     public function getTargetTotalAttribute(): float
     {
         $raw = $this->attributes['target'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return 0.0;
+        }
+
+        $parts = explode('|', $raw, 2);
+
+        return (float) ($parts[0] ?? 0);
+    }
+
+    /**
+     * Ambil breakdown target leads bulanan dari field target_leads (format: total|json).
+     */
+    public function getMonthlyLeadsTargetsAttribute(): array
+    {
+        $raw = $this->attributes['target_leads'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return [];
+        }
+
+        if (! str_contains($raw, '|')) {
+            return [];
+        }
+
+        [, $json] = explode('|', $raw, 2);
+
+        $decoded = json_decode($json, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Ambil total target leads tahunan dari field target_leads (bagian sebelum '|').
+     */
+    public function getTargetLeadsTotalAttribute(): float
+    {
+        $raw = $this->attributes['target_leads'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return 0.0;
+        }
+
+        $parts = explode('|', $raw, 2);
+
+        return (float) ($parts[0] ?? 0);
+    }
+
+    /**
+     * Ambil breakdown target visit bulanan dari field target_visit (format: total|json).
+     */
+    public function getMonthlyVisitTargetsAttribute(): array
+    {
+        $raw = $this->attributes['target_visit'] ?? null;
+
+        if (! $raw || ! is_string($raw)) {
+            return [];
+        }
+
+        if (! str_contains($raw, '|')) {
+            return [];
+        }
+
+        [, $json] = explode('|', $raw, 2);
+
+        $decoded = json_decode($json, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Ambil total target visit tahunan dari field target_visit (bagian sebelum '|').
+     */
+    public function getTargetVisitTotalAttribute(): float
+    {
+        $raw = $this->attributes['target_visit'] ?? null;
 
         if (! $raw || ! is_string($raw)) {
             return 0.0;

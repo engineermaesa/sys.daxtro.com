@@ -140,7 +140,9 @@ class AdminController extends Controller
             }
 
             $rules = [
-                'target' => 'nullable|numeric|min:0',
+                'target'        => 'nullable|numeric|min:0',
+                'target_leads'  => 'nullable|numeric|min:0',
+                'target_visit'  => 'nullable|numeric|min:0',
             ];
 
             $request->validate($rules);
@@ -152,8 +154,13 @@ class AdminController extends Controller
                 $before = $user->toArray();
 
                 // Ambil breakdown bulanan dari request (kalau ada)
-                $monthly = $request->input('monthly_targets', []);
-                $total   = $request->target ?: 0;
+                $monthly       = $request->input('monthly_targets', []);
+                $monthlyLeads  = $request->input('monthly_leads_targets', []);
+                $monthlyVisit  = $request->input('monthly_visit_targets', []);
+
+                $total         = $request->target ?: 0;
+                $totalLeads    = $request->target_leads ?: 0;
+                $totalVisit    = $request->target_visit ?: 0;
 
                 // Simpan dalam format: total|json_bulanan
                 if (! empty($monthly)) {
@@ -161,6 +168,20 @@ class AdminController extends Controller
                     $user->target = $total . '|' . $encoded;
                 } else {
                     $user->target = $total ?: null;
+                }
+
+                if (! empty($monthlyLeads)) {
+                    $encodedLeads = json_encode($monthlyLeads);
+                    $user->target_leads = $totalLeads . '|' . $encodedLeads;
+                } else {
+                    $user->target_leads = $totalLeads ?: null;
+                }
+
+                if (! empty($monthlyVisit)) {
+                    $encodedVisit = json_encode($monthlyVisit);
+                    $user->target_visit = $totalVisit . '|' . $encodedVisit;
+                } else {
+                    $user->target_visit = $totalVisit ?: null;
                 }
 
                 $user->updated_by = $authUser->id;
@@ -190,14 +211,16 @@ class AdminController extends Controller
         $branchId = $branchReq ? $authUser->branch_id : $request->branch_id;
 
         $rules = [
-            'role_id'   => 'required|exists:user_roles,id',
-            'branch_id' => ($branchReq ? 'required' : 'nullable|exists:ref_branches,id'),
-            'name'      => 'required|string|max:100',
-            'nip'       => 'required|string|max:50|unique:users,nip' . ($id ? ',' . $id : ''),
-            'email'     => 'required|email|unique:users,email' . ($id ? ',' . $id : ''),
-            'phone'     => 'nullable|string|max:20',
-            'grade'     => 'required|integer|min:1|max:8',
-            'target'    => 'nullable|numeric|min:0',
+            'role_id'      => 'required|exists:user_roles,id',
+            'branch_id'    => ($branchReq ? 'required' : 'nullable|exists:ref_branches,id'),
+            'name'         => 'required|string|max:100',
+            'nip'          => 'required|string|max:50|unique:users,nip' . ($id ? ',' . $id : ''),
+            'email'        => 'required|email|unique:users,email' . ($id ? ',' . $id : ''),
+            'phone'        => 'nullable|string|max:20',
+            'grade'        => 'required|integer|min:1|max:8',
+            'target'       => 'nullable|numeric|min:0',
+            'target_leads' => 'nullable|numeric|min:0',
+            'target_visit' => 'nullable|numeric|min:0',
         ];
 
         if ($id) {
@@ -230,14 +253,33 @@ class AdminController extends Controller
             $user->phone        = $request->phone;
             $user->grade        = $request->grade;
 
-            $monthly = $request->input('monthly_targets', []);
-            $total   = $request->target ?: 0;
+            $monthly       = $request->input('monthly_targets', []);
+            $monthlyLeads  = $request->input('monthly_leads_targets', []);
+            $monthlyVisit  = $request->input('monthly_visit_targets', []);
+
+            $total         = $request->target ?: 0;
+            $totalLeads    = $request->target_leads ?: 0;
+            $totalVisit    = $request->target_visit ?: 0;
 
             if (! empty($monthly)) {
                 $encoded = json_encode($monthly);
                 $user->target = $total . '|' . $encoded;
             } else {
                 $user->target = $total ?: null;
+            }
+
+            if (! empty($monthlyLeads)) {
+                $encodedLeads = json_encode($monthlyLeads);
+                $user->target_leads = $totalLeads . '|' . $encodedLeads;
+            } else {
+                $user->target_leads = $totalLeads ?: null;
+            }
+
+            if (! empty($monthlyVisit)) {
+                $encodedVisit = json_encode($monthlyVisit);
+                $user->target_visit = $totalVisit . '|' . $encodedVisit;
+            } else {
+                $user->target_visit = $totalVisit ?: null;
             }
 
             $user->created_by   = $id ? $user->created_by : $authUser->id;

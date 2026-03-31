@@ -47,7 +47,8 @@ class LeadController extends Controller
             'source',
             'segment',
             'status',
-            'industry'
+            'industry',
+            'quotation'
         ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
@@ -125,8 +126,18 @@ class LeadController extends Controller
             ->addColumn('segment_name', fn($row) => $row->segment->name ?? $row->customer_type ?? 'Not Set')
             ->addColumn('industry_name', fn($row) => $row->industry->name ?? 'Not Set') // ✅ INI YANG KAMU MAU
             ->addColumn('status_name', fn($row) => $row->status->name ?? '')
+            ->addColumn('data_status', function ($row) {
+                [$passed, $label] = $this->evaluateLeadDataCompleteness($row);
+
+                return $passed . '/6';
+            })
+            ->addColumn('data_validation', function ($row) {
+                [$passed, $label] = $this->evaluateLeadDataCompleteness($row);
+
+                return $label;
+            })
             ->addColumn('published_at', fn($row) => $row->published_at)
-            ->addColumn('actions', function ($row) {
+            ->addColumn('actions', function ($row) use ($user) {
 
                 $editUrl  = route('leads.form', $row->id);
                 $claimUrl = route('leads.claim', $row->id);
@@ -135,9 +146,19 @@ class LeadController extends Controller
                     . view('components.icon.detail')->render() .
                     ' View </a>';
 
-                $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
-                            <i class="bi bi-check-circle mr-1"></i> Claim
-                        </a>';
+                [$passed, $dataValidation] = $this->evaluateLeadDataCompleteness($row);
+
+                $canShowClaim = true;
+
+                if ($user && $user->role?->code === 'sales' && $dataValidation !== 'Complete') {
+                    $canShowClaim = false;
+                }
+
+                if ($canShowClaim) {
+                    $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
+                                <i class="bi bi-check-circle mr-1"></i> Claim
+                            </a>';
+                }
 
                 return $html;
             })
@@ -563,13 +584,77 @@ class LeadController extends Controller
         }
     }
 
+    /**
+     * Evaluate lead data completeness based only on lead fields (no quotation).
+     * Returns an array: [passedCount (0-6), label: Incomplete|Moderate|Complete].
+     */
+    protected function evaluateLeadDataCompleteness($lead): array
+    {
+        $checks = [
+            // Primary contact info: name + at least one contact
+            'primary_contact' => !empty($lead->name)
+                && (!empty($lead->phone) || !empty($lead->email)),
+
+            // Company details: company, address, city (region) and province
+            'company_details' => !empty($lead->company)
+                && !empty($lead->company_address)
+                && !empty($lead->region_id)
+                && !empty($lead->province),
+
+            // Classification: source + customer type + industry (existing or other)
+            'classification' => !empty($lead->source_id)
+                && !empty($lead->customer_type)
+                && (!empty($lead->industry_id) || !empty($lead->other_industry)),
+
+            // Context: at least one of the context text fields filled
+            'context' => !empty($lead->contact_reason)
+                || !empty($lead->competitor_offer)
+                || !empty($lead->business_reason)
+                || !empty($lead->industry_remark),
+
+            // Requirement: core need + tonase (capacity)
+            'requirement' => !empty($lead->needs)
+                && $lead->tonase !== null && $lead->tonase !== '',
+
+            // Factory planning / extra detail: any of these filled
+            'factory_plan' => !empty($lead->factory_city_id)
+                || !empty($lead->factory_province)
+                || !empty($lead->factory_industry_id)
+                || !empty($lead->factory_other_industry)
+                || !empty($lead->tonage_remark),
+        ];
+
+        $passed = count(array_filter($checks));
+
+        if ($passed >= 5) {
+            $label = 'Complete';
+        } elseif ($passed === 4) {
+            $label = 'Moderate';
+        } else {
+            $label = 'Incomplete';
+        }
+
+        return [$passed, $label];
+    }
+
     public function claim($id)
     {
         $lead = Lead::findOrFail($id);
 
+        $user = request()->user();
+
+        // Server-side guard: sales can only claim leads with complete lead data (no quotation dependency)
+        if ($user && $user->role?->code === 'sales') {
+            [$passed, $label] = $this->evaluateLeadDataCompleteness($lead);
+
+            if ($label !== 'Complete') {
+                return $this->setJsonResponse('Lead data must be complete before claiming', [], 422);
+            }
+        }
+
         LeadClaim::create([
             'lead_id'    => $lead->id,
-            'sales_id'   => request()->user()->id,
+            'sales_id'   => $user?->id,
             'claimed_at' => now(),
         ]);
 
