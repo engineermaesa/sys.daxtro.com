@@ -50,7 +50,7 @@
                 <h3 class="font-semibold mb-2">Select Date Range</h3>
 
                     <div class="flex justify-center items-center">
-                    <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
+                        <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
                     </div>
 
                 <div class="flex justify-end gap-2 mt-3">
@@ -192,6 +192,10 @@
             let rowsHtml = '';
 
             leadData.forEach((item, index) => {
+                const rupiahNominalWarm = formatRupiah(item.nominal_warm);
+                const rupiahNominalHot = formatRupiah(item.nominal_hot);
+                const rupiahNominalDeal = formatRupiah(item.nominal_deal);
+
                 rowsHtml += `
                     <tr data-row-index="${index}" class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
                         <td class="p-1 lg:p-3">${item.source ?? '-'}</td>
@@ -207,14 +211,17 @@
                         <td class="p-1 lg:p-3">
                             ${item.warm ?? '-'}
                             <span class="opacity-50 text-xs">(${item.persen_warm ?? '-'}%)</span>
+                            <p class="text-[#FCB53B] font-semibold text-xs lg:text-sm">${rupiahNominalWarm}</p>
                         </td>
                         <td class="p-1 lg:p-3">
                             ${item.hot ?? '-'}
                             <span class="opacity-50 text-xs">(${item.persen_hot ?? '-'}%)</span>
+                            <p class="text-[#F93827] font-semibold text-xs lg:text-sm">${rupiahNominalHot}</p>
                         </td>
                         <td class="p-1 lg:p-3">
                             ${item.deal ?? '-'}
                             <span class="opacity-50 text-xs">(${item.persen_deal ?? '-'}%)</span>
+                            <p class="text-[#5CB338] font-semibold text-xs lg:text-sm">${rupiahNominalDeal}</p>
                         </td>
                     </tr>
                 `;
@@ -222,15 +229,19 @@
 
             tbody.innerHTML = rowsHtml;
 
+            const rupiahNominalTotalWarm = formatRupiah(summary.nominal_total_warm);
+            const rupiahNominalTotalHot = formatRupiah(summary.nominal_total_hot);
+            const rupiahNominalTotalDeal = formatRupiah(summary.nominal_total_deal);
+            const rupiahNominalTotal = formatRupiah(summary.nominal_total);
             tfoot.innerHTML = `
                 <tr class="font-semibold border-t border-t-[#D9D9D9] text-[#1E1E1E]">
                     <td class="p-2 lg:p-3">Total</td>
-                    <td class="p-2 lg:p-3"></td>
+                    <td class="p-2 lg:p-3">${rupiahNominalTotal ?? 0}</td>
                     <td class="p-2 lg:p-3">${summary.total_all ?? 0}</td>
                     <td class="p-2 lg:p-3">${summary.total_cold ?? 0}</td>
-                    <td class="p-2 lg:p-3">${summary.total_warm ?? 0}</td>
-                    <td class="p-2 lg:p-3">${summary.total_hot ?? 0}</td>
-                    <td class="p-2 lg:p-3">${summary.total_deal ?? 0}</td>
+                    <td class="p-2 lg:p-3">${summary.total_warm ?? 0} <span class="text-[#FCB53B] font-semibold text-xs lg:text-sm">(${rupiahNominalTotalWarm ?? 0})</span></td>
+                    <td class="p-2 lg:p-3">${summary.total_hot ?? 0} <span class="text-[#F93827] font-semibold text-xs lg:text-sm">(${rupiahNominalTotalHot ?? 0})</span></td>
+                    <td class="p-2 lg:p-3">${summary.total_deal ?? 0} <span class="text-[#5CB338] font-semibold text-xs lg:text-sm">(${rupiahNominalTotalDeal ?? 0})</span></td>
                 </tr>
             `;
 

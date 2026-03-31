@@ -18,6 +18,8 @@
 </section>
 
 <script>
+    let fp = null;
+
     // MAIN DOM 
     document.addEventListener("DOMContentLoaded", function () {
         loadDashboardGrid();
@@ -71,7 +73,7 @@
             const endDate = dates[1].toISOString().split('T')[0];
 
             const label = document.getElementById('dateLabel');
-            if (label) label.innerText = `${startDate} → ${endDate}`;
+            if (label) label.innerText = `${startDate} -> ${endDate}`;
 
             loadAvailableLeads(startDate, endDate);
 

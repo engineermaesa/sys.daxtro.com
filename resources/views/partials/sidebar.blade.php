@@ -68,7 +68,7 @@
         {{-- ORDERS SECTION --}}
         @if(auth()->check() && auth()->user()->hasPermission('orders'))
         <li
-            class="{{ request()->routeIs('orders*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3 mt-2">
+            class="{{ request()->routeIs('orders*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
                 href="{{ route('orders.index') }}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">

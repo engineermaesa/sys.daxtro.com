@@ -537,80 +537,6 @@ class TrashLeadController extends Controller
         return view('pages.trash-leads.form', compact('lead', 'meeting', 'claim'));
     }
     // Tanpa Auth
-    public function restore(Request $request, $claimId = null)
-    {
-        $user = $request->user();
-
-        abort_if($user->role?->code !== 'sales', 403);
-
-        // Jika kirim array claim_ids di body -> bulk restore
-        if ($request->has('claim_ids')) {
-            $data = $request->validate([
-                'claim_ids'   => 'required|array',
-                'claim_ids.*' => 'integer|exists:lead_claims,id',
-            ]);
-
-            $claims = LeadClaim::with('lead.region')
-                ->whereIn('id', $data['claim_ids'])
-                ->get();
-
-            foreach ($claims as $claim) {
-                abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
-            }
-
-            DB::transaction(function () use ($claims, $user) {
-                foreach ($claims as $claim) {
-                    $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
-                        ? LeadStatus::COLD
-                        : LeadStatus::WARM;
-
-                    $claim->update([
-                        'sales_id'    => $user->id,
-                        'claimed_at'  => now(),
-                        'released_at' => null,
-                    ]);
-
-                    $claim->lead->update(['status_id' => $newStatus]);
-
-                    LeadStatusLog::create([
-                        'lead_id'   => $claim->lead_id,
-                        'status_id' => $newStatus,
-                    ]);
-                }
-            });
-
-            return $this->setJsonResponse('Leads restored successfully');
-        }
-
-        // Default: restore satu claim berdasarkan parameter URL
-        $claim = LeadClaim::with('lead.region')->where('id', $claimId)
-            ->firstOrFail();
-
-        abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
-
-        $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
-            ? LeadStatus::COLD
-            : LeadStatus::WARM;
-
-        DB::transaction(function () use ($claim, $user, $newStatus) {
-            $claim->update([
-                'sales_id'   => $user->id,
-                'claimed_at' => now(),
-                'released_at' => null,
-            ]);
-
-            $claim->lead->update(['status_id' => $newStatus]);
-
-            LeadStatusLog::create([
-                'lead_id'   => $claim->lead_id,
-                'status_id' => $newStatus,
-            ]);
-        });
-
-        return $this->setJsonResponse('Lead restored successfully');
-    }
-
-    // Dengan Auth
     // public function restore(Request $request, $claimId = null)
     // {
     //     $user = $request->user();
@@ -683,6 +609,80 @@ class TrashLeadController extends Controller
 
     //     return $this->setJsonResponse('Lead restored successfully');
     // }
+
+    // Dengan Auth
+    public function restore(Request $request, $claimId = null)
+    {
+        $user = $request->user();
+
+        abort_if($user->role?->code !== 'sales', 403);
+
+        // Jika kirim array claim_ids di body -> bulk restore
+        if ($request->has('claim_ids')) {
+            $data = $request->validate([
+                'claim_ids'   => 'required|array',
+                'claim_ids.*' => 'integer|exists:lead_claims,id',
+            ]);
+
+            $claims = LeadClaim::with('lead.region')
+                ->whereIn('id', $data['claim_ids'])
+                ->get();
+
+            foreach ($claims as $claim) {
+                abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
+            }
+
+            DB::transaction(function () use ($claims, $user) {
+                foreach ($claims as $claim) {
+                    $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
+                        ? LeadStatus::COLD
+                        : LeadStatus::WARM;
+
+                    $claim->update([
+                        'sales_id'    => $user->id,
+                        'claimed_at'  => now(),
+                        'released_at' => null,
+                    ]);
+
+                    $claim->lead->update(['status_id' => $newStatus]);
+
+                    LeadStatusLog::create([
+                        'lead_id'   => $claim->lead_id,
+                        'status_id' => $newStatus,
+                    ]);
+                }
+            });
+
+            return $this->setJsonResponse('Leads restored successfully');
+        }
+
+        // Default: restore satu claim berdasarkan parameter URL
+        $claim = LeadClaim::with('lead.region')->where('id', $claimId)
+            ->firstOrFail();
+
+        abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
+
+        $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
+            ? LeadStatus::COLD
+            : LeadStatus::WARM;
+
+        DB::transaction(function () use ($claim, $user, $newStatus) {
+            $claim->update([
+                'sales_id'   => $user->id,
+                'claimed_at' => now(),
+                'released_at' => null,
+            ]);
+
+            $claim->lead->update(['status_id' => $newStatus]);
+
+            LeadStatusLog::create([
+                'lead_id'   => $claim->lead_id,
+                'status_id' => $newStatus,
+            ]);
+        });
+
+        return $this->setJsonResponse('Lead restored successfully');
+    }
 
     public function assign(Request $request, $claimId)
     {

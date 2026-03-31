@@ -53,73 +53,88 @@
         </div>
     </div>
 
+    <div id="bulkRestoreBar" class="hidden items-center justify-between gap-3 px-3 py-2 border-b border-[#D9D9D9] bg-white">
+      <p class="text-[#115640] font-semibold"><span id="bulkRestoreCount">0</span> lead selected</p>
+      <button id="bulkRestoreBtn" type="button" class="px-3 py-2 rounded-md bg-[#115640] text-white font-semibold cursor-pointer">
+        Restore Selected
+      </button>
+    </div>
+
     {{-- CONTENTS TABLES --}}
     <div class="max-md:overflow-x-scroll">
       @foreach(['all', 'cold', 'warm', 'hot'] as $tab)
         <div data-status-wrapper="{{ $tab }}">
           <table id="{{ $tab }}TrashLeadsTableTailwind" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#CFD5DC]">
-                            <th class="hidden">ID (hidden)</th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              Claimed At
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              To Trash At
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">  
-                                Lead Name
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                Segment
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                Source
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                                First Sales
-                            </th>
-                            <th class="p-1 md:p-2 lg:p-3">
-                              Status
-                            </th>
-                            <th class="text-center p-1 md:p-2 lg:p-3">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="{{ $tab }}BodyTable"></tbody>
-                </table>
-                {{-- NAVIGATION ROWS --}}
-                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                    <div class="flex items-center gap-3">
-                        <p class="font-semibold">Show Rows</p>
-                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
-                            onchange="changePageSize('{{ $tab }}', this.value)">
-                            <option value="5">5</option>
-                            <option value="10" selected>10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
+            {{-- HEADER TABLE --}}
+            <thead class="text-[#1E1E1E]">
+                <tr class="border-b border-b-[#CFD5DC]">
+                    <th class="text-center p-1 md:p-2 lg:p-3">
+                      <input
+                        type="checkbox"
+                        id="{{ $tab }}SelectAll"
+                        class="select-all-checkbox"
+                        data-tab="{{ $tab }}"
+                      />
+                    </th>
+                    <th class="hidden">ID (hidden)</th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      Claimed At
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      To Trash At
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">  
+                        Lead Name
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Segment
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Source
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        First Sales
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                      Status
+                    </th>
+                    <th class="text-center p-1 md:p-2 lg:p-3">
+                        Action
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="{{ $tab }}BodyTable"></tbody>
+          </table>
+          {{-- NAVIGATION ROWS --}}
+          <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent border-t border-t-[#D9D9D9]">
+            <div class="flex items-center gap-3">
+              <p class="font-semibold">Show Rows</p>
+              <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                  onchange="changePageSize('{{ $tab }}', this.value)">
+                  <option value="5">5</option>
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+              </select>
+            </div>
 
-                    <div class="flex items-center gap-2">
-                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
-                        <div>
-                            <button id="{{ $tab }}PrevBtn"
-                                class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                                onclick="goPrev('{{ $tab }}')">
-                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                            </button>
-                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                                onclick="goNext('{{ $tab }}')">
-                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                            </button>
-                        </div>
-                    </div>
+            <div class="flex items-center gap-2">
+                <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                <div>
+                  <button id="{{ $tab }}PrevBtn"
+                      class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                      onclick="goPrev('{{ $tab }}')">
+                      <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                  </button>
+                  <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                      onclick="goNext('{{ $tab }}')">
+                      <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                  </button>
                 </div>
             </div>
+          </div>
+        </div>
         @endforeach
     </div>
   </div>
@@ -184,8 +199,8 @@
 
     // LEADS
     const DEFAULT_PAGE_SIZE = 10;
-    const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
-    const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
+    const pageState = { all: 1, cold: 1, warm: 1, hot: 1 };
+    const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE };
 
     const totals = {
         all: {{ $leadCounts['all'] ?? 0 }},
@@ -193,6 +208,58 @@
         warm: {{ $leadCounts['warm'] ?? 0 }},
         hot: {{ $leadCounts['hot'] ?? 0 }}
     };
+
+    const selectedClaimIdsByTab = {
+      all: new Set(),
+      cold: new Set(),
+      warm: new Set(),
+      hot: new Set()
+    };
+
+    function getSelectedClaimIds() {
+      return Array.from(new Set([
+        ...Array.from(selectedClaimIdsByTab.all),
+        ...Array.from(selectedClaimIdsByTab.cold),
+        ...Array.from(selectedClaimIdsByTab.warm),
+        ...Array.from(selectedClaimIdsByTab.hot)
+      ]));
+    }
+
+    function updateBulkRestoreUI() {
+      const selectedIds = getSelectedClaimIds();
+      const bar = document.getElementById('bulkRestoreBar');
+      const countEl = document.getElementById('bulkRestoreCount');
+
+      if (!bar || !countEl) return;
+
+      if (selectedIds.length > 0) {
+        countEl.textContent = selectedIds.length;
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+      } else {
+        countEl.textContent = '0';
+        bar.classList.remove('flex');
+        bar.classList.add('hidden');
+      }
+    }
+
+    function syncSelectAllState(tab) {
+      const selectAll = document.querySelector(`.select-all-checkbox[data-tab="${tab}"]`);
+      const tbody = document.getElementById(`${tab}BodyTable`);
+      if (!selectAll || !tbody) return;
+
+      const rowCheckboxes = tbody.querySelectorAll('.restore-row-checkbox');
+      const checkedCount = tbody.querySelectorAll('.restore-row-checkbox:checked').length;
+
+      if (rowCheckboxes.length === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+
+      selectAll.checked = checkedCount === rowCheckboxes.length;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+    }
 
     function getSearchQuery() {
         const el = document.getElementById('searchInput');
@@ -290,22 +357,18 @@
     }
 
     function showTables(status){
-        if(status === 'all'){
-        $('[data-status-wrapper]').show();
-        ['cold','warm','hot'].forEach(function(tab){
-          if(trashRoutes[tab]){
-            initTailwindTable(tab);
-          }
-        });
-      } else {
-        $('[data-status-wrapper]').hide();
-        $('[data-status-wrapper="'+status+'"]').show();
-        if(trashRoutes[status]){
-          initTailwindTable(status);
-        }
+      $('[data-status-wrapper]').hide();
+      $('[data-status-wrapper="'+status+'"]').show();
+
+      if(trashRoutes[status]){
+        initTailwindTable(status);
       }
-      $('.nav-leads-active').removeClass('active-nav');
-      $('.nav-leads-active[data-status="'+status+'"]').addClass('active-nav');
+
+      $('.nav-leads-active')
+        .removeClass('active-nav border-b-2 border-b-[#115640] text-white');
+
+      $('.nav-leads-active[data-status="'+status+'"]')
+        .addClass('active-nav border-b-2 border-b-[#115640] text-white');
     }
 
     // init: show all
@@ -319,88 +382,63 @@
     });
 
   document.addEventListener("DOMContentLoaded", function() {
-    initTrashTable('all', `${trashRoutes['all']}`);
-    initTrashTable('cold', `${trashRoutes['cold']}`);
-    initTrashTable('warm', `${trashRoutes['warm']}`);
-    initTrashTable('hot', `${trashRoutes['hot']}`);
-
-    const navTabs = document.querySelectorAll('.nav-leads-active');
-    const tableWrappers = document.querySelectorAll('[data-status-wrapper]');
-
-    function switchTab(statusTarget) {
-        tableWrappers.forEach(wrapper => {
-            wrapper.classList.add('hidden');
-        });
-
-        const targetWrapper = document.querySelector(`[data-status-wrapper="${statusTarget}"]`);
-        if (targetWrapper) {
-            targetWrapper.classList.remove('hidden');
-        }
-
-        navTabs.forEach(tab => {
-            if (tab.getAttribute('data-status') === statusTarget) {
-                tab.classList.add('border-b-2', 'border-b-[#115640]', 'text-white'); 
-            } else {
-                tab.classList.remove('border-b-2', 'border-b-[#115640]', 'text-white');
-            }
-        });
-    }
-
-    switchTab('all');
-
-    navTabs.forEach(tab => {
-        tab.addEventListener('click', function () {
-            const statusTarget = this.getAttribute('data-status');
-            switchTab(statusTarget);
-        });
+    ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
+      if (trashRoutes[tab]) {
+        initTrashTable(tab, trashRoutes[tab]);
+      }
     });
-
   });
   
   
   async function initTrashTable(selector, route) {
     const page = pageState[selector] || 1;
     const perPage = pageSizeState[selector] || DEFAULT_PAGE_SIZE;
-
-    const params = new URLSearchParams({
-        page: page,
-        per_page: perPage,
-        start_date: document.getElementById('filter_start')?.value || '',
-        end_date: document.getElementById('filter_end')?.value || '',
-        search: getSearchQuery()
-    });
-
-    const response = await fetch(`${route}?${params.toString()}`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    });
-            
-    const result = await response.json();
-    totals[selector] = result.total || 0;
-
-    updatePagerUI(selector, result.total);
-    if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-
     const tbody = document.getElementById(`${selector}BodyTable`);
 
-    tbody.innerHTML = '';
+    if (!tbody) return;
 
-    if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
-    
-    if (typeof totals !== 'undefined') {
-        if (selector === 'cold') totals.cold = result.total || 0;
-        if (selector === 'warm') totals.warm = result.total || 0;
-        if (selector === 'hot') totals.hot = result.total || 0;
-    }
-    
-    if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+    const params = new URLSearchParams({
+      page: page,
+      per_page: perPage,
+      start_date: document.getElementById('filter_start')?.value || '',
+      end_date: document.getElementById('filter_end')?.value || '',
+      search: getSearchQuery()
+    });
 
-    if (result.data && result.data.length > 0) {
+    try {
+      const response = await fetch(`${route}?${params.toString()}`, {
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load ${selector} trash leads`);
+      }
+
+      const result = await response.json();
+      const total = result.total || 0;
+      totals[selector] = total;
+      selectedClaimIdsByTab[selector].clear();
+
+      updatePagerUI(selector, total);
+      if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
+
+      if (result.data && result.data.length > 0) {
+        let rowsHtml = '';
         result.data.forEach(row => {
-            tbody.innerHTML += `
+          const claimId = Number(row.id);
+          rowsHtml += `
                 <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]">
+                    <td class="text-center p-1 md:p-2 lg:p-3">
+                      <input
+                        type="checkbox"
+                        class="restore-row-checkbox"
+                        data-tab="${selector}"
+                        value="${claimId}"
+                      />
+                    </td>
                     <td class="hidden">${row.id}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.claimed_at}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.trashed_at ?? '-'}</td>
@@ -413,13 +451,106 @@
                 </tr>
             `;
         });
-    } else {
+        tbody.innerHTML = rowsHtml;
+        syncSelectAllState(selector);
+        updateBulkRestoreUI();
+      } else {
         tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+        syncSelectAllState(selector);
+        updateBulkRestoreUI();
+      }
+    } catch (error) {
+      console.error('Load Trash Leads Error:', error);
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">Failed to load data</td></tr>`;
+      selectedClaimIdsByTab[selector].clear();
+      syncSelectAllState(selector);
+      updateBulkRestoreUI();
     }
-}
+  }
 
 
 $(function () {
+  updateBulkRestoreUI();
+
+  $(document).on('change', '.select-all-checkbox', function () {
+    const tab = $(this).data('tab');
+    const checked = this.checked;
+    const $checkboxes = $(`#${tab}BodyTable .restore-row-checkbox`);
+
+    if (!selectedClaimIdsByTab[tab]) return;
+
+    $checkboxes.each(function () {
+      const claimId = Number(this.value);
+      this.checked = checked;
+      if (checked) {
+        selectedClaimIdsByTab[tab].add(claimId);
+      } else {
+        selectedClaimIdsByTab[tab].delete(claimId);
+      }
+    });
+
+    syncSelectAllState(tab);
+    updateBulkRestoreUI();
+  });
+
+  $(document).on('change', '.restore-row-checkbox', function () {
+    const tab = $(this).data('tab');
+    const claimId = Number(this.value);
+    if (!selectedClaimIdsByTab[tab]) return;
+
+    if (this.checked) {
+      selectedClaimIdsByTab[tab].add(claimId);
+    } else {
+      selectedClaimIdsByTab[tab].delete(claimId);
+    }
+
+    syncSelectAllState(tab);
+    updateBulkRestoreUI();
+  });
+
+  $('#bulkRestoreBtn').on('click', function () {
+    const selectedIds = getSelectedClaimIds();
+    if (selectedIds.length === 0) {
+      notif('Please select at least one lead', 'error');
+      return;
+    }
+
+    Swal.fire({
+      title: 'Restore Leads',
+      text: `${selectedIds.length} selected lead(s) will be restored.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'No',
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#aaa'
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+
+      $.post('{{ url('api/trash-leads/restore') }}', {
+        claim_ids: selectedIds,
+        _token: '{{ csrf_token() }}'
+      }, function (res) {
+        notif(res.message || 'Leads restored successfully');
+
+        Object.keys(selectedClaimIdsByTab).forEach(function (tab) {
+          selectedClaimIdsByTab[tab].clear();
+          syncSelectAllState(tab);
+        });
+        updateBulkRestoreUI();
+
+        ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
+          reloadTab(tab);
+        });
+      }).fail(function (xhr) {
+        let err = 'Failed to restore selected leads';
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+          err = xhr.responseJSON.message;
+        }
+        notif(err, 'error');
+      });
+    });
+  });
   
   $(document).on('click', '.restore-lead', function(){
     const url = $(this).data('url');
@@ -437,8 +568,9 @@ $(function () {
       if (result.isConfirmed) {
         $.post(url, {_token: '{{ csrf_token() }}'}, function(res){
           notif(res.message || 'Lead restored successfully');
-          $('#coldTrashLeadsTable').DataTable().ajax.reload();
-          $('#warmTrashLeadsTable').DataTable().ajax.reload();
+          ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
+            reloadTab(tab);
+          });
         }).fail(function(xhr){
           let err = 'Failed to restore lead';
           if(xhr.responseJSON && xhr.responseJSON.message){
@@ -483,8 +615,9 @@ $(function () {
     $.post(url, {sales_id: salesId, _token: '{{ csrf_token() }}'}, function(res){
       notif(res.message || 'Lead assigned successfully');
       $('#assignLeadModal').modal('hide');
-      $('#coldTrashLeadsTable').DataTable().ajax.reload();
-      $('#warmTrashLeadsTable').DataTable().ajax.reload();
+      ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
+        reloadTab(tab);
+      });
     }).fail(function(xhr){
       let err = 'Failed to assign lead';
       if(xhr.responseJSON && xhr.responseJSON.message){
