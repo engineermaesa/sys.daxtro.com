@@ -137,7 +137,7 @@
             // ACHIEVEMENT VS TARGET FETCH DATA CARDS
             const achievementSalesFormatted = formatRupiah(data.achievement_target.achievement);
             
-            const targetSalesFormatted = formatRupiah(data.achievement_target.target);
+            const targetSalesFormatted = formatRupiah(data.achievement_target.target_amount);
             $("#targetSales").text(targetSalesFormatted).addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
             
             if ( data.achievement_target.percentage > 70 ){
