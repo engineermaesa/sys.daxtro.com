@@ -125,6 +125,7 @@
           </button>
         </div>
     </div>
+    
     {{-- TABLES AVAILABLE LEADS --}}
     <div class="bg-white rounded px-3 max-xl:overflow-x-scroll">
       <table id="availableLeadsTable" class="w-full text-[#1E1E1E]">

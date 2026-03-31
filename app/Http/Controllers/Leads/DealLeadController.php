@@ -67,9 +67,34 @@ class DealLeadController extends Controller
             });
         }
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claimsQuery->whereHas('lead.quotation', function ($q) use ($request) {
-                $q->firstTermPaidBetween($request->start_date, $request->end_date);
+        // FILTER DATE
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            $claimsQuery->whereHas('lead', function ($q) use ($request) {
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $q->whereDate('claimed_at', '>=', $request->start_date)
+                        ->whereDate('claimed_at', '<=', $request->end_date);
+                } elseif ($request->filled('start_date')) {
+                    $q->whereDate('claimed_at', '>=', $request->start_date);
+                } else {
+                    $q->whereDate('claimed_at', '<=', $request->end_date);
+                }
+            });
+        }
+
+        // Source filter
+        if ($request->filled('sources')) {
+            $source = $request->input('sources');
+
+            if (is_string($source) && str_contains($source, ',')) {
+                $source = array_filter(array_map('trim', explode(',', $source)));
+            }
+
+            $claimsQuery->whereHas('lead', function ($q) use ($source) {
+                if (is_array($source)) {
+                    $q->whereIn('source_id', $source);
+                } else {
+                    $q->where('source_id', $source);
+                }
             });
         }
 

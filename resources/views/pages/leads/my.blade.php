@@ -418,7 +418,7 @@
     <div class="mt-4 rounded-lg border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
         <div
-            class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+            class="bg-white lg:grid lg:grid-cols-2 border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
 
             {{-- FOR SMALL SCREEN SECTION --}}
             <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
@@ -445,59 +445,116 @@
                 </div>
             </div>
 
-            {{-- SEARCH TABLES --}}
-            <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
-                <div class="px-2">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
-                            fill="#6B7786" />
-                    </svg>
+            {{-- SEARCH AND FILTERS --}}
+            <div class="lg:grid lg:grid-cols-2 gap-4 max-lg:hidden">
+                {{-- SEARCH TABLES --}}
+                <div class="border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden h-full">
+                    <div class="px-2">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
+                                fill="#6B7786" />
+                        </svg>
+                    </div>
+                    <input type="text" placeholder="Search"
+                        class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
-                <input type="text" placeholder="Search"
-                    class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640] " />
+
+                {{-- FILTERS MENUS --}}
+                <div class="grid grid-cols-2 items-center border border-gray-300 rounded-lg text-[#1E1E1E] max-lg:text-xs! h-full">
+
+                    {{-- SOURCES --}}
+                    <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
+                        <select id="source-filter-new"
+                        class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                        <option value="">All Source</option>
+                        @foreach($leadSources as $source)
+                            <option value="{{ $source->id }}">{{ $source->name }}</option>
+                        @endforeach
+                        </select>
+                    </div>
+
+                    {{-- DATES --}}
+                    <div class="cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+
+                        {{-- TOGGLE --}}
+                        <div id="openDateDropdown" class="flex justify-center items-center gap-2">
+                            <p id="dateLabel" class="font-medium text-black">Date</p>
+                            <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                        </div>
+
+                        {{-- DATE DROPDOWN --}}
+                        <div id="dateDropdown" class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
+
+                            <h3 class="font-semibold mb-2">Select Date Range</h3>
+
+                                <div class="flex justify-center items-center">
+                                <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
+                                </div>
+
+                            <div class="flex justify-end gap-2 mt-3">
+
+                                <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                                    Cancel
+                                </button>
+
+                                <button id="applyDate"
+                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
+                                    Apply
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {{-- NAVIGATION STATUS TABLES --}}
-            <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
-                @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-                {{-- NAVIGATION STATUS --}}
-                <div data-status="{{ $tab }}"
-                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active">
-                    <p class="text-[#083224]">
-                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                        <span class="{{ 
-                                        $tab === 'all' 
-                                            ? 'span-all' 
-                                            : ($tab === 'cold' 
-                                                ? 'span-cold' 
-                                                : ($tab === 'warm' 
-                                                    ? 'span-warm' 
-                                                    : ($tab == 'hot'
-                                                        ? 'span-hot'
-                                                        : 'span-deal'
-                                                        )
+            {{-- NAVIGATION STAGE AND ADD MANUAL LEADS --}}
+            <div class="lg:grid lg:grid-cols-[3fr_1fr] gap-4 max-lg:hidden">
+
+                {{-- NAVIGATION STAGE TABLES --}}
+                <div class="border border-[#D5D5D5] rounded-lg grid grid-cols-5 h-full">
+                    @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
+                    {{-- NAVIGATION STATUS --}}
+                    <div data-status="{{ $tab }}"
+                        class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active flex items-center justify-center">
+                        <p class="text-[#083224]">
+                            {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
+                            <span class="{{ 
+                                            $tab === 'all' 
+                                                ? 'span-all' 
+                                                : ($tab === 'cold' 
+                                                    ? 'span-cold' 
+                                                    : ($tab === 'warm' 
+                                                        ? 'span-warm' 
+                                                        : ($tab == 'hot'
+                                                            ? 'span-hot'
+                                                            : 'span-deal'
+                                                            )
+                                                    )
                                                 )
-                                            )
-                                        }}">
-                            {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
-                        </span>
-                    </p>
+                                            }}">
+                                {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
+                            </span>
+                        </p>
+                    </div>
+                    @endforeach
                 </div>
-                @endforeach
+
+                {{-- ADD MANUAL LEADS --}}
+                <div class="bg-[#115640] rounded-lg hidden lg:flex! h-full">
+                    <a href="{{ route('leads.my.form') }}"
+                        class="w-full h-full flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
+                                fill="#E7F3EE" />
+                        </svg>
+                        <p class="text-white font-medium">Leads Manually</p>
+                    </a>
+                </div>
             </div>
-            {{-- ADD MANUAL LEADS --}}
-            <div class="lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
-                <a href="{{ route('leads.my.form') }}"
-                    class="flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
-                            fill="#E7F3EE" />
-                    </svg>
-                    <p class="text-white font-medium">Leads Manually</p>
-                </a>
-            </div>
+
         </div>
 
         {{-- CONTENTS TABLES --}}
@@ -508,7 +565,8 @@
                     {{-- HEADER TABLE --}}
                     <thead class="text-[#1E1E1E]">
                         <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="font-bold text-left p-1 lg:p-3">Lead Name</th>
+                            <th class="p-1 lg:p-3">Claimed At</th>
+                            <th class="p-1 lg:p-3">Lead Name</th>
                             <th class="p-1 lg:p-3">Sales Name</th>
                             <th class="p-1 lg:p-3">Telephone</th>
                             <th class="p-1 lg:p-3">Source</th>
@@ -737,6 +795,16 @@
     let searchTimeout = null;
     let searchState = '';
     let activeTabState = 'all';
+    let sourceSelected = '';
+    let filterStartDate = '';
+    let filterEndDate = '';
+    let fp = null;
+
+    function resetAllPages() {
+        Object.keys(pageState).forEach(key => {
+            pageState[key] = 1;
+        });
+    }
 
    function getSearchQuery() {
         return searchState;
@@ -754,7 +822,7 @@
             });
 
             searchTimeout = setTimeout(() => {
-                Object.keys(pageState).forEach(key => pageState[key] = 1);
+                resetAllPages();
 
                 const activeTab = activeTabState || 'all';
 
@@ -764,6 +832,87 @@
             }, 500);
         });
     });
+
+    function initSourceFilter() {
+        const sourceSelect = document.getElementById('source-filter-new');
+        if (!sourceSelect) return;
+
+        sourceSelected = sourceSelect.value || '';
+
+        sourceSelect.addEventListener('change', function () {
+            sourceSelected = this.value || '';
+            resetAllPages();
+            reloadTab(activeTabState || 'all');
+        });
+    }
+
+    function initFlatpickr() {
+        const input = document.getElementById('source-date-range');
+        if (input && typeof flatpickr !== 'undefined') {
+            fp = flatpickr(input, {
+                mode: 'range',
+                inline: true,
+                dateFormat: 'Y-m-d',
+                onClose: function () {
+                    // keep input populated; apply via Apply button
+                }
+            });
+        }
+    }
+
+    function filterDate() {
+        const openBtn = document.getElementById('openDateDropdown');
+        const dropdown = document.getElementById('dateDropdown');
+        const chevron = document.getElementById('iconDate');
+        const label = document.getElementById('dateLabel');
+
+        function closeDropdown() {
+            if (dropdown) {
+                dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            }
+            if (chevron) {
+                chevron.classList.remove('rotate-180');
+            }
+        }
+
+        if (openBtn) {
+            openBtn.onclick = () => {
+                if (dropdown) {
+                    dropdown.classList.toggle('opacity-0');
+                    dropdown.classList.toggle('scale-95');
+                    dropdown.classList.toggle('pointer-events-none');
+                }
+                if (chevron) chevron.classList.toggle('rotate-180');
+                if (fp) fp.open();
+            };
+        }
+
+        const cancelBtn = document.getElementById('cancelDate');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                closeDropdown();
+            });
+        }
+
+        const applyBtn = document.getElementById('applyDate');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+                const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
+                if (dates.length !== 2) return;
+
+                filterStartDate = fp.formatDate(dates[0], 'Y-m-d');
+                filterEndDate = fp.formatDate(dates[1], 'Y-m-d');
+
+                if (label) {
+                    label.innerText = `${filterStartDate} -> ${filterEndDate}`;
+                }
+
+                resetAllPages();
+                reloadTab(activeTabState || 'all');
+                closeDropdown();
+            });
+        }
+    }
 
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
@@ -840,6 +989,10 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
+        initSourceFilter();
+        initFlatpickr();
+        filterDate();
+
         initTable('all', `${myRoutes['all']}`);
         initTable('cold', `${myRoutes['cold']}`);
         initTable('warm', `${myRoutes['warm']}`);
@@ -950,10 +1103,18 @@
         const params = new URLSearchParams({
             page: page,
             per_page: perPage,
-            start_date: document.getElementById('filter_start')?.value || '',
-            end_date: document.getElementById('filter_end')?.value || '',
-            search: searchQuery
+            search: searchQuery,
         });
+
+        if (sourceSelected) {
+            params.append('sources', sourceSelected);
+        }
+        if (filterStartDate) {
+            params.append('start_date', filterStartDate);
+        }
+        if (filterEndDate) {
+            params.append('end_date', filterEndDate);
+        }
 
         const tbody = document.getElementById(`${selector}BodyTable`);
 
@@ -1041,6 +1202,7 @@
                     tbody.innerHTML += `
                         <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]">
                             <td class="hidden">${row.id}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.claimed_at}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>

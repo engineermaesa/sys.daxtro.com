@@ -642,6 +642,7 @@ class LeadController extends Controller
                 'deal' => $counts[LeadStatus::DEAL] ?? 0,
             ],
             'activities' => LeadActivityList::all(),
+            'leadSources' => LeadSource::orderBy('name')->get()
         ]);
     }
 
@@ -1760,6 +1761,37 @@ class LeadController extends Controller
                 ->orWhereHas('lead.region.regional', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
                 });
+            });
+        }
+
+        // FILTER DATE
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            $claims->whereHas('lead', function ($q) use ($request) {
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $q->whereDate('claimed_at', '>=', $request->start_date)
+                        ->whereDate('claimed_at', '<=', $request->end_date);
+                } elseif ($request->filled('start_date')) {
+                    $q->whereDate('claimed_at', '>=', $request->start_date);
+                } else {
+                    $q->whereDate('claimed_at', '<=', $request->end_date);
+                }
+            });
+        }
+
+        // Source filter
+        if ($request->filled('sources')) {
+            $source = $request->input('sources');
+
+            if (is_string($source) && str_contains($source, ',')) {
+                $source = array_filter(array_map('trim', explode(',', $source)));
+            }
+
+            $claims->whereHas('lead', function ($q) use ($source) {
+                if (is_array($source)) {
+                    $q->whereIn('source_id', $source);
+                } else {
+                    $q->where('source_id', $source);
+                }
             });
         }
 
