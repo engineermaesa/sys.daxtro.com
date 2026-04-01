@@ -24,7 +24,8 @@
     document.addEventListener("DOMContentLoaded", function () {
         loadDashboardGrid();
         loadActivity();
-        loadLead();
+        loadSource();
+        loadSegment();
         loadPersonalTrends();
         loadSummary();
 

@@ -65,8 +65,25 @@ class LeadSummaryController extends Controller
 
         $completedDeals = 0;
         $monetaryActual = 0;
+        $leadsActual = 0;
+        $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
+            $lead = $claim->lead;
+
+            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
+            if ($claimDate) {
+                $claimMonth = (string) Carbon::parse($claimDate)->month;
+
+                if ($claimMonth === $monthKey) {
+                    $leadsActual++;
+
+                    if ((int) ($lead?->source_id ?? 0) === 9) {
+                        $visitsActual++;
+                    }
+                }
+            }
+
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -270,7 +287,9 @@ class LeadSummaryController extends Controller
                     'target_amount' => $target_amount,
                     'target_leads' => $target_lead,
                     'target_visits' => $target_visit,
-                    'achievement' => $monetaryActual,
+                    'leads_actual' => $leadsActual,
+                    'visits_actual' => $visitsActual,
+                    'achievement_amount' => $monetaryActual,
                     'percentage' => $achievementPercentage,
                 ],
                 'closed_deal' => [
@@ -460,6 +479,9 @@ class LeadSummaryController extends Controller
             })
             ->when($request->source_id, function ($q) use ($request) {
                 $q->where('leads.source_id', $request->source_id);
+            })
+            ->when($request->segment_id, function ($q) use ($request) {
+                $q->where('leads.segment_id', $request->segment_id);
             })
             ->selectRaw(
                 "lead_sources.name as source,
