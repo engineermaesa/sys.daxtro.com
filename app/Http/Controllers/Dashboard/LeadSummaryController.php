@@ -15,9 +15,32 @@ class LeadSummaryController extends Controller
     public function grid(Request $request)
     {
         $user = Auth::user();
+        
+        $monthKey = (string) Carbon::now('Asia/Jakarta')->month;
+        
+        $getMonthlyTarget = function ($raw, string $field, string $monthKey): float {
+            if (empty($raw)) {
+                return 0;
+            }
+
+            // Format: "40|{...json...}"
+            [$default, $jsonPart] = array_pad(explode('|', (string) $raw, 2), 2, null);
+
+            if (!empty($jsonPart)) {
+                $decoded = json_decode($jsonPart, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return (float) ($decoded[$monthKey][$field] ?? 0);
+                }
+            }
+
+            // fallback kalau ternyata hanya angka
+            return is_numeric($default) ? (float) $default : 0;
+        };
 
         // target comes from user (set by superadmin)
-        $target = $user && $user->target ? (float) $user->target : 0;
+        $target_amount = $getMonthlyTarget($user->target ?? null, 'amount', $monthKey);
+        $target_lead = $getMonthlyTarget($user->target_leads ?? null, 'leads', $monthKey);
+        $target_visit = $getMonthlyTarget($user->target_visit ?? $user->target_visits ?? null, 'visits', $monthKey);
 
         // Align with `/api/leads/my/deal/list`: deals are sourced from active LeadClaims with status DEAL.
         $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
@@ -42,8 +65,25 @@ class LeadSummaryController extends Controller
 
         $completedDeals = 0;
         $monetaryActual = 0;
+        $leadsActual = 0;
+        $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
+            $lead = $claim->lead;
+
+            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
+            if ($claimDate) {
+                $claimMonth = (string) Carbon::parse($claimDate)->month;
+
+                if ($claimMonth === $monthKey) {
+                    $leadsActual++;
+
+                    if ((int) ($lead?->source_id ?? 0) === 9) {
+                        $visitsActual++;
+                    }
+                }
+            }
+
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -68,8 +108,8 @@ class LeadSummaryController extends Controller
         }
 
         $monetaryActual = round($monetaryActual, 2);
-        $achievementPercentage = $target > 0
-            ? round(($monetaryActual / $target) * 100, 2)
+        $achievementPercentage = $target_amount > 0
+            ? round(($monetaryActual / $target_amount) * 100, 2)
             : 0;
 
         $closedDeals = $completedDeals;
@@ -244,8 +284,12 @@ class LeadSummaryController extends Controller
             'status' => 'success',
             'Data' => [
                 'achievement_target' => [
-                    'target' => $target,
-                    'achievement' => $monetaryActual,
+                    'target_amount' => $target_amount,
+                    'target_leads' => $target_lead,
+                    'target_visits' => $target_visit,
+                    'leads_actual' => $leadsActual,
+                    'visits_actual' => $visitsActual,
+                    'achievement_amount' => $monetaryActual,
                     'percentage' => $achievementPercentage,
                 ],
                 'closed_deal' => [
@@ -435,6 +479,9 @@ class LeadSummaryController extends Controller
             })
             ->when($request->source_id, function ($q) use ($request) {
                 $q->where('leads.source_id', $request->source_id);
+            })
+            ->when($request->segment_id, function ($q) use ($request) {
+                $q->where('leads.segment_id', $request->segment_id);
             })
             ->selectRaw(
                 "lead_sources.name as source,

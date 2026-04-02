@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Masters\CustomerType;
 use App\Models\Orders\Quotation;
 use App\Models\Leads\{Lead, LeadStatus, LeadSource};
 use App\Models\Masters\Branch;
@@ -74,6 +75,8 @@ class DashboardController extends Controller
         $branches = Branch::all();
         $leadSources = LeadSource::orderBy('name')->get();
 
+        $segments = CustomerType::orderBy('name')->get();
+
         $defaultStart = now()->startOfMonth()->format('Y-m-d');
         $defaultEnd   = now()->endOfMonth()->format('Y-m-d');
 
@@ -85,6 +88,7 @@ class DashboardController extends Controller
             'quotationStatusStats' => $quotationStatusStats,
             'branches'             => $branches,
             'leadSources'          => $leadSources,
+            'segments'             => $segments,
             'currentBranchId'      => $user->branch_id,
             'defaultStart'         => $defaultStart,
             'defaultEnd'           => $defaultEnd,
