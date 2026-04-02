@@ -10,7 +10,8 @@
           <a href="{{ route('leads.import.template') }}" class="btn btn-success mb-3">
             <i class="bi bi-download"></i> Download Template
           </a>
-          <button class="btn btn-link p-0" type="button" data-toggle="collapse" data-target="#importHelp" aria-expanded="false">
+          <button class="btn btn-link p-0" type="button" data-toggle="collapse" data-target="#importHelp"
+            aria-expanded="false">
             Need help?
           </button>
           <div id="importHelp" class="collapse mt-2">
@@ -25,10 +26,12 @@
       <div class="card h-100">
         <div class="card-header"><strong>Upload Leads File</strong></div>
         <div class="card-body">
-          <form id="uploadForm" action="{{ route('leads.import.preview') }}" method="POST" enctype="multipart/form-data">
+          <form id="uploadForm" action="{{ route('leads.import.preview') }}" method="POST"
+            enctype="multipart/form-data">
             @csrf
             <div class="custom-file mb-3">
-              <input type="file" class="custom-file-input" id="importFile" name="import_file" accept=".xlsx,.csv" required>
+              <input type="file" class="custom-file-input" id="importFile" name="import_file" accept=".xlsx,.csv"
+                required>
               <label class="custom-file-label" for="importFile">Choose Excel/CSV file...</label>
             </div>
             <button type="submit" class="btn btn-primary">Preview Import</button>
@@ -47,108 +50,102 @@
         <button type="submit" class="btn btn-success" {{ $hasError ? 'disabled' : '' }}>Submit Verified Leads</button>
       </div>
       <div class="card-body p-0">
-      <div class="table-responsive">
-        <table id="previewTable" class="table table-bordered table-sm mb-0">
-          <thead class="thead-light">
-            <tr>
-              <th>#</th>
-              <th>source_id*</th>
-              <th>segment_id*</th>
-              <th>region_id*</th>
-              <th>lead_name</th>
-              <th>lead_email</th>
-              <th>lead_phone</th>
-              <th>lead_needs</th>
-              <th>nip_sales</th>
-              <th>published_at</th>
-              <th>status_stage</th>
-              <th>quotation_number</th>
-              <th>quotation_date</th>
-              <th>quotation_total</th>
-              <th>total_terms</th>
-              <th>paid_terms</th>
-              <th>paid_amount</th>
-              <th>remaining_amount</th>
-              <th>deal_closed_at</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @foreach($rows as $idx => $row)
-            <tr class="{{ $row['error'] ? 'table-danger' : '' }}" data-index="{{ $idx }}">
-              <td>{{ $idx + 1 }}</td>
-              <td>
-                <select name="rows[{{ $idx }}][source_id]" class="form-control form-control-sm">
-                  <option value="">--</option>
-                  @foreach($sources as $s)
-                    <option value="{{ $s->id }}" {{ $s->id == $row['source_id'] ? 'selected' : '' }}>{{ $s->name }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <select name="rows[{{ $idx }}][segment_id]" class="form-control form-control-sm">
-                  <option value="">--</option>
-                  @foreach($segments as $seg)
-                    <option value="{{ $seg->id }}" {{ $seg->id == $row['segment_id'] ? 'selected' : '' }}>{{ $seg->name }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <select name="rows[{{ $idx }}][region_id]" class="form-control form-control-sm">
-                  <option value="">All Region</option>
-                  @foreach($regions as $r)
-                    <option value="{{ $r->id }}" {{ $r->id == $row['region_id'] ? 'selected' : '' }}>{{ $r->name }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td><input type="text" name="rows[{{ $idx }}][lead_name]" value="{{ $row['lead_name'] }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][lead_email]" value="{{ $row['lead_email'] }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][lead_phone]" value="{{ $row['lead_phone'] }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][lead_needs]" value="{{ $row['lead_needs'] }}" class="form-control form-control-sm"></td>
-              <td>
-                <select name="rows[{{ $idx }}][nip_sales]" class="form-control form-control-sm">
-                  <option value="">--</option>
-                  @foreach($users as $u)
-                    <option value="{{ $u->nip }}" {{ $u->nip == $row['nip_sales'] ? 'selected' : '' }}>{{ $u->nip }} - {{ $u->name }}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td><input type="text" name="rows[{{ $idx }}][published_at]" value="{{ $row['published_at'] }}" class="form-control form-control-sm"></td>
-              <td>
-                <select name="rows[{{ $idx }}][status_stage]" class="form-control form-control-sm">
-                  @php($stage = $row['status_stage'] ?? '')
-                  <option value="" {{ $stage === '' ? 'selected' : '' }}>--</option>
-                  <option value="cold" {{ $stage === 'cold' ? 'selected' : '' }}>cold</option>
-                  <option value="warm" {{ $stage === 'warm' ? 'selected' : '' }}>warm</option>
-                  <option value="hot" {{ $stage === 'hot' ? 'selected' : '' }}>hot</option>
-                  <option value="deal" {{ $stage === 'deal' ? 'selected' : '' }}>deal</option>
-                </select>
-              </td>
-              <td><input type="text" name="rows[{{ $idx }}][quotation_number]" value="{{ $row['quotation_number'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][quotation_date]" value="{{ $row['quotation_date'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][quotation_total]" value="{{ $row['quotation_total'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][total_terms]" value="{{ $row['total_terms'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][paid_terms]" value="{{ $row['paid_terms'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][paid_amount]" value="{{ $row['paid_amount'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][remaining_amount]" value="{{ $row['remaining_amount'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td><input type="text" name="rows[{{ $idx }}][deal_closed_at]" value="{{ $row['deal_closed_at'] ?? '' }}" class="form-control form-control-sm"></td>
-              <td>
-                @if($row['error'])
+        <div class="table-responsive">
+          <table id="previewTable" class="table table-bordered table-sm mb-0">
+            <thead class="thead-light">
+              <tr>
+                <th>#</th>
+                <th>source_id*</th>
+                <th>segment_id*</th>
+                <th>region_id*</th>
+                <th>lead_name</th>
+                <th>lead_email</th>
+                <th>lead_phone</th>
+                <th>lead_needs</th>
+                <th>nip_sales</th>
+                <th>published_at</th>
+                <th>status_stage</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($rows as $idx => $row)
+              <tr class="{{ $row['error'] ? 'table-danger' : '' }}" data-index="{{ $idx }}">
+                <td>{{ $idx + 1 }}</td>
+                <td>
+                  <select name="rows[{{ $idx }}][source_id]" class="form-control form-control-sm">
+                    <option value="">--</option>
+                    @foreach($sources as $s)
+                    <option value="{{ $s->id }}" {{ $s->id == $row['source_id'] ? 'selected' : '' }}>{{ $s->name }}
+                    </option>
+                    @endforeach
+                  </select>
+                </td>
+                <td>
+                  <select name="rows[{{ $idx }}][segment_id]" class="form-control form-control-sm">
+                    <option value="">--</option>
+                    @foreach($segments as $seg)
+                    <option value="{{ $seg->id }}" {{ $seg->id == $row['segment_id'] ? 'selected' : '' }}>{{ $seg->name
+                      }}</option>
+                    @endforeach
+                  </select>
+                </td>
+                <td>
+                  <select name="rows[{{ $idx }}][region_id]" class="form-control form-control-sm">
+                    <option value="">All Region</option>
+                    @foreach($regions as $r)
+                    <option value="{{ $r->id }}" {{ $r->id == $row['region_id'] ? 'selected' : '' }}>{{ $r->name }}
+                    </option>
+                    @endforeach
+                  </select>
+                </td>
+                <td><input type="text" name="rows[{{ $idx }}][lead_name]" value="{{ $row['lead_name'] }}"
+                    class="form-control form-control-sm"></td>
+                <td><input type="text" name="rows[{{ $idx }}][lead_email]" value="{{ $row['lead_email'] }}"
+                    class="form-control form-control-sm"></td>
+                <td><input type="text" name="rows[{{ $idx }}][lead_phone]" value="{{ $row['lead_phone'] }}"
+                    class="form-control form-control-sm"></td>
+                <td><input type="text" name="rows[{{ $idx }}][lead_needs]" value="{{ $row['lead_needs'] }}"
+                    class="form-control form-control-sm"></td>
+                <td>
+                  <select name="rows[{{ $idx }}][nip_sales]" class="form-control form-control-sm">
+                    <option value="">--</option>
+                    @foreach($users as $u)
+                    <option value="{{ $u->nip }}" {{ $u->nip == $row['nip_sales'] ? 'selected' : '' }}>{{ $u->nip }} -
+                      {{ $u->name }}</option>
+                    @endforeach
+                  </select>
+                </td>
+                <td><input type="text" name="rows[{{ $idx }}][published_at]" value="{{ $row['published_at'] }}"
+                    class="form-control form-control-sm"></td>
+                <td>
+                  <select name="rows[{{ $idx }}][status_stage]" class="form-control form-control-sm">
+                    @php($stage = $row['status_stage'] ?? '')
+                    <option value="" {{ $stage==='' ? 'selected' : '' }}>--</option>
+                    <option value="cold" {{ $stage==='cold' ? 'selected' : '' }}>cold</option>
+                    <option value="warm" {{ $stage==='warm' ? 'selected' : '' }}>warm</option>
+                    <option value="hot" {{ $stage==='hot' ? 'selected' : '' }}>hot</option>
+                    <option value="deal" {{ $stage==='deal' ? 'selected' : '' }}>deal</option>
+                  </select>
+                </td>
+                <td>
+                  @if($row['error'])
                   <span class="badge badge-danger">{{ $row['error'] }}</span>
-                @else
+                  @else
                   <span class="badge badge-success">OK</span>
-                @endif
-              </td>
-              <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="bi bi-x"></i></button>
-              </td>
-            </tr>
-            @endforeach
-          </tbody>
-        </table>
+                  @endif
+                </td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i
+                      class="bi bi-x"></i></button>
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
     </form>
   </div>
   @endisset
@@ -158,7 +155,7 @@
 @section('scripts')
 @if(isset($rows))
 <script>
-$(function(){
+  $(function(){
   document.addEventListener('DOMContentLoaded', function () {
     bsCustomFileInput.init();
 
@@ -202,7 +199,7 @@ $(function(){
 </script>
 @endif
 <script>
-$('#uploadForm').on('submit', function(){
+  $('#uploadForm').on('submit', function(){
   loading();
 });
 @if(session('success'))
