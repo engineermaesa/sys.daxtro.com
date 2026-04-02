@@ -427,6 +427,19 @@ class LeadController extends Controller
                     $lead->agent_title = $request->agent_title[$i] ?? null;
                     $lead->agent_name = $request->agent_name[$i] ?? null;
                     $lead->spk_canvassing = $request->spk_canvassing[$i] ?? null;
+
+                    // Jika segment_id belum diisi tapi Customer Type ada,
+                    // coba mapping ke master lead_segments berdasarkan nama yang sama.
+                    if (! $lead->segment_id && $lead->customer_type) {
+                        $segment = LeadSegment::where('name', $lead->customer_type)->first();
+                        if ($segment) {
+                            $lead->segment_id = $segment->id;
+                        }
+                    }
+
+                    if ($isSales || $isMyForm) {
+                        $lead->first_sales_id = $user->id;
+                    }
                     $lead->published_at = now();
 
                     $lead->save();
@@ -529,7 +542,19 @@ class LeadController extends Controller
             $lead->agent_title = $request->agent_title;
             $lead->agent_name = $request->agent_name;
             $lead->spk_canvassing = $request->spk_canvassing;
+
+            // Mapping otomatis segment berdasarkan Customer Type jika segment belum di-set.
+            if (! $lead->segment_id && $lead->customer_type) {
+                $segment = LeadSegment::where('name', $lead->customer_type)->first();
+                if ($segment) {
+                    $lead->segment_id = $segment->id;
+                }
+            }
             $lead->published_at = $id ? $lead->published_at : now();
+
+            if (! $id && ($isSales || $isMyForm)) {
+                $lead->first_sales_id = $user->id;
+            }
             $lead->save();
 
             if (! $id && ($isSales || $isMyForm)) {

@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Dashboard\DashSummaryController;
 use App\Http\Controllers\Dashboard\LeadSummaryController;
+use App\Http\Controllers\Dashboard\BMSummaryController;
 
 // LEADS (API)
 use App\Http\Controllers\Leads\LeadActivityController;
@@ -54,12 +55,25 @@ Route::get('/dashboard/warm-hot-list', [DashboardController::class, 'warmHotList
 Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potentialDealing']);
 
 // =====================================
-// DASHBOARD (API)
+// DASHBOARD (SuperAdmin)
 // =====================================
 Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
+Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'ActiveOpportunities']);
+Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
+
+
+Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
+
+// =====================================
+// DASHBOARD (BM)
+// =====================================
+Route::get('/dashboard/bm/grid', [BMSummaryController::class, 'grid']);
+Route::get('/dashboard/bm/active-opportunities', [BMSummaryController::class, 'ActiveOpportunities']);
+Route::get('/dashboard/bm/sales-trend', [BMSummaryController::class, 'SalesTrend']);
+
 
 
 
