@@ -60,9 +60,10 @@ Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potenti
 Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
 Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'ActiveOpportunities']);
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
-
-
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
+
+
+
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
@@ -70,9 +71,14 @@ Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 
 // =====================================
 // DASHBOARD (BM)
 // =====================================
-Route::get('/dashboard/bm/grid', [BMSummaryController::class, 'grid']);
-Route::get('/dashboard/bm/active-opportunities', [BMSummaryController::class, 'ActiveOpportunities']);
-Route::get('/dashboard/bm/sales-trend', [BMSummaryController::class, 'SalesTrend']);
+Route::group([
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+    Route::get('/dashboard/bm/grid', [BMSummaryController::class, 'grid']);
+    Route::get('/dashboard/bm/active-opportunities', [BMSummaryController::class, 'ActiveOpportunities']);
+    Route::get('/dashboard/bm/sales-trend', [BMSummaryController::class, 'SalesTrend']);
+    Route::get('/dashboard/bm/leads-performance', [BMSummaryController::class, 'LeadsPerformance']);
+});
 
 
 

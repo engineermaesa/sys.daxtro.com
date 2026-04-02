@@ -18,7 +18,7 @@ class AutoTrashExpiredLeads extends Command
      *
      * @var string
      */
-    protected $description = 'Auto trash expired cold (3+ days), warm (7+ days) and hot (30+ days) leads';
+    protected $description = 'Auto trash expired cold (30+ days), warm (7+ days) and hot (30+ days) leads';
 
     /**
      * Execute the console command.
