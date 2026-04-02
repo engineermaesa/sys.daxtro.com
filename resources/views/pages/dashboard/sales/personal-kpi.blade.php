@@ -1,6 +1,6 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Personal KPI</h1>
 
-<div class="grid grid-cols-2 2xl:grid-cols-6 gap-3 mt-2">
+<div class="grid grid-cols-3 2xl:grid-cols-6 gap-3 mt-2">
     {{-- ACHIEVEMENT VS TARGET SALE AMOUNT SECTION--}}
     <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
 
@@ -274,7 +274,7 @@
             $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
 
             const totalAmountFormatted = formatRupiah(data.closed_deal.total_amount);
-            $("#totalAmount").text("Amount: " + totalAmountFormatted).addClass('text-sm');
+            $("#totalAmount").text("Amount: " + totalAmountFormatted).addClass('text-xs');
 
             if (data.closed_deal.conversion_rate > 75) {
                 $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-finish text-xs lg:text-sm');

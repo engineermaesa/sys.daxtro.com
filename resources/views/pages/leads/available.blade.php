@@ -13,10 +13,10 @@
     <p class="mt-1 text-[#115640] sm:text-sm! lg:text-base!">Available Leads</p>
   </div>
 
-  <section class="bg-white rounded-lg mt-3 mb-4">
+  <section class="bg-white border border-[#D9D9D9] rounded-lg mt-3 mb-4">
 
     {{-- NAVIGATION --}}
-    <div class="lg:flex lg:px-3 lg:py-4 gap-3 grid grid-cols-1 px-2 py-3">
+    <div class="lg:flex lg:px-3 lg:py-4 gap-3 grid grid-cols-1 px-2 py-3 border-b border-b-[#D9D9D9]">
 
         {{-- SMALL SEARCH AND EXPORT --}}
         <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
@@ -56,7 +56,7 @@
             </div>
 
             {{-- SOURCES --}}
-            <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
+            <div id="filterSources" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
                 <select id="source-filter-new"
                 class="w-full font-semibold text-center focus:outline-none cursor-pointer">
                   <option value="">All Source</option>
@@ -72,8 +72,8 @@
 
               {{-- TOGGLE --}}
               <div id="openDateDropdown" class="flex justify-center items-center gap-2">
-                  <p id="dateLabel" class="font-medium text-black">Date</p>
-                  <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                <p id="dateLabel" class="font-medium text-black">Date</p>
+                <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
               </div>
 
               {{-- DATE DROPDOWN --}}
@@ -99,9 +99,10 @@
 
                   </div>
               </div>
-            </div>  
+            </div> 
+             
             {{-- RESET FILTER --}}
-            <div class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
+            <div id="resetFilter" class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
                 <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
                 <p class="font-medium text-[#900B09]">Reset Filter</p>
             </div>
@@ -120,18 +121,20 @@
             </a>
           @endif
 
-          <button id="btnExport" class="w-full h-full bg-[#115640] text-white font-semibold rounded-lg cursor-pointer" type="button">
+          <button id="btnExport" class="w-full h-full bg-[#115640] text-white font-semibold rounded-lg cursor-pointer max-lg:hidden" type="button">
             <i class="bi bi-download me-1"></i> Export Excel
           </button>
         </div>
     </div>
     
     {{-- TABLES AVAILABLE LEADS --}}
-    <div class="bg-white rounded px-3 max-xl:overflow-x-scroll">
+    <div class="max-xl:overflow-x-scroll">
       <table id="availableLeadsTable" class="w-full text-[#1E1E1E]">
-        <thead class="border-b border-b-[#CFD5DC] border-t border-t-[#D9D9D9]">
+        <thead class="border-b border-b-[#D9D9D9]">
           <tr>
-            {{-- <th>ID</th> --}}
+            <th class="font-bold text-center lg:p-3 sm:p-1 w-[40px]">
+              <input type="checkbox" id="selectAllExport" class="cursor-pointer">
+            </th>
             <th class="font-bold text-left lg:p-3 sm:p-1">Published At</th>
             <th class="font-bold text-left lg:p-3 sm:p-1">Name</th>
             <th class="font-bold text-left lg:p-3 sm:p-1">Branch</th>
@@ -159,6 +162,28 @@
 <script>
 $(function () {
   var fp = null;
+  const selectedLeadIds = new Set();
+
+  function normalizeLeadId(id) {
+    if (id === null || id === undefined || id === '') return null;
+    return String(id);
+  }
+
+  function syncSelectAllCheckbox() {
+    const rowChecks = $('#availableLeadsBody .row-export-check');
+    if (!rowChecks.length) {
+      $('#selectAllExport').prop('checked', false);
+      return;
+    }
+
+    const allChecked = rowChecks.length === rowChecks.filter(':checked').length;
+    $('#selectAllExport').prop('checked', allChecked);
+  }
+
+  function clearSelectedExport() {
+    selectedLeadIds.clear();
+    $('#selectAllExport').prop('checked', false);
+  }
 
   function initFlatpickr() {
     var input = document.getElementById('source-date-range');
@@ -297,7 +322,7 @@ $(function () {
         beforeSend: function () {
             tbody.html(`
                 <tr>
-                    <td colspan="12" class="text-center py-6 text-[#1E1E1E] opacity-50">
+                    <td colspan="13" class="text-center py-6 text-[#1E1E1E] opacity-50">
                         Loading for Available Leads...
                     </td>
                 </tr>
@@ -312,15 +337,21 @@ $(function () {
             if (!rows || rows.length === 0) {
               tbody.append(`
                   <tr>
-                      <td colspan="12" class="text-center py-6 text-[#1E1E1E] opacity-50">
+                      <td colspan="13" class="text-center py-6 text-[#1E1E1E] opacity-50">
                           No Leads available
                       </td>
                   </tr>
               `);
+              syncSelectAllCheckbox();
               return;
             }
 
             rows.forEach(row => {
+                const leadId = normalizeLeadId(row.id);
+                const isChecked = leadId !== null && selectedLeadIds.has(leadId);
+                const checkboxCell = leadId === null
+                  ? '<input type="checkbox" class="row-export-check cursor-pointer" disabled>'
+                  : `<input type="checkbox" class="row-export-check cursor-pointer" value="${leadId}" ${isChecked ? 'checked' : ''}>`;
 
                 const date = row.published_at
                     ? new Date(row.published_at).toLocaleString('en-GB', {
@@ -334,6 +365,7 @@ $(function () {
 
                 tbody.append(`
                     <tr class="border-t border-t-[#D9D9D9]">
+                        <td class="lg:p-3 sm:p-1 text-center">${checkboxCell}</td>
                         <td class="lg:p-3 sm:p-1">${date}</td>
                         <td class="lg:p-3 sm:p-1">${row.name ?? '-'}</td>
                         <td class="lg:p-3 sm:p-1">${row.branch_name ?? '-'}</td>
@@ -345,10 +377,12 @@ $(function () {
                         <td class="lg:p-3 sm:p-1">${row.region_name ?? '-'}</td>
                         <td class="lg:p-3 sm:p-1">${row.source_name ?? '-'}</td>
                         <td class="lg:p-3 sm:p-1">${row.segment_name ?? '-'}</td>
-                        <td class="py-3 grid grid-cols-1 gap-2 ">${row.actions ?? '-'}</td>
+                        <td class="p-3 grid grid-cols-1 gap-2 ">${row.actions ?? '-'}</td>
                     </tr>
                 `);
             });
+
+            syncSelectAllCheckbox();
         }
     });
   }
@@ -368,12 +402,72 @@ $(function () {
       }
   });
 
+  // RESET FILTERS
+  $('#resetFilter').on('click', function(){
+    // clear global search inputs (mobile + desktop)
+    $('.globalSearch').val('');
+
+    // reset source filter
+    if ($('#source-filter-new').length) {
+      $('#source-filter-new').val('');
+    }
+    if ($('#filterSources select').length) {
+      $('#filterSources select').val('');
+    }
+
+    // reset date picker and label
+    if (fp) {
+      fp.clear();
+    }
+    $('#source-date-range').val('');
+    $('#dateLabel').text('Date');
+
+    // close date dropdown if open and reset chevron state
+    const dropdown = document.getElementById('dateDropdown');
+    const chevron = document.getElementById('iconDate');
+    if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+    if (chevron) chevron.classList.remove('rotate-180');
+
+    clearSelectedExport();
+
+    // reload without filters
+    loadAvailableLeads();
+  });
+
+  $(document).on('change', '#selectAllExport', function () {
+    const checked = $(this).is(':checked');
+    $('#availableLeadsBody .row-export-check').each(function () {
+      $(this).prop('checked', checked);
+      const leadId = normalizeLeadId($(this).val());
+      if (!leadId) return;
+
+      if (checked) {
+        selectedLeadIds.add(leadId);
+      } else {
+        selectedLeadIds.delete(leadId);
+      }
+    });
+  });
+
+  $(document).on('change', '.row-export-check', function () {
+    const leadId = normalizeLeadId($(this).val());
+    if (!leadId) return;
+
+    if ($(this).is(':checked')) {
+      selectedLeadIds.add(leadId);
+    } else {
+      selectedLeadIds.delete(leadId);
+    }
+
+    syncSelectAllCheckbox();
+  });
+
   $(document).on('click', '#btnExport', function () {
     const params = new URLSearchParams();
     const branchInput = $('#filter_branch');
     const regionInput = $('#filter_region');
     const sourceInput = $('#source-filter-new');
-    const qInput = $('.globalSearch');
+    const q = getGlobalSearchValue();
 
     if (branchInput.length && branchInput.val()) {
       params.append('branch_id', branchInput.val());
@@ -387,8 +481,8 @@ $(function () {
       params.append('source_id', sourceInput.val());
     }
 
-    if (qInput.length && qInput.val().trim()) {
-      params.append('q', qInput.val().trim());
+    if (q) {
+      params.append('q', q);
     }
 
     // include date range if selected
@@ -397,6 +491,14 @@ $(function () {
       const e = fp.selectedDates[1].toISOString().split('T')[0];
       params.append('start_date', s);
       params.append('end_date', e);
+    }
+
+    const selectedIds = Array.from(selectedLeadIds);
+    if (selectedIds.length > 0) {
+      params.append('export_mode', 'selected');
+      selectedIds.forEach((id) => params.append('lead_ids[]', id));
+    } else {
+      params.append('export_mode', 'all_filtered');
     }
 
     const query = params.toString();

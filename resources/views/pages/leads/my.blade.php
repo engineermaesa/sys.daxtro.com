@@ -413,7 +413,6 @@
         </div>
     </div>
 
-
     {{-- TABLES CONTENTS --}}
     <div class="mt-4 rounded-lg border-[#D9D9D9]">
         {{-- NAVIGATION TABLES --}}
@@ -461,10 +460,10 @@
                 </div>
 
                 {{-- FILTERS MENUS --}}
-                <div class="grid grid-cols-2 items-center border border-gray-300 rounded-lg text-[#1E1E1E] max-lg:text-xs! h-full">
+                <div class="grid grid-cols-3 items-center border border-gray-300 rounded-lg text-[#1E1E1E] max-lg:text-xs! h-full">
 
                     {{-- SOURCES --}}
-                    <div id="conversionListSourceMenu" class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer py-2 h-full px-2">
+                    <div id="filterSources" class="flex items-center justify-center gap-2 border-r border-[#D9D9D9] cursor-pointer py-2 h-full px-2">
                         <select id="source-filter-new"
                         class="w-full font-semibold text-center focus:outline-none cursor-pointer">
                         <option value="">All Source</option>
@@ -475,7 +474,7 @@
                     </div>
 
                     {{-- DATES --}}
-                    <div class="cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+                    <div class="cursor-pointer w-full relative grid grid-cols-1 items-center h-full border-r border-[#D9D9D9]">
 
                         {{-- TOGGLE --}}
                         <div id="openDateDropdown" class="flex justify-center items-center gap-2">
@@ -505,6 +504,12 @@
 
                             </div>
                         </div>
+                    </div>
+
+                    {{-- RESET FILTERS --}}
+                    <div id="resetFilter" class="flex items-center justify-center gap-2 py-2 cursor-pointer h-full">
+                        <i id="chevronFiltersReset" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
+                        <p class="font-medium text-[#900B09]">Reset Filter</p>
                     </div>
                 </div>
             </div>
@@ -559,77 +564,77 @@
 
         {{-- CONTENTS TABLES --}}
         @foreach(['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-        <div data-status-wrapper="{{ $tab }}" class="leads-table-container {{ $loop->first ? '' : 'hidden' }}">
-            <div class="max-xl:overflow-x-scroll">
-                <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="p-1 lg:p-3">Claimed At</th>
-                            <th class="p-1 lg:p-3">Lead Name</th>
-                            <th class="p-1 lg:p-3">Sales Name</th>
-                            <th class="p-1 lg:p-3">Telephone</th>
-                            <th class="p-1 lg:p-3">Source</th>
-                            <th class="p-1 lg:p-3">Needs</th>
+            <div data-status-wrapper="{{ $tab }}" class="leads-table-container {{ $loop->first ? '' : 'hidden' }}">
+                <div class="max-xl:overflow-x-scroll">
+                    <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                        {{-- HEADER TABLE --}}
+                        <thead class="text-[#1E1E1E]">
+                            <tr class="border-b border-b-[#D9D9D9]">
+                                <th class="p-1 lg:p-3">Claimed At</th>
+                                <th class="p-1 lg:p-3">Lead Name</th>
+                                <th class="p-1 lg:p-3">Sales Name</th>
+                                <th class="p-1 lg:p-3">Telephone</th>
+                                <th class="p-1 lg:p-3">Source</th>
+                                <th class="p-1 lg:p-3">Needs</th>
 
-                            @if ($tab === 'all')
-                            <th class="p-1 lg:p-3">Customer Type</th>
-                            @else
-                            <th class="p-1 lg:p-3">Segment</th>
-                            @endif
+                                @if ($tab === 'all')
+                                <th class="p-1 lg:p-3">Customer Type</th>
+                                @else
+                                <th class="p-1 lg:p-3">Segment</th>
+                                @endif
 
-                            <th class="p-1 lg:p-3">City</th>
-                            <th class="p-1 lg:p-3">Regional</th>
+                                <th class="p-1 lg:p-3">City</th>
+                                <th class="p-1 lg:p-3">Regional</th>
 
-                            @if ($tab === 'cold' || $tab === 'warm')
-                            <th class="p-1 lg:p-3">Status</th>
-                            @endif
+                                @if ($tab === 'cold' || $tab === 'warm')
+                                <th class="p-1 lg:p-3">Status</th>
+                                @endif
 
-                            @if ($tab === 'hot')
-                            <th class="p-1 lg:p-3">Quotation Expire In</th>
-                            @endif
+                                @if ($tab === 'hot')
+                                <th class="p-1 lg:p-3">Quotation Expire In</th>
+                                @endif
 
-                            @if ($tab === 'all')
-                            <th class="p-1 lg:p-3 text-center">Stage</th>
-                            @endif
-                            
-                            <th class="p-1 lg:p-3 text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="{{ $tab }}BodyTable"></tbody>
-                </table>
-            </div>
-
-            {{-- NAVIGATION ROWS --}}
-            <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                <div class="flex items-center gap-3">
-                    <p class="font-semibold">Show Rows</p>
-                    <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
-                        onchange="changePageSize('{{ $tab }}', this.value)">
-                        <option value="5">5</option>
-                        <option value="10" selected>10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
+                                @if ($tab === 'all')
+                                <th class="p-1 lg:p-3">Stage</th>
+                                @endif
+                                
+                                <th class="p-1 lg:p-3 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="{{ $tab }}BodyTable"></tbody>
+                    </table>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
-                    <div>
-                        <button id="{{ $tab }}PrevBtn"
-                            class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                            onclick="goPrev('{{ $tab }}')">
-                            <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                        </button>
-                        <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                            onclick="goNext('{{ $tab }}')">
-                            <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                        </button>
+                {{-- NAVIGATION ROWS --}}
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                    <div class="flex items-center gap-3">
+                        <p class="font-semibold">Show Rows</p>
+                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                            onchange="changePageSize('{{ $tab }}', this.value)">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                        <div>
+                            <button id="{{ $tab }}PrevBtn"
+                                class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goPrev('{{ $tab }}')">
+                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                            </button>
+                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goNext('{{ $tab }}')">
+                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         @endforeach
     </div>
 
@@ -674,16 +679,27 @@
                                 <select name="activity_id" class="max-w-full! text-sm rounded-lg bg-white outline-none"
                                     required>
                                     <option value="" class="text-center">Activity Type</option>
-                                    <option disabled>──────────── Initiation ────────────</option>
-                                    @foreach ($activities as $act)
-                                        @if ($act->id == 5)
-                                            <option disabled>──────────── Hold Cold ────────────</option>
-                                        @endif
+                                    <option disabled>──────────── Prospecting ────────────</option>
 
-                                        <option value="{{ $act->id }}">
-                                            {{ $act->code }} - {{ $act->name }}
-                                        </option>
-                                    @endforeach
+                                        @php
+                                            $breakLabels = [
+                                                5  => 'Technical',
+                                                8  => 'Quotation',
+                                                11 => 'Closing',
+                                                14 => 'Delivery',
+                                                15 => 'Aftersales',
+                                            ];
+                                        @endphp
+
+                                        @foreach ($activities as $act)
+                                            @if (isset($breakLabels[$act->id]))
+                                                <option disabled>──────────── {{ $breakLabels[$act->id] }} ────────────</option>
+                                            @endif
+
+                                            <option value="{{ $act->id }}">
+                                                {{ $act->code }} - {{ $act->name }}
+                                            </option>
+                                        @endforeach
                                 </select>
                             </div>
                         </div>
@@ -914,6 +930,28 @@
         }
     }
 
+    function resetFilter() {
+        clearTimeout(searchTimeout);
+        searchState = '';
+        sourceSelected = '';
+        filterStartDate = '';
+        filterEndDate = '';
+
+        $('.searchInput').val('');
+        $('#source-filter-new').val('');
+        $('#dateLabel').text('Date');
+        $('#source-date-range').val('');
+        $('#dateDropdown').addClass('opacity-0 scale-95 pointer-events-none');
+        $('#iconDate').removeClass('rotate-180');
+
+        if (fp) {
+            fp.clear();
+        }
+
+        resetAllPages();
+        reloadTab(activeTabState || 'all');
+    }
+
     function updatePagerUI(tab, totalItems) {
         const pageSize = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -992,6 +1030,7 @@
         initSourceFilter();
         initFlatpickr();
         filterDate();
+        $('#resetFilter').on('click', resetFilter);
 
         initTable('all', `${myRoutes['all']}`);
         initTable('cold', `${myRoutes['cold']}`);
@@ -1418,6 +1457,18 @@
                     $('#activityLogModal tbody').html(rows ||
                         '<tr><td colspan="5" class="text-center">No logs</td></tr>');
                 });
+
+                if (res && res.moved_to_trash) {
+                    if (typeof resetAllPages === 'function') resetAllPages();
+                    ['all', 'cold', 'warm', 'hot', 'deal'].forEach(function(tab) {
+                        if (typeof reloadTab === 'function' && myRoutes[tab]) {
+                            reloadTab(tab);
+                        }
+                    });
+                    loadColdSummary();
+                    loadWarmSummary();
+                    loadHotSummary();
+                }
             },
             error: function(xhr) {
                 let err = 'Failed to save log';

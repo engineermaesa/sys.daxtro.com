@@ -2,7 +2,7 @@
 <div class="grid xl:grid-cols-2 gap-4 mt-2">
     {{-- SOURCES SECTION --}}
     <div class="bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
-        <h1 class="text-2xl font-semibold p-3 text-[#1E1E1E] border-b border-b-[#D9D9D9]">
+        <h1 class="text-lg font-semibold p-3 text-[#1E1E1E] border-b border-b-[#D9D9D9]">
             Source Performance
         </h1>
         {{-- NAVIGATION TABLES --}}
@@ -124,7 +124,7 @@
     
     {{-- SEGMENTS SECTION --}}
     <div class="bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
-        <h1 class="text-2xl font-semibold p-3 text-[#1E1E1E] border-b border-b-[#D9D9D9]">
+        <h1 class="text-lg font-semibold p-3 text-[#1E1E1E] border-b border-b-[#D9D9D9]">
             Segment Performance
         </h1>
         {{-- NAVIGATION TABLES --}}

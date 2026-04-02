@@ -8,6 +8,8 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog};
 use App\Models\Masters\Branch;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class TrashLeadController extends Controller
@@ -44,6 +46,16 @@ class TrashLeadController extends Controller
             ->map(fn($group) => $group->count());
 
         $branches = Branch::all();
+        $salesFilters = User::query()
+            ->select('id', 'name', 'branch_id')
+            ->with('branch:id,name')
+            ->whereHas('role', fn($q) => $q->where('code', 'sales'))
+            ->when(
+                $user->role?->code === 'sales' && $user->branch_id,
+                fn($q) => $q->where('branch_id', $user->branch_id)
+            )
+            ->orderBy('name')
+            ->get();
 
         $cold = $counts[LeadStatus::TRASH_COLD] ?? 0;
         $warm = $counts[LeadStatus::TRASH_WARM] ?? 0;
@@ -60,6 +72,7 @@ class TrashLeadController extends Controller
                     'all'  => $all,
                 ],
                 'branches' => $branches->toArray(),
+                'salesFilters' => $salesFilters->toArray(),
             ], 200);
         }
 
@@ -71,6 +84,7 @@ class TrashLeadController extends Controller
                 'all'  => $all,
             ],
             'branches' => $branches,
+            'salesFilters' => $salesFilters,
         ]);
     }
 
@@ -103,13 +117,7 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $claims->whereHas('lead', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
+        $this->applyTrashLeadFilters($claims, $request, [LeadStatus::TRASH_COLD]);
 
         $claims->addSelect([
             'trashed_at' => DB::table('lead_status_logs as lsl')
@@ -206,13 +214,7 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $claims->whereHas('lead', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
+        $this->applyTrashLeadFilters($claims, $request, [LeadStatus::TRASH_WARM]);
 
         $claims->addSelect([
             'trashed_at' => DB::table('lead_status_logs as lsl')
@@ -310,13 +312,7 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $claims->whereHas('lead', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
+        $this->applyTrashLeadFilters($claims, $request, [LeadStatus::TRASH_HOT]);
 
         $claims->addSelect([
             'trashed_at' => DB::table('lead_status_logs as lsl')
@@ -420,19 +416,12 @@ class TrashLeadController extends Controller
             });
         }
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $claims->whereHas('lead', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
         $trashStatusIds = [
             LeadStatus::TRASH_COLD,
             LeadStatus::TRASH_WARM,
             LeadStatus::TRASH_HOT,
         ];
+        $this->applyTrashLeadFilters($claims, $request, $trashStatusIds);
 
         $claims->addSelect([
             'trashed_at' => DB::table('lead_status_logs as lsl')
@@ -504,6 +493,90 @@ class TrashLeadController extends Controller
             'current_page' => $paginated->currentPage(),
             'last_page'    => $paginated->lastPage(),
         ]);
+    }
+
+    private function applyTrashLeadFilters(Builder $claims, Request $request, array $trashStatusIds): void
+    {
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $claims->whereHas('lead', function (Builder $q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('sales')) {
+            $salesFilter = trim((string) $request->input('sales'));
+
+            $claims->where(function (Builder $query) use ($salesFilter) {
+                if (ctype_digit($salesFilter)) {
+                    $salesId = (int) $salesFilter;
+                    $query->where('sales_id', $salesId)
+                        ->orWhereHas('lead', fn(Builder $q) => $q->where('first_sales_id', $salesId));
+                    return;
+                }
+
+                $query->whereHas('sales', fn(Builder $q) => $q->where('name', 'like', "%{$salesFilter}%"))
+                    ->orWhereHas('lead.firstSales', fn(Builder $q) => $q->where('name', 'like', "%{$salesFilter}%"));
+            });
+        }
+
+        [$claimedStartAt, $claimedEndAt] = $this->resolveDateRange($request, 'filter_by_claimed_at');
+        if ($claimedStartAt) {
+            $claims->where('claimed_at', '>=', $claimedStartAt);
+        }
+        if ($claimedEndAt) {
+            $claims->where('claimed_at', '<=', $claimedEndAt);
+        }
+
+        [$toTrashStartAt, $toTrashEndAt] = $this->resolveDateRange($request, 'filter_by_to_trash_at');
+        if ($toTrashStartAt || $toTrashEndAt) {
+            $trashedAtQuery = DB::table('lead_status_logs as lsl_filter')
+                ->selectRaw('MAX(lsl_filter.created_at)')
+                ->whereColumn('lsl_filter.lead_id', 'lead_claims.lead_id')
+                ->whereIn('lsl_filter.status_id', $trashStatusIds);
+
+            $trashedAtSql = '(' . $trashedAtQuery->toSql() . ')';
+            $trashedAtBindings = $trashedAtQuery->getBindings();
+
+            if ($toTrashStartAt) {
+                $claims->whereRaw($trashedAtSql . ' >= ?', array_merge($trashedAtBindings, [$toTrashStartAt]));
+            }
+
+            if ($toTrashEndAt) {
+                $claims->whereRaw($trashedAtSql . ' <= ?', array_merge($trashedAtBindings, [$toTrashEndAt]));
+            }
+        }
+    }
+
+    private function resolveDateRange(Request $request, string $filterKey): array
+    {
+        $range = $request->input($filterKey);
+
+        $startAt = is_array($range) ? ($range['start_at'] ?? null) : null;
+        $endAt = is_array($range) ? ($range['end_at'] ?? null) : null;
+
+        $startAt = $startAt ?? $request->input("{$filterKey}.start_at") ?? $request->input("{$filterKey}_start_at");
+        $endAt = $endAt ?? $request->input("{$filterKey}.end_at") ?? $request->input("{$filterKey}_end_at");
+
+        return [
+            $this->parseFilterDate($startAt, true),
+            $this->parseFilterDate($endAt, false),
+        ];
+    }
+
+    private function parseFilterDate($value, bool $isStartOfDay): ?Carbon
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        try {
+            $date = Carbon::parse($value);
+            return $isStartOfDay ? $date->startOfDay() : $date->endOfDay();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function form(Request $request, $id)
