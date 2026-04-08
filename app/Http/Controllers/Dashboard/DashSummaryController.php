@@ -14,48 +14,122 @@ use App\Models\Leads\LeadClaim;
 use App\Models\Orders\Quotation;
 use App\Models\Orders\Invoice;
 use App\Models\Leads\LeadSource;
+use App\Models\Masters\Branch;
 use Carbon\Carbon;
 
 class DashSummaryController extends Controller
 {
-
-
     public function grid(Request $request)
     {
-        $user = Auth::user();
-        $roleCode = $user?->role?->code;
+        $monthKey = (string) Carbon::now('Asia/Jakarta')->month;
+        $yearKey = (int) Carbon::now('Asia/Jakarta')->year;
+        $selectedMonthStart = Carbon::createFromDate($yearKey, (int) $monthKey, 1, 'Asia/Jakarta')->startOfMonth();
+        $selectedMonthEnd = (clone $selectedMonthStart)->endOfMonth();
+        $periodStart = $selectedMonthStart->toDateTimeString();
+        $periodEnd = $selectedMonthEnd->toDateTimeString();
 
-        // target global: jumlah dari seluruh target user di tabel users
-        $target = User::all()->sum(function (User $u) {
-            $raw = $u->target;
-            if (! $raw) {
-                return 0.0;
+        $validated = $request->validate([
+            'branch_id' => 'nullable|integer|exists:ref_branches,id',
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $branchId = $validated['branch_id'] ?? null;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+
+        $getMonthlyTarget = function ($raw, string $field, string $monthKey): float {
+            if (empty($raw)) {
+                return 0;
             }
 
-            // Format bisa "angka" biasa atau "angka|json".
-            if (is_string($raw) && str_contains($raw, '|')) {
-                [$number] = explode('|', $raw, 2);
-                return (float) $number;
+            // Format: "40|{...json...}"
+            [$default, $jsonPart] = array_pad(explode('|', (string) $raw, 2), 2, null);
+
+            if (!empty($jsonPart)) {
+                $decoded = json_decode($jsonPart, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return (float) ($decoded[$monthKey][$field] ?? 0);
+                }
             }
 
-            return (float) $raw;
+            // fallback kalau ternyata hanya angka
+            return is_numeric($default) ? (float) $default : 0;
+        };
+
+        $isInCurrentMonth = function ($date) use ($monthKey, $yearKey): bool {
+            if (empty($date)) {
+                return false;
+            }
+
+            $d = Carbon::parse($date, 'Asia/Jakarta');
+
+            // Sinkronkan achievement ke bulan + tahun berjalan
+            return (string) $d->month === $monthKey && (int) $d->year === $yearKey;
+        };
+
+        // Dash summary = global (akumulasi seluruh sales lintas branch)
+        $allSalesUsers = User::query()
+            ->whereHas('role', function ($q) {
+                $q->where('code', 'sales');
+            })
+            // If a specific sales is selected, prioritize it and don't re-filter by branch.
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('id', $salesId);
+            })
+            ->get();
+
+        $targetAmount = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target ?? null, 'amount', $monthKey);
         });
 
-        // Closed deals: ambil SEMUA claim aktif dengan status DEAL (global)
+        $targetLead = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target_leads ?? null, 'leads', $monthKey);
+        });
+
+        $targetVisit = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target_visit ?? $u->target_visits ?? null, 'visits', $monthKey);
+        });
+
+        // Align with `/api/leads/my/deal/list`: deals are sourced from active LeadClaims with status DEAL.
         $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
+            ->whereHas('lead', function ($q) {
+                $q->where('status_id', LeadStatus::DEAL);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->whereHas('sales', function ($salesQ) use ($branchId) {
+                    $salesQ->where('branch_id', $branchId);
+                });
+            })
             ->whereNull('released_at');
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function ($q) use ($request) {
-                $q->firstTermPaidBetween($request->start_date, $request->end_date);
-            });
-        }
+        // Force closed deal calculation to selected month/year window.
+        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
+            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        });
 
         $completedDeals = 0;
         $monetaryActual = 0;
+        $leadsActual = 0;
+        $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
+            $lead = $claim->lead;
+
+            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
+            if ($claimDate) {
+                $claimedAt = Carbon::parse($claimDate, 'Asia/Jakarta');
+
+                if ((string) $claimedAt->month === $monthKey && (int) $claimedAt->year === $yearKey) {
+                    $leadsActual++;
+                }
+            }
+
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -73,23 +147,47 @@ class DashSummaryController extends Controller
             // Only count deals that have all proformas confirmed.
             if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
                 $completedDeals++;
-                $monetaryActual += (float) $confirmedProformas->sum(function ($p) {
+
+                // Achievement amount khusus pembayaran yang confirmed di bulan berjalan
+                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInCurrentMonth) {
+                    return $isInCurrentMonth($p->paymentConfirmation->confirmed_at ?? null);
+                });
+
+                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
                     return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
                 });
             }
         }
 
+        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
+        $visitClaims = LeadClaim::with('lead')
+            ->whereNull('released_at')
+            ->whereHas('lead', fn($q) => $q->where('source_id', 9))
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->whereHas('sales', function ($salesQ) use ($branchId) {
+                    $salesQ->where('branch_id', $branchId);
+                });
+            });
+
+        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
+            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
+            return $isInCurrentMonth($claimDate);
+        })->count();
+
         $monetaryActual = round($monetaryActual, 2);
-        $achievementPercentage = $target > 0
-            ? round(($monetaryActual / $target) * 100, 2)
+        $achievementPercentage = $targetAmount > 0
+            ? round(($monetaryActual / $targetAmount) * 100, 2)
             : 0;
 
         $closedDeals = $completedDeals;
         $closedAmount = round($monetaryActual, 2);
 
-        // Potential dealing: similar logic as DashboardController::potentialDealing
-        $end = $request->filled('end_date') ? $request->end_date : now()->toDateString();
-        $start = $request->filled('start_date') ? $request->start_date : now()->subDays(30)->toDateString();
+        // Potential dealing uses the same selected month/year window for consistent conversion rate denominator.
+        $start = $periodStart;
+        $end = $periodEnd;
 
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
@@ -130,7 +228,13 @@ class DashSummaryController extends Controller
                     ->whereNull('lead_claims.released_at');
             })
             ->leftJoin('users', 'users.id', '=', 'lead_claims.sales_id')
-            ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId]);
+            ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId])
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('leads.branch_id', $branchId);
+            });
 
         $potentialCollection = $potentialLeads
             ->select([
@@ -162,7 +266,19 @@ class DashSummaryController extends Controller
         // Also include leads that already have confirmed payments (even if quotation status isn't published)
         $paymentLeads = Lead::query()
             ->whereIn('status_id', [$warmStatusId, $hotStatusId])
-            ->whereHas('quotation.proformas.paymentConfirmation', fn($q) => $q->whereNotNull('confirmed_at'));
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->whereHas('claims', function ($claimQ) use ($salesId) {
+                    $claimQ->whereNull('released_at')
+                        ->where('sales_id', $salesId);
+                });
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->whereHas('quotation.proformas.paymentConfirmation', function ($q) use ($start, $end) {
+                $q->whereNotNull('confirmed_at')
+                    ->whereBetween('confirmed_at', [$start, $end]);
+            });
 
         $paymentCollection = $paymentLeads->with(['quotation.proformas.paymentConfirmation'])
             ->get()
@@ -193,27 +309,31 @@ class DashSummaryController extends Controller
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
 
-        // ==============================
-        // ACTIVE LEADS (COLD/WARM/HOT)
-        // ==============================
-        $leadQuery = Lead::query();
+        // Global active claims, lalu hitung unique lead agar tidak double count antar sales/branch.
+        $activeClaims = LeadClaim::whereNull('released_at')
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->orWhere(function ($sub) use ($periodStart, $periodEnd) {
+                        $sub->whereNull('claimed_at')
+                            ->whereHas('lead', function ($leadQ) use ($periodStart, $periodEnd) {
+                                $leadQ->whereBetween('published_at', [$periodStart, $periodEnd]);
+                            });
+                    });
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->whereHas('sales', function ($salesQ) use ($branchId) {
+                    $salesQ->where('branch_id', $branchId);
+                });
+            })
+            ->with('lead');
 
-        if ($roleCode === 'sales') {
-            // Hanya leads yang diklaim oleh sales ini dan belum dirilis
-            $leadQuery->whereHas('claims', function ($q) use ($user) {
-                $q->whereNull('released_at')
-                    ->where('sales_id', $user?->id);
-            });
-        } elseif ($roleCode === 'branch_manager') {
-            // Hanya leads di branch manager ini
-            $leadQuery->where('branch_id', $user?->branch_id);
-        }
+        $activeClaimRows = $activeClaims->get();
+        $uniqueLeads = $activeClaimRows->pluck('lead')->filter()->unique('id');
 
-        // Hitung semua leads per status langsung dari tabel leads
-        $counts = $leadQuery
-            ->select('status_id', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('status_id')
-            ->pluck('aggregate', 'status_id');
+        $counts = $uniqueLeads->groupBy('status_id')->map->count();
 
         $cold = (int) ($counts[LeadStatus::COLD] ?? 0);
         $warm = (int) ($counts[LeadStatus::WARM] ?? 0);
@@ -223,8 +343,9 @@ class DashSummaryController extends Controller
             + ($counts[LeadStatus::TRASH_WARM] ?? 0)
             + ($counts[LeadStatus::TRASH_HOT] ?? 0));
 
-        // Total active = semua leads dengan status cold/warm/hot
-        $totalActive = $cold + $warm + $hot;
+        $totalActive = $uniqueLeads->reject(function ($lead) {
+            return in_array($lead->status_id, [LeadStatus::TRASH_COLD, LeadStatus::TRASH_WARM, LeadStatus::TRASH_HOT]);
+        })->count();
 
         $activeLeads = [
             'total' => $totalActive,
@@ -238,8 +359,12 @@ class DashSummaryController extends Controller
             'status' => 'success',
             'Data' => [
                 'achievement_target' => [
-                    'target' => $target,
-                    'achievement' => $monetaryActual,
+                    'target_amount' => $targetAmount,
+                    'target_leads' => $targetLead,
+                    'target_visits' => $targetVisit,
+                    'leads_actual' => $leadsActual,
+                    'visits_actual' => $visitsActual,
+                    'achievement_amount' => $monetaryActual,
                     'percentage' => $achievementPercentage,
                 ],
                 'closed_deal' => [
@@ -260,22 +385,43 @@ class DashSummaryController extends Controller
 
     public function ActiveOpportunities(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => 'nullable|integer|exists:ref_branches,id',
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'source_id' => 'nullable|integer|exists:lead_sources,id',
+        ]);
+
+        $branchId = $validated['branch_id'] ?? null;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+        $sourceId = $validated['source_id'] ?? null;
+
         $perPage = $request->get('per_page', 5);
 
         $query = LeadClaim::whereNull('released_at')
             ->with([
                 'lead.product',
                 'lead.segment',
+                'lead.branch',
                 'lead.latestStatusLog',
                 'lead.quotation.items.product',
                 'lead.status',
                 'sales',
-            ]);
+                'sales.branch',
+            ])
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->whereHas('sales', function ($salesQ) use ($branchId) {
+                    $salesQ->where('branch_id', $branchId);
+                });
+            });
 
         $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
 
         // Filter hanya berdasarkan data lead (global, tanpa filter per sales/branch)
-        $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
+        $query->whereHas('lead', function ($q) use ($allowedStatuses, $request, $sourceId) {
 
             $q->whereIn('status_id', $allowedStatuses);
 
@@ -283,8 +429,8 @@ class DashSummaryController extends Controller
                 $q->where('status_id', $request->stage);
             }
 
-            if ($request->filled('source_id')) {
-                $q->where('source_id', $request->source_id);
+            if (!empty($sourceId)) {
+                $q->where('source_id', $sourceId);
             }
 
             if ($request->filled('segment')) {
@@ -343,6 +489,9 @@ class DashSummaryController extends Controller
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
 
             $salesName = $claim->sales?->name ?? null;
+            $branchName = $claim->sales?->branch?->name
+                ?? $lead->branch?->name
+                ?? null;
 
             $lastActivity = $lead->latestStatusLog?->created_at
                 ?? $lead->updated_at;
@@ -373,6 +522,8 @@ class DashSummaryController extends Controller
                 'amount' => $amount,
                 'product' => $product,
                 'segment' => $segment,
+                'branch' => $branchName,
+                'sales' => $salesName,
                 'sales_name' => $salesName,
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),
@@ -571,6 +722,15 @@ class DashSummaryController extends Controller
 
     public function SalesTrend(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => 'nullable|integer|exists:ref_branches,id',
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $branchId = $validated['branch_id'] ?? null;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+
         $year = $request->year ?? now()->year;
         $month = $request->month;
         $monthFrom = $request->month_from;
@@ -642,6 +802,12 @@ class DashSummaryController extends Controller
             ->whereHas('role', function ($q) {
                 $q->where('code', 'sales');
             })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
             ->get();
 
         $salesTrends = [];
@@ -691,6 +857,23 @@ class DashSummaryController extends Controller
 
     public function LeadsPerformance(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => 'nullable|integer|exists:ref_branches,id',
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'source_id' => 'nullable|integer|exists:lead_sources,id',
+            'segment_id' => 'nullable|integer|exists:lead_segments,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+        ]);
+
+        $branchId = $validated['branch_id'] ?? null;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+        $sourceId = $validated['source_id'] ?? null;
+        $segmentId = $validated['segment_id'] ?? null;
+        $startDate = $validated['start_date'] ?? null;
+        $endDate = $validated['end_date'] ?? null;
+
         $latestQuotationSubquery = DB::table('quotations')
             ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
             ->where('status', 'published')
@@ -710,9 +893,21 @@ class DashSummaryController extends Controller
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
                     ->on('quotations.created_at', '=', 'latest_quo.latest_date');
             })
-            // Global (tidak dibatasi per user / per branch). Hanya filter by source jika dikirim.
-            ->when($request->source_id, function ($q) use ($request) {
-                $q->where('leads.source_id', $request->source_id);
+            ->when(!empty($sourceId), function ($q) use ($sourceId) {
+                $q->where('leads.source_id', $sourceId);
+            })
+            ->when(!empty($segmentId), function ($q) use ($segmentId) {
+                $q->where('leads.segment_id', $segmentId);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('leads.branch_id', $branchId);
+            })
+            ->when(!empty($startDate) && !empty($endDate), function ($q) use ($startDate, $endDate) {
+                $q->whereDate('leads.created_at', '>=', $startDate)
+                    ->whereDate('leads.created_at', '<=', $endDate);
             })
             ->selectRaw(
                 "lead_sources.name as source,

@@ -58,7 +58,8 @@
             auth()->user()->hasPermission('leads.manage') ||
             auth()->user()->hasPermission('leads.available') ||
             auth()->user()->hasPermission('leads.my') ||
-            auth()->user()->hasPermission('leads.trash')
+            auth()->user()->hasPermission('leads.trash') ||
+            auth()->user()->hasPermission('leads.lost')
             );
         @endphp
         @if ($showLeads)

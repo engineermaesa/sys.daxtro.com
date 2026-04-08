@@ -2691,6 +2691,8 @@
 
 @if(auth()->user()->role?->code === 'sales')
     @include('pages.dashboard.sales.index')
+@elseif(auth()->user()->role?->code === 'super_admin')
+    @include('pages.dashboard.super-admin.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}

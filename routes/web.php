@@ -140,6 +140,15 @@ Route::middleware('auth')->group(function () {
         Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
     });
 
+    Route::group([
+        'prefix' => 'lost-leads',
+        'as' => 'lost-leads.',
+        'namespace' => 'App\\Http\\Controllers\\Leads',
+    ], function () {
+        Route::get('/', 'LostLeadController@index')->name('index');
+        Route::get('form/{id}', 'TrashLeadController@form')->name('form');
+    });
+
 
     // =====================================
     // ORDERS ✔

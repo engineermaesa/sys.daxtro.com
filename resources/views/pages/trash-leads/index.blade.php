@@ -88,8 +88,8 @@
           </div>
 
           {{-- NAVIGATION STATUS TABLES --}}
-          <div class="w-full border border-[#D5D5D5] rounded-lg grid grid-cols-4">
-              @foreach (['all', 'cold', 'warm', 'hot'] as $tab)
+          <div class="w-full border border-[#D5D5D5] rounded-lg grid grid-cols-3">
+              @foreach (['all', 'cold', 'warm'] as $tab) {{-- Kalau mau nambah hot tambahin 'hot' di foreach dan tambahin 'span-hot' setelah ':' --}}
                   {{-- NAVIGATION STATUS --}}
                     <div class="text-center cursor-pointer h-full border-r border-r-[#D5D5D5] py-3 nav-leads-active" data-status="{{ $tab }}">
                       <p class="text-[#083224]">
@@ -102,7 +102,7 @@
                                           ? 'span-cold' 
                                           : ($tab === 'warm' 
                                               ? 'span-warm' 
-                                              : 'span-hot'
+                                              : ''
                                           )
                                       )
                                   }}">
@@ -237,6 +237,7 @@
     </form>
   </div>
 </div>
+
 @endsection
 
 @section('scripts')

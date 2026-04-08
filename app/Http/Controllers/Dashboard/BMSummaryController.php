@@ -21,7 +21,6 @@ class BMSummaryController extends Controller {
         $user = Auth::user();
         $branchId = $user?->branch_id;
 
-
         $target = User::with('role')
             ->where('branch_id', $branchId)
             ->whereHas('role', function ($q) {

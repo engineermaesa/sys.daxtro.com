@@ -27,6 +27,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Available Leads', 'code' => 'leads.available', 'description' => 'View available leads'],
             ['name' => 'My Leads', 'code' => 'leads.my', 'description' => 'View my leads'],
             ['name' => 'Trash Leads', 'code' => 'leads.trash', 'description' => 'View trash leads'],
+            ['name' => 'Lost Leads', 'code' => 'leads.lost', 'description' => 'View lost leads'],
             ['name' => 'Orders', 'code' => 'orders', 'description' => 'Manage orders'],
             ['name' => 'Incentive Dashboard', 'code' => 'incentives.view', 'description' => 'View incentive balance and logs'],
             ['name' => 'Finance Requests', 'code' => 'finance.requests', 'description' => 'Handle finance approvals'],

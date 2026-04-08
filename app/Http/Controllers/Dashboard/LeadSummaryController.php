@@ -17,6 +17,11 @@ class LeadSummaryController extends Controller
         $user = Auth::user();
         
         $monthKey = (string) Carbon::now('Asia/Jakarta')->month;
+        $yearKey = (int) Carbon::now('Asia/Jakarta')->year;
+        $selectedMonthStart = Carbon::createFromDate($yearKey, (int) $monthKey, 1, 'Asia/Jakarta')->startOfMonth();
+        $selectedMonthEnd = (clone $selectedMonthStart)->endOfMonth();
+        $periodStart = $selectedMonthStart->toDateTimeString();
+        $periodEnd = $selectedMonthEnd->toDateTimeString();
         
         $getMonthlyTarget = function ($raw, string $field, string $monthKey): float {
             if (empty($raw)) {
@@ -35,6 +40,17 @@ class LeadSummaryController extends Controller
 
             // fallback kalau ternyata hanya angka
             return is_numeric($default) ? (float) $default : 0;
+        };
+
+        $isInCurrentMonth = function ($date) use ($monthKey, $yearKey): bool {
+            if (empty($date)) {
+                return false;
+            }
+
+            $d = Carbon::parse($date, 'Asia/Jakarta');
+
+            // Sinkronkan achievement ke bulan + tahun berjalan
+            return (string) $d->month === $monthKey && (int) $d->year === $yearKey;
         };
 
         // target comes from user (set by superadmin)
@@ -57,11 +73,10 @@ class LeadSummaryController extends Controller
             });
         }
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function ($q) use ($request) {
-                $q->firstTermPaidBetween($request->start_date, $request->end_date);
-            });
-        }
+        // Force closed deal calculation to selected month/year window.
+        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
+            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        });
 
         $completedDeals = 0;
         $monetaryActual = 0;
@@ -73,14 +88,10 @@ class LeadSummaryController extends Controller
 
             $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
             if ($claimDate) {
-                $claimMonth = (string) Carbon::parse($claimDate)->month;
+                $claimAt = Carbon::parse($claimDate, 'Asia/Jakarta');
 
-                if ($claimMonth === $monthKey) {
+                if ((string) $claimAt->month === $monthKey && (int) $claimAt->year === $yearKey) {
                     $leadsActual++;
-
-                    if ((int) ($lead?->source_id ?? 0) === 9) {
-                        $visitsActual++;
-                    }
                 }
             }
 
@@ -101,11 +112,35 @@ class LeadSummaryController extends Controller
             // Only count deals that have all proformas confirmed.
             if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
                 $completedDeals++;
-                $monetaryActual += (float) $confirmedProformas->sum(function ($p) {
+
+                // Achievement amount khusus pembayaran yang confirmed di bulan berjalan
+                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInCurrentMonth) {
+                    return $isInCurrentMonth($p->paymentConfirmation->confirmed_at ?? null);
+                });
+
+                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
                     return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
                 });
             }
         }
+
+        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
+        $visitClaims = LeadClaim::with('lead')
+            ->whereNull('released_at')
+            ->whereHas('lead', fn($q) => $q->where('source_id', 9));
+
+        if ($roleCode === 'sales') {
+            $visitClaims->where('sales_id', $user?->id);
+        } elseif ($roleCode === 'branch_manager') {
+            $visitClaims->whereHas('sales', function ($q) use ($user) {
+                $q->where('branch_id', $user?->branch_id);
+            });
+        }
+
+        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
+            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
+            return $isInCurrentMonth($claimDate);
+        })->count();
 
         $monetaryActual = round($monetaryActual, 2);
         $achievementPercentage = $target_amount > 0
@@ -115,9 +150,9 @@ class LeadSummaryController extends Controller
         $closedDeals = $completedDeals;
         $closedAmount = round($monetaryActual, 2);
 
-        // Potential dealing: similar logic as DashboardController::potentialDealing
-        $end = $request->filled('end_date') ? $request->end_date : now()->toDateString();
-        $start = $request->filled('start_date') ? $request->start_date : now()->subDays(30)->toDateString();
+        // Potential dealing uses the same selected month/year window for consistent conversion rate denominator.
+        $start = $periodStart;
+        $end = $periodEnd;
 
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
@@ -196,7 +231,10 @@ class LeadSummaryController extends Controller
         // Also include leads that already have confirmed payments (even if quotation status isn't published)
         $paymentLeads = Lead::query()
             ->whereIn('status_id', [$warmStatusId, $hotStatusId])
-            ->whereHas('quotation.proformas.paymentConfirmation', fn($q) => $q->whereNotNull('confirmed_at'));
+            ->whereHas('quotation.proformas.paymentConfirmation', function ($q) use ($start, $end) {
+                $q->whereNotNull('confirmed_at')
+                    ->whereBetween('confirmed_at', [$start, $end]);
+            });
 
         if ($roleCode === 'sales') {
             $paymentLeads->whereHas('claims', fn($q) => $q->whereNull('released_at')->where('sales_id', $user?->id));
@@ -234,7 +272,17 @@ class LeadSummaryController extends Controller
             : 0;
 
 
-        $activeClaims = LeadClaim::whereNull('released_at')->with('lead');
+        $activeClaims = LeadClaim::whereNull('released_at')
+            ->with('lead')
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->orWhere(function ($sub) use ($periodStart, $periodEnd) {
+                        $sub->whereNull('claimed_at')
+                            ->whereHas('lead', function ($leadQ) use ($periodStart, $periodEnd) {
+                                $leadQ->whereBetween('published_at', [$periodStart, $periodEnd]);
+                            });
+                    });
+            });
 
         if ($roleCode === 'sales') {
             $activeClaims->where('sales_id', $user?->id);
@@ -483,6 +531,14 @@ class LeadSummaryController extends Controller
             ->when($request->segment_id, function ($q) use ($request) {
                 $q->where('leads.segment_id', $request->segment_id);
             })
+            ->when($request->start_date_source && $request->end_date_source, function ($q) use ($request) {
+                $q->whereDate('leads.created_at', '>=', $request->start_date_source)
+                    ->whereDate('leads.created_at', '<=', $request->end_date_source);
+            })
+            ->when($request->start_date_segment && $request->end_date_segment, function ($q) use ($request) {
+                $q->whereDate('leads.created_at', '>=', $request->start_date_segment)
+                    ->whereDate('leads.created_at', '<=', $request->end_date_segment);
+            })
             ->selectRaw(
                 "lead_sources.name as source,
         COALESCE(lead_segments.name, leads.customer_type) as segment,
@@ -655,7 +711,29 @@ class LeadSummaryController extends Controller
         // user's monthly target and realized achievement per period.
         if (! Schema::hasTable('sales')) {
             $user = Auth::user();
-            $monthlyTarget = $user && $user->target ? (float) $user->target : 0.0;
+            $getUserTargetAmountByMonth = function ($user, int $month): float {
+                $raw = (string) ($user?->target ?? '');
+                if ($raw === '') {
+                    return 0.0;
+                }
+
+                [$default, $jsonPart] = array_pad(explode('|', $raw, 2), 2, null);
+
+                if (!empty($jsonPart)) {
+                    $decoded = json_decode($jsonPart, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $monthData = $decoded[(string) $month] ?? $decoded[$month] ?? null;
+                        $amount = is_array($monthData) ? ($monthData['amount'] ?? null) : null;
+
+                        if (is_numeric($amount)) {
+                            return (float) $amount;
+                        }
+                    }
+                }
+
+                // Fallback ke angka sebelum separator '|'
+                return is_numeric($default) ? (float) $default : 0.0;
+            };
 
             $labels = [];
             $sales = [];
@@ -670,10 +748,11 @@ class LeadSummaryController extends Controller
                     $periodEnd = Carbon::create($year, $m, 1)->endOfMonth()->toDateString();
 
                     $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+                    $targetAmount = $getUserTargetAmountByMonth($user, $m);
 
                     $labels[] = date('M', mktime(0, 0, 0, $m, 1));
                     $sales[] = (int) round($amount);
-                    $targets[] = (int) round($monthlyTarget);
+                    $targets[] = (int) round($targetAmount);
                 }
             } elseif ($groupBy === 'quarter') {
                 for ($q = 1; $q <= 4; $q++) {
@@ -684,10 +763,14 @@ class LeadSummaryController extends Controller
                     $periodEnd = Carbon::create($year, $endMonth, 1)->endOfMonth()->toDateString();
 
                     $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+                    $quarterTarget = 0.0;
+                    for ($m = $startMonth; $m <= $endMonth; $m++) {
+                        $quarterTarget += $getUserTargetAmountByMonth($user, $m);
+                    }
 
                     $labels[] = 'Q' . $q;
                     $sales[] = (int) round($amount);
-                    $targets[] = (int) round($monthlyTarget * 3);
+                    $targets[] = (int) round($quarterTarget);
                 }
             } else {
                 // For weekly view (groupBy === 'week'), fall back to a
@@ -697,10 +780,11 @@ class LeadSummaryController extends Controller
                 $periodEnd = Carbon::create($year, $monthVal, 1)->endOfMonth()->toDateString();
 
                 $amount = $this->calculateUserAchievementForPeriod($user, $periodStart, $periodEnd);
+                $targetAmount = $getUserTargetAmountByMonth($user, (int) $monthVal);
 
                 $labels[] = 'MTD';
                 $sales[] = (int) round($amount);
-                $targets[] = (int) round($monthlyTarget);
+                $targets[] = (int) round($targetAmount);
             }
 
             return response()->json([

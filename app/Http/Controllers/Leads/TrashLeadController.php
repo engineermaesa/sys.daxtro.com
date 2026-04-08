@@ -684,6 +684,7 @@ class TrashLeadController extends Controller
     // }
 
     // Dengan Auth
+
     public function restore(Request $request, $claimId = null)
     {
         $user = $request->user();
