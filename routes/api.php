@@ -211,7 +211,7 @@ Route::group([
 Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
-    'namespace' => 'Apps\\Http\\Controllers\\Leads',
+    'namespace' => 'App\\Http\\Controllers\\Leads',
     // 'middleware' => ['api'],
     'middleware' => ['api', 'web', 'auth'],
 ], function () {

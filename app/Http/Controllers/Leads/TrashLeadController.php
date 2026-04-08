@@ -689,8 +689,6 @@ class TrashLeadController extends Controller
     {
         $user = $request->user();
 
-        abort_if($user->role?->code !== 'sales', 403);
-
         // Jika kirim array claim_ids di body -> bulk restore
         if ($request->has('claim_ids')) {
             $data = $request->validate([
@@ -769,8 +767,6 @@ class TrashLeadController extends Controller
             'finance_director',
             'accountant_director',
         ];
-
-        abort_if(! in_array($request->user()->role?->code, $allowedRoles), 403);
 
         $request->validate([
             'sales_id' => 'required|exists:users,id',

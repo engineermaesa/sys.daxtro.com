@@ -1,4 +1,4 @@
-<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General Leads Performance</h1>
+<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Sales Leads Performance</h1>
 <div class="grid xl:grid-cols-2 gap-4 mt-2">
     {{-- SOURCES SECTION --}}
     <div class="bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
@@ -35,28 +35,28 @@
                 class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
     
                 {{-- TOGGLE --}}
-                <div id="lpSourceOpenDateDropdown" class="flex justify-center items-center gap-2">
-                    <p id="lpSourceDateLabel" class="font-medium text-black">Date</p>
-                    <i id="lpSourceIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                <div id="bmLpSourceOpenDateDropdown" class="flex justify-center items-center gap-2">
+                    <p id="bmLpSourceDateLabel" class="font-medium text-black">Date</p>
+                    <i id="bmLpSourceIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
                 </div>
     
                 {{-- DATE DROPDOWN --}}
-                <div id="lpSourceDateDropdown"
+                <div id="bmLpSourceDateDropdown"
                     class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
     
                     <h3 class="font-semibold mb-2">Select Date Range</h3>
     
                         <div class="flex justify-center items-center">
-                            <input type="text" id="lpSourceDateRange" class="shadow-none w-full" placeholder="Select date range">
+                            <input type="text" id="bmLpSourceDateRange" class="shadow-none w-full" placeholder="Select date range">
                         </div>
     
                     <div class="flex justify-end gap-2 mt-3">
     
-                        <button id="lpSourceCancelDate" class="px-3 py-1 text-[#303030]">
+                        <button id="bmLpSourceCancelDate" class="px-3 py-1 text-[#303030]">
                             Cancel
                         </button>
-    
-                        <button id="lpSourceApplyDate"
+
+                        <button id="bmLpSourceApplyDate"
                             class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
                             Apply
                         </button>
@@ -156,28 +156,28 @@
                 class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
     
                 {{-- TOGGLE --}}
-                <div id="lpSegmentOpenDateDropdown" class="flex justify-center items-center gap-2">
-                    <p id="lpSegmentDateLabel" class="font-medium text-black">Date</p>
-                    <i id="lpSegmentIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                <div id="bmLpSegmentOpenDateDropdown" class="flex justify-center items-center gap-2">
+                    <p id="bmLpSegmentDateLabel" class="font-medium text-black">Date</p>
+                    <i id="bmLpSegmentIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
                 </div>
     
                 {{-- DATE DROPDOWN --}}
-                <div id="lpSegmentDateDropdown"
+                <div id="bmLpSegmentDateDropdown"
                     class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
     
                     <h3 class="font-semibold mb-2">Select Date Range</h3>
     
                         <div class="flex justify-center items-center">
-                            <input type="text" id="lpSegmentDateRange" class="shadow-none w-full" placeholder="Select date range">
+                            <input type="text" id="bmLpSegmentDateRange" class="shadow-none w-full" placeholder="Select date range">
                         </div>
     
                     <div class="flex justify-end gap-2 mt-3">
     
-                        <button id="lpSegmentCancelDate" class="px-3 py-1 text-[#303030]">
+                        <button id="bmLpSegmentCancelDate" class="px-3 py-1 text-[#303030]">
                             Cancel
                         </button>
-    
-                        <button id="lpSegmentApplyDate"
+
+                        <button id="bmLpSegmentApplyDate"
                             class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
                             Apply
                         </button>
@@ -245,40 +245,48 @@
 </div>
 
 <script>
-    let lpSourceFp = null;
-    let lpSegmentFp = null;
-    let leadSourceFilter = '';
-    let leadSegmentFilter = '';
-    let leadSourceSearchQuery = '';
-    let leadSegmentSearchQuery = '';
-    let leadSourceSearchTimeout = null;
-    let leadSegmentSearchTimeout = null;
-    let filterStartDateSource = '';
-    let filterEndDateSource = '';
-    let filterStartDateSegment = '';
-    let filterEndDateSegment = '';
+    let bmLpSourceFp = null;
+    let bmLpSegmentFp = null;
 
-    function applySourceDateFilter(startDate, endDate) {
-        filterStartDateSource = startDate;
-        filterEndDateSource = endDate;
+    let bmLeadSourceFilter = '';
+    let bmLeadSegmentFilter = '';
 
-        const sourceLabel = document.getElementById('lpSourceDateLabel');
-        if (sourceLabel) sourceLabel.innerText = `${startDate} -> ${endDate}`;
+    let bmLeadSourceSearchQuery = '';
+    let bmLeadSegmentSearchQuery = '';
+
+    let bmLeadSourceSearchTimeout = null;
+    let bmLeadSegmentSearchTimeout = null;
+
+    let bmLeadSourceStartDate = '';
+    let bmLeadSourceEndDate = '';
+    let bmLeadSegmentStartDate = '';
+    let bmLeadSegmentEndDate = '';
+
+    function applyBmLeadSourceDateFilter(startDate, endDate) {
+        bmLeadSourceStartDate = startDate;
+        bmLeadSourceEndDate = endDate;
+
+        const label = document.getElementById('bmLpSourceDateLabel');
+        if (label) {
+            label.innerText = `${startDate} -> ${endDate}`;
+        }
 
         loadSource('filter');
     }
 
-    function applySegmentDateFilter(startDate, endDate) {
-        filterStartDateSegment = startDate;
-        filterEndDateSegment = endDate;
+    function applyBmLeadSegmentDateFilter(startDate, endDate) {
+        bmLeadSegmentStartDate = startDate;
+        bmLeadSegmentEndDate = endDate;
 
-        const segmentLabel = document.getElementById('lpSegmentDateLabel');
-        if (segmentLabel) segmentLabel.innerText = `${startDate} -> ${endDate}`;
+        const label = document.getElementById('bmLpSegmentDateLabel');
+        if (label) {
+            label.innerText = `${startDate} -> ${endDate}`;
+        }
 
         loadSegment('filter');
     }
 
-    function setupLeadPerformanceDatePicker(config) {
+    function setupBmLeadPerformanceDatePicker(config) {
         const openBtn = document.getElementById(config.openBtnId);
         const dropdown = document.getElementById(config.dropdownId);
         const icon = document.getElementById(config.iconId);
@@ -296,6 +304,11 @@
             dateFormat: 'Y-m-d',
         });
 
+        const closeDropdown = () => {
+            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            icon.classList.remove('rotate-180');
+        };
+
         openBtn.addEventListener('click', () => {
             dropdown.classList.toggle('opacity-0');
             dropdown.classList.toggle('scale-95');
@@ -304,10 +317,7 @@
             instance.open();
         });
 
-        cancelBtn.addEventListener('click', () => {
-            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            icon.classList.remove('rotate-180');
-        });
+        cancelBtn.addEventListener('click', closeDropdown);
 
         applyBtn.addEventListener('click', () => {
             const dates = instance.selectedDates || [];
@@ -320,60 +330,43 @@
                 config.onApply(startDate, endDate);
             }
 
-            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            icon.classList.remove('rotate-180');
+            closeDropdown();
         });
 
         return instance;
     }
 
+    function initBmLeadPerformanceDatePickers() {
+        bmLpSourceFp = setupBmLeadPerformanceDatePicker({
+            openBtnId: 'bmLpSourceOpenDateDropdown',
+            dropdownId: 'bmLpSourceDateDropdown',
+            iconId: 'bmLpSourceIconDate',
+            inputId: 'bmLpSourceDateRange',
+            cancelBtnId: 'bmLpSourceCancelDate',
+            applyBtnId: 'bmLpSourceApplyDate',
+            onApply: applyBmLeadSourceDateFilter,
+        });
+
+        bmLpSegmentFp = setupBmLeadPerformanceDatePicker({
+            openBtnId: 'bmLpSegmentOpenDateDropdown',
+            dropdownId: 'bmLpSegmentDateDropdown',
+            iconId: 'bmLpSegmentIconDate',
+            inputId: 'bmLpSegmentDateRange',
+            cancelBtnId: 'bmLpSegmentCancelDate',
+            applyBtnId: 'bmLpSegmentApplyDate',
+            onApply: applyBmLeadSegmentDateFilter,
+        });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            lpSourceFp = setupLeadPerformanceDatePicker({
-                openBtnId: 'lpSourceOpenDateDropdown',
-                dropdownId: 'lpSourceDateDropdown',
-                iconId: 'lpSourceIconDate',
-                inputId: 'lpSourceDateRange',
-                cancelBtnId: 'lpSourceCancelDate',
-                applyBtnId: 'lpSourceApplyDate',
-                onApply: applySourceDateFilter,
-            });
-
-            lpSegmentFp = setupLeadPerformanceDatePicker({
-                openBtnId: 'lpSegmentOpenDateDropdown',
-                dropdownId: 'lpSegmentDateDropdown',
-                iconId: 'lpSegmentIconDate',
-                inputId: 'lpSegmentDateRange',
-                cancelBtnId: 'lpSegmentCancelDate',
-                applyBtnId: 'lpSegmentApplyDate',
-                onApply: applySegmentDateFilter,
-            });
-        });
+        document.addEventListener('DOMContentLoaded', initBmLeadPerformanceDatePickers);
     } else {
-        lpSourceFp = setupLeadPerformanceDatePicker({
-            openBtnId: 'lpSourceOpenDateDropdown',
-            dropdownId: 'lpSourceDateDropdown',
-            iconId: 'lpSourceIconDate',
-            inputId: 'lpSourceDateRange',
-            cancelBtnId: 'lpSourceCancelDate',
-            applyBtnId: 'lpSourceApplyDate',
-            onApply: applySourceDateFilter,
-        });
-
-        lpSegmentFp = setupLeadPerformanceDatePicker({
-            openBtnId: 'lpSegmentOpenDateDropdown',
-            dropdownId: 'lpSegmentDateDropdown',
-            iconId: 'lpSegmentIconDate',
-            inputId: 'lpSegmentDateRange',
-            cancelBtnId: 'lpSegmentCancelDate',
-            applyBtnId: 'lpSegmentApplyDate',
-            onApply: applySegmentDateFilter,
-        });
+        initBmLeadPerformanceDatePickers();
     }
 
     // LOAD SOURCE
     async function loadSource(action = 'init', value = null) {
-        const API_URL = '/api/dashboard/leads-performance';
+        const API_URL = '/api/dashboard/bm/leads-performance';
 
         if (action === 'size' && value) {
             leadsPerformancePageSize = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
@@ -382,12 +375,12 @@
         }
 
         const params = new URLSearchParams({
-            search: leadSourceSearchQuery
+            search: bmLeadSourceSearchQuery
         });
 
-        if (leadSourceFilter) params.append('source_id', leadSourceFilter);
-        if (filterStartDateSource) params.append('start_date', filterStartDateSource);
-        if (filterEndDateSource) params.append('end_date', filterEndDateSource);
+        if (bmLeadSourceFilter) params.append('source_id', bmLeadSourceFilter);
+        if (bmLeadSourceStartDate) params.append('start_date_source', bmLeadSourceStartDate);
+        if (bmLeadSourceEndDate) params.append('end_date_source', bmLeadSourceEndDate);
         if (typeof applySuperAdminGeneralFilterToParams === 'function') {
             applySuperAdminGeneralFilterToParams(params, { withBranch: true, withSales: true });
         }
@@ -497,16 +490,14 @@
 
     if (leadSourceSelect) {
         leadSourceSelect.addEventListener('change', function () {
-
-            leadSourceFilter = this.value || '';
-
+            bmLeadSourceFilter = this.value || '';
             loadSource('filter');
         });
     }
 
     // LOAD SEGMENTS
     async function loadSegment(action = 'init', value = null) {
-        const API_URL = '/api/dashboard/leads-performance';
+        const API_URL = '/api/dashboard/bm/leads-performance';
 
         if (action === 'size' && value) {
             leadsPerformancePageSize = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
@@ -515,12 +506,12 @@
         }
 
         const params = new URLSearchParams({
-            search: leadSegmentSearchQuery
+            search: bmLeadSegmentSearchQuery
         });
 
-        if (leadSegmentFilter) params.append('segment_id', leadSegmentFilter);
-        if (filterStartDateSegment) params.append('start_date', filterStartDateSegment);
-        if (filterEndDateSegment) params.append('end_date', filterEndDateSegment);
+        if (bmLeadSegmentFilter) params.append('segment_id', bmLeadSegmentFilter);
+        if (bmLeadSegmentStartDate) params.append('start_date_segment', bmLeadSegmentStartDate);
+        if (bmLeadSegmentEndDate) params.append('end_date_segment', bmLeadSegmentEndDate);
         if (typeof applySuperAdminGeneralFilterToParams === 'function') {
             applySuperAdminGeneralFilterToParams(params, { withBranch: true, withSales: true });
         }
@@ -630,29 +621,21 @@
 
     if (leadSegmentSelect) {
         leadSegmentSelect.addEventListener('change', function () {
-
-            leadSegmentFilter = this.value || '';
-
+            bmLeadSegmentFilter = this.value || '';
             loadSegment('filter');
         });
     }
-
 
     const searchInputLeadSource = document.getElementById('searchInputLeadSourceSales');
 
     if (searchInputLeadSource) {
         searchInputLeadSource.addEventListener('keyup', function () {
+            clearTimeout(bmLeadSourceSearchTimeout);
 
-            clearTimeout(leadSourceSearchTimeout);
-
-            leadSourceSearchTimeout = setTimeout(() => {
-
-                leadSourceSearchQuery = this.value.trim();
-
+            bmLeadSourceSearchTimeout = setTimeout(() => {
+                bmLeadSourceSearchQuery = this.value.trim();
                 loadSource('search');
-
             }, 500);
-
         });
     }
 
@@ -660,17 +643,12 @@
 
     if (searchInputLeadSegment) {
         searchInputLeadSegment.addEventListener('keyup', function () {
+            clearTimeout(bmLeadSegmentSearchTimeout);
 
-            clearTimeout(leadSegmentSearchTimeout);
-
-            leadSegmentSearchTimeout = setTimeout(() => {
-
-                leadSegmentSearchQuery = this.value.trim();
-
+            bmLeadSegmentSearchTimeout = setTimeout(() => {
+                bmLeadSegmentSearchQuery = this.value.trim();
                 loadSegment('search');
-
             }, 500);
-
         });
     }
 
@@ -678,10 +656,10 @@
 
     if (leadsSourceResetBtn) {
         leadsSourceResetBtn.addEventListener('click', function () {
-            leadSourceFilter = '';
-            leadSourceSearchQuery = '';
-            filterStartDateSource = '';
-            filterEndDateSource = '';
+            bmLeadSourceFilter = '';
+            bmLeadSourceSearchQuery = '';
+            bmLeadSourceStartDate = '';
+            bmLeadSourceEndDate = '';
 
             const sourceSelect = document.getElementById('salesLeadPerformanceSource');
             if (sourceSelect) sourceSelect.value = '';
@@ -689,17 +667,17 @@
             const sourceSearchInput = document.getElementById('searchInputLeadSourceSales');
             if (sourceSearchInput) sourceSearchInput.value = '';
 
-            const sourceLabel = document.getElementById('lpSourceDateLabel');
+            const sourceLabel = document.getElementById('bmLpSourceDateLabel');
             if (sourceLabel) sourceLabel.innerText = 'Date';
 
-            const sourceDropdown = document.getElementById('lpSourceDateDropdown');
+            const sourceDropdown = document.getElementById('bmLpSourceDateDropdown');
             if (sourceDropdown) sourceDropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
 
-            const sourceIcon = document.getElementById('lpSourceIconDate');
+            const sourceIcon = document.getElementById('bmLpSourceIconDate');
             if (sourceIcon) sourceIcon.classList.remove('rotate-180');
 
-            if (lpSourceFp && typeof lpSourceFp.clear === 'function') {
-                lpSourceFp.clear();
+            if (bmLpSourceFp && typeof bmLpSourceFp.clear === 'function') {
+                bmLpSourceFp.clear();
             }
 
             loadSource('filter');
@@ -710,10 +688,10 @@
 
     if (leadsSegmentResetBtn) {
         leadsSegmentResetBtn.addEventListener('click', function () {
-            leadSegmentFilter = '';
-            leadSegmentSearchQuery = '';
-            filterStartDateSegment = '';
-            filterEndDateSegment = '';
+            bmLeadSegmentFilter = '';
+            bmLeadSegmentSearchQuery = '';
+            bmLeadSegmentStartDate = '';
+            bmLeadSegmentEndDate = '';
 
             const segmentSelect = document.getElementById('salesLeadPerformanceSegments');
             if (segmentSelect) segmentSelect.value = '';
@@ -721,17 +699,17 @@
             const segmentSearchInput = document.getElementById('searchInputLeadSegmentSales');
             if (segmentSearchInput) segmentSearchInput.value = '';
 
-            const segmentLabel = document.getElementById('lpSegmentDateLabel');
+            const segmentLabel = document.getElementById('bmLpSegmentDateLabel');
             if (segmentLabel) segmentLabel.innerText = 'Date';
 
-            const segmentDropdown = document.getElementById('lpSegmentDateDropdown');
+            const segmentDropdown = document.getElementById('bmLpSegmentDateDropdown');
             if (segmentDropdown) segmentDropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
 
-            const segmentIcon = document.getElementById('lpSegmentIconDate');
+            const segmentIcon = document.getElementById('bmLpSegmentIconDate');
             if (segmentIcon) segmentIcon.classList.remove('rotate-180');
 
-            if (lpSegmentFp && typeof lpSegmentFp.clear === 'function') {
-                lpSegmentFp.clear();
+            if (bmLpSegmentFp && typeof bmLpSegmentFp.clear === 'function') {
+                bmLpSegmentFp.clear();
             }
 
             loadSegment('filter');

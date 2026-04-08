@@ -78,7 +78,9 @@
             const label = document.getElementById('dateLabel');
             if (label) label.innerText = `${startDate} -> ${endDate}`;
 
-            loadAvailableLeads(startDate, endDate);
+            filterStartDate = startDate;
+            filterEndDate = endDate;
+            loadActivity('filter');
 
             if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
             });

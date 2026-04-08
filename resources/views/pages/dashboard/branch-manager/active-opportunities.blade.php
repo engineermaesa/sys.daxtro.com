@@ -1,4 +1,4 @@
-<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General Active Opportunities</h1>
+<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Sales Active Opportunities</h1>
 <div class="mt-2 mb-4 bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
     {{-- NAVIGATION TABLES --}}
     <div class="bg-white lg:grid lg:grid-cols-[1fr_3fr] border-b border-[#D9D9D9] p-2 lg:p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
@@ -39,28 +39,28 @@
             class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
 
                 {{-- TOGGLE --}}
-                <div id="openDateDropdown" class="flex justify-center items-center gap-2">
-                    <p id="dateLabel" class="font-medium text-black">Date</p>
-                    <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                <div id="bmActivityOpenDateDropdown" class="flex justify-center items-center gap-2">
+                    <p id="bmActivityDateLabel" class="font-medium text-black">Date</p>
+                    <i id="bmActivityIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
                 </div>
 
                 {{-- DATE DROPDOWN --}}
-                <div id="dateDropdown"
+                <div id="bmActivityDateDropdown"
                     class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
 
                     <h3 class="font-semibold mb-2">Select Date Range</h3>
 
                         <div class="flex justify-center items-center">
-                        <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
+                        <input type="text" id="bmActivityDateRange" class="shadow-none w-full" placeholder="Select date range">
                         </div>
 
                     <div class="flex justify-end gap-2 mt-3">
 
-                        <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                        <button id="bmActivityCancelDate" class="px-3 py-1 text-[#303030]">
                             Cancel
                         </button>
 
-                        <button id="applyDate"
+                        <button id="bmActivityApplyDate"
                             class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
                             Apply
                         </button>
@@ -87,9 +87,6 @@
                     <th class="hidden">ID (hidden)</th>
                     <th class="p-1 md:p-2 lg:p-3">
                         Customer Name
-                    </th>
-                    <th class="p-1 md:p-2 lg:p-3">
-                        Branch Name
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
                         Sales Name
@@ -154,10 +151,76 @@
 </div>
 
 <script>
+    let bmActivityFilterStage = '';
+    let bmActivityFilterStartDate = '';
+    let bmActivityFilterEndDate = '';
+    let bmActivitySearchQuery = '';
+    let bmActivitySearchTimeout = null;
+    let bmActivityFp = null;
+
+    function setupBmActivityDatePicker() {
+        const openBtn = document.getElementById('bmActivityOpenDateDropdown');
+        const dropdown = document.getElementById('bmActivityDateDropdown');
+        const icon = document.getElementById('bmActivityIconDate');
+        const label = document.getElementById('bmActivityDateLabel');
+        const input = document.getElementById('bmActivityDateRange');
+        const cancelBtn = document.getElementById('bmActivityCancelDate');
+        const applyBtn = document.getElementById('bmActivityApplyDate');
+
+        if (!openBtn || !dropdown || !icon || !input || !cancelBtn || !applyBtn || typeof flatpickr === 'undefined') {
+            return;
+        }
+
+        bmActivityFp = flatpickr(input, {
+            mode: 'range',
+            inline: true,
+            dateFormat: 'Y-m-d',
+        });
+
+        const closeDropdown = () => {
+            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            icon.classList.remove('rotate-180');
+        };
+
+        openBtn.addEventListener('click', () => {
+            dropdown.classList.toggle('opacity-0');
+            dropdown.classList.toggle('scale-95');
+            dropdown.classList.toggle('pointer-events-none');
+            icon.classList.toggle('rotate-180');
+            bmActivityFp.open();
+        });
+
+        cancelBtn.addEventListener('click', closeDropdown);
+
+        applyBtn.addEventListener('click', () => {
+            const dates = bmActivityFp.selectedDates || [];
+            if (dates.length !== 2) return;
+
+            const startDate = bmActivityFp.formatDate(dates[0], 'Y-m-d');
+            const endDate = bmActivityFp.formatDate(dates[1], 'Y-m-d');
+
+            bmActivityFilterStartDate = startDate;
+            bmActivityFilterEndDate = endDate;
+
+            if (label) {
+                label.innerText = `${startDate} -> ${endDate}`;
+            }
+
+            closeDropdown();
+            loadActivity('filter');
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupBmActivityDatePicker);
+    } else {
+        setupBmActivityDatePicker();
+    }
+
     // LOAD ACTIVE 
     async function loadActivity(action = 'init', value = null) {
 
-        const API_URL = '/api/dashboard/active-opportunities';
+        const API_URL = '/api/dashboard/bm/active-opportunities';
 
         if (action === 'filter' || action === 'search') {
             activityPage = 1;
@@ -179,12 +242,12 @@
         const params = new URLSearchParams({
             page: activityPage,
             per_page: activityPageSize,
-            search: typeof getSearchQuery === 'function' ? getSearchQuery() : ''
+            search: bmActivitySearchQuery
         });
 
-        if (filterStage) params.append('stage', filterStage); 
-        if (filterStartDate) params.append('start_date', filterStartDate);
-        if (filterEndDate) params.append('end_date', filterEndDate);
+        if (bmActivityFilterStage) params.append('stage', bmActivityFilterStage); 
+        if (bmActivityFilterStartDate) params.append('start_date', bmActivityFilterStartDate);
+        if (bmActivityFilterEndDate) params.append('end_date', bmActivityFilterEndDate);
         if (typeof applySuperAdminGeneralFilterToParams === 'function') {
             applySuperAdminGeneralFilterToParams(params, { withBranch: true, withSales: true });
         }
@@ -241,7 +304,6 @@
                         <tr class="border-t border-t-[#D9D9D9]">
                             <td class="hidden">${item.id ?? '-'}</td>
                             <td class="p-1 lg:p-3">${item.customer_name ?? '-'}</td>
-                            <td class="p-1 lg:p-3">${item.branch ?? '-'}</td>
                             <td class="p-1 lg:p-3">${item.sales ?? '-'}</td>
                             <td class="p-1 lg:p-3">
                                 <span class="inline-block lg:px-2 lg:py-1 rounded-sm
@@ -280,7 +342,6 @@
                 <tr class="font-semibold border-t-[#D9D9D9] border-t text-[#1E1E1E]">
                     <td class="p-2 lg:p-3">Total</td>
                     <td class="p-2 lg:p-3"></td>
-                    <td class="p-2 lg:p-3"></td>
                     <td class="p-2 lg:p-3">${activityTotal} Leads</td>
                     <td class="p-2 lg:p-3">${formatRupiah(totalAmount)}</td>
                 </tr>
@@ -314,7 +375,7 @@
     if (leadStageSelect) {
         leadStageSelect.addEventListener('change', function () {
 
-            filterStage = this.value || null;
+            bmActivityFilterStage = this.value || '';
 
             loadActivity('filter');
         });
@@ -325,11 +386,11 @@
     if (searchInputActivity) {
         searchInputActivity.addEventListener('keyup', function () {
 
-            clearTimeout(searchTimeout);
+            clearTimeout(bmActivitySearchTimeout);
 
-            searchTimeout = setTimeout(() => {
+            bmActivitySearchTimeout = setTimeout(() => {
 
-                searchQuery = this.value.trim();
+                bmActivitySearchQuery = this.value.trim();
 
                 loadActivity('search');
 
@@ -342,10 +403,13 @@
 
     if (activityResetBtn) {
         activityResetBtn.addEventListener('click', function () {
-            filterStage = '';
-            filterStartDate = '';
-            filterEndDate = '';
-            searchQuery = '';
+            bmActivityFilterStage = '';
+            bmActivityFilterStartDate = '';
+            bmActivityFilterEndDate = '';
+            bmActivitySearchQuery = '';
+
+            activityPage = 1;
+            activityPageSize = DEFAULT_PAGE_SIZE;
 
             const stageSelect = document.getElementById('salesActivitySelectStage');
             if (stageSelect) stageSelect.value = '';
@@ -353,17 +417,20 @@
             const searchInput = document.getElementById('searchInputActivitySales');
             if (searchInput) searchInput.value = '';
 
-            const dateLabel = document.getElementById('dateLabel');
+            const dateLabel = document.getElementById('bmActivityDateLabel');
             if (dateLabel) dateLabel.innerText = 'Date';
 
-            const dateDropdown = document.getElementById('dateDropdown');
-            if (dateDropdown) dateDropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            const pageSizeSelect = document.getElementById('tabPageSizeSelect');
+            if (pageSizeSelect) pageSizeSelect.value = String(DEFAULT_PAGE_SIZE);
 
-            const dateIcon = document.getElementById('iconDate');
-            if (dateIcon) dateIcon.classList.remove('rotate-180');
+            const dropdown = document.getElementById('bmActivityDateDropdown');
+            if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
 
-            if (typeof fp !== 'undefined' && fp && typeof fp.clear === 'function') {
-                fp.clear();
+            const icon = document.getElementById('bmActivityIconDate');
+            if (icon) icon.classList.remove('rotate-180');
+
+            if (bmActivityFp && typeof bmActivityFp.clear === 'function') {
+                bmActivityFp.clear();
             }
 
             loadActivity('filter');
