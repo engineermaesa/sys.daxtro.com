@@ -65,77 +65,142 @@
                 <th>nip_sales</th>
                 <th>published_at</th>
                 <th>status_stage</th>
+                <th>Meeting Type</th>
+                <th>Meeting URL</th>
+                <th>Start Time Meeting</th>
+                <th>End Time Meeting</th>
+                <th>Meeting City</th>
+                <th>Meeting Address</th>
+                <th>Expense Type</th>
+                <th>Expense Notes</th>
+                <th>Expense Amount</th>
                 <th>Status</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
+              @php $lastGroup = null; $groupIndex = 0; @endphp
               @foreach($rows as $idx => $row)
+              @php
+                $currentGroup   = $row['group_key'] ?? $idx;
+                $isFirstInGroup = $currentGroup !== $lastGroup;
+                if ($isFirstInGroup) {
+                  $groupIndex++;
+                }
+                $lastGroup = $currentGroup;
+              @endphp
               <tr class="{{ $row['error'] ? 'table-danger' : '' }}" data-index="{{ $idx }}">
-                <td>{{ $idx + 1 }}</td>
-                <td>
-                  <select name="rows[{{ $idx }}][source_id]" class="form-control form-control-sm">
-                    <option value="">--</option>
-                    @foreach($sources as $s)
-                    <option value="{{ $s->id }}" {{ $s->id == $row['source_id'] ? 'selected' : '' }}>{{ $s->name }}
-                    </option>
-                    @endforeach
-                  </select>
-                </td>
-                <td>
-                  <select name="rows[{{ $idx }}][segment_id]" class="form-control form-control-sm">
-                    <option value="">--</option>
-                    @foreach($segments as $seg)
-                    <option value="{{ $seg->id }}" {{ $seg->id == $row['segment_id'] ? 'selected' : '' }}>{{ $seg->name
-                      }}</option>
-                    @endforeach
-                  </select>
-                </td>
-                <td>
-                  <select name="rows[{{ $idx }}][region_id]" class="form-control form-control-sm">
-                    <option value="">All Region</option>
-                    @foreach($regions as $r)
-                    <option value="{{ $r->id }}" {{ $r->id == $row['region_id'] ? 'selected' : '' }}>{{ $r->name }}
-                    </option>
-                    @endforeach
-                  </select>
-                </td>
-                <td><input type="text" name="rows[{{ $idx }}][lead_name]" value="{{ $row['lead_name'] }}"
-                    class="form-control form-control-sm"></td>
-                <td><input type="text" name="rows[{{ $idx }}][lead_email]" value="{{ $row['lead_email'] }}"
-                    class="form-control form-control-sm"></td>
-                <td><input type="text" name="rows[{{ $idx }}][lead_phone]" value="{{ $row['lead_phone'] }}"
-                    class="form-control form-control-sm"></td>
-                <td><input type="text" name="rows[{{ $idx }}][lead_needs]" value="{{ $row['lead_needs'] }}"
-                    class="form-control form-control-sm"></td>
-                <td>
-                  <select name="rows[{{ $idx }}][nip_sales]" class="form-control form-control-sm">
-                    <option value="">--</option>
-                    @foreach($users as $u)
-                    <option value="{{ $u->nip }}" {{ $u->nip == $row['nip_sales'] ? 'selected' : '' }}>{{ $u->nip }} -
-                      {{ $u->name }}</option>
-                    @endforeach
-                  </select>
-                </td>
-                <td><input type="text" name="rows[{{ $idx }}][published_at]" value="{{ $row['published_at'] }}"
-                    class="form-control form-control-sm"></td>
-                <td>
-                  <select name="rows[{{ $idx }}][status_stage]" class="form-control form-control-sm">
+                <td data-order="{{ $groupIndex }}">{{ $isFirstInGroup ? $groupIndex : '' }}</td>
+                <input type="hidden" name="rows[{{ $idx }}][group_key]" value="{{ $row['group_key'] ?? '' }}">
+                @if($isFirstInGroup)
+                  <td>
+                    <select name="rows[{{ $idx }}][source_id]" class="form-control form-control-sm">
+                      <option value="">--</option>
+                      @foreach($sources as $s)
+                      <option value="{{ $s->id }}" {{ $s->id == $row['source_id'] ? 'selected' : '' }}>{{ $s->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td>
+                    <select name="rows[{{ $idx }}][segment_id]" class="form-control form-control-sm">
+                      <option value="">--</option>
+                      @foreach($segments as $seg)
+                      <option value="{{ $seg->id }}" {{ $seg->id == $row['segment_id'] ? 'selected' : '' }}>{{ $seg->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td>
+                    <select name="rows[{{ $idx }}][region_id]" class="form-control form-control-sm">
+                      <option value="">All Region</option>
+                      @foreach($regions as $r)
+                      <option value="{{ $r->id }}" {{ $r->id == $row['region_id'] ? 'selected' : '' }}>{{ $r->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td><input type="text" name="rows[{{ $idx }}][lead_name]" value="{{ $row['lead_name'] }}" class="form-control form-control-sm"></td>
+                  <td><input type="text" name="rows[{{ $idx }}][lead_email]" value="{{ $row['lead_email'] }}" class="form-control form-control-sm"></td>
+                  <td><input type="text" name="rows[{{ $idx }}][lead_phone]" value="{{ $row['lead_phone'] }}" class="form-control form-control-sm"></td>
+                  <td><input type="text" name="rows[{{ $idx }}][lead_needs]" value="{{ $row['lead_needs'] }}" class="form-control form-control-sm"></td>
+                  <td>
+                    <select name="rows[{{ $idx }}][nip_sales]" class="form-control form-control-sm">
+                      <option value="">--</option>
+                      @foreach($users as $u)
+                      <option value="{{ $u->nip }}" {{ $u->nip == $row['nip_sales'] ? 'selected' : '' }}>{{ $u->nip }} - {{ $u->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td><input type="text" name="rows[{{ $idx }}][published_at]" value="{{ $row['published_at'] }}" class="form-control form-control-sm"></td>
+                  <td>
                     @php($stage = $row['status_stage'] ?? '')
-                    <option value="" {{ $stage==='' ? 'selected' : '' }}>--</option>
-                    <option value="cold" {{ $stage==='cold' ? 'selected' : '' }}>cold</option>
-                    <option value="warm" {{ $stage==='warm' ? 'selected' : '' }}>warm</option>
-                    <option value="hot" {{ $stage==='hot' ? 'selected' : '' }}>hot</option>
-                    <option value="deal" {{ $stage==='deal' ? 'selected' : '' }}>deal</option>
-                  </select>
+                    <select name="rows[{{ $idx }}][status_stage]" class="form-control form-control-sm">
+                      <option value="" {{ $stage==='' ? 'selected' : '' }}>--</option>
+                      <option value="cold" {{ $stage==='cold' ? 'selected' : '' }}>cold</option>
+                      <option value="warm" {{ $stage==='warm' ? 'selected' : '' }}>warm</option>
+                      <option value="hot" {{ $stage==='hot' ? 'selected' : '' }}>hot</option>
+                      <option value="deal" {{ $stage==='deal' ? 'selected' : '' }}>deal</option>
+                    </select>
+                  </td>
+                  <td>
+                    @php($mtId = $row['meeting_type_id'] ?? null)
+                    <input type="text" class="form-control form-control-sm" value="{{ isset($meetingTypes) ? optional($meetingTypes->firstWhere('id', $mtId))->name : $mtId }}" readonly>
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" value="{{ $row['meeting_url'] ?? '' }}" readonly>
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" value="{{ $row['meeting_start_at'] ?? '' }}" readonly>
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" value="{{ $row['meeting_end_at'] ?? '' }}" readonly>
+                  </td>
+                  <td>
+                    @php($cityRaw = $row['meeting_city'] ?? '')
+                    <input type="text" class="form-control form-control-sm" value="{{ ($cityRaw !== '' && isset($regions)) ? optional($regions->firstWhere('id', is_numeric($cityRaw) ? (int) $cityRaw : $cityRaw))->name ?? $cityRaw : $cityRaw }}" readonly>
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm" value="{{ $row['meeting_address'] ?? '' }}" readonly>
+                  </td>
+                @else
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                @endif
+                <td>
+                  @php($etId = $row['expense_type_id'] ?? null)
+                  <input type="text" class="form-control form-control-sm"
+                    value="{{ isset($expenseTypes) ? optional($expenseTypes->firstWhere('id', $etId))->name : $etId }}"
+                    readonly>
                 </td>
                 <td>
-                  @if($row['error'])
-                  <span class="badge badge-danger">{{ $row['error'] }}</span>
-                  @else
-                  <span class="badge badge-success">OK</span>
-                  @endif
+                  <input type="text" class="form-control form-control-sm" value="{{ $row['expense_notes'] ?? '' }}" readonly>
                 </td>
+                <td>
+                  <input type="text" class="form-control form-control-sm" value="{{ $row['expense_amount'] ?? '' }}" readonly>
+                </td>
+                @if($isFirstInGroup)
+                  <td>
+                    @if($row['error'])
+                    <span class="badge badge-danger">{{ $row['error'] }}</span>
+                    @else
+                    <span class="badge badge-success">OK</span>
+                    @endif
+                  </td>
+                @else
+                  <td></td>
+                @endif
                 <td class="text-center">
                   <button type="button" class="btn btn-sm btn-outline-danger remove-row"><i
                       class="bi bi-x"></i></button>
