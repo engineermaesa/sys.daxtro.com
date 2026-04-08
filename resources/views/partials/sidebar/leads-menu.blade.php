@@ -1,9 +1,9 @@
 <li id="listLeads"
-    class="{{ (request()->is('leads/*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*')) ? '' : '' }} rounded-lg mt-2">
-    <button
+     class="{{ (request()->is('leads/*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*') || request()->is('lost-leads*')) ? '' : '' }} rounded-lg mt-2">
+  <button
         class="cursor-pointer w-full text-left rounded-lg p-3 grid place-items-center lg:flex lg:items-center lg:justify-between"
         href="#" data-toggle="collapse" data-target="#collapseLeads"
-        aria-expanded="{{ request()->is('leads*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*') }}"
+        aria-expanded="{{ request()->is('leads*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*') || request()->is('lost-leads*') }}"
         id="leadsToggle">
         <div class="lg:flex lg:items-center lg:justify-start lg:gap-3">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -18,7 +18,7 @@
             style="font-size: 16px;"></i>
     </button>
     <div id="leadsMenu"
-        class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0 {{ request()->is('leads*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*') }} text-sm">
+        class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0 {{ request()->is('leads*') || request()->is('quotations*') || request()->is('payment-confirmation*') || request()->is('trash-leads*') || request()->is('lost-leads*') }} text-sm">
         <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
             {{-- AVAILABLE LEADS --}}
             @if(auth()->check() && (auth()->user()->hasPermission('leads.available') ||
@@ -96,6 +96,21 @@
                 </span>
             </a>
             @endif
+
+            {{-- LOST LEADS --}}
+            @if(auth()->check() && auth()->user()->hasPermission('leads.lost'))
+            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->is('lost-leads*') }}"
+                href="{{ route('lost-leads.index') }}">
+                <span
+                    class="block h-[20px] w-[3px] {{ request()->is('lost-leads*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+
+                </span>
+                <span
+                    class="{{ request()->is('lost-leads*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                    Lost Leads
+                </span>
+            </a>
+            @endif
         </div>
     </div>
 </li>
@@ -107,10 +122,8 @@ request()->is('leads/available*') ||
 request()->is('leads/manage*') ||
 request()->is('leads/import*') ||
 request()->is('leads/my*') ||
-request()->is('trash-leads*');
-// request()->is('quotations*') ||
-// request()->is('payment-confirmation*') ||
-// request()->is('trash-leads*');
+request()->is('trash-leads*') ||
+request()->is('lost-leads*');
 @endphp
 
 <script>

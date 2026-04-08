@@ -1,19 +1,21 @@
 <section>
-    
+    {{-- FILTERING --}}
+    @include('pages.dashboard.super-admin.filtering')
+
     {{-- PERSONAL KPI GRID --}}
-    @include('pages.dashboard.sales.personal-kpi')
+    @include('pages.dashboard.super-admin.general-kpi')
 
     {{-- ACTIVITY OPPORTUNITIES --}}
-    @include('pages.dashboard.sales.active-opportunities')
+    @include('pages.dashboard.super-admin.active-opportunities')
     
     {{-- LEADS PERFORMANCE--}}
-    @include('pages.dashboard.sales.leads-performance')
+    @include('pages.dashboard.super-admin.leads-performance')
 
     {{-- PERSONAL TRENDS --}}
-    @include('pages.dashboard.sales.personal-trends')
+    @include('pages.dashboard.super-admin.general-trends')
 
     {{-- SUMMARY --}}
-    @include('pages.dashboard.sales.summary')
+    @include('pages.dashboard.super-admin.summary')
 
 </section>
 
@@ -70,16 +72,13 @@
             const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
             if (dates.length !== 2) return;
 
-            const startDate = fp.formatDate(dates[0], 'Y-m-d');
-            const endDate = fp.formatDate(dates[1], 'Y-m-d');
+            const startDate = dates[0].toISOString().split('T')[0];
+            const endDate = dates[1].toISOString().split('T')[0];
 
             const label = document.getElementById('dateLabel');
             if (label) label.innerText = `${startDate} -> ${endDate}`;
 
-            filterStartDate = startDate;
-            filterEndDate = endDate;
-
-            loadActivity('filter');
+            loadAvailableLeads(startDate, endDate);
 
             if (dropdown) dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
             });
@@ -104,10 +103,6 @@
     let filterStage = '';
     let filterStartDate = '';
     let filterEndDate = '';
-    let filterStartDateSource = '';
-    let filterEndDateSource = '';
-    let filterStartDateSegment = '';
-    let filterEndDateSegment = '';
 
     let searchQuery = '';
     let searchTimeout = null;

@@ -1234,6 +1234,20 @@ class LeadController extends Controller
     public function availableExport(Request $request)
     {
         $user = $request->user();
+        $request->validate([
+            'export_mode' => 'nullable|in:selected,all_filtered',
+            'lead_ids' => 'nullable|array',
+            'lead_ids.*' => 'nullable|integer|distinct',
+        ]);
+
+        $selectedLeadIds = collect($request->input('lead_ids', []))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $exportSelectedOnly = $request->input('export_mode') === 'selected' && ! empty($selectedLeadIds);
 
         $leads = Lead::with([
             'region',
@@ -1255,62 +1269,66 @@ class LeadController extends Controller
             });
         }
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', function ($q) use ($request) {
-                $q->where('id', $request->branch_id);
-            });
-        }
-
-        if ($request->filled('region_id')) {
-            $leads->where('region_id', $request->region_id);
-        }
-
-        // Date range filter (published_at) – same as availableList
-        if ($request->filled('start_date') || $request->filled('end_date')) {
-            if ($request->filled('start_date') && $request->filled('end_date')) {
-                $leads->whereDate('published_at', '>=', $request->start_date)
-                    ->whereDate('published_at', '<=', $request->end_date);
-            } elseif ($request->filled('start_date')) {
-                $leads->whereDate('published_at', '>=', $request->start_date);
-            } else {
-                $leads->whereDate('published_at', '<=', $request->end_date);
+        if ($exportSelectedOnly) {
+            $leads->whereIn('id', $selectedLeadIds);
+        } else {
+            if ($request->filled('branch_id')) {
+                $leads->whereHas('region.branch', function ($q) use ($request) {
+                    $q->where('id', $request->branch_id);
+                });
             }
-        }
 
-        // Source filter
-        if ($request->filled('source_id')) {
-            $source = $request->source_id;
-            is_array($source)
-                ? $leads->whereIn('source_id', $source)
-                : $leads->where('source_id', $source);
-        }
+            if ($request->filled('region_id')) {
+                $leads->where('region_id', $request->region_id);
+            }
 
-        // Industry filter
-        if ($request->filled('industry_id')) {
-            $leads->where('industry_id', $request->industry_id);
-        }
+            // Date range filter (published_at) - same as availableList
+            if ($request->filled('start_date') || $request->filled('end_date')) {
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $leads->whereDate('published_at', '>=', $request->start_date)
+                        ->whereDate('published_at', '<=', $request->end_date);
+                } elseif ($request->filled('start_date')) {
+                    $leads->whereDate('published_at', '>=', $request->start_date);
+                } else {
+                    $leads->whereDate('published_at', '<=', $request->end_date);
+                }
+            }
 
-        // Global search (same as availableList)
-        if ($request->filled('q')) {
-            $term = $request->q;
-            $leads->where(function ($q) use ($term) {
-                $q->where('name', 'like', "%{$term}%")
-                    ->orWhereHas('region', function ($qr) use ($term) {
-                        $qr->where('name', 'like', "%{$term}%")
-                            ->orWhereHas('branch', function ($qb) use ($term) {
-                                $qb->where('name', 'like', "%{$term}%");
-                            });
-                    })
-                    ->orWhereHas('source', function ($qs) use ($term) {
-                        $qs->where('name', 'like', "%{$term}%");
-                    })
-                    ->orWhereHas('segment', function ($qseg) use ($term) {
-                        $qseg->where('name', 'like', "%{$term}%");
-                    })
-                    ->orWhereHas('industry', function ($qind) use ($term) {
-                        $qind->where('name', 'like', "%{$term}%");
-                    });
-            });
+            // Source filter
+            if ($request->filled('source_id')) {
+                $source = $request->source_id;
+                is_array($source)
+                    ? $leads->whereIn('source_id', $source)
+                    : $leads->where('source_id', $source);
+            }
+
+            // Industry filter
+            if ($request->filled('industry_id')) {
+                $leads->where('industry_id', $request->industry_id);
+            }
+
+            // Global search (same as availableList)
+            if ($request->filled('q')) {
+                $term = $request->q;
+                $leads->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhereHas('region', function ($qr) use ($term) {
+                            $qr->where('name', 'like', "%{$term}%")
+                                ->orWhereHas('branch', function ($qb) use ($term) {
+                                    $qb->where('name', 'like', "%{$term}%");
+                                });
+                        })
+                        ->orWhereHas('source', function ($qs) use ($term) {
+                            $qs->where('name', 'like', "%{$term}%");
+                        })
+                        ->orWhereHas('segment', function ($qseg) use ($term) {
+                            $qseg->where('name', 'like', "%{$term}%");
+                        })
+                        ->orWhereHas('industry', function ($qind) use ($term) {
+                            $qind->where('name', 'like', "%{$term}%");
+                        });
+                });
+            }
         }
 
         $rows   = [];
@@ -1335,16 +1353,16 @@ class LeadController extends Controller
                 $lead->region->branch->name ?? '-',
                 // Match "Industry To Be" column in table (industry_name)
                 $lead->industry->name ?? '-',
-                // "Industry Existing" – currently same data as view uses
+                // "Industry Existing" - currently same data as view uses
                 $lead->industry->name ?? '-',
-                // "Industry" – same again (view shows industry.name)
+                // "Industry" - same again (view shows industry.name)
                 $lead->industry->name ?? '-',
                 // Product column in view uses needs
                 $lead->needs ?? '-',
                 $lead->tonase ?? '-',
                 $lead->region->name ?? '-',
                 $lead->source->name ?? '-',
-                // Sama seperti kolom Segment di list: pakai segment, fallback ke customer_type
+                // Same as Segment column in list: segment with fallback customer_type
                 $lead->segment->name ?? $lead->customer_type ?? 'Not Set',
             ];
         }
@@ -2165,3 +2183,4 @@ class LeadController extends Controller
         return $html;
     }
 }
+

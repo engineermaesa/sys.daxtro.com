@@ -28,8 +28,11 @@ class BMSummaryController extends Controller
             ], 401);
         }
 
+<<<<<<< HEAD
+=======
         $branchId = $user->branch_id;
 
+>>>>>>> 8b914c009d8364eb4cb105656d3a232e3732ed55
         $target = User::with('role')
             ->where('branch_id', $branchId)
             ->whereHas('role', function ($q) {

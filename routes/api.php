@@ -62,8 +62,11 @@ Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'Ac
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> 8b914c009d8364eb4cb105656d3a232e3732ed55
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
@@ -226,6 +229,15 @@ Route::group([
 
     Route::post('restore/{claim?}', 'TrashLeadController@restore')->name('restore');
     Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
+});
+
+Route::group([
+    'prefix' => 'lost-leads',
+    'as' => 'lost-leads.',
+    'namespace' => 'App\\Http\\Controllers\\Leads',
+    'middleware' => ['api','web','auth'],
+], function () {
+    Route::get('list', 'LostLeadController@hotList')->name('hot.list');
 });
 
 // =====================================

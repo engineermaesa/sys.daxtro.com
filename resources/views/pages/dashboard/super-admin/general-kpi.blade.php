@@ -1,4 +1,4 @@
-<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Personal KPI</h1>
+<h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General KPI</h1>
 
 <div class="grid grid-cols-3 gap-3 mt-2">
     {{-- ACHIEVEMENT VS TARGET SALE AMOUNT SECTION--}}
@@ -171,7 +171,24 @@
     // LOAD GRID (PERSONAL-KPI)
     async function loadDashboardGrid() {
         try {
-            const response = await fetch("/api/leads/grid");
+            const params = new URLSearchParams();
+            const generalFilter = typeof getSuperAdminGeneralFilter === 'function'
+                ? getSuperAdminGeneralFilter()
+                : { branch_id: null, sales_id: null };
+
+            if (generalFilter.branch_id) {
+                params.append('branch_id', generalFilter.branch_id);
+            }
+
+            if (generalFilter.sales_id) {
+                params.append('sales_id', generalFilter.sales_id);
+            }
+
+            const apiUrl = params.toString()
+                ? `/api/dashboard/grid?${params.toString()}`
+                : '/api/dashboard/grid';
+
+            const response = await fetch(apiUrl);
             
             if (!response.ok) {
                 throw new Error("Network response was not ok");
@@ -301,5 +318,9 @@
             console.error("Error loading dashboard grid:", error);
         }
     }
+
+    window.addEventListener('super-admin-general-filter-change', function () {
+        loadDashboardGrid();
+    });
 
 </script>
