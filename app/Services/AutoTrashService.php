@@ -29,7 +29,7 @@ class AutoTrashService
                         });
                 })
                 ->whereNull('released_at')
-                ->where('claimed_at', '<', now()->subDays(3))
+                ->where('claimed_at', '<', now()->subDays(30))
                 ->get();
 
             foreach ($expiredColdClaims as $claim) {
@@ -41,7 +41,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_COLD]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Cold lead expired after 3 days'
+                    'trash_note' => 'Auto trashed - Cold lead expired after 30 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,

@@ -10,11 +10,11 @@ class TrashUnscheduledLeads extends Command
 {
     protected $signature = 'leads:trash-unscheduled';
 
-    protected $description = 'Move claimed leads to TRASH_COLD when no meeting is scheduled after 2 days';
+    protected $description = 'Move claimed leads to TRASH_COLD when no meeting is scheduled after 30 days';
 
     public function handle()
     {
-        $threshold = now()->subDays(7);
+        $threshold = now()->subDays(30);
         $count = 0;
 
         LeadClaim::with('lead')

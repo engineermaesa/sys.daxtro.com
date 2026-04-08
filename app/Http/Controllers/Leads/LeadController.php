@@ -609,10 +609,6 @@ class LeadController extends Controller
         }
     }
 
-    /**
-     * Evaluate lead data completeness based only on lead fields (no quotation).
-     * Returns an array: [passedCount (0-6), label: Incomplete|Moderate|Complete].
-     */
     protected function evaluateLeadDataCompleteness($lead): array
     {
         $checks = [
