@@ -62,11 +62,6 @@ Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'Ac
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 8b914c009d8364eb4cb105656d3a232e3732ed55
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
