@@ -57,7 +57,7 @@ class AutoTrashService
                         ->whereDoesntHave('quotation');
                 })
                 ->whereNull('released_at')
-                ->where('claimed_at', '<', now()->subDays(7))
+                ->where('claimed_at', '<', now()->subDays(14))
                 ->get();
 
             foreach ($expiredWarmClaims as $claim) {
@@ -69,7 +69,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_WARM]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Warm lead expired after 7 days'
+                    'trash_note' => 'Auto trashed - Warm lead expired after 14 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,
@@ -80,7 +80,7 @@ class AutoTrashService
             $expiredHotClaims = LeadClaim::with('lead')
                 ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
                 ->whereNull('released_at')
-                ->where('claimed_at', '<', now()->subDays(30))
+                ->where('claimed_at', '<', now()->subDays(14))
                 ->get();
 
             foreach ($expiredHotClaims as $claim) {
@@ -92,7 +92,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_HOT]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Hot lead expired after 30 days'
+                    'trash_note' => 'Auto trashed - Hot lead expired after 14 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,

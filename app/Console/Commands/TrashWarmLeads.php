@@ -8,11 +8,11 @@ use App\Models\Leads\{Lead, LeadStatus, LeadStatusLog};
 class TrashWarmLeads extends Command
 {
     protected $signature   = 'leads:trash-warm';
-    protected $description = 'Move warm leads to TRASH_WARM after 30 days without status change';
+    protected $description = 'Move warm leads to TRASH_WARM after 14 days without status change';
 
     public function handle()
     {
-        $threshold = now()->subDays(30);
+        $threshold = now()->subDays(14);
         $count     = 0;
 
         Lead::where('status_id', LeadStatus::WARM)

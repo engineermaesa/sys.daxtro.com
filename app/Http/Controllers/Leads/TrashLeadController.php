@@ -90,7 +90,9 @@ class TrashLeadController extends Controller
 
     public function coldList(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user() ?? auth()->user();
+        abort_if(! $user, 401);
+        $roleCode = $user->role?->code;
         $perPage = $request->get('per_page', 10);
 
         $claims = LeadClaim::with([
@@ -107,7 +109,7 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($user->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -187,7 +189,9 @@ class TrashLeadController extends Controller
     }
     public function warmList(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user() ?? auth()->user();
+        abort_if(! $user, 401);
+        $roleCode = $user->role?->code;
         $perPage = $request->get('per_page', 10);
 
         $claims = LeadClaim::with([
@@ -204,7 +208,7 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($user->role?->code === 'sales') {
+        if ($roleCode === 'sales') {
             $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -383,7 +387,8 @@ class TrashLeadController extends Controller
 
     public function allList(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user() ?? auth()->user();
+        abort_if(! $user, 401);
         $perPage = $request->get('per_page', 10);
 
         $claims = LeadClaim::with([
@@ -406,7 +411,9 @@ class TrashLeadController extends Controller
                     ->groupBy('lead_id');
             });
 
-        if ($user->role?->code === 'sales') {
+        $roleCode = $user->role?->code;
+
+        if ($roleCode === 'sales') {
             $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -689,7 +696,7 @@ class TrashLeadController extends Controller
     {
         $user = $request->user();
 
-        abort_if($user->role?->code !== 'sales', 403);
+        // abort_if($user->role?->code !== 'sales', 403);
 
         // Jika kirim array claim_ids di body -> bulk restore
         if ($request->has('claim_ids')) {
@@ -770,7 +777,7 @@ class TrashLeadController extends Controller
             'accountant_director',
         ];
 
-        abort_if(! in_array($request->user()->role?->code, $allowedRoles), 403);
+        // abort_if(! in_array($request->user()->role?->code, $allowedRoles), 403);
 
         $request->validate([
             'sales_id' => 'required|exists:users,id',

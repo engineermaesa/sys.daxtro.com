@@ -62,11 +62,6 @@ Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'Ac
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 8b914c009d8364eb4cb105656d3a232e3732ed55
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
 Route::get('/dashboard/source-monitoring-chart', [DashSummaryController::class, 'SourceMonitoringChart']);
@@ -216,8 +211,7 @@ Route::group([
 Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
-    'namespace' => 'Apps\\Http\\Controllers\\Leads',
-    // 'middleware' => ['api'],
+    'namespace' => 'App\\Http\\Controllers\\Leads',
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
