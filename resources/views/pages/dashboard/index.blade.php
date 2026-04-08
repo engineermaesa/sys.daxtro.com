@@ -2689,10 +2689,12 @@
 
 @include('pages.templates.main-headers')
 
-@if(auth()->user()->role?->code === 'sales')
-    @include('pages.dashboard.sales.index')
-@elseif(auth()->user()->role?->code === 'super_admin')
+@if(auth()->user()->role?->code === 'super_admin')
     @include('pages.dashboard.super-admin.index')
+@elseif(auth()->user()->role?->code === 'branch_manager')
+    @include('pages.dashboard.branch-manager.index')
+@elseif(auth()->user()->role?->code === 'sales')
+    @include('pages.dashboard.sales.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}

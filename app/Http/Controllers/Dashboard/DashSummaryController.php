@@ -810,11 +810,33 @@ class DashSummaryController extends Controller
             })
             ->get();
 
+        $getUserTargetAmountByMonth = function ($user, int $month): float {
+            $raw = (string) ($user?->target ?? '');
+            if ($raw === '') {
+                return 0.0;
+            }
+
+            [$default, $jsonPart] = array_pad(explode('|', $raw, 2), 2, null);
+
+            if (!empty($jsonPart)) {
+                $decoded = json_decode($jsonPart, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $monthData = $decoded[(string) $month] ?? $decoded[$month] ?? null;
+                    $amount = is_array($monthData) ? ($monthData['amount'] ?? null) : null;
+
+                    if (is_numeric($amount)) {
+                        return (float) $amount;
+                    }
+                }
+            }
+
+            // Fallback ke angka sebelum separator '|'
+            return is_numeric($default) ? (float) $default : 0.0;
+        };
+
         $salesTrends = [];
 
         foreach ($users as $user) {
-            $monthlyTarget = $user && $user->target ? (float) $user->target : 0.0;
-
             $salesData = [];
             $targetData = [];
 
@@ -822,7 +844,21 @@ class DashSummaryController extends Controller
                 $amount = $this->calculateSalesAchievementForPeriod($user, $period['start'], $period['end']);
 
                 $salesData[] = (int) round($amount);
-                $targetData[] = (int) round($monthlyTarget * $period['target_multiplier']);
+
+                if ($groupBy === 'quarter') {
+                    $startMonth = Carbon::parse($period['start'])->month;
+                    $endMonth = Carbon::parse($period['end'])->month;
+
+                    $quarterTarget = 0.0;
+                    for ($m = $startMonth; $m <= $endMonth; $m++) {
+                        $quarterTarget += $getUserTargetAmountByMonth($user, $m);
+                    }
+
+                    $targetData[] = (int) round($quarterTarget);
+                } else {
+                    $monthNumber = Carbon::parse($period['start'])->month;
+                    $targetData[] = (int) round($getUserTargetAmountByMonth($user, $monthNumber));
+                }
             }
 
             $salesTrends[] = [

@@ -10,8 +10,6 @@ use App\Models\User;
 use App\Models\Leads\Lead;
 use App\Models\Leads\LeadStatus;
 use App\Models\Leads\LeadClaim;
-use App\Models\Orders\Quotation;
-use App\Models\Orders\Invoice;
 use Carbon\Carbon;
 
 
@@ -27,47 +25,106 @@ class BMSummaryController extends Controller
                 'message' => 'Unauthenticated',
             ], 401);
         }
-
-<<<<<<< HEAD
-=======
+        
         $branchId = $user->branch_id;
+        $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
+        if ($salesId !== null && $salesId <= 0) {
+            $salesId = null;
+        }
 
->>>>>>> 8b914c009d8364eb4cb105656d3a232e3732ed55
-        $target = User::with('role')
-            ->where('branch_id', $branchId)
+        $monthKey = (string) Carbon::now('Asia/Jakarta')->month;
+        $yearKey = (int) Carbon::now('Asia/Jakarta')->year;
+        $selectedMonthStart = Carbon::createFromDate($yearKey, (int) $monthKey, 1, 'Asia/Jakarta')->startOfMonth();
+        $selectedMonthEnd = (clone $selectedMonthStart)->endOfMonth();
+        $periodStart = $selectedMonthStart->toDateTimeString();
+        $periodEnd = $selectedMonthEnd->toDateTimeString();
+
+        $getMonthlyTarget = function ($raw, string $field, string $monthKey): float {
+            if (empty($raw)) {
+                return 0;
+            }
+
+            // Format: "40|{...json...}"
+            [$default, $jsonPart] = array_pad(explode('|', (string) $raw, 2), 2, null);
+
+            if (!empty($jsonPart)) {
+                $decoded = json_decode($jsonPart, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return (float) ($decoded[$monthKey][$field] ?? 0);
+                }
+            }
+
+            // fallback kalau ternyata hanya angka
+            return is_numeric($default) ? (float) $default : 0;
+        };
+
+        $isInCurrentMonth = function ($date) use ($monthKey, $yearKey): bool {
+            if (empty($date)) {
+                return false;
+            }
+
+            $d = Carbon::parse($date, 'Asia/Jakarta');
+
+            // Sinkronkan achievement ke bulan + tahun berjalan
+            return (string) $d->month === $monthKey && (int) $d->year === $yearKey;
+        };
+
+        $allSalesUsers = User::query()
             ->whereHas('role', function ($q) {
                 $q->where('code', 'sales');
             })
-            ->get()
-            ->sum(function (User $u) {
-                $monthly = $u->monthly_targets ?? [];
+            ->where('branch_id', $branchId)
+            ->when($salesId, function ($q) use ($salesId) {
+                $q->where('id', $salesId);
+            })
+            ->get();
 
-                $sum = 0.0;
-                foreach ($monthly as $item) {
-                    $sum += (float) ($item['amount'] ?? 0);
-                }
+        $targetAmount = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target ?? null, 'amount', $monthKey);
+        });
 
-                return $sum;
-            });
+        $targetLead = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target_leads ?? null, 'leads', $monthKey);
+        });
 
-        // Closed deals: claim aktif dengan status DEAL hanya untuk sales di branch ini
+        $targetVisit = $allSalesUsers->sum(function (User $u) use ($getMonthlyTarget, $monthKey) {
+            return $getMonthlyTarget($u->target_visit ?? $u->target_visits ?? null, 'visits', $monthKey);
+        });
+
         $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
+            ->whereHas('lead', function ($q) {
+                $q->where('status_id', LeadStatus::DEAL);
+            })
             ->whereNull('released_at')
-            ->whereHas('sales', function ($q) use ($branchId) {
+            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
                 $q->where('branch_id', $branchId);
+                if ($salesId) {
+                    $q->where('id', $salesId);
+                }
             });
 
-        if ($request->filled('start_date') && $request->filled('end_date')) {
-            $claims->whereHas('lead.quotation', function ($q) use ($request) {
-                $q->firstTermPaidBetween($request->start_date, $request->end_date);
-            });
-        }
+        // Force closed deal calculation to selected month/year window.
+        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
+            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        });
 
         $completedDeals = 0;
         $monetaryActual = 0;
+        $leadsActual = 0;
+        $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
+            $lead = $claim->lead;
+
+            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
+            if ($claimDate) {
+                $claimedAt = Carbon::parse($claimDate, 'Asia/Jakarta');
+
+                if ((string) $claimedAt->month === $monthKey && (int) $claimedAt->year === $yearKey) {
+                    $leadsActual++;
+                }
+            }
+
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -82,25 +139,48 @@ class BMSummaryController extends Controller
 
             $approvedPayments = $confirmedProformas->count();
 
+            // Only count deals that have all proformas confirmed.
             if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
                 $completedDeals++;
-                $monetaryActual += (float) $confirmedProformas->sum(function ($p) {
+
+                // Achievement amount khusus pembayaran yang confirmed di bulan berjalan
+                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInCurrentMonth) {
+                    return $isInCurrentMonth($p->paymentConfirmation->confirmed_at ?? null);
+                });
+
+                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
                     return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
                 });
             }
         }
 
+        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
+        $visitClaims = LeadClaim::with('lead')
+            ->whereNull('released_at')
+            ->whereHas('lead', fn($q) => $q->where('source_id', 9))
+            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
+                $q->where('branch_id', $branchId);
+                if ($salesId) {
+                    $q->where('id', $salesId);
+                }
+            });
+
+        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
+            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
+            return $isInCurrentMonth($claimDate);
+        })->count();
+
         $monetaryActual = round($monetaryActual, 2);
-        $achievementPercentage = $target > 0
-            ? round(($monetaryActual / $target) * 100, 2)
+        $achievementPercentage = $targetAmount > 0
+            ? round(($monetaryActual / $targetAmount) * 100, 2)
             : 0;
 
         $closedDeals = $completedDeals;
         $closedAmount = round($monetaryActual, 2);
 
-        // Potential dealing: sama seperti DashSummary, tapi hanya leads di branch ini
-        $end = $request->filled('end_date') ? $request->end_date : now()->toDateString();
-        $start = $request->filled('start_date') ? $request->start_date : now()->subDays(30)->toDateString();
+        // Potential dealing uses the same selected month/year window for consistent conversion rate denominator.
+        $start = $periodStart;
+        $end = $periodEnd;
 
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
@@ -142,7 +222,10 @@ class BMSummaryController extends Controller
             })
             ->leftJoin('users', 'users.id', '=', 'lead_claims.sales_id')
             ->whereIn('leads.status_id', [$warmStatusId, $hotStatusId])
-            ->where('leads.branch_id', $branchId);
+            ->where('leads.branch_id', $branchId)
+            ->when($salesId, function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            });
 
         $potentialCollection = $potentialLeads
             ->select([
@@ -171,10 +254,20 @@ class BMSummaryController extends Controller
                 ];
             });
 
+        // Also include leads that already have confirmed payments (even if quotation status isn't published)
         $paymentLeads = Lead::query()
             ->whereIn('status_id', [$warmStatusId, $hotStatusId])
             ->where('branch_id', $branchId)
-            ->whereHas('quotation.proformas.paymentConfirmation', fn($q) => $q->whereNotNull('confirmed_at'));
+            ->when($salesId, function ($q) use ($salesId) {
+                $q->whereHas('claims', function ($claimQ) use ($salesId) {
+                    $claimQ->whereNull('released_at')
+                        ->where('sales_id', $salesId);
+                });
+            })
+            ->whereHas('quotation.proformas.paymentConfirmation', function ($q) use ($start, $end) {
+                $q->whereNotNull('confirmed_at')
+                    ->whereBetween('confirmed_at', [$start, $end]);
+            });
 
         $paymentCollection = $paymentLeads->with(['quotation.proformas.paymentConfirmation'])
             ->get()
@@ -192,6 +285,7 @@ class BMSummaryController extends Controller
                 ];
             });
 
+        // Merge both collections by lead id to avoid double-counting
         $merged = collect()
             ->merge($potentialCollection)
             ->merge($paymentCollection)
@@ -204,23 +298,45 @@ class BMSummaryController extends Controller
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
 
-        // ACTIVE LEADS untuk branch ini saja
-        $leadQuery = Lead::query()->where('branch_id', $branchId);
+        $activeClaims = LeadClaim::whereNull('released_at')
+            ->with('lead')
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->orWhere(function ($sub) use ($periodStart, $periodEnd) {
+                        $sub->whereNull('claimed_at')
+                            ->whereHas('lead', function ($leadQ) use ($periodStart, $periodEnd) {
+                                $leadQ->whereBetween('published_at', [$periodStart, $periodEnd]);
+                            });
+                    });
+            })
+            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
+                $q->where('branch_id', $branchId);
+                if ($salesId) {
+                    $q->where('id', $salesId);
+                }
+            });
 
-        $counts = $leadQuery
-            ->select('status_id', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('status_id')
-            ->pluck('aggregate', 'status_id');
+        // Get active claims, but count unique leads to avoid double-counting
+        $claims = $activeClaims->get();
+
+        // Extract lead models from claims, remove nulls, and ensure uniqueness by lead id
+        $uniqueLeads = $claims->pluck('lead')->filter()->unique('id');
+
+        // Group unique leads by their status and count per status
+        $counts = $uniqueLeads->groupBy('status_id')->map->count();
 
         $cold = (int) ($counts[LeadStatus::COLD] ?? 0);
         $warm = (int) ($counts[LeadStatus::WARM] ?? 0);
         $hot  = (int) ($counts[LeadStatus::HOT] ?? 0);
 
+        // Total active leads should be derived from unique leads (exclude trash statuses)
         $trash = (int) (($counts[LeadStatus::TRASH_COLD] ?? 0)
             + ($counts[LeadStatus::TRASH_WARM] ?? 0)
             + ($counts[LeadStatus::TRASH_HOT] ?? 0));
 
-        $totalActive = $cold + $warm + $hot;
+        $totalActive = $uniqueLeads->reject(function ($lead) {
+            return in_array($lead->status_id, [LeadStatus::TRASH_COLD, LeadStatus::TRASH_WARM, LeadStatus::TRASH_HOT]);
+        })->count();
 
         $activeLeads = [
             'total' => $totalActive,
@@ -234,8 +350,12 @@ class BMSummaryController extends Controller
             'status' => 'success',
             'Data' => [
                 'achievement_target' => [
-                    'target' => $target,
-                    'achievement' => $monetaryActual,
+                    'target_amount' => $targetAmount,
+                    'target_leads' => $targetLead,
+                    'target_visits' => $targetVisit,
+                    'leads_actual' => $leadsActual,
+                    'visits_actual' => $visitsActual,
+                    'achievement_amount' => $monetaryActual,
                     'percentage' => $achievementPercentage,
                 ],
                 'closed_deal' => [
@@ -266,6 +386,10 @@ class BMSummaryController extends Controller
         }
 
         $branchId = $bm->branch_id;
+        $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
+        if ($salesId !== null && $salesId <= 0) {
+            $salesId = null;
+        }
 
         $perPage = $request->get('per_page', 5);
 
@@ -278,14 +402,15 @@ class BMSummaryController extends Controller
                 'lead.status',
                 'sales',
             ])
-            // Batasi hanya sales di branch BM
-            ->whereHas('sales', function ($q) use ($branchId) {
+            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
                 $q->where('branch_id', $branchId);
+                if ($salesId) {
+                    $q->where('id', $salesId);
+                }
             });
 
         $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
 
-        // Filter hanya berdasarkan data lead
         $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
 
             $q->whereIn('status_id', $allowedStatuses);
@@ -320,7 +445,9 @@ class BMSummaryController extends Controller
             }
         });
 
+        // =========================
         // GET LATEST CLAIM PER LEAD
+        // =========================
         $query->whereIn('id', function ($q) {
             $q->select(DB::raw('MAX(id)'))
                 ->from('lead_claims as lc2')
@@ -336,7 +463,9 @@ class BMSummaryController extends Controller
 
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
+        // =========================
         // TRANSFORM DATA
+        // =========================
         $paginated->getCollection()->transform(function ($claim) {
 
             $lead = $claim->lead;
@@ -348,7 +477,6 @@ class BMSummaryController extends Controller
                 ?? ($lead->quotation?->items->first()?->product?->name ?? null);
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
-
             $salesName = $claim->sales?->name ?? null;
 
             $lastActivity = $lead->latestStatusLog?->created_at
@@ -380,7 +508,7 @@ class BMSummaryController extends Controller
                 'amount' => $amount,
                 'product' => $product,
                 'segment' => $segment,
-                'sales_name' => $salesName,
+                'sales' => $salesName,
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),
                 'data_validation' => $dataValidation,
@@ -388,8 +516,18 @@ class BMSummaryController extends Controller
             ];
         });
 
+        $sales = User::query()
+            ->where('branch_id', $branchId)
+            ->whereHas('role', function ($q) {
+                $q->where('code', 'sales');
+            })
+            ->select(['id', 'name', 'branch_id'])
+            ->orderBy('name')
+            ->get();
+
         return response()->json([
             'status' => 'success',
+            'sales' => $sales,
             'data' => $paginated->items(),
             'total' => $paginated->total(),
             'total_amount' => $totalAmount,
@@ -410,6 +548,10 @@ class BMSummaryController extends Controller
         }
 
         $branchId = $bm->branch_id;
+        $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
+        if ($salesId !== null && $salesId <= 0) {
+            $salesId = null;
+        }
 
         $year = $request->year ?? now()->year;
         $month = $request->month;
@@ -483,13 +625,38 @@ class BMSummaryController extends Controller
             ->whereHas('role', function ($q) {
                 $q->where('code', 'sales');
             })
+            ->when($salesId, function ($q) use ($salesId) {
+                $q->where('id', $salesId);
+            })
             ->get();
+
+        $getUserTargetAmountByMonth = function ($user, int $month): float {
+            $raw = (string) ($user?->target ?? '');
+            if ($raw === '') {
+                return 0.0;
+            }
+
+            [$default, $jsonPart] = array_pad(explode('|', $raw, 2), 2, null);
+
+            if (!empty($jsonPart)) {
+                $decoded = json_decode($jsonPart, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $monthData = $decoded[(string) $month] ?? $decoded[$month] ?? null;
+                    $amount = is_array($monthData) ? ($monthData['amount'] ?? null) : null;
+
+                    if (is_numeric($amount)) {
+                        return (float) $amount;
+                    }
+                }
+            }
+
+            // Fallback ke angka sebelum separator '|'
+            return is_numeric($default) ? (float) $default : 0.0;
+        };
 
         $salesTrends = [];
 
         foreach ($users as $user) {
-            $monthlyTarget = $user && $user->target ? (float) $user->target : 0.0;
-
             $salesData = [];
             $targetData = [];
 
@@ -497,7 +664,21 @@ class BMSummaryController extends Controller
                 $amount = $this->calculateSalesAchievementForPeriod($user, $period['start'], $period['end']);
 
                 $salesData[] = (int) round($amount);
-                $targetData[] = (int) round($monthlyTarget * $period['target_multiplier']);
+
+                if ($groupBy === 'quarter') {
+                    $startMonth = Carbon::parse($period['start'])->month;
+                    $endMonth = Carbon::parse($period['end'])->month;
+
+                    $quarterTarget = 0.0;
+                    for ($m = $startMonth; $m <= $endMonth; $m++) {
+                        $quarterTarget += $getUserTargetAmountByMonth($user, $m);
+                    }
+
+                    $targetData[] = (int) round($quarterTarget);
+                } else {
+                    $monthNumber = Carbon::parse($period['start'])->month;
+                    $targetData[] = (int) round($getUserTargetAmountByMonth($user, $monthNumber));
+                }
             }
 
             $salesTrends[] = [
@@ -582,6 +763,16 @@ class BMSummaryController extends Controller
         }
 
         $branchId = $bm->branch_id;
+        $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
+        if ($salesId !== null && $salesId <= 0) {
+            $salesId = null;
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $sourceStartDate = $request->input('start_date_source', $request->input('start_date'));
+        $sourceEndDate = $request->input('end_date_source', $request->input('end_date'));
+        $segmentStartDate = $request->input('start_date_segment', $request->input('start_date'));
+        $segmentEndDate = $request->input('end_date_segment', $request->input('end_date'));
 
         $latestQuotationSubquery = DB::table('quotations')
             ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
@@ -602,11 +793,30 @@ class BMSummaryController extends Controller
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
                     ->on('quotations.created_at', '=', 'latest_quo.latest_date');
             })
-            // Batasi hanya leads di branch BM
             ->where('leads.branch_id', $branchId)
-            // Optional: filter by source jika dikirim
+            ->when($salesId, function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
             ->when($request->source_id, function ($q) use ($request) {
                 $q->where('leads.source_id', $request->source_id);
+            })
+            ->when($request->segment_id, function ($q) use ($request) {
+                $q->where('leads.segment_id', $request->segment_id);
+            })
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('lead_sources.name', 'like', "%{$search}%")
+                        ->orWhere('lead_segments.name', 'like', "%{$search}%")
+                        ->orWhere('leads.customer_type', 'like', "%{$search}%");
+                });
+            })
+            ->when($sourceStartDate && $sourceEndDate, function ($q) use ($sourceStartDate, $sourceEndDate) {
+                $q->whereDate('leads.created_at', '>=', $sourceStartDate)
+                    ->whereDate('leads.created_at', '<=', $sourceEndDate);
+            })
+            ->when($segmentStartDate && $segmentEndDate, function ($q) use ($segmentStartDate, $segmentEndDate) {
+                $q->whereDate('leads.created_at', '>=', $segmentStartDate)
+                    ->whereDate('leads.created_at', '<=', $segmentEndDate);
             })
             ->selectRaw(
                 "lead_sources.name as source,
@@ -669,10 +879,8 @@ class BMSummaryController extends Controller
                 ];
             });
 
-        // buang baris yang total-nya 0
         $rows = $rows->filter(fn($r) => $r['total'] > 0)->values();
 
-        // group by source
         $bySource = $rows->groupBy('source')->map(function ($items, $source) {
 
             return [
@@ -706,7 +914,6 @@ class BMSummaryController extends Controller
             'nominal_total' => $bySource->sum('amount_cum')
         ];
 
-        // group by segment
         $bySegment = $rows->groupBy('segment')->map(function ($items, $segment) {
 
             return [

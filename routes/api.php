@@ -212,6 +212,10 @@ Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
+<<<<<<< HEAD
+=======
+    // 'middleware' => ['api'],
+>>>>>>> 874719b640766c09681d49c0c1c053e0c845679e
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
