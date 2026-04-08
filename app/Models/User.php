@@ -212,4 +212,9 @@ class User extends Authenticatable
     {
         return $this->permissions()->where('code', $code)->exists();
     }
+
+    // public function documents()
+    // {
+    //     return $this->hasMany(Document::class, 'user_id');
+    // }
 }

@@ -213,7 +213,7 @@ Route::group([
 Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
-    'namespace' => 'App\\Http\\Controllers\\Leads',
+    'namespace' => 'Apps\\Http\\Controllers\\Leads',
     // 'middleware' => ['api'],
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
@@ -266,6 +266,23 @@ Route::group([
     Route::post('/{id}/reject', 'FinanceRequestController@reject')->name('reject');
     Route::get('/{id}', 'FinanceRequestController@form')->name('form');
     Route::post('/approve-with-realization', 'FinanceRequestController@approveWithRealization')->name('approve-with-realization');
+});
+
+// =====================================
+// DOCUMENTS (API)
+// =====================================
+Route::group([
+    'prefix' => 'documents',
+    'as' => 'documents.',
+    'namespace' => 'App\\Http\\Controllers\\Documents',
+    // Pakai auth supaya bisa filter berdasarkan grade user
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+    Route::get('/list', 'DocumentController@list')->name('index');
+    Route::get('/form/{id?}', 'DocumentController@form')->name('form');
+    Route::post('/save/{id?}', 'DocumentController@save')->name('save');
+    Route::delete('/delete/{id}', 'DocumentController@delete')->name('delete');
+    Route::get('/download/{id}', 'DocumentController@download')->name('download');
 });
 
 // =====================================

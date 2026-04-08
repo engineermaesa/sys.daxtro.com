@@ -9,16 +9,26 @@ use App\Models\Leads\LeadSource;
 use App\Models\Leads\LeadSegment;
 use App\Models\Leads\LeadStatus;
 use App\Models\Leads\LeadClaim;
+use App\Models\Leads\LeadMeeting;
+use App\Models\Leads\LeadStatusLog;
 use App\Models\Masters\Region;
 use App\Models\Masters\Industry;
 use App\Models\Masters\Jabatan;
 use App\Models\Masters\MeetingType;
 use App\Models\Masters\ExpenseType;
+use App\Models\Masters\Product;
+use App\Models\Orders\Quotation;
+use App\Models\Orders\QuotationItems;
+use App\Models\Orders\QuotationLog;
+use App\Models\Orders\MeetingExpense;
+use App\Models\Orders\MeetingExpenseDetail;
+use App\Models\Orders\FinanceRequest;
 use App\Models\User;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -75,6 +85,12 @@ class ImportLeadController extends Controller
             'Notes',
             'Amount',
         ];
+        /*
+         * HOT quotation columns (product..description) temporarily disabled.
+         * Previous definition:
+         * $quotationHeaders = [...];
+         * $importHeaders = array_merge($baseHeaders, $meetingHeaders, $quotationHeaders);
+         */
 
         $importHeaders = array_merge($baseHeaders, $meetingHeaders);
 
@@ -101,7 +117,8 @@ class ImportLeadController extends Controller
                 'startColor' => ['rgb' => '4F81BD'],
             ],
         ];
-        $lastCol = chr(ord('A') + count($importHeaders) - 1); // hitung kolom terakhir dinamis
+        $lastColIndex = count($importHeaders);
+        $lastCol = Coordinate::stringFromColumnIndex($lastColIndex); // hitung kolom terakhir dinamis (mendukung > Z)
         $sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($headerStyle);
 
         // Ganti warna header untuk kolom Meeting* menjadi #FFF1C2
@@ -112,17 +129,32 @@ class ImportLeadController extends Controller
                 'startColor' => ['rgb' => 'FFF1C2'],
             ],
         ];
+
+        // Style HOT (quotation) disimpan untuk nanti jika kolom HOT diaktifkan lagi
+        $hotHeaderStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
+            'fill' => [
+                'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'FDD3D0'],
+            ],
+        ];
+
         $baseHeaderCount = count($baseHeaders);
         $meetingHeaderCount = count($meetingHeaders);
+
+        // Apply style untuk header meeting
         for ($i = 1; $i <= $meetingHeaderCount; $i++) {
             $colIndex = $baseHeaderCount + $i; // 1-based
             $colLetter = chr(64 + $colIndex); // 1 -> A, 2 -> B, dst.
             $sheet->getStyle($colLetter . '1')->applyFromArray($meetingHeaderStyle);
         }
 
+        // Style untuk header HOT (product..description) dinonaktifkan sementara, karena kolom tersebut tidak dipakai di template saat ini
+
         $sheet->freezePane('A2');
-        foreach (range('A', $lastCol) as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        for ($colIndex = 1; $colIndex <= $lastColIndex; $colIndex++) {
+            $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
         // Fetch master data
@@ -133,15 +165,16 @@ class ImportLeadController extends Controller
         $jabatans     = Jabatan::select('id', 'name')->orderBy('id')->get();
         $meetingTypes = MeetingType::select('id', 'name')->orderBy('id')->get();
         $expenseTypes = ExpenseType::select('id', 'name')->orderBy('id')->get();
+        $products     = Product::select('id', 'name')->orderBy('id')->get();
         // Hanya ambil user dengan role sales untuk sheet "Sales NIP"
         $users      = User::whereHas('role', fn($q) => $q->where('code', 'sales'))
             ->select('nip', 'name')
             ->orderBy('nip')
             ->get();
 
-        // Sample row (contoh pengisian untuk 1 baris COLD)
+        // Sample row (contoh pengisian untuk 1 baris COLD & WARM)
         for ($i = 0; $i < 2; $i++) {
-            $sampleStages = ['cold', 'cold'];
+            $sampleStages = ['cold', 'warm'];
 
             $base = [
                 $sources[$i % max(1, $sources->count())]->id ?? '',
@@ -161,7 +194,8 @@ class ImportLeadController extends Controller
                 $sampleStages[$i] ?? '',
             ];
 
-            $sheet->fromArray($base, null, 'A' . ($i + 2));
+            $rowNum = $i + 2;
+            $sheet->fromArray($base, null, 'A' . $rowNum);
         }
 
         // Other master sheets
@@ -194,6 +228,7 @@ class ImportLeadController extends Controller
 
         $this->addMasterSheet($spreadsheet, 'Sales NIP', ['nip', 'name'], $users);
         $this->addMasterSheet($spreadsheet, 'Jabatans', ['id', 'name'], $jabatans);
+        $this->addMasterSheet($spreadsheet, 'Products', ['id', 'name'], $products);
 
         // Data validation dropdown untuk kolom lead_title (kolom G) → Mr/Mrs
         $titleValidation = new DataValidation();
@@ -218,7 +253,8 @@ class ImportLeadController extends Controller
         $statusValidation->setShowInputMessage(true);
         $statusValidation->setShowErrorMessage(true);
         $statusValidation->setShowDropDown(true);
-        $statusValidation->setFormula1('"cold,warm,hot,deal"');
+        // Import saat ini khusus sampai WARM, jadi hanya tampilkan opsi cold & warm
+        $statusValidation->setFormula1('"cold,warm"');
 
         // Terapkan ke baris 2 s.d. 1000 di kolom O
         for ($row = 2; $row <= 1000; $row++) {
@@ -235,6 +271,7 @@ class ImportLeadController extends Controller
         $jabatansLastRow     = 1 + max(1, $jabatans->count());
         $meetingTypesLastRow = 1 + max(1, $meetingTypes->count());
         $expenseTypesLastRow = 1 + max(1, $expenseTypes->count());
+        $productsLastRow     = 1 + max(1, $products->count());
 
         // Buat sheet tersembunyi khusus helper display "id - name" untuk dropdown di tab Import
         $helperSheet = $spreadsheet->createSheet();
@@ -298,6 +335,23 @@ class ImportLeadController extends Controller
             $helperSheet->setCellValue('G' . $rowIdx, ($et->id ?? '') . ' - ' . ($et->name ?? ''));
             $rowIdx++;
         }
+
+        // Products (disimpan sebagai referensi master, walau kolom product di template sedang dinonaktifkan)
+        $helperSheet->setCellValue('H1', 'product_display');
+        $rowIdx = $displayStartRow;
+        foreach ($products as $prod) {
+            $helperSheet->setCellValue('H' . $rowIdx, ($prod->id ?? '') . ' - ' . ($prod->name ?? ''));
+            $rowIdx++;
+        }
+
+        /*
+         * Term label options (booking_fee, 1,2,3,...) dan referensi ke kolom Term
+         * untuk saat ini dinonaktifkan bersama kolom quotation (product..description).
+         *
+         * $helperSheet->setCellValue('I1', 'term_label_options');
+         * ...
+         * $termLabelLastRow = $rowIdx - 1;
+         */
 
         // source_id (kolom A) → gunakan helper list di sheet _Lookups kolom A ("id - name")
         $sourceDv = new DataValidation();
@@ -413,11 +467,7 @@ class ImportLeadController extends Controller
                 $typeExpr . '="EXPO"),"-",""),"")';
             $sheet->setCellValue('Q' . $row, $formulaQ);
 
-            // Start & End Time Meeting (R,S): selalu bisa diisi (tanpa auto "-")
-            // -> tidak diberi formula khusus, biarkan kosong default
-
-            // city_id, Address, Expense Type, Notes, Amount (T–X):
-            // "-" hanya untuk Zoom & Video Call (Offline/EXPO boleh diisi)
+            
             $formulaTX = '=IFERROR(IF(OR(' .
                 $typeExpr . '="Zoom / Google Meet",' .
                 $typeExpr . '="Video Call"),"-",""),"")';
@@ -496,6 +546,12 @@ class ImportLeadController extends Controller
             $sheet->getCell($cell)->setDataValidation(clone $expenseTypeDv);
         }
 
+        /*
+         * Seluruh data validation & formula untuk kolom quotation (product..description)
+         * dinonaktifkan sementara. Jika nanti import HOT diaktifkan kembali,
+         * blok berikut bisa digunakan lagi sebagai referensi.
+         */
+
         // Download response or return base64 for API
         $spreadsheet->setActiveSheetIndex(0);
         $writer = new Xlsx($spreadsheet);
@@ -550,14 +606,16 @@ class ImportLeadController extends Controller
             'import_file' => 'required|file|mimes:xlsx,csv',
         ]);
 
-        $sources  = LeadSource::select('id', 'name')->orderBy('name')->get();
-        $segments = LeadSegment::select('id', 'name')->orderBy('name')->get();
-        $regions  = Region::select('id', 'name')->orderBy('name')->get();
+        $sources       = LeadSource::select('id', 'name')->orderBy('name')->get();
+        $segments      = LeadSegment::select('id', 'name')->orderBy('name')->get();
+        $regions       = Region::select('id', 'name')->orderBy('name')->get();
         // Dropdown NIP Sales di preview juga khusus role sales
-        $users    = User::whereHas('role', fn($q) => $q->where('code', 'sales'))
+        $users         = User::whereHas('role', fn($q) => $q->where('code', 'sales'))
             ->select('nip', 'name')
             ->orderBy('nip')
             ->get();
+        $meetingTypes  = MeetingType::select('id', 'name')->orderBy('name')->get();
+        $expenseTypes  = ExpenseType::select('id', 'name')->orderBy('name')->get();
 
         $file        = $request->file('import_file');
         $spreadsheet = IOFactory::load($file->getRealPath());
@@ -577,6 +635,15 @@ class ImportLeadController extends Controller
             $regionId   = $this->extractIdFromCell($row['D'] ?? null);
             $nipSales   = $this->extractIdFromCell($row['M'] ?? null);
 
+            /*
+             * Quotation-related fields for HOT leads (product..description)
+             * sementara tidak dipakai karena import difokuskan dulu untuk hingga WARM.
+             *
+             * $productId  = ...
+             * $qty        = ...
+             * dst.
+             */
+
             try {
                 $published = !empty($row['N'])
                     ? Carbon::parse($row['N'])->toDateTimeString()
@@ -585,26 +652,62 @@ class ImportLeadController extends Controller
                 $published = now()->toDateTimeString();
             }
 
+            // Parse meeting & expense columns (P–X) for potential warm import backdate
+            $meetingTypeId = $this->extractIdFromCell($row['P'] ?? null);
+
+            try {
+                $meetingStart = ! empty($row['R'])
+                    ? Carbon::parse($row['R'])->toDateTimeString()
+                    : null;
+            } catch (\Exception $e) {
+                $meetingStart = null;
+            }
+
+            try {
+                $meetingEnd = ! empty($row['S'])
+                    ? Carbon::parse($row['S'])->toDateTimeString()
+                    : null;
+            } catch (\Exception $e) {
+                $meetingEnd = null;
+            }
+
+            $expenseTypeId  = $this->extractIdFromCell($row['V'] ?? null);
+            $expenseNotes   = $row['W'] ?? null;
+            $expenseAmount  = $row['X'] ?? null;
+
             $data = [
-                'source_id'        => $sourceId,
-                'segment_id'       => $segmentId,
-                'industry_id'      => $industryId,
-                'region_id'        => $regionId,
-                'company_name'     => $row['E'] ?? null,
-                'company_address'  => $row['F'] ?? null,
-                'lead_title'       => $row['G'] ?? null,
-                'lead_name'        => $row['H'] ?? null,
-                'lead_position'    => $this->extractIdFromCell($row['I'] ?? null),
-                'lead_phone'       => $row['J'] ?? null,
-                'lead_email'       => $row['K'] ?? null,
-                'lead_needs'       => $row['L'] ?? null,
-                'nip_sales'        => $nipSales,
-                'published_at'     => $published,
+                'source_id'         => $sourceId,
+                'segment_id'        => $segmentId,
+                'industry_id'       => $industryId,
+                'region_id'         => $regionId,
+                'company_name'      => $row['E'] ?? null,
+                'company_address'   => $row['F'] ?? null,
+                'lead_title'        => $row['G'] ?? null,
+                'lead_name'         => $row['H'] ?? null,
+                'lead_position'     => $this->extractIdFromCell($row['I'] ?? null),
+                'lead_phone'        => $row['J'] ?? null,
+                'lead_email'        => $row['K'] ?? null,
+                'lead_needs'        => $row['L'] ?? null,
+                'nip_sales'         => $nipSales,
+                'published_at'      => $published,
 
                 // hanya status_stage yang dipakai untuk identifikasi stage
-                'status_stage'     => isset($row['O']) ? trim((string)$row['O']) : '',
+                'status_stage'      => isset($row['O']) ? trim((string)$row['O']) : '',
 
-                'error'            => '',
+                // meeting & expense (untuk import WARM + backdate)
+                'meeting_type_id'   => $meetingTypeId,
+                'meeting_url'       => $row['Q'] ?? null,
+                'meeting_start_at'  => $meetingStart,
+                'meeting_end_at'    => $meetingEnd,
+                'meeting_city'      => $row['T'] ?? null,
+                'meeting_address'   => $row['U'] ?? null,
+                'expense_type_id'   => $expenseTypeId,
+                'expense_notes'     => $expenseNotes,
+                'expense_amount'    => $expenseAmount,
+
+                // quotation fields untuk HOT disimpan di komentar (sementara tidak dipakai)
+
+                'error'             => '',
             ];
 
             if (empty($data['lead_name'])) {
@@ -625,7 +728,35 @@ class ImportLeadController extends Controller
                 && !User::where('nip', $data['nip_sales'])->exists()
             ) {
                 $data['error'] = 'NIP not found';
+            } elseif (
+                // Jika ada kolom meeting/expense yang diisi, tapi meeting_type_id kosong
+                (
+                    ! empty($data['meeting_url'])
+                    || ! empty($data['meeting_start_at'])
+                    || ! empty($data['meeting_end_at'])
+                    || ! empty($data['meeting_city'])
+                    || ! empty($data['meeting_address'])
+                    || ! empty($data['expense_type_id'])
+                    || ! empty($data['expense_notes'])
+                    || (! empty($data['expense_amount']) && $data['expense_amount'] != 0)
+                )
+                && empty($data['meeting_type_id'])
+            ) {
+                $data['error'] = 'meeting_type_id is required when meeting/expense columns are filled';
+            } elseif (
+                ! empty($data['meeting_type_id'])
+                && ! MeetingType::where('id', $data['meeting_type_id'])->exists()
+            ) {
+                $data['error'] = 'Invalid meeting_type_id';
+            } elseif (
+                ! empty($data['expense_type_id'])
+                && ! ExpenseType::where('id', $data['expense_type_id'])->exists()
+            ) {
+                $data['error'] = 'Invalid expense_type_id';
             }
+
+            // Validasi tambahan khusus untuk status HOT sementara dinonaktifkan,
+            // karena import hanya dipakai sampai WARM.
 
             if ($data['error'] === '') {
                 $validRows[] = $data;
@@ -636,51 +767,115 @@ class ImportLeadController extends Controller
             $rows[] = $data;
         }
 
+        // Simpan semua baris valid (tidak digrup) ke session untuk proses store()
         session(['import_lead_rows' => $validRows]);
+        
+        // Tambahkan group_key ke setiap baris untuk kebutuhan grouping di view & store
+        $previewRows = [];
+        foreach ($rows as $row) {
+            $row['group_key'] = $this->buildLeadMeetingGroupKey($row);
+            $previewRows[] = $row;
+        }
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
-                'rows' => $rows,
+                'rows' => $previewRows,
                 'hasError' => $hasError,
                 'valid_count' => count($validRows),
                 'sources' => $sources,
                 'segments' => $segments,
                 'regions' => $regions,
                 'users' => $users,
+                'meeting_types' => $meetingTypes,
+                'expense_types' => $expenseTypes,
             ]);
         }
 
         $this->pageTitle = 'Import Leads';
         return $this->render('pages.leads.import', [
-            'rows'     => $rows,
+            'rows'     => $previewRows,
             'hasError' => $hasError,
             'sources'  => $sources,
             'segments' => $segments,
             'regions'  => $regions,
             'users'    => $users,
+            'meetingTypes' => $meetingTypes,
+            'expenseTypes' => $expenseTypes,
         ]);
     }
 
     public function store(Request $request)
     {
         $this->authorizeSuperAdmin();
-
-        $rows = $request->input('rows', session('import_lead_rows', []));
-
         $imported = 0;
 
-        foreach ($rows as $row) {
-            // skip invalid rows
+        // Ambil data mentah hasil baca file dari session (sudah diverifikasi di preview)
+        $sessionRows  = session('import_lead_rows', []);
+        $postedGroups = $request->input('rows', []);
+
+        if (! empty($sessionRows)) {
+            $rowsForImport = $sessionRows;
+
+            // Jika user mengubah beberapa field di preview (source/segment/region/dll),
+            // apply perubahan tersebut ke semua baris dalam grup yang sama.
+            $seenGroups = [];
+            foreach ($postedGroups as $posted) {
+                $groupKey = $posted['group_key'] ?? null;
+                if (! $groupKey || isset($seenGroups[$groupKey])) {
+                    continue;
+                }
+                $seenGroups[$groupKey] = true;
+
+                $overrides = [
+                    'source_id'    => $posted['source_id']    ?? null,
+                    'segment_id'   => $posted['segment_id']   ?? null,
+                    'region_id'    => $posted['region_id']    ?? null,
+                    'lead_name'    => $posted['lead_name']    ?? null,
+                    'lead_email'   => $posted['lead_email']   ?? null,
+                    'lead_phone'   => $posted['lead_phone']   ?? null,
+                    'lead_needs'   => $posted['lead_needs']   ?? null,
+                    'nip_sales'    => $posted['nip_sales']    ?? null,
+                    'published_at' => $posted['published_at'] ?? null,
+                    'status_stage' => $posted['status_stage'] ?? null,
+                ];
+
+                foreach ($rowsForImport as &$row) {
+                    if ($this->buildLeadMeetingGroupKey($row) === $groupKey) {
+                        foreach ($overrides as $field => $value) {
+                            if ($value !== null) {
+                                $row[$field] = $value;
+                            }
+                        }
+                    }
+                }
+                unset($row); // break reference
+            }
+        } else {
+            // fallback lama jika session kosong (tidak ideal, tapi jaga kompatibilitas)
+            $rowsForImport = $postedGroups;
+        }
+
+        // Grupkan baris berdasarkan kombinasi data lead + meeting (duplikat baris = multi expense)
+        $grouped = [];
+        foreach ($rowsForImport as $row) {
+            $key = $this->buildLeadMeetingGroupKey($row);
+            $grouped[$key][] = $row;
+        }
+
+        foreach ($grouped as $groupRows) {
+            $base = $groupRows[0];
+
+            // skip invalid groups (cek hanya dari baris pertama karena nilai base sama)
             if (
-                ! LeadSource::where('id', $row['source_id'])->exists()
-                || ! LeadSegment::where('id', $row['segment_id'])->exists()
-                || (! is_null($row['region_id']) && ! Region::where('id', $row['region_id'])->exists())
-                || ($row['nip_sales'] && ! User::where('nip', $row['nip_sales'])->exists())
+                ! LeadSource::where('id', $base['source_id'])->exists()
+                || ! LeadSegment::where('id', $base['segment_id'])->exists()
+                || (! is_null($base['region_id']) && ! Region::where('id', $base['region_id'])->exists())
+                || ($base['nip_sales'] && ! User::where('nip', $base['nip_sales'])->exists())
             ) {
                 continue;
             }
 
-            DB::transaction(function () use ($row, &$imported) {
+            DB::transaction(function () use ($groupRows, $base, &$imported) {
                 /* ----------------------------------------------------------
                 * status priority:
                 *   - if status_stage is set in file → map to LeadStatus
@@ -690,7 +885,7 @@ class ImportLeadController extends Controller
                 *       nip_sales null     → PUBLISHED
                 * -------------------------------------------------------- */
 
-                $statusStage = isset($row['status_stage']) ? strtolower(trim((string) $row['status_stage'])) : '';
+                $statusStage = isset($base['status_stage']) ? strtolower(trim((string) $base['status_stage'])) : '';
 
                 switch ($statusStage) {
                     case 'cold':
@@ -713,24 +908,26 @@ class ImportLeadController extends Controller
                 }
 
                 $lead = Lead::create([
-                    'source_id'       => $row['source_id'],
-                    'segment_id'      => $row['segment_id'],
-                    'industry_id'     => $row['industry_id'] ?? null,
-                    'region_id'       => $row['region_id'],   // may be null = “all regions”
+                    'source_id'       => $base['source_id'],
+                    'segment_id'      => $base['segment_id'],
+                    'industry_id'     => $base['industry_id'] ?? null,
+                    'region_id'       => $base['region_id'],   // may be null = “all regions”
                     'status_id'       => $status,
-                    'company'         => $row['company_name'] ?? null,
-                    'company_address' => $row['company_address'] ?? null,
-                    'jabatan_id'      => $row['lead_position'] ?? null,
-                    'name'            => $row['lead_name'],
-                    'email'           => $row['lead_email'],
-                    'phone'           => $row['lead_phone'],
-                    'needs'           => $row['lead_needs'],
-                    'published_at'    => $row['published_at'] ?? now(),
+                    'company'         => $base['company_name'] ?? null,
+                    'company_address' => $base['company_address'] ?? null,
+                    'jabatan_id'      => $base['lead_position'] ?? null,
+                    'name'            => $base['lead_name'],
+                    'email'           => $base['lead_email'],
+                    'phone'           => $base['lead_phone'],
+                    'needs'           => $base['lead_needs'],
+                    'interest_level'  => $status === LeadStatus::WARM ? 4 : null,
+                    'published_at'    => $base['published_at'] ?? now(),
                 ]);
 
                 // Only create a claim when nip_sales is *not* null
-                if ($row['nip_sales']) {
-                    $sales = User::where('nip', $row['nip_sales'])->first();
+                $sales = null;
+                if ($base['nip_sales']) {
+                    $sales = User::where('nip', $base['nip_sales'])->first();
                     if ($sales) {
                         LeadClaim::create([
                             'lead_id'    => $lead->id,
@@ -739,6 +936,91 @@ class ImportLeadController extends Controller
                         ]);
                     }
                 }
+
+                // Jika status WARM dan ada data meeting/expense, anggap sudah di-approve (backdate)
+                if ($status === LeadStatus::WARM) {
+                    // Catat status log agar sejalan dengan perpindahan status lain
+                    LeadStatusLog::create([
+                        'lead_id'   => $lead->id,
+                        'status_id' => LeadStatus::WARM,
+                    ]);
+
+                    $hasMeetingData = ! empty($base['meeting_type_id'])
+                        || ! empty($base['meeting_start_at'])
+                        || ! empty($base['meeting_end_at'])
+                        || ! empty($base['meeting_city'])
+                        || ! empty($base['meeting_address']);
+
+                    // Hitung total expense & siapkan detail per baris (multi expense)
+                    $totalAmount = 0;
+                    $expenseDetails = [];
+                    foreach ($groupRows as $row) {
+                        $rawAmountRow = $row['expense_amount'] ?? null;
+                        if ($rawAmountRow === null || $rawAmountRow === '') {
+                            continue;
+                        }
+
+                        $amountRow = is_numeric($rawAmountRow)
+                            ? (float) $rawAmountRow
+                            : (float) str_replace([','], ['.'], (string) $rawAmountRow);
+
+                        if ($amountRow <= 0) {
+                            continue;
+                        }
+
+                        $totalAmount += $amountRow;
+                        $expenseDetails[] = [
+                            'expense_type_id' => $row['expense_type_id'] ?? null,
+                            'notes'           => $row['expense_notes'] ?? null,
+                            'amount'          => $amountRow,
+                        ];
+                    }
+
+                    if ($hasMeetingData && $totalAmount > 0 && ! empty($base['meeting_type_id'])) {
+                        $meetingType = MeetingType::find($base['meeting_type_id']);
+
+                        $onlineNames = ['Zoom / Google Meet', 'Video Call'];
+                        $isOnline = $meetingType && in_array($meetingType->name, $onlineNames);
+
+                        $meeting = LeadMeeting::create([
+                            'lead_id'            => $lead->id,
+                            'meeting_type_id'    => $base['meeting_type_id'],
+                            'is_online'          => $isOnline,
+                            'online_url'         => $isOnline ? ($base['meeting_url'] ?? null) : null,
+                            'scheduled_start_at' => $base['meeting_start_at'] ?? null,
+                            'scheduled_end_at'   => $base['meeting_end_at'] ?? null,
+                            'city'               => $isOnline ? null : ($base['meeting_city'] ?? null),
+                            'address'            => $isOnline ? null : ($base['meeting_address'] ?? null),
+                        ]);
+
+                        // Anggap expense sudah di-approve oleh BM & Finance
+                        $expense = MeetingExpense::create([
+                            'meeting_id'   => $meeting->id,
+                            'sales_id'     => $sales?->id,
+                            'amount'       => $totalAmount,
+                            'status'       => 'approved', // langsung dianggap sudah approve
+                            'requested_at' => $base['published_at'] ?? now(),
+                        ]);
+
+                        foreach ($expenseDetails as $detail) {
+                            MeetingExpenseDetail::create([
+                                'meeting_expense_id' => $expense->id,
+                                'expense_type_id'    => $detail['expense_type_id'],
+                                'amount'             => $detail['amount'],
+                                'notes'              => $detail['notes'],
+                            ]);
+                        }
+
+                        // Tidak membuat FinanceRequest, karena khusus import backdate
+                        // dianggap sudah disetujui oleh BM & Finance.
+                    }
+                }
+
+                /*
+                 * Pembuatan quotation otomatis untuk status HOT dinonaktifkan sementara,
+                 * karena import difokuskan hanya untuk hingga WARM.
+                 * Blok ini bisa diaktifkan lagi jika import HOT sudah dipakai.
+                 */
                 $imported++;
             });
         }
@@ -755,6 +1037,38 @@ class ImportLeadController extends Controller
         return redirect()
             ->route('leads.import')
             ->with('success', 'Leads imported successfully');
+    }
+
+    /**
+     * Bangun key unik untuk mengelompokkan baris berdasarkan kombinasi data lead + meeting.
+     * Digunakan di preview() dan store() supaya perilaku grouping konsisten.
+     */
+    private function buildLeadMeetingGroupKey(array $row): string
+    {
+        $keyParts = [
+            $row['source_id']        ?? '',
+            $row['segment_id']       ?? '',
+            $row['industry_id']      ?? '',
+            $row['region_id']        ?? '',
+            $row['company_name']     ?? '',
+            $row['company_address']  ?? '',
+            $row['lead_title']       ?? '',
+            $row['lead_name']        ?? '',
+            $row['lead_position']    ?? '',
+            $row['lead_phone']       ?? '',
+            $row['lead_email']       ?? '',
+            $row['lead_needs']       ?? '',
+            $row['nip_sales']        ?? '',
+            $row['published_at']     ?? '',
+            $row['status_stage']     ?? '',
+            $row['meeting_type_id']  ?? '',
+            $row['meeting_start_at'] ?? '',
+            $row['meeting_end_at']   ?? '',
+            $row['meeting_city']     ?? '',
+            $row['meeting_address']  ?? '',
+        ];
+
+        return implode('|', $keyParts);
     }
 
     private function extractIdFromCell($value): ?string
