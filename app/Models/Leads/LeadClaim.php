@@ -5,6 +5,8 @@ namespace App\Models\Leads;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Leads\Lead;
+use App\Models\User;
 
 class LeadClaim extends Model
 {
@@ -31,5 +33,9 @@ class LeadClaim extends Model
     public function sales()
     {
         return $this->belongsTo(\App\Models\User::class, 'sales_id');
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'sales_id');
     }
 }

@@ -1717,7 +1717,6 @@ class LeadController extends Controller
             $latestProforma = $quotation?->proformas->first();
             $invoice = $latestProforma?->invoice;
 
-<<<<<<< HEAD
             $stageLabel = match ($lead->status_id) {
                 LeadStatus::COLD => 'Cold',
                 LeadStatus::WARM => 'Warm',
@@ -1741,43 +1740,6 @@ class LeadController extends Controller
                 $invoice ? $invoice->invoice_no : '-',
                 $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
                 $stageLabel,
-=======
-            $record = [
-                'lead_name' => $lead->name ?? '-',
-                'branch_name' => $lead->region?->branch?->name ?? $lead->branch?->name ?? '-',
-                'sales_name' => $claim?->sales?->name
-                    ?? $lead->firstSales?->name
-                    ?? $quotation?->createdBy?->name
-                    ?? '-',
-                'phone' => $lead->phone ?? '-',
-                'source_name' => $lead->source?->name ?? '-',
-                'needs' => $lead->needs ?? '-',
-                'existing_industries' => $lead->industry?->name ?? '-',
-                'city_name' => $lead->region?->name ?? 'All Regions',
-                'regional_name' => $lead->region?->regional?->name ?? '-',
-                'customer_type' => $lead->customer_type ?? '-',
-                'quotation_number' => $quotation?->quotation_no ?? '-',
-                'quotation_price' => $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
-                'invoice_number' => $invoice?->invoice_no ?? '-',
-                'invoice_price' => $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
-                'quot_created' => $lead->published_at
-                    ? \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y')
-                    : '-',
-                'quot_end_date' => $lead->updated_at
-                    ? \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y')
-                    : '-',
-                'act_last_time' => $latestActivity
-                    ? \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y')
-                    : '-',
-                'act_status' => $latestActivity?->activity?->name ?? '-',
-                'created_at' => $lead->created_at
-                    ? \Carbon\Carbon::parse($lead->created_at)->format('d/m/Y')
-                    : '-',
-                'claimed_at' => $claim?->claimed_at
-                    ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
-                    : '-',
-                'status_name' => $lead->status?->name ?? '-',
->>>>>>> b140bb469e98de61bf38c452790653b4189d38d0
             ];
 
             $rows[] = array_map(fn($column) => $record[$column['key']] ?? '-', $columns);

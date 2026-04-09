@@ -1579,6 +1579,8 @@
             const tbody = document.getElementById('allBody');
             tbody.innerHTML = '';
 
+        }
+
         $(document).on('click', '[data-export-trigger]', function (e) {
             e.preventDefault();
             submitManageExport();

@@ -143,69 +143,40 @@ class BMSummaryController extends Controller
             }
         }
 
-        // Count unique leads created/published/claimed during period for BM
-
-        // $leadsQuery = Lead::query()
-        //     ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
-        //         $cq->whereBetween('claimed_at', [$periodStart, $periodEnd]);
-        //     })
-        //     ->where(function ($q) use ($branchId, $salesId) {
-
-        //         // jika filter sales dipilih
-        //         if ($salesId) {
-        //             $q->whereHas('claims', function ($cq) use ($salesId) {
-        //                 $cq->where('sales_id', $salesId);
-        //             });
-        //         }
-        //         // jika tidak, ambil semua lead dari branch BM
-        //         else {
-        //             $q->where('branch_id', $branchId)
-        //                 ->orWhereHas('claims.sales', function ($sq) use ($branchId) {
-        //                     $sq->where('branch_id', $branchId);
-        //                 });
-        //         }
-        //     });
-
         $leadsQuery = Lead::query()
-            ->where('branch_id', $branchId) // filter utama: branch lead harus sama
-            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId) {
+            ->where('branch_id', $branchId)
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId, $branchId) {
 
-                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->whereHas('user', function ($uq) use ($branchId) {
+                        $uq->where('role_id', 2);
+                        $uq->where('branch_id', $branchId);
+                    });
 
                 // jika filter sales dipilih
-                if ($salesId) {
+                if (!empty($salesId)) {
                     $cq->where('sales_id', $salesId);
                 }
             });
-
         $leadsActual = $leadsQuery->distinct('id')->count('id');
 
-        // Visits actual: count unique leads with source_id = 9 created/published/claimed in period
-        $visitsQuery = Lead::query()
-            ->where('source_id', 9)
-            ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('created_at', [$periodStart, $periodEnd])
-                    ->orWhereBetween('published_at', [$periodStart, $periodEnd])
-                    ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
-                        $cq->whereNull('released_at')
-                            ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
-                    });
-            });
 
-        if ($salesId) {
-            $visitsQuery->whereHas('claims', function ($q) use ($salesId) {
-                $q->whereNull('released_at')->where('sales_id', $salesId);
-            });
-        } else {
-            $visitsQuery->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                    ->orWhereHas('claims', function ($cq) use ($branchId) {
-                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($branchId) {
-                            $sq->where('branch_id', $branchId);
-                        });
+        $visitsQuery = Lead::query()
+            ->where('branch_id', $branchId)
+            ->where('source_id', 9)
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId, $branchId) {
+
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->whereHas('user', function ($uq) use ($branchId) {
+                        $uq->where('role_id', 2)
+                            ->where('branch_id', $branchId);
                     });
+
+                // jika filter sales dipilih
+                if (!empty($salesId)) {
+                    $cq->where('sales_id', $salesId);
+                }
             });
-        }
 
         $visitsActual = $visitsQuery->distinct('id')->count('id');
 
