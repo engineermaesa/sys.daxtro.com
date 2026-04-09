@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
 use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -930,6 +931,12 @@ class LeadController extends Controller
 
         $activities = \App\Models\Leads\LeadActivityList::all();
 
+        $salesQuery = User::query()
+            ->whereHas('role', fn($q) => $q->where('code', 'sales'));
+
+        $salesUsers = $salesQuery->orderBy('name')->get(['id', 'name', 'branch_id']);
+
+
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'branches' => $branches,
@@ -941,7 +948,7 @@ class LeadController extends Controller
             ]);
         }
 
-        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId'));
+        return view('pages.leads.manage', compact('branches', 'regions', 'leadCounts', 'activities', 'user', 'userBranchId', 'salesUsers'));
     }
 
     public function manageList(Request $request)
@@ -956,6 +963,7 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
 
         $leads = Lead::with([
+            'branch',
             'region.branch',
             'region.regional',
             'source',
@@ -1033,18 +1041,15 @@ class LeadController extends Controller
             $leads->where('status_id', $request->status_id);
         }
 
-        if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
-            $leads->whereHas('quotation', function ($q) use ($request) {
-                $status = (int) $request->status_id;
-
-                if ($status === LeadStatus::WARM) {
-                    $q->firstApprovalBetween($request->start_date, $request->end_date);
-                } elseif ($status === LeadStatus::HOT) {
-                    $q->bookingFeeBetween($request->start_date, $request->end_date);
-                } elseif ($status === LeadStatus::DEAL) {
-                    $q->firstTermPaidBetween($request->start_date, $request->end_date);
-                }
-            });
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $leads->whereDate('created_at', '>=', $request->start_date)
+                    ->whereDate('created_at', '<=', $request->end_date);
+            } elseif ($request->filled('start_date')) {
+                $leads->whereDate('created_at', '>=', $request->start_date);
+            } else {
+                $leads->whereDate('created_at', '<=', $request->end_date);
+            }
         }
 
         // =========================
@@ -1155,6 +1160,8 @@ class LeadController extends Controller
             return [
                 'id' => $lead->id,
                 'lead_name' => $lead->name ?? '-',
+                'branch_id' => $lead->region?->branch?->id ?? $lead->branch?->id,
+                'branch_name' => $lead->region?->branch?->name ?? $lead->branch?->name ?? '-',
                 'sales_name' => $salesName,
                 'phone' => $lead->phone,
                 'claimed_at' => $claim?->claimed_at
@@ -1378,79 +1385,270 @@ class LeadController extends Controller
             abort(403);
         }
 
+        $request->validate([
+            'export_mode' => 'nullable|in:selected,all_filtered',
+            'lead_ids' => 'nullable|array',
+            'lead_ids.*' => 'nullable|integer|distinct',
+            'stage' => 'nullable|in:all,cold,warm,hot,deal',
+        ]);
+
+        $selectedLeadIds = collect($request->input('lead_ids', []))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $exportSelectedOnly = $request->input('export_mode') === 'selected' && ! empty($selectedLeadIds);
+        $stage = strtolower($request->input('stage', 'all'));
+
         $leads = Lead::with([
+            'branch',
             'region.branch',
+            'region.regional',
             'source',
             'segment',
+            'industry',
+            'status',
+            'firstSales',
+            'product',
             'claims.sales',
+            'activityLogs.activity',
             'quotation',
+            'quotation.createdBy',
             'quotation.proformas' => function ($query) {
                 $query->orderBy('created_at', 'desc');
             },
             'quotation.proformas.invoice'
         ])
-            ->when(
-                $request->filled('status_id'),
-                fn($q) =>
-                $q->where('status_id', $request->status_id)
-            );
+            ->whereIn('status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ])
+            ->when($request->filled('status_id'), fn($q) => $q->where('status_id', $request->status_id));
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
-        }
-
-        if ($request->filled('region_id')) {
-            $leads->where('region_id', $request->region_id);
-        }
-
-        if ($request->filled('sales_id')) {
-            $leads->whereHas('claims', function ($q) use ($request) {
-                $q->where('sales_id', $request->sales_id)
-                    ->whereNull('released_at');
-            });
-        }
-
-        $rows   = [];
-        $rows[] = [
-            'Published At',
-            'Sales Name',
-            'Customer Name',
-            'Branch',
-            'Region',
-            'Source',
-            'Segment',
-            'Customer Type',
-            'Product Description',
-            'Quotation Number',
-            'Quotation Price',
-            'Invoice',
-            'Invoice Price'
+        $statusMap = [
+            'cold' => LeadStatus::COLD,
+            'warm' => LeadStatus::WARM,
+            'hot'  => LeadStatus::HOT,
+            'deal' => LeadStatus::DEAL,
         ];
 
-        foreach ($leads->orderByDesc('id')->get() as $lead) {
-            $claim = $lead->claims()->latest()->first();
+        if (isset($statusMap[$stage])) {
+            $leads->where('status_id', $statusMap[$stage]);
+        }
 
+        if ($exportSelectedOnly) {
+            $leads->whereIn('id', $selectedLeadIds);
+        } else {
+            if ($request->filled('branch_id')) {
+                $branchId = $request->branch_id;
+
+                $leads->where(function ($q) use ($branchId) {
+                    $q->whereHas('region.branch', function ($subq) use ($branchId) {
+                        $subq->where('id', $branchId);
+                    })->orWhere('branch_id', $branchId);
+                });
+            }
+
+            if ($request->filled('region_id')) {
+                $leads->where('region_id', $request->region_id);
+            }
+
+            if ($request->filled('sales_id')) {
+                $leads->whereHas('claims', function ($q) use ($request) {
+                    $q->where('sales_id', $request->sales_id)
+                        ->whereNull('released_at');
+                });
+            }
+
+            if ($request->filled('start_date') || $request->filled('end_date')) {
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $leads->whereDate('created_at', '>=', $request->start_date)
+                        ->whereDate('created_at', '<=', $request->end_date);
+                } elseif ($request->filled('start_date')) {
+                    $leads->whereDate('created_at', '>=', $request->start_date);
+                } else {
+                    $leads->whereDate('created_at', '<=', $request->end_date);
+                }
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+
+                $leads->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('needs', 'like', "%{$search}%")
+                        ->orWhere('customer_type', 'like', "%{$search}%")
+                        ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
+                        ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
+                });
+            }
+        }
+
+        $stageColumns = [
+            'all' => [
+                ['label' => 'Lead Name', 'key' => 'lead_name'],
+                ['label' => 'Branch Name', 'key' => 'branch_name'],
+                ['label' => 'Sales Name', 'key' => 'sales_name'],
+                ['label' => 'Telephone', 'key' => 'phone'],
+                ['label' => 'Source', 'key' => 'source_name'],
+                ['label' => 'Needs', 'key' => 'needs'],
+                ['label' => 'Industry', 'key' => 'existing_industries'],
+                ['label' => 'City', 'key' => 'city_name'],
+                ['label' => 'Regional', 'key' => 'regional_name'],
+                ['label' => 'Customer Type', 'key' => 'customer_type'],
+                ['label' => 'ACT Last Time', 'key' => 'act_last_time'],
+                ['label' => 'ACT Status', 'key' => 'act_status'],
+                ['label' => 'Created At', 'key' => 'created_at'],
+                ['label' => 'Claimed At', 'key' => 'claimed_at'],
+                ['label' => 'Stage', 'key' => 'status_name'],
+            ],
+            'cold' => [
+                ['label' => 'Lead Name', 'key' => 'lead_name'],
+                ['label' => 'Branch Name', 'key' => 'branch_name'],
+                ['label' => 'Sales Name', 'key' => 'sales_name'],
+                ['label' => 'Telephone', 'key' => 'phone'],
+                ['label' => 'Source', 'key' => 'source_name'],
+                ['label' => 'Needs', 'key' => 'needs'],
+                ['label' => 'Industry', 'key' => 'existing_industries'],
+                ['label' => 'City', 'key' => 'city_name'],
+                ['label' => 'Regional', 'key' => 'regional_name'],
+                ['label' => 'Customer Type', 'key' => 'customer_type'],
+                ['label' => 'ACT Last Time', 'key' => 'act_last_time'],
+                ['label' => 'ACT Status', 'key' => 'act_status'],
+                ['label' => 'Created At', 'key' => 'created_at'],
+                ['label' => 'Claimed At', 'key' => 'claimed_at'],
+            ],
+            'warm' => [
+                ['label' => 'Lead Name', 'key' => 'lead_name'],
+                ['label' => 'Branch Name', 'key' => 'branch_name'],
+                ['label' => 'Sales Name', 'key' => 'sales_name'],
+                ['label' => 'Telephone', 'key' => 'phone'],
+                ['label' => 'Source', 'key' => 'source_name'],
+                ['label' => 'Needs', 'key' => 'needs'],
+                ['label' => 'Industry', 'key' => 'existing_industries'],
+                ['label' => 'City', 'key' => 'city_name'],
+                ['label' => 'Regional', 'key' => 'regional_name'],
+                ['label' => 'Customer Type', 'key' => 'customer_type'],
+                ['label' => 'Quotation Number', 'key' => 'quotation_number'],
+                ['label' => 'Quotation Price', 'key' => 'quotation_price'],
+                ['label' => 'Quotation Created', 'key' => 'quot_created'],
+                ['label' => 'Quotation End Date', 'key' => 'quot_end_date'],
+                ['label' => 'ACT Last Time', 'key' => 'act_last_time'],
+                ['label' => 'ACT Status', 'key' => 'act_status'],
+                ['label' => 'Created At', 'key' => 'created_at'],
+                ['label' => 'Claimed At', 'key' => 'claimed_at'],
+            ],
+            'hot' => [
+                ['label' => 'Lead Name', 'key' => 'lead_name'],
+                ['label' => 'Branch Name', 'key' => 'branch_name'],
+                ['label' => 'Sales Name', 'key' => 'sales_name'],
+                ['label' => 'Telephone', 'key' => 'phone'],
+                ['label' => 'Source', 'key' => 'source_name'],
+                ['label' => 'Needs', 'key' => 'needs'],
+                ['label' => 'Industry', 'key' => 'existing_industries'],
+                ['label' => 'City', 'key' => 'city_name'],
+                ['label' => 'Regional', 'key' => 'regional_name'],
+                ['label' => 'Customer Type', 'key' => 'customer_type'],
+                ['label' => 'Quotation Number', 'key' => 'quotation_number'],
+                ['label' => 'Quotation Price', 'key' => 'quotation_price'],
+                ['label' => 'Invoice', 'key' => 'invoice_number'],
+                ['label' => 'Invoice Price', 'key' => 'invoice_price'],
+                ['label' => 'Quotation Created', 'key' => 'quot_created'],
+                ['label' => 'Quotation End Date', 'key' => 'quot_end_date'],
+                ['label' => 'ACT Last Time', 'key' => 'act_last_time'],
+                ['label' => 'ACT Status', 'key' => 'act_status'],
+                ['label' => 'Created At', 'key' => 'created_at'],
+                ['label' => 'Claimed At', 'key' => 'claimed_at'],
+            ],
+            'deal' => [
+                ['label' => 'Lead Name', 'key' => 'lead_name'],
+                ['label' => 'Branch Name', 'key' => 'branch_name'],
+                ['label' => 'Sales Name', 'key' => 'sales_name'],
+                ['label' => 'Telephone', 'key' => 'phone'],
+                ['label' => 'Source', 'key' => 'source_name'],
+                ['label' => 'Needs', 'key' => 'needs'],
+                ['label' => 'Industry', 'key' => 'existing_industries'],
+                ['label' => 'City', 'key' => 'city_name'],
+                ['label' => 'Regional', 'key' => 'regional_name'],
+                ['label' => 'Customer Type', 'key' => 'customer_type'],
+                ['label' => 'Quotation Number', 'key' => 'quotation_number'],
+                ['label' => 'Quotation Price', 'key' => 'quotation_price'],
+                ['label' => 'Invoice', 'key' => 'invoice_number'],
+                ['label' => 'Invoice Price', 'key' => 'invoice_price'],
+                ['label' => 'Quotation Created', 'key' => 'quot_created'],
+                ['label' => 'Quotation End Date', 'key' => 'quot_end_date'],
+                ['label' => 'ACT Last Time', 'key' => 'act_last_time'],
+                ['label' => 'ACT Status', 'key' => 'act_status'],
+                ['label' => 'Created At', 'key' => 'created_at'],
+                ['label' => 'Claimed At', 'key' => 'claimed_at'],
+            ],
+        ];
+
+        $rows = [];
+        $columns = $stageColumns[$stage] ?? $stageColumns['all'];
+        $rows[] = array_map(fn($column) => $column['label'], $columns);
+
+        foreach ($leads->orderByDesc('created_at')->orderByDesc('id')->get() as $lead) {
+            $latestActivity = $lead->activityLogs
+                ->sortByDesc(function ($activity) {
+                    return strtotime($activity->logged_at) . str_pad($activity->id, 10, '0', STR_PAD_LEFT);
+                })
+                ->first();
+
+            $activeClaim = $lead->claims->firstWhere('released_at', null);
+            $latestClaim = $lead->claims->sortByDesc('claimed_at')->first();
+            $claim = $activeClaim ?: $latestClaim;
             $quotation = $lead->quotation;
-
-            // Get latest proforma and its invoice
             $latestProforma = $quotation?->proformas->first();
             $invoice = $latestProforma?->invoice;
 
-            $rows[] = [
-                $lead->published_at, // published at
-                $claim?->sales?->name ?? '-', // sales name
-                $lead->name, // customer name
-                $lead->region->branch->name ?? '', // branch region
-                $lead->region->name ?? '', // region name
-                $lead->source->name ?? '', // source name
-                $lead->segment->name ?? '', // segment name
-                $lead->customer_type ?? '', // customer type
-                $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? ''), // product description
-                $quotation ? $quotation->quotation_no : '-',
-                $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
-                $invoice ? $invoice->invoice_no : '-',
-                $invoice ? number_format($invoice->amount ?? 0, 2) : '-'
+            $record = [
+                'lead_name' => $lead->name ?? '-',
+                'branch_name' => $lead->region?->branch?->name ?? $lead->branch?->name ?? '-',
+                'sales_name' => $claim?->sales?->name
+                    ?? $lead->firstSales?->name
+                    ?? $quotation?->createdBy?->name
+                    ?? '-',
+                'phone' => $lead->phone ?? '-',
+                'source_name' => $lead->source?->name ?? '-',
+                'needs' => $lead->needs ?? '-',
+                'existing_industries' => $lead->industry?->name ?? '-',
+                'city_name' => $lead->region?->name ?? 'All Regions',
+                'regional_name' => $lead->region?->regional?->name ?? '-',
+                'customer_type' => $lead->customer_type ?? '-',
+                'quotation_number' => $quotation?->quotation_no ?? '-',
+                'quotation_price' => $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
+                'invoice_number' => $invoice?->invoice_no ?? '-',
+                'invoice_price' => $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
+                'quot_created' => $lead->published_at
+                    ? \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y')
+                    : '-',
+                'quot_end_date' => $lead->updated_at
+                    ? \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y')
+                    : '-',
+                'act_last_time' => $latestActivity
+                    ? \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y')
+                    : '-',
+                'act_status' => $latestActivity?->activity?->name ?? '-',
+                'created_at' => $lead->created_at
+                    ? \Carbon\Carbon::parse($lead->created_at)->format('d/m/Y')
+                    : '-',
+                'claimed_at' => $claim?->claimed_at
+                    ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
+                    : '-',
+                'status_name' => $lead->status?->name ?? '-',
             ];
+
+            $rows[] = array_map(fn($column) => $record[$column['key']] ?? '-', $columns);
         }
 
         $file = $this->createXlsx($rows);
@@ -2183,4 +2381,3 @@ class LeadController extends Controller
         return $html;
     }
 }
-

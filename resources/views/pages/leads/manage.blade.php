@@ -431,16 +431,16 @@
                     <input id="searchInput" type="text" placeholder="Search"
                         class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
-                <button id="btnExport" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center">
+                <button data-export-trigger="manage" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center">
                     <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                         <x-icon.download />
-                        Export Excel
+                        <span data-export-label>Export Excel</span>
                     </div>
                 </button>
             </div>
 
             {{-- SEARCH TABLES --}}
-            <div class="lg:w-1/6! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
+            <div class="lg:w-[10%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                 <div class="px-2">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
@@ -452,42 +452,114 @@
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
-            <div class="lg:w-4/6! border border-[#D5D5D5] rounded-lg grid grid-cols-5">
-                @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-                {{-- NAVIGATION STATUS --}}
-                <div data-tab="{{ $tab }}"
-                    class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
-                    <p class="text-[#083224]">
-                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                        <span class="{{ 
-                                            $tab === 'all' 
-                                                ? 'span-all' 
-                                                : ($tab === 'cold' 
-                                                    ? 'span-cold' 
-                                                    : ($tab === 'warm' 
-                                                        ? 'span-warm' 
-                                                        : ($tab == 'hot'
-                                                            ? 'span-hot'
-                                                            : 'span-deal'
-                                                            )
-                                                    )
-                                                )
-                                            }}">
-                            {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
-                        </span>
-                    </p>
+            <div class="lg:w-[80%]! gap-3 flex items-center">
+                {{-- FILTER BRANCH SALES DATE --}}
+                <div class="w-1/2 grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
+
+                    {{-- BRANCH --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer h-full px-2 text-[#1E1E1E] p-3">
+                        <select id="branchesQuery"
+                        class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">All Branches</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    {{-- SALES --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-r-[#D9D9D9] cursor-pointer h-full px-2 text-[#1E1E1E] p-3">
+                        <select id="salesQuery"
+                        class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">All Sales</option>
+                            @foreach($salesUsers as $sales)
+                                <option value="{{ $sales->id }}" data-branch-id="{{ $sales->branch_id }}">{{ $sales->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- DATES --}}
+                    <div
+                    class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+
+                        {{-- TOGGLE --}}
+                        <div id="openDateDropdown" class="flex justify-center items-center gap-2">
+                            <p id="dateLabel" class="font-medium text-black">Date</p>
+                            <i id="iconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+                        </div>
+
+                        {{-- DATE DROPDOWN --}}
+                        <div id="dateDropdown"
+                            class="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl w-[350px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
+
+                            <h3 class="font-semibold mb-2">Select Date Range</h3>
+
+                                <div class="flex justify-center items-center">
+                                <input type="text" id="source-date-range" class="shadow-none w-full" placeholder="Select date range">
+                                </div>
+
+                            <div class="flex justify-end gap-2 mt-3">
+
+                                <button id="cancelDate" class="px-3 py-1 text-[#303030]">
+                                    Cancel
+                                </button>
+
+                                <button id="applyDate"
+                                    class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
+                                    Apply
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>  
+
+                    {{-- RESET FILTERS --}}
+                    <div id="generalFilterReset" class="flex items-center justify-center gap-2 cursor-pointer h-full">
+                        <i id="resetQuery" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
+                        <p class="font-medium text-[#900B09]">Reset Filter</p>
+                    </div>
                 </div>
-                @endforeach
+                <div class="w-1/2 border border-[#D5D5D5] rounded-lg grid grid-cols-5">
+                    @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
+                    {{-- NAVIGATION STATUS --}}
+                    <div data-tab="{{ $tab }}"
+                        class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
+                        <p class="text-[#083224]">
+                            {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
+                            <span class="{{ 
+                                                $tab === 'all' 
+                                                    ? 'span-all' 
+                                                    : ($tab === 'cold' 
+                                                        ? 'span-cold' 
+                                                        : ($tab === 'warm' 
+                                                            ? 'span-warm' 
+                                                            : ($tab == 'hot'
+                                                                ? 'span-hot'
+                                                                : 'span-deal'
+                                                                )
+                                                        )
+                                                    )
+                                                }}">
+                                {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
+                            </span>
+                        </p>
+                    </div>
+                    @endforeach
+                </div>
             </div>
 
             {{-- EXPORT EXCELS LEADS --}}
-            <button id="btnExport" class="cursor-pointer lg:w-1/6! bg-[#115640] rounded-lg hidden lg:inline!">
+            <button data-export-trigger="manage" class="cursor-pointer lg:w-[10%]! bg-[#115640] rounded-lg hidden lg:inline!">
                 <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                     <x-icon.download />
-                    Export Excel
+                    <span data-export-label>Export Excel</span>
                 </div>
             </button>
         </div>
+
+        <form id="manageExportForm" action="{{ route('leads.manage.export') }}" method="POST" class="hidden">
+            @csrf
+        </form>
 
         {{-- CONTENTS TABLES --}}
         <div>
@@ -496,26 +568,7 @@
                 <div class="max-xl:overflow-x-scroll">
                     <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                         {{-- HEADER TABLE --}}
-                        <thead class="text-[#1E1E1E]">
-                            <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="hidden">ID (hidden)</th>
-                                <th class="font-bold text-left p-2">Lead Name</th>
-                                <th class="p-2">Sales Name</th>
-                                <th class="p-2">Telephone</th>
-                                <th class="p-2">Source</th>
-                                <th class="p-2">Needs</th>
-                                <th class="p-2">Industry</th>
-                                <th class="p-2">City</th>
-                                <th class="p-2">Regional</th>
-                                <th class="p-2">Customer Type</th>
-                                <th class="p-2">ACT Last Time</th>
-                                <th class="p-2">ACT Status</th>
-                                <th class="p-2">Created At</th>
-                                <th class="p-2">Claimed At</th>
-                                <th class="text-center w-12.5 p-2">Stage</th>
-                                <th class="text-center p-2">Action</th>
-                            </tr>
-                        </thead>
+                        <thead id="allHead" class="text-[#1E1E1E]"></thead>
                         <tbody id="allBody"></tbody>
                     </table>
                 </div>
@@ -556,32 +609,7 @@
             <div class="overflow-x-scroll">
                 <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                     {{-- HEADER TABLE --}}
-                    <thead class="text-[#1E1E1E]">
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <th class="font-bold text-left p-2">Lead Name</th>
-                            <th class="p-2">Sales Name</th>
-                            <th class="p-2">Telephone</th>
-                            <th class="p-2">Source</th>
-                            <th class="p-2">Needs</th>
-                            <th class="p-2">Industry</th>
-                            <th class="p-2">City</th>
-                            <th class="p-2">Regional</th>
-                            <th class="p-2">Customer Type</th>
-                            <th class="p-2">Quotation Number</th>
-                            <th class="p-2">Quotation Price</th>
-                            @if ($tab === 'hot' || $tab === 'deal')
-                            <th class="p-2">Invoice</th>
-                            <th class="p-2">Invoice Price</th>
-                            @endif
-                            <th class="p-2">Quotation Created</th>
-                            <th class="p-2">Quotation End Date</th>
-                            <th class="p-2">ACT Last Time</th>
-                            <th class="p-2">ACT Status</th>
-                            <th class="p-2">Created At</th>
-                            <th class="p-2">Claimed At</th>
-                            <th class="text-center p-2">Action</th>
-                        </tr>
-                    </thead>
+                    <thead id="{{ $tab }}Head" class="text-[#1E1E1E]"></thead>
                     <tbody id="{{ $tab }}Body" class="text-[#1E1E1E]"></tbody>
                 </table>
             </div>
@@ -744,9 +772,14 @@
 @section('scripts')
 <script>
     // CONTENTS TABLE AND STAGE TABLE SECTION
+        let fp = null;
         const DEFAULT_PAGE_SIZE = 10;
         const pageState = { all: 1, cold: 1, warm: 1, hot: 1, deal: 1 };
         const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE, deal: DEFAULT_PAGE_SIZE };
+        const appliedDateFilter = {
+            start_date: '',
+            end_date: '',
+        };
 
         const totals = {
             all: {{ $leadCounts['all'] ?? 0 }},
@@ -755,6 +788,529 @@
             hot: {{ $leadCounts['hot'] ?? 0 }},
             deal: {{ $leadCounts['deal'] ?? 0 }}
         };
+
+        const selectedLeadIds = new Set();
+
+        const manageTableConfigs = {
+            all: {
+                headId: 'allHead',
+                bodyId: 'allBody',
+                columns: [
+                    { label: 'Lead Name', key: 'lead_name', className: 'p-2 font-medium text-left' },
+                    { label: 'Branch Name', key: 'branch_name', className: 'p-2' },
+                    { label: 'Sales Name', key: 'sales_name', className: 'p-2' },
+                    { label: 'Telephone', key: 'phone', className: 'p-2' },
+                    { label: 'Source', key: 'source_name', className: 'p-2' },
+                    { label: 'Needs', key: 'needs', className: 'p-2' },
+                    { label: 'Industry', key: 'existing_industries', className: 'p-2' },
+                    { label: 'City', key: 'city_name', className: 'p-2' },
+                    { label: 'Regional', key: 'regional_name', className: 'p-2' },
+                    { label: 'Customer Type', key: 'customer_type', className: 'p-2' },
+                    { label: 'ACT Last Time', key: 'act_last_time', className: 'p-2' },
+                    { label: 'ACT Status', key: 'act_status', className: 'p-2' },
+                    { label: 'Created At', key: 'created_at', className: 'p-2' },
+                    { label: 'Claimed At', key: 'claimed_at', className: 'p-2' },
+                    { label: 'Stage', key: 'status_name', type: 'status', className: 'text-center capitalize p-2' },
+                    { label: 'Action', key: 'actions', type: 'html', className: 'text-center p-2', exportable: false }
+                ]
+            },
+            cold: {
+                headId: 'coldHead',
+                bodyId: 'coldBody',
+                columns: [
+                    { label: 'Lead Name', key: 'lead_name', className: 'p-2 font-medium text-left' },
+                    { label: 'Branch Name', key: 'branch_name', className: 'p-2' },
+                    { label: 'Sales Name', key: 'sales_name', className: 'p-2' },
+                    { label: 'Telephone', key: 'phone', className: 'p-2' },
+                    { label: 'Source', key: 'source_name', className: 'p-2' },
+                    { label: 'Needs', key: 'needs', className: 'p-2' },
+                    { label: 'Industry', key: 'existing_industries', className: 'p-2' },
+                    { label: 'City', key: 'city_name', className: 'p-2' },
+                    { label: 'Regional', key: 'regional_name', className: 'p-2' },
+                    { label: 'Customer Type', key: 'customer_type', className: 'p-2' },
+                    { label: 'ACT Last Time', key: 'act_last_time', className: 'p-2' },
+                    { label: 'ACT Status', key: 'act_status', className: 'p-2' },
+                    { label: 'Created At', key: 'created_at', className: 'p-2' },
+                    { label: 'Claimed At', key: 'claimed_at', className: 'p-2' },
+                    { label: 'Action', key: 'actions', type: 'html', className: 'text-center p-2', exportable: false }
+                ]
+            },
+            warm: {
+                headId: 'warmHead',
+                bodyId: 'warmBody',
+                columns: [
+                    { label: 'Lead Name', key: 'lead_name', className: 'p-2 font-medium text-left' },
+                    { label: 'Branch Name', key: 'branch_name', className: 'p-2' },
+                    { label: 'Sales Name', key: 'sales_name', className: 'p-2' },
+                    { label: 'Telephone', key: 'phone', className: 'p-2' },
+                    { label: 'Source', key: 'source_name', className: 'p-2' },
+                    { label: 'Needs', key: 'needs', className: 'p-2' },
+                    { label: 'Industry', key: 'existing_industries', className: 'p-2' },
+                    { label: 'City', key: 'city_name', className: 'p-2' },
+                    { label: 'Regional', key: 'regional_name', className: 'p-2' },
+                    { label: 'Customer Type', key: 'customer_type', className: 'p-2' },
+                    { label: 'Quotation Number', key: 'quotation_number', className: 'p-2' },
+                    { label: 'Quotation Price', key: 'quotation_price', className: 'p-2' },
+                    { label: 'Quotation Created', key: 'quot_created', className: 'p-2' },
+                    { label: 'Quotation End Date', key: 'quot_end_date', className: 'p-2' },
+                    { label: 'ACT Last Time', key: 'act_last_time', className: 'p-2' },
+                    { label: 'ACT Status', key: 'act_status', className: 'p-2' },
+                    { label: 'Created At', key: 'created_at', className: 'p-2' },
+                    { label: 'Claimed At', key: 'claimed_at', className: 'p-2' },
+                    { label: 'Action', key: 'actions', type: 'html', className: 'text-center p-2', exportable: false }
+                ]
+            },
+            hot: {
+                headId: 'hotHead',
+                bodyId: 'hotBody',
+                columns: [
+                    { label: 'Lead Name', key: 'lead_name', className: 'p-2 font-medium text-left' },
+                    { label: 'Branch Name', key: 'branch_name', className: 'p-2' },
+                    { label: 'Sales Name', key: 'sales_name', className: 'p-2' },
+                    { label: 'Telephone', key: 'phone', className: 'p-2' },
+                    { label: 'Source', key: 'source_name', className: 'p-2' },
+                    { label: 'Needs', key: 'needs', className: 'p-2' },
+                    { label: 'Industry', key: 'existing_industries', className: 'p-2' },
+                    { label: 'City', key: 'city_name', className: 'p-2' },
+                    { label: 'Regional', key: 'regional_name', className: 'p-2' },
+                    { label: 'Customer Type', key: 'customer_type', className: 'p-2' },
+                    { label: 'Quotation Number', key: 'quotation_number', className: 'p-2' },
+                    { label: 'Quotation Price', key: 'quotation_price', className: 'p-2' },
+                    { label: 'Invoice', key: 'invoice_number', className: 'p-2' },
+                    { label: 'Invoice Price', key: 'invoice_price', className: 'p-2' },
+                    { label: 'Quotation Created', key: 'quot_created', className: 'p-2' },
+                    { label: 'Quotation End Date', key: 'quot_end_date', className: 'p-2' },
+                    { label: 'ACT Last Time', key: 'act_last_time', className: 'p-2' },
+                    { label: 'ACT Status', key: 'act_status', className: 'p-2' },
+                    { label: 'Created At', key: 'created_at', className: 'p-2' },
+                    { label: 'Claimed At', key: 'claimed_at', className: 'p-2' },
+                    { label: 'Action', key: 'actions', type: 'html', className: 'text-center p-2', exportable: false }
+                ]
+            },
+            deal: {
+                headId: 'dealHead',
+                bodyId: 'dealBody',
+                columns: [
+                    { label: 'Lead Name', key: 'lead_name', className: 'p-2 font-medium text-left' },
+                    { label: 'Branch Name', key: 'branch_name', className: 'p-2' },
+                    { label: 'Sales Name', key: 'sales_name', className: 'p-2' },
+                    { label: 'Telephone', key: 'phone', className: 'p-2' },
+                    { label: 'Source', key: 'source_name', className: 'p-2' },
+                    { label: 'Needs', key: 'needs', className: 'p-2' },
+                    { label: 'Industry', key: 'existing_industries', className: 'p-2' },
+                    { label: 'City', key: 'city_name', className: 'p-2' },
+                    { label: 'Regional', key: 'regional_name', className: 'p-2' },
+                    { label: 'Customer Type', key: 'customer_type', className: 'p-2' },
+                    { label: 'Quotation Number', key: 'quotation_number', className: 'p-2' },
+                    { label: 'Quotation Price', key: 'quotation_price', className: 'p-2' },
+                    { label: 'Invoice', key: 'invoice_number', className: 'p-2' },
+                    { label: 'Invoice Price', key: 'invoice_price', className: 'p-2' },
+                    { label: 'Quotation Created', key: 'quot_created', className: 'p-2' },
+                    { label: 'Quotation End Date', key: 'quot_end_date', className: 'p-2' },
+                    { label: 'ACT Last Time', key: 'act_last_time', className: 'p-2' },
+                    { label: 'ACT Status', key: 'act_status', className: 'p-2' },
+                    { label: 'Created At', key: 'created_at', className: 'p-2' },
+                    { label: 'Claimed At', key: 'claimed_at', className: 'p-2' },
+                    { label: 'Action', key: 'actions', type: 'html', className: 'text-center p-2', exportable: false }
+                ]
+            }
+        };
+
+        function getManageTableConfig(tab) {
+            return manageTableConfigs[tab] || manageTableConfigs.all;
+        }
+
+        function getManageColumnCount(tab) {
+            return getManageTableConfig(tab).columns.length + 1;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function getManageStatusClass(status) {
+            if (status === 'Published') return 'status-trash';
+            if (status === 'Cold') return 'status-cold';
+            if (status === 'Warm') return 'status-warm';
+            if (status === 'Hot') return 'status-hot';
+            if (status === 'Deal') return 'status-deal';
+            if (status === 'Trash Cold' || status === 'Trash Warm' || status === 'Trash Hot') return 'status-trash';
+            return '';
+        }
+
+        function getManageStatusDotClass(status) {
+            if (status === 'Trash Cold') return 'dot-trash-cold';
+            if (status === 'Trash Warm') return 'dot-trash-warm';
+            if (status === 'Trash Hot') return 'dot-trash-hot';
+            return '';
+        }
+
+        function clearManageSelections() {
+            selectedLeadIds.clear();
+            updateExportButtonState();
+            Object.keys(manageTableConfigs).forEach(updateSelectAllCheckbox);
+        }
+
+        function updateExportButtonState() {
+            const selectedCount = selectedLeadIds.size;
+            const label = selectedCount > 0
+                ? `Export Excel (${selectedCount} Selected)`
+                : 'Export Excel';
+
+            document.querySelectorAll('[data-export-label]').forEach((node) => {
+                node.textContent = label;
+            });
+        }
+
+        function renderManageTableHead(tab) {
+            const config = getManageTableConfig(tab);
+            const thead = document.getElementById(config.headId);
+
+            if (!thead) {
+                return;
+            }
+
+            const columnsHtml = config.columns.map((column) => {
+                const alignmentClass = column.type === 'html' || column.type === 'status'
+                    ? 'text-center'
+                    : 'text-left';
+
+                return `<th class="p-2 ${alignmentClass}">${escapeHtml(column.label)}</th>`;
+            }).join('');
+
+            thead.innerHTML = `
+                <tr class="border-b border-b-[#D9D9D9]">
+                    <th class="p-2 text-center w-10">
+                        <input
+                            type="checkbox"
+                            class="manage-select-all cursor-pointer"
+                            data-tab="${tab}"
+                            aria-label="Select all leads on current page"
+                        >
+                    </th>
+                    ${columnsHtml}
+                </tr>
+            `;
+        }
+
+        function renderManageTableMessage(tab, message, className = 'text-gray-500') {
+            const config = getManageTableConfig(tab);
+            const tbody = document.getElementById(config.bodyId);
+
+            if (!tbody) {
+                return;
+            }
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="${getManageColumnCount(tab)}" class="p-4 text-center ${className}">
+                        ${escapeHtml(message)}
+                    </td>
+                </tr>
+            `;
+
+            updateSelectAllCheckbox(tab);
+        }
+
+        function renderManageCell(column, row) {
+            const value = row?.[column.key];
+
+            if (column.type === 'html') {
+                return value ?? '-';
+            }
+
+            if (column.type === 'status') {
+                const status = value ?? '-';
+                const dotClass = getManageStatusDotClass(status);
+
+                return `
+                    <span class="block px-2 py-1 rounded-sm flex items-center justify-center ${getManageStatusClass(status)}">
+                        ${escapeHtml(status)}
+                        ${dotClass ? `<span class="${dotClass}"></span>` : ''}
+                    </span>
+                `;
+            }
+
+            return escapeHtml(value ?? '-');
+        }
+
+        function renderManageRows(tab, leads) {
+            const config = getManageTableConfig(tab);
+            const tbody = document.getElementById(config.bodyId);
+
+            if (!tbody) {
+                return;
+            }
+
+            if (!leads || leads.length === 0) {
+                renderManageTableMessage(tab, 'Data tidak ditemukan');
+                return;
+            }
+
+            tbody.innerHTML = leads.map((row) => {
+                const leadId = String(row.id ?? '');
+                const checked = selectedLeadIds.has(leadId) ? 'checked' : '';
+
+                const cellsHtml = config.columns.map((column) => {
+                    const className = column.className || 'p-2';
+                    return `<td class="${className}">${renderManageCell(column, row)}</td>`;
+                }).join('');
+
+                return `
+                    <tr class="border-t border-t-[#D9D9D9] text-[#1E1E1E]! font-medium!" data-lead-id="${escapeHtml(leadId)}">
+                        <td class="p-2 text-center align-middle">
+                            <input
+                                type="checkbox"
+                                class="lead-row-checkbox cursor-pointer"
+                                data-tab="${tab}"
+                                value="${escapeHtml(leadId)}"
+                                ${checked}
+                                aria-label="Select lead ${escapeHtml(row.lead_name ?? leadId)}"
+                            >
+                        </td>
+                        ${cellsHtml}
+                    </tr>
+                `;
+            }).join('');
+
+            updateSelectAllCheckbox(tab);
+        }
+
+        function updateSelectAllCheckbox(tab) {
+            const config = getManageTableConfig(tab);
+            const selectAll = document.querySelector(`.manage-select-all[data-tab="${tab}"]`);
+
+            if (!selectAll) {
+                return;
+            }
+
+            const rowCheckboxes = Array.from(document.querySelectorAll(`#${config.bodyId} .lead-row-checkbox`));
+            const checkedCount = rowCheckboxes.filter((checkbox) => checkbox.checked).length;
+            const hasRows = rowCheckboxes.length > 0;
+
+            selectAll.disabled = !hasRows;
+            selectAll.checked = hasRows && checkedCount === rowCheckboxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+        }
+
+        function submitManageExport() {
+            const form = document.getElementById('manageExportForm');
+
+            if (!form) {
+                return;
+            }
+
+            const activeTab = getActiveManageTab();
+            const selectedIds = Array.from(selectedLeadIds);
+            const exportMode = selectedIds.length > 0 ? 'selected' : 'all_filtered';
+
+            form.querySelectorAll('input[type="hidden"][data-generated="true"]').forEach((input) => input.remove());
+
+            const generatedFields = [];
+            const addField = (name, value) => {
+                if (value === null || value === undefined || value === '') {
+                    return;
+                }
+
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                input.setAttribute('data-generated', 'true');
+                generatedFields.push(input);
+            };
+
+            addField('export_mode', exportMode);
+
+            if (activeTab && activeTab !== 'all') {
+                addField('stage', activeTab);
+            } else {
+                addField('stage', 'all');
+            }
+
+            const filter = getManageGeneralFilter();
+            addField('branch_id', filter.branch_id);
+            addField('sales_id', filter.sales_id);
+            addField('start_date', filter.start_date);
+            addField('end_date', filter.end_date);
+            addField('search', filter.search);
+
+            selectedIds.forEach((id) => {
+                addField('lead_ids[]', id);
+            });
+
+            generatedFields.forEach((input) => form.appendChild(input));
+            form.submit();
+        }
+
+        function resetAllTabPages() {
+            pageState.all = 1;
+            pageState.cold = 1;
+            pageState.warm = 1;
+            pageState.hot = 1;
+            pageState.deal = 1;
+        }
+
+        function getManageGeneralFilter() {
+            return {
+                branch_id: $('#branchesQuery').val() || '',
+                sales_id: $('#salesQuery').val() || '',
+                start_date: appliedDateFilter.start_date || '',
+                end_date: appliedDateFilter.end_date || '',
+                search: getSearchQuery(),
+            };
+        }
+
+        function applyManageGeneralFilterToParams(params, options = {}) {
+            const includeSearch = options.includeSearch !== false;
+            const filter = getManageGeneralFilter();
+
+            if (filter.branch_id && !params.has('branch_id')) {
+                params.append('branch_id', filter.branch_id);
+            }
+
+            if (filter.sales_id && !params.has('sales_id')) {
+                params.append('sales_id', filter.sales_id);
+            }
+
+            if (filter.start_date && !params.has('start_date')) {
+                params.append('start_date', filter.start_date);
+            }
+
+            if (filter.end_date && !params.has('end_date')) {
+                params.append('end_date', filter.end_date);
+            }
+
+            if (includeSearch && filter.search && !params.has('search')) {
+                params.append('search', filter.search);
+            }
+        }
+
+        function buildManageListUrl(tab, page, perPage) {
+            const params = new URLSearchParams();
+            params.append('page', page);
+            params.append('per_page', perPage);
+
+            if (tab !== 'all') {
+                params.append('stage', tab);
+            }
+
+            applyManageGeneralFilterToParams(params);
+
+            return `/api/leads/manage/list?${params.toString()}`;
+        }
+
+        function syncSalesOptionsWithBranch() {
+            const branchSelect = document.getElementById('branchesQuery');
+            const salesSelect = document.getElementById('salesQuery');
+
+            if (!branchSelect || !salesSelect) {
+                return;
+            }
+
+            const selectedBranch = branchSelect.value || '';
+            const salesOptions = Array.from(salesSelect.options).slice(1);
+
+            salesOptions.forEach((option) => {
+                const optionBranchId = option.dataset.branchId || '';
+                const isVisible = !selectedBranch || optionBranchId === selectedBranch;
+
+                option.hidden = !isVisible;
+                option.disabled = !isVisible;
+            });
+
+            const selectedSalesOption = salesSelect.options[salesSelect.selectedIndex];
+            if (selectedSalesOption && selectedSalesOption.disabled) {
+                salesSelect.value = '';
+            }
+        }
+
+        function closeDateDropdown() {
+            const dropdown = document.getElementById('dateDropdown');
+            const chevron = document.getElementById('iconDate');
+
+            if (dropdown) {
+                dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            }
+
+            if (chevron) {
+                chevron.classList.remove('rotate-180');
+            }
+        }
+
+        function initManageFlatpickr() {
+            const input = document.getElementById('source-date-range');
+
+            if (!input || typeof flatpickr === 'undefined') {
+                return;
+            }
+
+            fp = flatpickr(input, {
+                mode: 'range',
+                inline: true,
+                dateFormat: 'Y-m-d',
+            });
+        }
+
+        function initManageDateFilter() {
+            const openBtn = document.getElementById('openDateDropdown');
+            const dropdown = document.getElementById('dateDropdown');
+            const chevron = document.getElementById('iconDate');
+            const cancelBtn = document.getElementById('cancelDate');
+            const applyBtn = document.getElementById('applyDate');
+            const dateLabel = document.getElementById('dateLabel');
+
+            if (openBtn) {
+                openBtn.addEventListener('click', function () {
+                    if (dropdown) {
+                        dropdown.classList.toggle('opacity-0');
+                        dropdown.classList.toggle('scale-95');
+                        dropdown.classList.toggle('pointer-events-none');
+                    }
+
+                    if (chevron) {
+                        chevron.classList.toggle('rotate-180');
+                    }
+
+                    if (fp) {
+                        fp.open();
+                    }
+                });
+            }
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function () {
+                    closeDateDropdown();
+                });
+            }
+
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    const dates = fp?.selectedDates ?? [];
+
+                    if (dates.length !== 2) {
+                        return;
+                    }
+
+                    appliedDateFilter.start_date = flatpickr.formatDate(dates[0], 'Y-m-d');
+                    appliedDateFilter.end_date = flatpickr.formatDate(dates[1], 'Y-m-d');
+
+                    if (dateLabel) {
+                        dateLabel.innerText = `${appliedDateFilter.start_date} -> ${appliedDateFilter.end_date}`;
+                    }
+
+                    clearManageSelections();
+                    resetAllTabPages();
+                    reloadTab(getActiveManageTab());
+                    closeDateDropdown();
+                });
+            }
+        }
 
         $(document).ready(function () {
             const sections = {
@@ -777,7 +1333,6 @@
 
             $(".nav-leads").on("click", function () {
                 const tab = $(this).data("tab");
-                console.log(tab)
                 $(".leads-table-container").hide();
 
                 $(`[data-tab-container='${tab}']`).show();
@@ -785,6 +1340,7 @@
                 $(".nav-leads").removeClass("active-nav");
                 $(this).addClass("active-nav");
 
+                clearManageSelections();
                 reloadTab(tab);
 
                 $.each(sections, function (key, value) {
@@ -797,6 +1353,45 @@
                 // Reset animation
                 resetAnimation(sections[tab]);
 
+            });
+
+            Object.keys(manageTableConfigs).forEach(renderManageTableHead);
+            updateExportButtonState();
+            syncSalesOptionsWithBranch();
+            initManageFlatpickr();
+            initManageDateFilter();
+
+            $('#branchesQuery').on('change', function () {
+                syncSalesOptionsWithBranch();
+                clearManageSelections();
+                resetAllTabPages();
+                reloadTab(getActiveManageTab());
+            });
+
+            $('#salesQuery').on('change', function () {
+                clearManageSelections();
+                resetAllTabPages();
+                reloadTab(getActiveManageTab());
+            });
+
+            $('#generalFilterReset').on('click', function () {
+                $('#branchesQuery').val('');
+                $('#salesQuery').val('');
+
+                if (fp) {
+                    fp.clear();
+                }
+
+                appliedDateFilter.start_date = '';
+                appliedDateFilter.end_date = '';
+                $('#source-date-range').val('');
+                $('#dateLabel').text('Date');
+
+                syncSalesOptionsWithBranch();
+                closeDateDropdown();
+                clearManageSelections();
+                resetAllTabPages();
+                reloadTab(getActiveManageTab());
             });
 
             $(".nav-leads[data-tab='all']").trigger("click");
@@ -843,359 +1438,35 @@
         }
 
         function reloadTab(tab) {
-            if (tab === 'all') loadAllLeads();
-            else if (tab === 'cold') loadColdLeads();
-            else if (tab === 'warm') loadWarmLeads();
-            else if (tab === 'hot') loadHotLeads();
-            else if (tab === 'deal') loadDealLeads();
+            loadManageLeads(tab);
         }
 
         // LOAD THE MAIN DATA TO THE TABLE (DATA-CONTAINER)
-        async function loadAllLeads() {
-            const page = pageState.all || 1;
-            const perPage = pageSizeState.all || DEFAULT_PAGE_SIZE;
-            const tbody = document.getElementById('allBody');
+        async function loadManageLeads(tab) {
+            const config = getManageTableConfig(tab);
+            const page = pageState[tab] || 1;
+            const perPage = pageSizeState[tab] || DEFAULT_PAGE_SIZE;
 
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
-                        Loading data...
-                    </td>
-                </tr>
-            `;
+            renderManageTableHead(tab);
+            renderManageTableMessage(tab, 'Loading data...', 'text-[#1E1E1E] opacity-50');
 
             try {
-                const response = await fetch(
-                    `/api/leads/manage/list?page=${page}&per_page=${perPage}&search=${encodeURIComponent(getSearchQuery())}`,
-                    { credentials: 'same-origin' }
-                );
+                const response = await fetch(buildManageListUrl(tab, page, perPage), {
+                    credentials: 'same-origin'
+                });
 
-                const result = await response.json();
-
-                updatePagerUI('all', result.total);
-                tbody.innerHTML = '';
-                totals.all = result.total || 0;
-
-                if (!result.data || result.data.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="17" class="p-4 text-center text-gray-500">
-                                Data tidak ditemukan
-                            </td>
-                        </tr>
-                    `;
-                    return;
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                result.data.forEach(row => {
-                    tbody.innerHTML += `
-                        <tr class="border-b border-b-[#D9D9D9] text-[#1E1E1E]! font-medium!">
-                            <td class="hidden">${row.id}</td>
-                            <td class="p-2 font-medium">${row.lead_name ?? ''}</td>
-                            <td class="p-2">${row.sales_name ?? '-'}</td>
-                            <td class="p-2">${row.phone ?? ''}</td>
-                            <td class="p-2">${row.source_name ?? ''}</td>
-                            <td class="p-2">${row.needs ?? ''}</td>
-                            <td class="p-2">${row.existing_industries ?? ''}</td>
-                            <td class="p-2">${row.city_name ?? ''}</td>
-                            <td class="p-2">${row.regional_name ?? ''}</td>
-                            <td class="p-2">${row.customer_type ?? ''}</td>
-                            <td class="p-2">${row.act_last_time ?? ''}</td>
-                            <td class="p-2">${row.act_status ?? ''}</td>
-                            <td class="p-2">${row.created_at ?? ''}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="text-center capitalize p-2">
-                                <span class="block px-2 py-1 rounded-sm flex items-center justify-center 
-                                    ${
-                                        row.status_name === 'Published' ? 'status-trash' :
-                                        row.status_name === 'Cold' ? 'status-cold' :
-                                        row.status_name === 'Warm' ? 'status-warm' :
-                                        row.status_name === 'Hot' ? 'status-hot' :
-                                        row.status_name === 'Deal' ? 'status-deal' :
-                                        row.status_name === 'Trash Cold' ? 'status-trash' :
-                                        row.status_name === 'Trash Warm' ? 'status-trash' :
-                                        row.status_name === 'Trash Hot' ? 'status-trash' :
-                                        ''
-                                    }">
-                                        ${row.status_name ?? ''}
-                                        <span class="
-                                            ${
-                                                row.status_name === 'Trash Cold' ? 'dot-trash-cold' :
-                                                row.status_name === 'Trash Warm' ? 'dot-trash-warm' :
-                                                row.status_name === 'Trash Hot' ? 'dot-trash-hot' :
-                                                ''
-                                            }"></span>
-                                </span>
-                            </td>
-                            <td class="text-center p-2">
-                                ${row.actions ?? '-'}
-                            </td>
-                        </tr>
-                    `;
-                });
-
-            } catch (error) {
-                console.error('Gagal load leads:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="17" class="p-4 text-center text-red-500">
-                            Gagal memuat data
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-        
-        async function loadColdLeads() {
-            const page = pageState.cold || 1;
-            const perPage = pageSizeState.cold || DEFAULT_PAGE_SIZE;
-            const tbody = document.getElementById('coldBody');
-
-            // Tampilkan loading lebih dulu
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
-                        Loading data...
-                    </td>
-                </tr>
-            `;
-            
-            try {
-                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=cold&search=${encodeURIComponent(getSearchQuery())}`, { 
-                    credentials: 'same-origin' 
-                });
                 const result = await response.json();
-    
-                tbody.innerHTML = '';
-                updatePagerUI('cold', result.total);
-                totals.cold = result.total || 0;
-    
-                result.data.forEach(row => {
-                    tbody.innerHTML += `
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <td class="hidden">${row.id}</td>
-                            <td class="p-2">${row.lead_name ?? ''}</td>
-                            <td class="p-2">${row.sales_name ?? ''}</td>
-                            <td class="p-2">${row.phone ?? ''}</td>
-                            <td class="p-2">${row.source_name ?? ''}</td>
-                            <td class="p-2">${row.needs ?? ''}</td>
-                            <td class="p-2">${row.existing_industries ?? ''}</td>
-                            <td class="p-2">${row.city_name ?? ''}</td>
-                            <td class="p-2">${row.regional_name ?? ''}</td>
-                            <td class="p-2">${row.customer_type ?? ''}</td>
-                            <td class="p-2">${row.quotation_number ?? ''}</td>
-                            <td class="p-2">${row.quotation_price ?? ''}</td>
-                            <td class="p-2">${row.quot_created ?? ''}</td>
-                            <td class="p-2">${row.quot_end_date ?? ''}</td>
-                            <td class="p-2">${row.act_last_time ?? ''}</td>
-                            <td class="p-2">${row.act_status ?? ''}</td>
-                            <td class="p-2">${row.created_at ?? ''}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="p-2 text-center">${row.actions ?? ''}</td>
-                        </tr>
-                    `;
-                });
 
+                updatePagerUI(tab, result.total);
+                totals[tab] = result.total || 0;
+                renderManageRows(tab, result.data || []);
             } catch (error) {
-                console.error('Gagal load leads:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="17" class="p-4 text-center text-red-500">
-                            Gagal memuat data
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-
-        async function loadWarmLeads() {
-            const page = pageState.warm || 1;
-            const perPage = pageSizeState.warm || DEFAULT_PAGE_SIZE;
-            const tbody = document.getElementById('warmBody');
-
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
-                        Loading data...
-                    </td>
-                </tr>
-            `;
-
-            try {
-                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=warm&search=${encodeURIComponent(getSearchQuery())}`, { 
-                    credentials: 'same-origin' 
-                });
-                const result = await response.json();
-    
-                const tbody = document.getElementById('warmBody');
-                tbody.innerHTML = '';
-                updatePagerUI('warm', result.total);
-                totals.warm = result.total || 0;
-    
-                result.data.forEach(row => {
-                    tbody.innerHTML += `
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <td class="hidden">${row.id}</td>
-                            <td class="p-2">${row.lead_name ?? ''}</td>
-                            <td class="p-2">${row.sales_name ?? ''}</td>
-                            <td class="p-2">${row.phone ?? ''}</td>
-                            <td class="p-2">${row.source_name ?? ''}</td>
-                            <td class="p-2">${row.needs ?? ''}</td>
-                            <td class="p-2">${row.existing_industries ?? ''}</td>
-                            <td class="p-2">${row.city_name ?? ''}</td>
-                            <td class="p-2">${row.regional_name ?? ''}</td>
-                            <td class="p-2">${row.customer_type ?? ''}</td>
-                            <td class="p-2">${row.quotation_number ?? ''}</td>
-                            <td class="p-2">${row.quotation_price ?? ''}</td>
-                            <td class="p-2">${row.quot_created ?? ''}</td>
-                            <td class="p-2">${row.quot_end_date ?? ''}</td>
-                            <td class="p-2">${row.act_last_time ?? ''}</td>
-                            <td class="p-2">${row.act_status ?? ''}</td>
-                            <td class="p-2">${row.created_at ?? ''}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="p-2 text-center">${row.actions ?? ''}</td>
-                        </tr>
-                    `;
-                });
-
-            } catch (error) {
-                console.error('Gagal load leads:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="17" class="p-4 text-center text-red-500">
-                            Gagal memuat data
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-        
-        async function loadHotLeads() {
-            const page = pageState.hot || 1;
-            const perPage = pageSizeState.hot || DEFAULT_PAGE_SIZE;
-            const tbody = document.getElementById('hotBody');
-
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
-                        Loading data...
-                    </td>
-                </tr>
-            `;
-
-            try {
-                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=hot&search=${encodeURIComponent(getSearchQuery())}`, { 
-                    credentials: 'same-origin' 
-                });
-                const result = await response.json();
-                
-                tbody.innerHTML = '';
-                updatePagerUI('hot', result.total);
-                totals.hot = result.total || 0;
-    
-                result.data.forEach(row => {
-                    tbody.innerHTML += `
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <td class="hidden">${row.id}</td>
-                            <td class="p-2">${row.lead_name ?? ''}</td>
-                            <td class="p-2">${row.sales_name ?? ''}</td>
-                            <td class="p-2">${row.phone ?? ''}</td>
-                            <td class="p-2">${row.source_name ?? ''}</td>
-                            <td class="p-2">${row.needs ?? ''}</td>
-                            <td class="p-2">${row.existing_industries ?? ''}</td>
-                            <td class="p-2">${row.city_name ?? ''}</td>
-                            <td class="p-2">${row.regional_name ?? ''}</td>
-                            <td class="p-2">${row.customer_type ?? ''}</td>
-                            <td class="p-2">${row.quotation_number ?? ''}</td>
-                            <td class="p-2">${row.quotation_price ?? ''}</td>
-                            <td class="p-2">${row.invoice_number ?? ''}</td>
-                            <td class="p-2">${row.invoice_price ?? ''}</td>
-                            <td class="p-2">${row.quot_created ?? ''}</td>
-                            <td class="p-2">${row.quot_end_date ?? ''}</td>
-                            <td class="p-2">${row.act_last_time ?? ''}</td>
-                            <td class="p-2">${row.act_status ?? ''}</td>
-                            <td class="p-2">${row.created_at ?? ''}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="p-2 text-center">${row.actions ?? ''}</td>
-                        </tr>
-                    `;
-                });
-
-            } catch (error) {
-                console.error('Gagal load leads:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="17" class="p-4 text-center text-red-500">
-                            Gagal memuat data
-                        </td>
-                    </tr>
-                `;
-            }
-        }
-
-        async function loadDealLeads() {
-            const page = pageState.deal || 1;
-            const perPage = pageSizeState.deal || DEFAULT_PAGE_SIZE;
-            const tbody = document.getElementById('dealBody');
-
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="17" class="p-4 text-center text-[#1E1E1E] opacity-50">
-                        Loading data...
-                    </td>
-                </tr>
-            `;
-
-            try {
-                const response = await fetch(`/api/leads/manage/list?page=${page}&per_page=${perPage}&stage=deal&search=${encodeURIComponent(getSearchQuery())}`, { 
-                    credentials: 'same-origin' 
-                });
-                const result = await response.json();
-                
-                tbody.innerHTML = ''
-    
-    
-                tbody.innerHTML = '';
-                updatePagerUI('deal', result.total);
-                totals.deal = result.total || 0;
-    
-                result.data.forEach(row => {
-                    tbody.innerHTML += `
-                        <tr class="border-b border-b-[#D9D9D9]">
-                            <td class="hidden">${row.id}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="p-2">${row.lead_name ?? ''}</td>
-                            <td class="p-2">${row.sales_name ?? ''}</td>
-                            <td class="p-2">${row.phone ?? ''}</td>
-                            <td class="p-2">${row.source_name ?? ''}</td>
-                            <td class="p-2">${row.needs ?? ''}</td>
-                            <td class="p-2">${row.existing_industries ?? ''}</td>
-                            <td class="p-2">${row.city_name ?? ''}</td>
-                            <td class="p-2">${row.regional_name ?? ''}</td>
-                            <td class="p-2">${row.customer_type ?? ''}</td>
-                            <td class="p-2">${row.quotation_number ?? ''}</td>
-                            <td class="p-2">${row.quotation_price ?? ''}</td>
-                            <td class="p-2">${row.invoice_number ?? ''}</td>
-                            <td class="p-2">${row.invoice_price ?? ''}</td>
-                            <td class="p-2">${row.quot_created ?? ''}</td>
-                            <td class="p-2">${row.quot_end_date ?? ''}</td>
-                            <td class="p-2">${row.act_last_time ?? ''}</td>
-                            <td class="p-2">${row.act_status ?? ''}</td>
-                            <td class="p-2">${row.claimed_at ?? ''}</td>
-                            <td class="p-2 text-center">${row.actions ?? ''}</td>
-                        </tr>
-                    `;
-                });
-
-            } catch (error) {
-                console.error('Gagal load leads:', error);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="17" class="p-4 text-center text-red-500">
-                            Gagal memuat data
-                        </td>
-                    </tr>
-                `;
+                console.error(`Gagal load leads (${config.bodyId}):`, error);
+                renderManageTableMessage(tab, 'Gagal memuat data', 'text-red-500');
             }
         }
         
@@ -1289,104 +1560,51 @@
             return '';
         }
 
-        function renderTableData(leads) {
-            const tbody = document.getElementById('allBody');
-            tbody.innerHTML = '';
+        function getActiveManageTab() {
+            const activeNav = document.querySelector('.nav-leads.active-nav');
+            return activeNav ? activeNav.dataset.tab : 'all';
+        }
 
-            if (!leads || leads.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="14" class="text-center p-4 text-[#1E1E1E]">
-                            Data tidak ditemukan
-                        </td>
-                    </tr>
-                `;
+        $(document).on('click', '[data-export-trigger]', function (e) {
+            e.preventDefault();
+            submitManageExport();
+        });
+
+        $(document).on('change', '.lead-row-checkbox', function () {
+            const leadId = String(this.value || '');
+
+            if (!leadId) {
                 return;
             }
 
-            let rowsHtml = '';
-            leads.forEach(lead => {
-                rowsHtml += `
-                    <tr class="border-b border-b-[#D9D9D9] hover:bg-gray-50 text-sm text-[#1E1E1E]">
-                        <td class="hidden">${lead.id || ''}</td>
-                        <td class="text-left p-2">${lead.lead_name || '-'}</td>
-                        <td class="p-2">${lead.sales_name || '-'}</td>
-                        <td class="p-2">${lead.phone || '-'}</td>
-                        <td class="p-2">${lead.source_name || '-'}</td>
-                        <td class="p-2">${lead.needs || '-'}</td>
-                        <td class="p-2">${lead.existing_industries || '-'}</td>
-                        <td class="p-2">${lead.city_name || '-'}</td>
-                        <td class="p-2">${lead.regional_name || '-'}</td>
-                        <td class="p-2">${lead.customer_type || '-'}</td>
-                        <td class="p-2">${lead.act_last_time || '-'}</td>
-                        <td class="p-2">${lead.act_status || '-'}</td>
-                        <td class="p-2">
-                            <span class="block px-2 py-1 rounded-sm flex items-center justify-center 
-                            ${
-                                    lead.status_name === 'Published' ? 'status-trash' :
-                                    lead.status_name === 'Cold' ? 'status-cold' :
-                                    lead.status_name === 'Warm' ? 'status-warm' :
-                                    lead.status_name === 'Hot' ? 'status-hot' :
-                                    lead.status_name === 'Deal' ? 'status-deal' :
-                                    lead.status_name === 'Trash Cold' ? 'status-trash' :
-                                    lead.status_name === 'Trash Warm' ? 'status-trash' :
-                                    lead.status_name === 'Trash Hot' ? 'status-trash' :
-                                    ''
-                            }">
-                                ${lead.status_name ?? ''}
-                                <span class="
-                                ${
-                                    lead.status_name === 'Trash Cold' ? 'dot-trash-cold' :
-                                    lead.status_name === 'Trash Warm' ? 'dot-trash-warm' :
-                                    lead.status_name === 'Trash Hot' ? 'dot-trash-hot' :
-                                    ''
-                                }"></span>
-                            </span>
-                        </td>
-                        <td class="p-2">
-                            ${lead.actions}
-                        </td>
-                    </tr>
-                `;
+            if (this.checked) {
+                selectedLeadIds.add(leadId);
+            } else {
+                selectedLeadIds.delete(leadId);
+            }
+
+            updateSelectAllCheckbox(this.dataset.tab || getActiveManageTab());
+            updateExportButtonState();
+        });
+
+        $(document).on('change', '.manage-select-all', function () {
+            const tab = this.dataset.tab || getActiveManageTab();
+            const config = getManageTableConfig(tab);
+            const rowCheckboxes = document.querySelectorAll(`#${config.bodyId} .lead-row-checkbox`);
+
+            rowCheckboxes.forEach((checkbox) => {
+                checkbox.checked = this.checked;
+
+                if (this.checked) {
+                    selectedLeadIds.add(String(checkbox.value));
+                } else {
+                    selectedLeadIds.delete(String(checkbox.value));
+                }
             });
 
-            tbody.innerHTML = rowsHtml;
-        }
-
-        async function fetchSearchResults(query) {
-            const apiUrl = `/api/leads/manage/list?search=${encodeURIComponent(query)}`;
-
-            try {
-                const tbody = document.getElementById('allBody');
-                tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4">Mencari data...</td></tr>';
-
-                const response = await fetch(apiUrl, {
-                    method: 'GET', 
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                    }
-                });
-
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-                const result = await response.json();
-                
-                const leadsData = result.data ? result.data : result;
-                
-                renderTableData(leadsData);
-                
-            } catch (error) {
-                console.error("Failed to fetch data search:", error);
-                document.getElementById('allBody').innerHTML = `
-                    <tr>
-                        <td colspan="14" class="text-center p-4 text-red-500">
-                            Terjadi kesalahan saat memuat data.
-                        </td>
-                    </tr>
-                `;
-            }
-        }
+            updateSelectAllCheckbox(tab);
+            updateExportButtonState();
+        });
 
         let debounceTimer;
         const searchInputs = document.querySelectorAll('#searchInput');
@@ -1394,12 +1612,11 @@
         function handleSearchInputDebounced(input) {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                const query = input.value.trim();
                 const activeNav = document.querySelector('.nav-leads.active-nav');
                 const currentTab = activeNav ? activeNav.dataset.tab : 'all';
 
-                // If search is empty, reload the current tab to reset results.
-                // If search has value, reload the current tab which will include the search query via getSearchQuery().
+                clearManageSelections();
+                resetAllTabPages();
                 reloadTab(currentTab);
             }, 500);
         }

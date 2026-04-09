@@ -92,7 +92,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/manage', 'LeadController@manage')->name('leads.manage');
         
-        Route::get('/manage/export', 'LeadController@manageExport')->name('leads.manage.export');
+        Route::match(['get', 'post'], '/manage/export', 'LeadController@manageExport')->name('leads.manage.export');
         Route::get('/manage/form/{id?}', 'LeadController@form')->name('leads.manage.form');
         
         Route::delete('/manage/delete/{id}', 'LeadController@delete')->name('leads.manage.delete');
