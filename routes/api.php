@@ -212,10 +212,6 @@ Route::group([
     'prefix' => 'trash-leads',
     'as' => 'trash-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-<<<<<<< HEAD
-=======
-    // 'middleware' => ['api'],
->>>>>>> 874719b640766c09681d49c0c1c053e0c845679e
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('form/{id}', 'TrashLeadController@form')->name('form');
@@ -310,7 +306,7 @@ Route::group([
         Route::get('/list', [BankController::class, 'list'])->name('list');
         Route::get('/form/{id?}', [BankController::class, 'form'])->name('form');
         Route::post('/save/{id?}', [BankController::class, 'save'])->name('save');
-        Route::delete('/delete/{id}', [BankController::class, 'delete'])->name('delete');
+        Route::delete('/delete/{id}', [BankCoyntroller::class, 'delete'])->name('delete');
     });
 
     // ACCOUNTS (API)

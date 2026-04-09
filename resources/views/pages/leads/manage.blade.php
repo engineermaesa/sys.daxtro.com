@@ -1289,6 +1289,21 @@
             return '';
         }
 
+        // EXPORT EXCEL (Manage Leads)
+        $(document).on('click', '#btnExport', function () {
+            const params = new URLSearchParams();
+
+            // Always export all leads across stages; do not add a 'stage' filter here.
+            const search = getSearchQuery();
+            if (search) {
+                params.append('search', search);
+            }
+
+            const query = params.toString();
+            const url = '{{ route('leads.manage.export') }}' + (query ? '?' + query : '');
+            window.location = url;
+        });
+
         function renderTableData(leads) {
             const tbody = document.getElementById('allBody');
             tbody.innerHTML = '';

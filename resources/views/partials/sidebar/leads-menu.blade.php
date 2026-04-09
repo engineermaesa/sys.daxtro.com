@@ -68,7 +68,7 @@
             @endif
 
             {{-- IMPORTS LEAD --}}
-            @if(auth()->check() && auth()->user()->role?->code === 'super_admin')
+            @if(auth()->check() && auth()->user()->hasPermission('leads.import'))
             <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->is('leads/import*') }}"
                 href="{{ route('leads.import') }}">
                 <span

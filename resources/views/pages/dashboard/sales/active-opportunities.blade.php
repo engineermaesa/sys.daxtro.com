@@ -95,7 +95,7 @@
                         Amount
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
-                        Product
+                        Needs
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
                         Segment
@@ -255,7 +255,7 @@
                                 </span>
                             </td>
                             <td class="p-1 lg:p-3">${formatRupiah(item.amount) ?? '-'}</td>
-                            <td class="p-1 lg:p-3">${item.product ?? '-'}</td>
+                            <td class="p-1 lg:p-3">${item.needs ?? '-'}</td>
                             <td class="p-1 lg:p-3">${item.segment ?? '-'}</td>
                             <td class="p-1 lg:p-3">${item.last_activity ?? '-'}</td>
                             <td class="p-1 lg:p-3">

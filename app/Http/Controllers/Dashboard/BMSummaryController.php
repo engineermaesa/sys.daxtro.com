@@ -25,7 +25,7 @@ class BMSummaryController extends Controller
                 'message' => 'Unauthenticated',
             ], 401);
         }
-        
+
         $branchId = $user->branch_id;
         $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
         if ($salesId !== null && $salesId <= 0) {
@@ -114,17 +114,6 @@ class BMSummaryController extends Controller
         $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
-            $lead = $claim->lead;
-
-            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
-            if ($claimDate) {
-                $claimedAt = Carbon::parse($claimDate, 'Asia/Jakarta');
-
-                if ((string) $claimedAt->month === $monthKey && (int) $claimedAt->year === $yearKey) {
-                    $leadsActual++;
-                }
-            }
-
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -154,21 +143,71 @@ class BMSummaryController extends Controller
             }
         }
 
-        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
-        $visitClaims = LeadClaim::with('lead')
-            ->whereNull('released_at')
-            ->whereHas('lead', fn($q) => $q->where('source_id', 9))
-            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
-                $q->where('branch_id', $branchId);
+        // Count unique leads created/published/claimed during period for BM
+
+        // $leadsQuery = Lead::query()
+        //     ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
+        //         $cq->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+        //     })
+        //     ->where(function ($q) use ($branchId, $salesId) {
+
+        //         // jika filter sales dipilih
+        //         if ($salesId) {
+        //             $q->whereHas('claims', function ($cq) use ($salesId) {
+        //                 $cq->where('sales_id', $salesId);
+        //             });
+        //         }
+        //         // jika tidak, ambil semua lead dari branch BM
+        //         else {
+        //             $q->where('branch_id', $branchId)
+        //                 ->orWhereHas('claims.sales', function ($sq) use ($branchId) {
+        //                     $sq->where('branch_id', $branchId);
+        //                 });
+        //         }
+        //     });
+
+        $leadsQuery = Lead::query()
+            ->where('branch_id', $branchId) // filter utama: branch lead harus sama
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId) {
+
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+
+                // jika filter sales dipilih
                 if ($salesId) {
-                    $q->where('id', $salesId);
+                    $cq->where('sales_id', $salesId);
                 }
             });
 
-        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
-            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
-            return $isInCurrentMonth($claimDate);
-        })->count();
+        $leadsActual = $leadsQuery->distinct('id')->count('id');
+
+        // Visits actual: count unique leads with source_id = 9 created/published/claimed in period
+        $visitsQuery = Lead::query()
+            ->where('source_id', 9)
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('created_at', [$periodStart, $periodEnd])
+                    ->orWhereBetween('published_at', [$periodStart, $periodEnd])
+                    ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
+                        $cq->whereNull('released_at')
+                            ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+                    });
+            });
+
+        if ($salesId) {
+            $visitsQuery->whereHas('claims', function ($q) use ($salesId) {
+                $q->whereNull('released_at')->where('sales_id', $salesId);
+            });
+        } else {
+            $visitsQuery->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                    ->orWhereHas('claims', function ($cq) use ($branchId) {
+                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($branchId) {
+                            $sq->where('branch_id', $branchId);
+                        });
+                    });
+            });
+        }
+
+        $visitsActual = $visitsQuery->distinct('id')->count('id');
 
         $monetaryActual = round($monetaryActual, 2);
         $achievementPercentage = $targetAmount > 0
@@ -477,6 +516,9 @@ class BMSummaryController extends Controller
                 ?? ($lead->quotation?->items->first()?->product?->name ?? null);
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
+
+            // Prefer `needs` for display; fallback to product
+            $needs = format_needs_label($lead->needs ?? $product ?? null);
             $salesName = $claim->sales?->name ?? null;
 
             $lastActivity = $lead->latestStatusLog?->created_at
@@ -507,6 +549,7 @@ class BMSummaryController extends Controller
                 'stage' => $stage,
                 'amount' => $amount,
                 'product' => $product,
+                'needs' => $needs,
                 'segment' => $segment,
                 'sales' => $salesName,
                 'data_status' => $passed . '/6',

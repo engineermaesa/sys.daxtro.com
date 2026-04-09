@@ -21,4 +21,19 @@ class LeadStatus extends Model
     public const TRASH_COLD = 6;
     public const TRASH_WARM = 7;
     public const TRASH_HOT  = 8;
+
+
+    public static function stageMap()
+    {
+        $constants = (new \ReflectionClass(self::class))->getConstants();
+
+        return collect($constants)
+            ->filter(function ($value, $key) {
+                return !str_contains($key, 'TRASH') && $key !== 'PUBLISHED';
+            })
+            ->mapWithKeys(function ($value, $key) {
+                return [strtolower($key) => $value];
+            })
+            ->toArray();
+    }
 }

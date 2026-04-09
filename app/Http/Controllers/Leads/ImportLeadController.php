@@ -37,7 +37,8 @@ class ImportLeadController extends Controller
 {
     private function authorizeSuperAdmin()
     {
-        if (auth()->user()->role?->code !== 'super_admin') {
+        // Allow access to users who have the explicit 'leads.import' permission
+        if (! auth()->check() || ! auth()->user()->hasPermission('leads.import')) {
             abort(403);
         }
     }

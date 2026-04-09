@@ -84,17 +84,6 @@ class LeadSummaryController extends Controller
         $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
-            $lead = $claim->lead;
-
-            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
-            if ($claimDate) {
-                $claimAt = Carbon::parse($claimDate, 'Asia/Jakarta');
-
-                if ((string) $claimAt->month === $monthKey && (int) $claimAt->year === $yearKey) {
-                    $leadsActual++;
-                }
-            }
-
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -124,23 +113,64 @@ class LeadSummaryController extends Controller
             }
         }
 
-        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
-        $visitClaims = LeadClaim::with('lead')
-            ->whereNull('released_at')
-            ->whereHas('lead', fn($q) => $q->where('source_id', 9));
+        // Recompute leadsActual as unique leads that were either created or claimed
+        // during the selected period (MTD). This counts real lead creation/claim
+        // events rather than only DEAL status transitions.
+        $leadsQuery = Lead::query()->where(function ($q) use ($periodStart, $periodEnd) {
+            $q->whereBetween('created_at', [$periodStart, $periodEnd])
+                ->orWhereBetween('published_at', [$periodStart, $periodEnd])
+                ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
+                    $cq->whereNull('released_at')
+                        ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+                });
+        });
 
         if ($roleCode === 'sales') {
-            $visitClaims->where('sales_id', $user?->id);
+            $leadsQuery->whereHas('claims', function ($q) use ($user) {
+                $q->whereNull('released_at')->where('sales_id', $user?->id);
+            });
         } elseif ($roleCode === 'branch_manager') {
-            $visitClaims->whereHas('sales', function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id);
+            $leadsQuery->where(function ($q) use ($user) {
+                $q->where('branch_id', $user?->branch_id)
+                    ->orWhereHas('claims', function ($cq) use ($user) {
+                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($user) {
+                            $sq->where('branch_id', $user?->branch_id);
+                        });
+                    });
             });
         }
 
-        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
-            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
-            return $isInCurrentMonth($claimDate);
-        })->count();
+        $leadsActual = $leadsQuery->distinct('id')->count('id');
+
+        // Visits actual: count unique leads (source_id = 9) that were created,
+        // published, or claimed during the selected period. Apply role filter.
+        $visitsQuery = Lead::query()
+            ->where('source_id', 9)
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('created_at', [$periodStart, $periodEnd])
+                    ->orWhereBetween('published_at', [$periodStart, $periodEnd])
+                    ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
+                        $cq->whereNull('released_at')
+                            ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+                    });
+            });
+
+        if ($roleCode === 'sales') {
+            $visitsQuery->whereHas('claims', function ($q) use ($user) {
+                $q->whereNull('released_at')->where('sales_id', $user?->id);
+            });
+        } elseif ($roleCode === 'branch_manager') {
+            $visitsQuery->where(function ($q) use ($user) {
+                $q->where('branch_id', $user?->branch_id)
+                    ->orWhereHas('claims', function ($cq) use ($user) {
+                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($user) {
+                            $sq->where('branch_id', $user?->branch_id);
+                        });
+                    });
+            });
+        }
+
+        $visitsActual = $visitsQuery->distinct('id')->count('id');
 
         $monetaryActual = round($monetaryActual, 2);
         $achievementPercentage = $target_amount > 0
@@ -449,6 +479,9 @@ class LeadSummaryController extends Controller
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
 
+            // Use `needs` as the primary field; fall back to product name if empty
+            $needs = format_needs_label($lead->needs ?? $product ?? null);
+
             $lastActivity = $lead->latestStatusLog?->created_at
                 ?? $lead->updated_at;
 
@@ -476,7 +509,7 @@ class LeadSummaryController extends Controller
                 'customer_name' => $lead->name ?? $lead->company,
                 'stage' => $stage,
                 'amount' => $amount,
-                'product' => $product,
+                'needs' => $needs,
                 'segment' => $segment,
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),

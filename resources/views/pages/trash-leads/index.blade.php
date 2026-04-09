@@ -158,6 +158,9 @@
                         First Sales
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
+                        Last Sales
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
                       Status
                     </th>
                     <th class="text-center p-1 md:p-2 lg:p-3">
@@ -542,7 +545,8 @@
                     <td class="p-1 md:p-2 lg:p-3">${row.name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.segment_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.source}</td>
-                    <td class="p-1 md:p-2 lg:p-3">${row.sales_name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.first_sales_name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.last_sales_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.status_lead}</td>
                     <td class="text-center p-1 md:p-2 lg:p-3">${row.actions}</td>
                 </tr>
@@ -552,13 +556,13 @@
         syncSelectAllState(selector);
         updateBulkRestoreUI();
       } else {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>`;
         syncSelectAllState(selector);
         updateBulkRestoreUI();
       }
     } catch (error) {
       console.error('Load Trash Leads Error:', error);
-      tbody.innerHTML = `<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">Failed to load data</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="text-center p-3 text-[#1E1E1E]">Failed to load data</td></tr>`;
       selectedClaimIdsByTab[selector].clear();
       syncSelectAllState(selector);
       updateBulkRestoreUI();

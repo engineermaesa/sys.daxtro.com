@@ -99,7 +99,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales'
+                'lead.firstSales',
+                'sales',
             ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_COLD))
             ->whereIn('id', function ($q) {
@@ -161,8 +162,10 @@ class TrashLeadController extends Controller
 
             $html .= '</div></div>';
 
-            $row->name          = $row->lead->name ?? '-';
-            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->name              = $row->lead->name ?? '-';
+            $row->first_sales_name  = $row->lead->firstSales->name ?? '-';
+            $row->last_sales_name   = $row->sales->name ?? $row->first_sales_name;
+            $row->sales_name        = $row->first_sales_name;
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
@@ -198,7 +201,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales'
+                'lead.firstSales',
+                'sales',
             ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_WARM))
             ->whereIn('id', function ($q) {
@@ -260,8 +264,10 @@ class TrashLeadController extends Controller
 
             $html .= '</div></div>';
 
-            $row->name          = $row->lead->name ?? '-';
-            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->name              = $row->lead->name ?? '-';
+            $row->first_sales_name  = $row->lead->firstSales->name ?? '-';
+            $row->last_sales_name   = $row->sales->name ?? $row->first_sales_name;
+            $row->sales_name        = $row->first_sales_name;
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
@@ -296,7 +302,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales'
+                'lead.firstSales',
+                'sales',
             ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_HOT))
             ->whereIn('id', function ($q) {
@@ -358,8 +365,10 @@ class TrashLeadController extends Controller
 
             $html .= '</div></div>';
 
-            $row->name          = $row->lead->name ?? '-';
-            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->name              = $row->lead->name ?? '-';
+            $row->first_sales_name  = $row->lead->firstSales->name ?? '-';
+            $row->last_sales_name   = $row->sales->name ?? $row->first_sales_name;
+            $row->sales_name        = $row->first_sales_name;
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
@@ -395,7 +404,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales'
+                'lead.firstSales',
+                'sales',
             ])
             ->whereHas('lead', function ($q) {
                 $q->whereIn('status_id', [
@@ -468,8 +478,10 @@ class TrashLeadController extends Controller
             }
             $html .= '</div></div>';
 
-            $row->name          = $row->lead->name ?? '-';
-            $row->sales_name    = $row->lead->firstSales->name ?? '-';
+            $row->name              = $row->lead->name ?? '-';
+            $row->first_sales_name  = $row->lead->firstSales->name ?? '-';
+            $row->last_sales_name   = $row->sales->name ?? $row->first_sales_name;
+            $row->sales_name        = $row->first_sales_name;
             $row->phone         = $row->lead->phone ?? '-';
             $row->source        = $row->lead->source->name ?? '-';
             $row->needs         = $row->lead->needs ?? '-';
@@ -695,8 +707,7 @@ class TrashLeadController extends Controller
     public function restore(Request $request, $claimId = null)
     {
         $user = $request->user();
-
-        // abort_if($user->role?->code !== 'sales', 403);
+        $roleCode = $user->role?->code;
 
         // Jika kirim array claim_ids di body -> bulk restore
         if ($request->has('claim_ids')) {
@@ -705,22 +716,34 @@ class TrashLeadController extends Controller
                 'claim_ids.*' => 'integer|exists:lead_claims,id',
             ]);
 
-            $claims = LeadClaim::with('lead.region')
+            $claims = LeadClaim::with(['lead.region', 'sales'])
                 ->whereIn('id', $data['claim_ids'])
                 ->get();
 
             foreach ($claims as $claim) {
-                abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
+                $leadBranchId  = optional($claim->lead->region)->branch_id;
+                $salesBranchId = optional($claim->sales)->branch_id;
+
+                if ($roleCode === 'sales') {
+                    abort_if($leadBranchId !== $user->branch_id, 403);
+                } elseif ($roleCode === 'branch_manager') {
+                    if ($user->branch_id) {
+                        abort_if(
+                            $leadBranchId !== $user->branch_id &&
+                            $salesBranchId !== $user->branch_id,
+                            403
+                        );
+                    }
+                }
             }
 
-            DB::transaction(function () use ($claims, $user) {
+            DB::transaction(function () use ($claims) {
                 foreach ($claims as $claim) {
                     $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
                         ? LeadStatus::COLD
                         : LeadStatus::WARM;
 
                     $claim->update([
-                        'sales_id'    => $user->id,
                         'claimed_at'  => now(),
                         'released_at' => null,
                     ]);
@@ -738,18 +761,30 @@ class TrashLeadController extends Controller
         }
 
         // Default: restore satu claim berdasarkan parameter URL
-        $claim = LeadClaim::with('lead.region')->where('id', $claimId)
+        $claim = LeadClaim::with(['lead.region', 'sales'])->where('id', $claimId)
             ->firstOrFail();
 
-        abort_if($claim->lead->region->branch_id !== $user->branch_id, 403);
+        $leadBranchId  = optional($claim->lead->region)->branch_id;
+        $salesBranchId = optional($claim->sales)->branch_id;
+
+        if ($roleCode === 'sales') {
+            abort_if($leadBranchId !== $user->branch_id, 403);
+        } elseif ($roleCode === 'branch_manager') {
+            if ($user->branch_id) {
+                abort_if(
+                    $leadBranchId !== $user->branch_id &&
+                    $salesBranchId !== $user->branch_id,
+                    403
+                );
+            }
+        }
 
         $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
             ? LeadStatus::COLD
             : LeadStatus::WARM;
 
-        DB::transaction(function () use ($claim, $user, $newStatus) {
+        DB::transaction(function () use ($claim, $newStatus) {
             $claim->update([
-                'sales_id'   => $user->id,
                 'claimed_at' => now(),
                 'released_at' => null,
             ]);

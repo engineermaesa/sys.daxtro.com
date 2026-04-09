@@ -1388,15 +1388,58 @@ class LeadController extends Controller
                 $query->orderBy('created_at', 'desc');
             },
             'quotation.proformas.invoice'
-        ])
-            ->when(
-                $request->filled('status_id'),
-                fn($q) =>
-                $q->where('status_id', $request->status_id)
-            );
+        ]);
 
-        if ($request->filled('branch_id')) {
-            $leads->whereHas('region.branch', fn($q) => $q->where('id', $request->branch_id));
+        // =========================
+        // FILTER SECTION (selaras dengan manageList)
+        // =========================
+
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+
+        if ($request->filled('stage')) {
+            $stage = strtolower($request->stage);
+
+            // echo "Filtering by stage: {$stage}\n";
+            // \Log::info("Filtering by stage: {$stage}");
+
+            \Illuminate\Support\Facades\Log::info("Filtering by stage: {$stage}");
+
+            // $statusMap = [
+            //     'cold' => LeadStatus::COLD,
+            //     'warm' => LeadStatus::WARM,
+            //     'hot'  => LeadStatus::HOT,
+            //     'deal' => LeadStatus::DEAL,
+            // ];
+
+            $statusMap = LeadStatus::stageMap();
+
+            if (isset($statusMap[$stage])) {
+                $leads->where('status_id', $statusMap[$stage]);
+            }
+        }
+
+        // By default, only export leads in these stages (cold, warm, hot, deal).
+        // This prevents including 'Published' or other transient statuses unless
+        // an explicit 'stage' or 'status_id' filter is provided in the request.
+        if (! $request->filled('stage') && ! $request->filled('status_id')) {
+            $leads->whereIn('status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ]);
+        }
+
+        if (! $branchId && $request->user()->branch_id && in_array($request->user()->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
+            $branchId = $request->user()->branch_id;
+        }
+
+        if ($branchId) {
+            $leads->where(function ($q) use ($branchId) {
+                $q->whereHas('region.branch', function ($subq) use ($branchId) {
+                    $subq->where('id', $branchId);
+                })->orWhere('branch_id', $branchId);
+            });
         }
 
         if ($request->filled('region_id')) {
@@ -1407,6 +1450,45 @@ class LeadController extends Controller
             $leads->whereHas('claims', function ($q) use ($request) {
                 $q->where('sales_id', $request->sales_id)
                     ->whereNull('released_at');
+            });
+        }
+
+        if ($request->filled('status_id')) {
+            $leads->where('status_id', $request->status_id);
+        }
+
+        if ($request->filled('start_date') && $request->filled('end_date') && $request->filled('status_id')) {
+            $leads->whereHas('quotation', function ($q) use ($request) {
+                $status = (int) $request->status_id;
+
+                if ($status === LeadStatus::WARM) {
+                    $q->firstApprovalBetween($request->start_date, $request->end_date);
+                } elseif ($status === LeadStatus::HOT) {
+                    $q->bookingFeeBetween($request->start_date, $request->end_date);
+                } elseif ($status === LeadStatus::DEAL) {
+                    $q->firstTermPaidBetween($request->start_date, $request->end_date);
+                }
+            });
+        }
+
+        // =========================
+        // SEARCH (selaras dengan manageList)
+        // =========================
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $leads->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('needs', 'like', "%{$search}%")
+                    ->orWhere('customer_type', 'like', "%{$search}%")
+                    ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
             });
         }
 
@@ -1424,7 +1506,8 @@ class LeadController extends Controller
             'Quotation Number',
             'Quotation Price',
             'Invoice',
-            'Invoice Price'
+            'Invoice Price',
+            'Stage',
         ];
 
         foreach ($leads->orderByDesc('id')->get() as $lead) {
@@ -1435,6 +1518,14 @@ class LeadController extends Controller
             // Get latest proforma and its invoice
             $latestProforma = $quotation?->proformas->first();
             $invoice = $latestProforma?->invoice;
+
+            $stageLabel = match ($lead->status_id) {
+                LeadStatus::COLD => 'Cold',
+                LeadStatus::WARM => 'Warm',
+                LeadStatus::HOT  => 'Hot',
+                LeadStatus::DEAL => 'Deal',
+                default          => 'Published',
+            };
 
             $rows[] = [
                 $lead->published_at, // published at
@@ -1449,7 +1540,8 @@ class LeadController extends Controller
                 $quotation ? $quotation->quotation_no : '-',
                 $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
                 $invoice ? $invoice->invoice_no : '-',
-                $invoice ? number_format($invoice->amount ?? 0, 2) : '-'
+                $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
+                $stageLabel,
             ];
         }
 
@@ -1869,22 +1961,22 @@ class LeadController extends Controller
                             ->orWhere('customer_type', 'like', "%{$search}%");
                     });
                 })
-                // Sales name
-                ->orWhereHas('sales', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Source name
-                ->orWhereHas('lead.source', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // City name
-                ->orWhereHas('lead.region', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Regional name
-                ->orWhereHas('lead.region.regional', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                });
+                    // Sales name
+                    ->orWhereHas('sales', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    // Source name
+                    ->orWhereHas('lead.source', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    // City name
+                    ->orWhereHas('lead.region', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    // Regional name
+                    ->orWhereHas('lead.region.regional', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -2183,4 +2275,3 @@ class LeadController extends Controller
         return $html;
     }
 }
-

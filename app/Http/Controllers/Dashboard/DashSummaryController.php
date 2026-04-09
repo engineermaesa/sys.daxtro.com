@@ -488,6 +488,9 @@ class DashSummaryController extends Controller
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
 
+            // `needs` should be present for all leads; fall back to product when missing
+            $needs = format_needs_label($lead->needs ?? $product ?? null);
+
             $salesName = $claim->sales?->name ?? null;
             $branchName = $claim->sales?->branch?->name
                 ?? $lead->branch?->name
@@ -521,6 +524,7 @@ class DashSummaryController extends Controller
                 'stage' => $stage,
                 'amount' => $amount,
                 'product' => $product,
+                'needs' => $needs,
                 'segment' => $segment,
                 'branch' => $branchName,
                 'sales' => $salesName,
