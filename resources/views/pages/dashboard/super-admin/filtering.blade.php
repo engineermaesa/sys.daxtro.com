@@ -1,5 +1,5 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General Filters</h1>
-<div class="w-1/2 grid grid-cols-4 bg-white border border-gray-300 rounded-lg">
+<div class="w-1/2 grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
             
     {{-- FILTERS BY --}}
     <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer h-full text-[#1E1E1E] p-3">                        
