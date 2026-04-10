@@ -226,8 +226,8 @@ $(function () {
       const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
       if (dates.length !== 2) return;
 
-      const startDate = dates[0].toISOString().split('T')[0];
-      const endDate = dates[1].toISOString().split('T')[0];
+      const startDate = fp.formatDate(dates[0], 'Y-m-d');
+      const endDate = fp.formatDate(dates[1], 'Y-m-d');
 
       const label = document.getElementById('dateLabel');
       if (label) label.innerText = `${startDate} → ${endDate}`;
