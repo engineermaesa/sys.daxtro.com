@@ -156,7 +156,7 @@
                 class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
     
                 {{-- TOGGLE --}}
-                <div id="em" class="flex justify-center items-center gap-2">
+                <div id="lpSegmentOpenDateDropdown" class="flex justify-center items-center gap-2">
                     <p id="lpSegmentDateLabel" class="font-medium text-black">Date</p>
                     <i id="lpSegmentIconDate" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
                 </div>

@@ -504,6 +504,11 @@ class LeadSummaryController extends Controller
     {
         $user = Auth::user();
         $roleCode = $user?->role?->code;
+        $search = trim((string) $request->input('search', ''));
+        $sourceStartDate = $request->input('start_date_source');
+        $sourceEndDate = $request->input('end_date_source');
+        $segmentStartDate = $request->input('start_date_segment');
+        $segmentEndDate = $request->input('end_date_segment');
 
         $latestQuotationSubquery = DB::table('quotations')
             ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
@@ -511,41 +516,35 @@ class LeadSummaryController extends Controller
             ->whereNull('deleted_at')
             ->groupBy('lead_id');
 
-        $rows = Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
-            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
-            ->leftJoin('lead_claims', function ($join) {
-                $join->on('lead_claims.lead_id', '=', 'leads.id')
-                    ->whereNull('lead_claims.released_at');
-            })
-            ->leftJoinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
-                $join->on('latest_quo.lead_id', '=', 'leads.id');
-            })
-            ->leftJoin('quotations', function ($join) {
-                $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
-                    ->on('quotations.created_at', '=', 'latest_quo.latest_date');
-            })
-            ->when($roleCode === 'sales', function ($q) use ($user) {
-                $q->where('lead_claims.sales_id', $user?->id);
-            })
-            ->when($roleCode === 'branch_manager', function ($q) use ($user) {
-                $q->where('leads.branch_id', $user?->branch_id);
-            })
-            ->when($request->source_id, function ($q) use ($request) {
-                $q->where('leads.source_id', $request->source_id);
-            })
-            ->when($request->segment_id, function ($q) use ($request) {
-                $q->where('leads.segment_id', $request->segment_id);
-            })
-            ->when($request->start_date_source && $request->end_date_source, function ($q) use ($request) {
-                $q->whereDate('leads.created_at', '>=', $request->start_date_source)
-                    ->whereDate('leads.created_at', '<=', $request->end_date_source);
-            })
-            ->when($request->start_date_segment && $request->end_date_segment, function ($q) use ($request) {
-                $q->whereDate('leads.created_at', '>=', $request->start_date_segment)
-                    ->whereDate('leads.created_at', '<=', $request->end_date_segment);
-            })
-            ->selectRaw(
-                "lead_sources.name as source,
+        $buildPerformanceQuery = function () use ($latestQuotationSubquery, $roleCode, $user, $search) {
+            return Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+                ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
+                ->leftJoin('lead_claims', function ($join) {
+                    $join->on('lead_claims.lead_id', '=', 'leads.id')
+                        ->whereNull('lead_claims.released_at');
+                })
+                ->leftJoinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
+                    $join->on('latest_quo.lead_id', '=', 'leads.id');
+                })
+                ->leftJoin('quotations', function ($join) {
+                    $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
+                        ->on('quotations.created_at', '=', 'latest_quo.latest_date');
+                })
+                ->when($roleCode === 'sales', function ($q) use ($user) {
+                    $q->where('lead_claims.sales_id', $user?->id);
+                })
+                ->when($roleCode === 'branch_manager', function ($q) use ($user) {
+                    $q->where('leads.branch_id', $user?->branch_id);
+                })
+                ->when($search !== '', function ($q) use ($search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->where('lead_sources.name', 'like', "%{$search}%")
+                            ->orWhere('lead_segments.name', 'like', "%{$search}%")
+                            ->orWhere('leads.customer_type', 'like', "%{$search}%");
+                    });
+                })
+                ->selectRaw(
+                    "lead_sources.name as source,
         COALESCE(lead_segments.name, leads.customer_type) as segment,
 
         SUM(CASE WHEN leads.status_id = ? THEN 1 ELSE 0 END) as cold,
@@ -557,57 +556,86 @@ class LeadSummaryController extends Controller
         SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total,0) ELSE 0 END) as nominal_hot,
         SUM(CASE WHEN leads.status_id = ? THEN COALESCE(quotations.grand_total,0) ELSE 0 END) as nominal_deal
         ",
-                [
-                    LeadStatus::COLD,
-                    LeadStatus::WARM,
-                    LeadStatus::HOT,
-                    LeadStatus::DEAL,
-                    LeadStatus::WARM,
-                    LeadStatus::HOT,
-                    LeadStatus::DEAL
-                ]
-            )
-            ->groupBy(
-                'lead_sources.id',
-                'lead_sources.name',
-                DB::raw('COALESCE(lead_segments.name, leads.customer_type)')
-            )
-            ->orderBy('lead_sources.name')
-            ->get()
-            ->map(function ($row) {
+                    [
+                        LeadStatus::COLD,
+                        LeadStatus::WARM,
+                        LeadStatus::HOT,
+                        LeadStatus::DEAL,
+                        LeadStatus::WARM,
+                        LeadStatus::HOT,
+                        LeadStatus::DEAL
+                    ]
+                )
+                ->groupBy(
+                    'lead_sources.id',
+                    'lead_sources.name',
+                    DB::raw('COALESCE(lead_segments.name, leads.customer_type)')
+                );
+        };
 
-                $cold = (int)$row->cold;
-                $warm = (int)$row->warm;
-                $hot  = (int)$row->hot;
-                $deal = (int)$row->deal;
+        $mapPerformanceRows = function ($query, string $orderBy) {
+            return $query
+                ->orderBy($orderBy)
+                ->get()
+                ->map(function ($row) {
 
-                $total = $cold + $warm + $hot + $deal;
+                    $cold = (int)$row->cold;
+                    $warm = (int)$row->warm;
+                    $hot  = (int)$row->hot;
+                    $deal = (int)$row->deal;
 
-                $nominalWarm = (float)$row->nominal_warm;
-                $nominalHot  = (float)$row->nominal_hot;
-                $nominalDeal = (float)$row->nominal_deal;
+                    $total = $cold + $warm + $hot + $deal;
 
-                return [
-                    'source' => $row->source,
-                    'segment' => $row->segment,
+                    $nominalWarm = (float)$row->nominal_warm;
+                    $nominalHot  = (float)$row->nominal_hot;
+                    $nominalDeal = (float)$row->nominal_deal;
 
-                    'cold' => $cold,
-                    'warm' => $warm,
-                    'hot' => $hot,
-                    'deal' => $deal,
+                    return [
+                        'source' => $row->source,
+                        'segment' => $row->segment,
 
-                    'nominal_warm' => $nominalWarm,
-                    'nominal_hot' => $nominalHot,
-                    'nominal_deal' => $nominalDeal,
+                        'cold' => $cold,
+                        'warm' => $warm,
+                        'hot' => $hot,
+                        'deal' => $deal,
 
-                    'amount_cum' => $nominalWarm + $nominalHot + $nominalDeal,
-                    'total' => $total
-                ];
-            });
+                        'nominal_warm' => $nominalWarm,
+                        'nominal_hot' => $nominalHot,
+                        'nominal_deal' => $nominalDeal,
 
-        $rows = $rows->filter(fn($r) => $r['total'] > 0)->values();
+                        'amount_cum' => $nominalWarm + $nominalHot + $nominalDeal,
+                        'total' => $total
+                    ];
+                })
+                ->filter(fn($r) => $r['total'] > 0)
+                ->values();
+        };
 
-        $bySource = $rows->groupBy('source')->map(function ($items, $source) {
+        $sourceRows = $mapPerformanceRows(
+            $buildPerformanceQuery()
+                ->when($request->source_id, function ($q) use ($request) {
+                    $q->where('leads.source_id', $request->source_id);
+                })
+                ->when($sourceStartDate && $sourceEndDate, function ($q) use ($sourceStartDate, $sourceEndDate) {
+                    $q->whereDate('leads.created_at', '>=', $sourceStartDate)
+                        ->whereDate('leads.created_at', '<=', $sourceEndDate);
+                }),
+            'lead_sources.name'
+        );
+
+        $segmentRows = $mapPerformanceRows(
+            $buildPerformanceQuery()
+                ->when($request->segment_id, function ($q) use ($request) {
+                    $q->where('leads.segment_id', $request->segment_id);
+                })
+                ->when($segmentStartDate && $segmentEndDate, function ($q) use ($segmentStartDate, $segmentEndDate) {
+                    $q->whereDate('leads.created_at', '>=', $segmentStartDate)
+                        ->whereDate('leads.created_at', '<=', $segmentEndDate);
+                }),
+            'lead_sources.name'
+        );
+
+        $bySource = $sourceRows->groupBy('source')->map(function ($items, $source) {
 
             return [
                 'source' => $source,
@@ -640,7 +668,7 @@ class LeadSummaryController extends Controller
             'nominal_total' => $bySource->sum('amount_cum')
         ];
 
-        $bySegment = $rows->groupBy('segment')->map(function ($items, $segment) {
+        $bySegment = $segmentRows->groupBy('segment')->map(function ($items, $segment) {
 
             return [
                 'segment' => $segment,
