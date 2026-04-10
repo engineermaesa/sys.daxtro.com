@@ -17,9 +17,10 @@ class LeadController extends Controller
 {
     public function available(Request $request)
     {
-        $branches = Branch::all();
         $regions  = Region::with('province:id,name')
             ->get(['id', 'name', 'province_id', 'branch_id']);
+        // return full branch list (sales_director should be able to assign any branch)
+        $branches = Branch::orderBy('name')->get();
 
         $leadSources = LeadSource::orderBy('name')->get();
 
@@ -53,9 +54,13 @@ class LeadController extends Controller
         ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
-        if (!in_array($user->role?->code, ['super_admin'])) {
+        // Restrict available leads to user's branch unless user is super_admin or sales_director
+        if (!in_array($user->role?->code, ['super_admin', 'sales_director'])) {
             $leads->where(function ($q) use ($user) {
-                $q->whereNull('region_id')
+                $q->where(function ($qq) {
+                        $qq->whereNull('region_id')->whereNull('branch_id');
+                    })
+                    ->orWhere('branch_id', $user->branch_id)
                     ->orWhereHas('region', function ($q) use ($user) {
                         $q->where('branch_id', $user->branch_id);
                     });
@@ -197,6 +202,8 @@ class LeadController extends Controller
             ->get(['id', 'name', 'province_id', 'branch_id']);
         $products = Product::all();
         $provinces = Province::orderBy('name')->pluck('name');
+        // branches list for Sales Director assignment (allow selecting any branch)
+        $branches = Branch::orderBy('name')->get();
 
         $meetings  = $id ? $form_data->meetings->sortByDesc('scheduled_start_at') : collect();
         $quotation = $id ? $form_data->quotation : null;
@@ -220,7 +227,7 @@ class LeadController extends Controller
             ]);
         }
 
-        return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order'));
+        return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order', 'branches'));
     }
 
     public function save(Request $request, $id = null)
@@ -228,6 +235,7 @@ class LeadController extends Controller
         try {
             $user    = auth()->user();
             $isSales = $user->role->code === 'sales';
+            $isSalesDirector = $user->role->code === 'sales_director';
             $isMyForm = $request->routeIs('leads.my.save');
 
             // 1. Build validation rules
@@ -296,6 +304,8 @@ class LeadController extends Controller
                 'pic_extensions.*.jabatan_id.*' => 'nullable|exists:ref_jabatans,id',
                 'pic_extensions.*.email.*' => 'nullable|email',
                 'pic_extensions.*.phone.*' => 'nullable|string',
+                'assignment' => 'nullable|in:published,cold',
+                'assignment_branch' => 'nullable|exists:ref_branches,id',
             ];
 
             // If submitting multiple leads at once, validate the arrays
@@ -358,6 +368,8 @@ class LeadController extends Controller
                     'agent_title.*' => 'nullable|in:Mr,Mrs,Ms,Dr',
                     'agent_name.*' => 'nullable|string|max:150',
                     'spk_canvassing.*' => 'nullable|string|max:255',
+                    'assignment.*' => 'nullable|in:published,cold',
+                    'assignment_branch.*' => 'nullable|exists:ref_branches,id',
                 ];
             }
 
@@ -391,7 +403,24 @@ class LeadController extends Controller
                     $lead->region_id = $rawRegion;
                     $lead->branch_id = $branchId;
                     $lead->province = $rawRegion ? $provinceName : null;
-                    $lead->status_id = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
+                    // determine status with optional Sales Director override
+                    $assignment = $request->assignment[$i] ?? null;
+                    if ($isSalesDirector && $assignment) {
+                        $lead->status_id = $assignment === 'published' ? LeadStatus::PUBLISHED : LeadStatus::COLD;
+                    } else {
+                        $lead->status_id = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
+                    }
+
+                    // Sales Director can assign branch directly (JKT/MKS/SBY)
+                    $assignedBranch = $request->assignment_branch[$i] ?? null;
+                    if ($isSalesDirector && $assignedBranch) {
+                        $lead->branch_id = $assignedBranch;
+                        // clear region/province when assigning by branch
+                        $lead->region_id = null;
+                        $lead->province = null;
+                        // when assigning to a branch, keep the lead available/published
+                        $lead->status_id = LeadStatus::PUBLISHED;
+                    }
                     $lead->factory_city_id = $rawFactoryCity;
                     $lead->factory_province = $factoryCity ? $factoryCity->province->name : ($request->factory_province[$i] ?? null);
                     $lead->factory_industry_id = $request->factory_industry_id[$i] ?? null;
@@ -502,7 +531,25 @@ class LeadController extends Controller
             $lead->branch_id    = $branchId;
             $lead->province     = $rawRegion ? $provinceName : null;
             if (! $id) {
-                $lead->status_id = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
+                // default status
+                $defaultStatus = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
+                // allow Sales Director to override via assignment field
+                $assignmentSingle = $request->assignment ?? null;
+                if ($isSalesDirector && $assignmentSingle) {
+                    $lead->status_id = $assignmentSingle === 'published' ? LeadStatus::PUBLISHED : LeadStatus::COLD;
+                } else {
+                    $lead->status_id = $defaultStatus;
+                }
+
+                // Sales Director can assign branch directly
+                $assignedBranchSingle = $request->assignment_branch ?? null;
+                if ($isSalesDirector && $assignedBranchSingle) {
+                    $lead->branch_id = $assignedBranchSingle;
+                    $lead->region_id = null;
+                    $lead->province = null;
+                    // ensure published when assigned to branch
+                    $lead->status_id = LeadStatus::PUBLISHED;
+                }
             }
             $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL'
                 ? null
@@ -556,6 +603,7 @@ class LeadController extends Controller
             if (! $id && ($isSales || $isMyForm)) {
                 $lead->first_sales_id = $user->id;
             }
+            // Sales Director should not be set as first_sales by assignment
             $lead->save();
 
             if (! $id && ($isSales || $isMyForm)) {
@@ -664,6 +712,13 @@ class LeadController extends Controller
         $lead = Lead::findOrFail($id);
 
         $user = request()->user();
+
+        // Prevent users from claiming leads assigned to other branches
+        if ($lead->branch_id && $user && !in_array($user->role?->code, ['super_admin', 'sales_director'])) {
+            if (! $user->branch_id || $lead->branch_id != $user->branch_id) {
+                return $this->setJsonResponse('You are not allowed to claim leads from other branches', [], 403);
+            }
+        }
 
         // Server-side guard: sales can only claim leads with complete lead data (no quotation dependency)
         if ($user && $user->role?->code === 'sales') {

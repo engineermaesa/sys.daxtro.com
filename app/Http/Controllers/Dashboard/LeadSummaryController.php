@@ -488,10 +488,16 @@ class LeadSummaryController extends Controller
             $validationChecks = [
                 'contact_info' => !empty($lead->phone) || !empty($lead->email),
                 'business_reason' => !empty($lead->business_reason),
-                'quotation_exists' => !empty($lead->quotation?->quotation_no),
-                'quotation_amount' => !empty($lead->quotation?->grand_total) && ($lead->quotation->grand_total > 0),
-                'regional_info' => !empty($lead->region_id),
-                'product_info' => !empty($lead->product_id),
+                // For manual leads, allow non-quotation indicators (e.g. tonase) to satisfy these checks
+                'quotation_exists' => !empty($lead->quotation?->quotation_no) || !empty($lead->quotation_no) || !empty($lead->tonase),
+                'quotation_amount' => (
+                    (!empty($lead->quotation?->grand_total) && $lead->quotation->grand_total > 0)
+                    || (!empty($lead->tonase) && floatval($lead->tonase) > 0)
+                ),
+                // regional info can be satisfied by region or province or factory city
+                'regional_info' => !empty($lead->region_id) || !empty($lead->province) || !empty($lead->factory_city_id),
+                // product info may come from product_id or free-text `needs`/`product` entered during manual creation
+                'product_info' => !empty($lead->product_id) || !empty($lead->needs) || !empty($lead->product),
             ];
 
             $passed = count(array_filter($validationChecks));
@@ -504,6 +510,11 @@ class LeadSummaryController extends Controller
                 $dataValidation = 'Incomplete';
             }
 
+            // Provide debug details so frontend can show which checks failed
+            $failedKeys = array_keys(array_filter($validationChecks, function ($v) {
+                return ! $v;
+            }));
+
             return [
                 'id' => $lead->id,
                 'customer_name' => $lead->name ?? $lead->company,
@@ -514,6 +525,10 @@ class LeadSummaryController extends Controller
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),
                 'data_validation' => $dataValidation,
+                // raw validation booleans
+                'validation' => $validationChecks,
+                // list of failed validation keys (e.g. ["quotation_exists"])
+                'missing_fields' => $failedKeys,
                 'created_at' => $lead->created_at?->toDateString(),
             ];
         });
