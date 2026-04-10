@@ -431,7 +431,7 @@
                     <input id="searchInput" type="text" placeholder="Search"
                         class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
-                <button data-export-trigger="manage" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center">
+                <button id="manageExportTriggerMobile" type="button" data-export-trigger="smallScreen" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center lg:hidden">
                     <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                         <x-icon.download />
                         <span data-export-label>Export Excel</span>
@@ -440,7 +440,7 @@
             </div>
 
             {{-- SEARCH TABLES --}}
-            <div class="lg:w-[10%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
+            <div class="xl:w-[10%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                 <div class="px-2">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
@@ -452,7 +452,7 @@
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
-            <div class="lg:w-[80%]! gap-3 flex items-center">
+            <div class="xl:w-[80%]! gap-3 flex items-center">
                 {{-- FILTER BRANCH SALES DATE --}}
                 <div class="w-1/2 grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
 
@@ -549,7 +549,7 @@
             </div>
 
             {{-- EXPORT EXCELS LEADS --}}
-            <button data-export-trigger="manage" class="cursor-pointer lg:w-[10%]! bg-[#115640] rounded-lg hidden lg:inline!">
+            <button id="manageExportTriggerDesktop" type="button" data-export-trigger="largeScreen" class="xl:w-[10%]! cursor-pointer bg-[#115640] rounded-lg hidden lg:inline!">
                 <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                     <x-icon.download />
                     <span data-export-label>Export Excel</span>
@@ -790,6 +790,7 @@
         };
 
         const selectedLeadIds = new Set();
+        let isManageExportSubmitting = false;
 
         const manageTableConfigs = {
             all: {
@@ -918,6 +919,11 @@
 
         function getManageTableConfig(tab) {
             return manageTableConfigs[tab] || manageTableConfigs.all;
+        }
+
+        function getActiveManageTab() {
+            const activeTab = document.querySelector('.nav-leads.active-nav');
+            return activeTab?.dataset?.tab || 'all';
         }
 
         function getManageColumnCount(tab) {
@@ -1101,9 +1107,11 @@
         function submitManageExport() {
             const form = document.getElementById('manageExportForm');
 
-            if (!form) {
+            if (!form || isManageExportSubmitting) {
                 return;
             }
+
+            isManageExportSubmitting = true;
 
             const activeTab = getActiveManageTab();
             const selectedIds = Array.from(selectedLeadIds);
@@ -1146,6 +1154,10 @@
 
             generatedFields.forEach((input) => form.appendChild(input));
             form.submit();
+
+            window.setTimeout(() => {
+                isManageExportSubmitting = false;
+            }, 1500);
         }
 
         function resetAllTabPages() {
@@ -1560,29 +1572,21 @@
             return '';
         }
 
-        // EXPORT EXCEL (Manage Leads)
-        $(document).on('click', '#btnExport', function () {
-            const params = new URLSearchParams();
-
-            // Always export all leads across stages; do not add a 'stage' filter here.
-            const search = getSearchQuery();
-            if (search) {
-                params.append('search', search);
-            }
-
-            const query = params.toString();
-            const url = '{{ route('leads.manage.export') }}' + (query ? '?' + query : '');
-            window.location = url;
-        });
-
         function renderTableData(leads) {
             const tbody = document.getElementById('allBody');
             tbody.innerHTML = '';
 
         }
 
-        $(document).on('click', '[data-export-trigger]', function (e) {
+        $('#manageExportTriggerMobile').off('click.manageExport').on('click.manageExport', function (e) {
             e.preventDefault();
+            e.stopImmediatePropagation();
+            submitManageExport();
+        });
+
+        $('#manageExportTriggerDesktop').off('click.manageExport').on('click.manageExport', function (e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
             submitManageExport();
         });
 
