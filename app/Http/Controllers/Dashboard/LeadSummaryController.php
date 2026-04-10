@@ -113,62 +113,34 @@ class LeadSummaryController extends Controller
             }
         }
 
-        // Recompute leadsActual as unique leads that were either created or claimed
-        // during the selected period (MTD). This counts real lead creation/claim
-        // events rather than only DEAL status transitions.
-        $leadsQuery = Lead::query()->where(function ($q) use ($periodStart, $periodEnd) {
-            $q->whereBetween('created_at', [$periodStart, $periodEnd])
-                ->orWhereBetween('published_at', [$periodStart, $periodEnd])
-                ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
-                    $cq->whereNull('released_at')
-                        ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
-                });
-        });
-
-        if ($roleCode === 'sales') {
-            $leadsQuery->whereHas('claims', function ($q) use ($user) {
-                $q->whereNull('released_at')->where('sales_id', $user?->id);
-            });
-        } elseif ($roleCode === 'branch_manager') {
-            $leadsQuery->where(function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id)
-                    ->orWhereHas('claims', function ($cq) use ($user) {
-                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($user) {
-                            $sq->where('branch_id', $user?->branch_id);
-                        });
+        // Align with BM summary: count unique leads that were claimed in the
+        // selected month, but scoped only to the logged-in sales user.
+        $leadsQuery = Lead::query()
+            ->where('branch_id', $user?->branch_id)
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $user) {
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->where('sales_id', $user?->id)
+                    ->whereHas('user', function ($uq) use ($user) {
+                        $uq->where('role_id', $user?->role_id)
+                            ->where('branch_id', $user?->branch_id);
                     });
             });
-        }
 
         $leadsActual = $leadsQuery->distinct('id')->count('id');
 
-        // Visits actual: count unique leads (source_id = 9) that were created,
-        // published, or claimed during the selected period. Apply role filter.
+        // Align with BM summary: count unique visit leads claimed in the
+        // selected month, but scoped only to the logged-in sales user.
         $visitsQuery = Lead::query()
+            ->where('branch_id', $user?->branch_id)
             ->where('source_id', 9)
-            ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('created_at', [$periodStart, $periodEnd])
-                    ->orWhereBetween('published_at', [$periodStart, $periodEnd])
-                    ->orWhereHas('claims', function ($cq) use ($periodStart, $periodEnd) {
-                        $cq->whereNull('released_at')
-                            ->whereBetween('claimed_at', [$periodStart, $periodEnd]);
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $user) {
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->where('sales_id', $user?->id)
+                    ->whereHas('user', function ($uq) use ($user) {
+                        $uq->where('role_id', $user?->role_id)
+                            ->where('branch_id', $user?->branch_id);
                     });
             });
-
-        if ($roleCode === 'sales') {
-            $visitsQuery->whereHas('claims', function ($q) use ($user) {
-                $q->whereNull('released_at')->where('sales_id', $user?->id);
-            });
-        } elseif ($roleCode === 'branch_manager') {
-            $visitsQuery->where(function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id)
-                    ->orWhereHas('claims', function ($cq) use ($user) {
-                        $cq->whereNull('released_at')->whereHas('sales', function ($sq) use ($user) {
-                            $sq->where('branch_id', $user?->branch_id);
-                        });
-                    });
-            });
-        }
 
         $visitsActual = $visitsQuery->distinct('id')->count('id');
 
