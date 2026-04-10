@@ -1041,16 +1041,7 @@ class LeadController extends Controller
             $leads->where('status_id', $request->status_id);
         }
 
-        if ($request->filled('start_date') || $request->filled('end_date')) {
-            if ($request->filled('start_date') && $request->filled('end_date')) {
-                $leads->whereDate('created_at', '>=', $request->start_date)
-                    ->whereDate('created_at', '<=', $request->end_date);
-            } elseif ($request->filled('start_date')) {
-                $leads->whereDate('created_at', '>=', $request->start_date);
-            } else {
-                $leads->whereDate('created_at', '<=', $request->end_date);
-            }
-        }
+        $this->applyManageClaimedAtDateFilter($leads, $request);
 
         // =========================
         // SEARCH
@@ -1390,6 +1381,7 @@ class LeadController extends Controller
             'lead_ids' => 'nullable|array',
             'lead_ids.*' => 'nullable|integer|distinct',
             'stage' => 'nullable|in:all,cold,warm,hot,deal',
+            'export_file_name' => 'nullable|string|max:500',
         ]);
 
         $selectedLeadIds = collect($request->input('lead_ids', []))
@@ -1570,16 +1562,7 @@ class LeadController extends Controller
                 });
             }
 
-            if ($request->filled('start_date') || $request->filled('end_date')) {
-                if ($request->filled('start_date') && $request->filled('end_date')) {
-                    $leads->whereDate('created_at', '>=', $request->start_date)
-                        ->whereDate('created_at', '<=', $request->end_date);
-                } elseif ($request->filled('start_date')) {
-                    $leads->whereDate('created_at', '>=', $request->start_date);
-                } else {
-                    $leads->whereDate('created_at', '<=', $request->end_date);
-                }
-            }
+            $this->applyManageClaimedAtDateFilter($leads, $request);
 
             if ($request->filled('search')) {
                 $search = $request->search;
@@ -1763,18 +1746,122 @@ class LeadController extends Controller
         }
 
         $file = $this->createXlsx($rows);
+        $downloadFileName = $this->buildManageExportDownloadFileName($request);
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             $content = file_get_contents($file);
             $base64 = base64_encode($content);
             @unlink($file);
             return response()->json([
-                'filename' => 'leads_' . date('Ymd_His') . '.xlsx',
+                'filename' => $downloadFileName,
                 'content_base64' => $base64,
             ]);
         }
 
-        return response()->download($file, 'leads_' . date('Ymd_His') . '.xlsx')->deleteFileAfterSend(true);
+        return response()->download($file, $downloadFileName)->deleteFileAfterSend(true);
+    }
+
+    private function buildManageExportDownloadFileName(Request $request): string
+    {
+        $baseName = trim((string) $request->input('export_file_name', ''));
+
+        if ($baseName === '') {
+            $parts = [];
+            $search = trim((string) $request->input('search', ''));
+            $branchName = null;
+            $salesName = null;
+            $startDate = trim((string) $request->input('start_date', ''));
+            $endDate = trim((string) $request->input('end_date', ''));
+            $stage = strtolower((string) $request->input('stage', 'all'));
+
+            if ($search !== '') {
+                $parts[] = "[SEARCHED - {$search}]";
+            }
+
+            if ($request->filled('branch_id')) {
+                $branchName = Branch::query()
+                    ->whereKey($request->input('branch_id'))
+                    ->value('name');
+            }
+
+            if ($branchName) {
+                $parts[] = "[Branch - {$branchName}]";
+            }
+
+            if ($request->filled('sales_id')) {
+                $salesName = User::query()
+                    ->whereKey($request->input('sales_id'))
+                    ->value('name');
+            }
+
+            if ($salesName) {
+                $parts[] = "[Sales - {$salesName}]";
+            }
+
+            if ($startDate !== '' && $endDate !== '') {
+                $parts[] = "[Date - {$startDate} to {$endDate}]";
+            } elseif ($startDate !== '') {
+                $parts[] = "[Date - {$startDate}]";
+            } elseif ($endDate !== '') {
+                $parts[] = "[Date - {$endDate}]";
+            }
+
+            $stageLabel = match ($stage) {
+                'cold' => 'Cold',
+                'warm' => 'Warm',
+                'hot' => 'Hot',
+                'deal' => 'Deal',
+                default => 'All Stage',
+            };
+
+            $parts[] = "[Stage - {$stageLabel}]";
+            $baseName = implode(' - ', $parts);
+        }
+
+        $baseName = trim($baseName);
+        $baseName = preg_replace('/\.xlsx$/i', '', $baseName);
+        $baseName = strip_tags($baseName);
+        $baseName .= ' - [Exported At - ' . now()->format('Ymd_His') . ']';
+
+        return $this->sanitizeExportDownloadFileName($baseName);
+    }
+
+    private function applyManageClaimedAtDateFilter($leads, Request $request): void
+    {
+        if (! $request->filled('start_date') && ! $request->filled('end_date')) {
+            return;
+        }
+
+        $leads->whereHas('claims', function ($q) use ($request) {
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $q->whereDate('claimed_at', '>=', $request->start_date)
+                    ->whereDate('claimed_at', '<=', $request->end_date);
+            } elseif ($request->filled('start_date')) {
+                $q->whereDate('claimed_at', '>=', $request->start_date);
+            } else {
+                $q->whereDate('claimed_at', '<=', $request->end_date);
+            }
+        });
+    }
+
+    private function sanitizeExportDownloadFileName(string $fileName): string
+    {
+        $fileName = preg_replace('/[\\\\\\/:*?"<>|]+/', ' - ', $fileName);
+        $fileName = preg_replace('/\s+/', ' ', $fileName);
+        $fileName = preg_replace('/-+/', '-', $fileName);
+        $fileName = trim($fileName, " .-\t\n\r\0\x0B");
+
+        if ($fileName === '') {
+            $fileName = 'leads-export-' . now()->format('Ymd_His');
+        }
+
+        if (function_exists('mb_substr')) {
+            $fileName = mb_substr($fileName, 0, 180);
+        } else {
+            $fileName = substr($fileName, 0, 180);
+        }
+
+        return $fileName . '.xlsx';
     }
 
     private function columnLetter(int $number): string

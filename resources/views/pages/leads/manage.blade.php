@@ -1147,6 +1147,7 @@
             addField('start_date', filter.start_date);
             addField('end_date', filter.end_date);
             addField('search', filter.search);
+            addField('export_file_name', buildManageExportFileName());
 
             selectedIds.forEach((id) => {
                 addField('lead_ids[]', id);
@@ -1176,6 +1177,68 @@
                 end_date: appliedDateFilter.end_date || '',
                 search: getSearchQuery(),
             };
+        }
+
+        function getSelectedOptionLabel(selectId) {
+            const select = document.getElementById(selectId);
+
+            if (!select || !select.value) {
+                return '';
+            }
+
+            const selectedOption = select.options[select.selectedIndex];
+            return selectedOption ? String(selectedOption.textContent || '').trim() : '';
+        }
+
+        function normalizeManageExportValue(value) {
+            return String(value ?? '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function getManageStageLabel(stage) {
+            const stageLabels = {
+                all: 'All Stage',
+                cold: 'Cold',
+                warm: 'Warm',
+                hot: 'Hot',
+                deal: 'Deal',
+            };
+
+            return stageLabels[stage] || stageLabels.all;
+        }
+
+        function buildManageExportFileName() {
+            const filter = getManageGeneralFilter();
+            const activeTab = getActiveManageTab();
+            const branchLabel = normalizeManageExportValue(getSelectedOptionLabel('branchesQuery'));
+            const salesLabel = normalizeManageExportValue(getSelectedOptionLabel('salesQuery'));
+            const searchValue = normalizeManageExportValue(filter.search);
+            const parts = [];
+
+            if (searchValue) {
+                parts.push(`[SEARCHED - ${searchValue}]`);
+            }
+
+            if (branchLabel) {
+                parts.push(`[Branch - ${branchLabel}]`);
+            }
+
+            if (salesLabel) {
+                parts.push(`[Sales - ${salesLabel}]`);
+            }
+
+            if (filter.start_date && filter.end_date) {
+                parts.push(`[Date - ${filter.start_date} to ${filter.end_date}]`);
+            } else if (filter.start_date) {
+                parts.push(`[Date - ${filter.start_date}]`);
+            } else if (filter.end_date) {
+                parts.push(`[Date - ${filter.end_date}]`);
+            }
+
+            parts.push(`[Stage - ${getManageStageLabel(activeTab)}]`);
+
+            return parts.join(' - ');
         }
 
         function applyManageGeneralFilterToParams(params, options = {}) {
