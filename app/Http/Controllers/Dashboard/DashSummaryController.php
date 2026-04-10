@@ -119,17 +119,6 @@ class DashSummaryController extends Controller
         $visitsActual = 0;
 
         foreach ($claims->get() as $claim) {
-            $lead = $claim->lead;
-
-            $claimDate = $claim->claimed_at ?? $lead?->published_at ?? null;
-            if ($claimDate) {
-                $claimedAt = Carbon::parse($claimDate, 'Asia/Jakarta');
-
-                if ((string) $claimedAt->month === $monthKey && (int) $claimedAt->year === $yearKey) {
-                    $leadsActual++;
-                }
-            }
-
             $quotation = $claim->lead?->quotation;
             if (! $quotation) {
                 continue;
@@ -159,23 +148,36 @@ class DashSummaryController extends Controller
             }
         }
 
-        // Visits actual uses a dedicated query (source_id = 9), independent from DEAL claims.
-        $visitClaims = LeadClaim::with('lead')
-            ->whereNull('released_at')
-            ->whereHas('lead', fn($q) => $q->where('source_id', 9))
-            ->when(!empty($salesId), function ($q) use ($salesId) {
-                $q->where('sales_id', $salesId);
-            })
-            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->whereHas('sales', function ($salesQ) use ($branchId) {
-                    $salesQ->where('branch_id', $branchId);
-                });
-            });
+        $buildActualLeadQuery = function () use ($periodStart, $periodEnd, $branchId, $salesId) {
+            return Lead::query()
+                ->join('lead_claims', function ($join) use ($periodStart, $periodEnd, $salesId) {
+                    $join->on('lead_claims.lead_id', '=', 'leads.id')
+                        ->whereNull('lead_claims.deleted_at')
+                        ->where('lead_claims.claimed_at', '>=', $periodStart)
+                        ->where('lead_claims.claimed_at', '<=', $periodEnd);
 
-        $visitsActual = $visitClaims->get()->filter(function ($claim) use ($isInCurrentMonth) {
-            $claimDate = $claim->claimed_at ?? $claim->lead?->published_at ?? null;
-            return $isInCurrentMonth($claimDate);
-        })->count();
+                    if (!empty($salesId)) {
+                        $join->where('lead_claims.sales_id', $salesId);
+                    }
+                })
+                ->join('users as sales_users', function ($join) {
+                    $join->on('sales_users.id', '=', 'lead_claims.sales_id')
+                        ->on('sales_users.branch_id', '=', 'leads.branch_id')
+                        ->where('sales_users.role_id', 2);
+                })
+                ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                    $q->where('leads.branch_id', $branchId);
+                });
+        };
+
+        $leadsActual = $buildActualLeadQuery()
+            ->distinct('leads.id')
+            ->count('leads.id');
+
+        $visitsActual = $buildActualLeadQuery()
+            ->where('leads.source_id', 9)
+            ->distinct('leads.id')
+            ->count('leads.id');
 
         $monetaryActual = round($monetaryActual, 2);
         $achievementPercentage = $targetAmount > 0

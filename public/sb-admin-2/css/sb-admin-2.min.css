@@ -54,7 +54,7 @@ article, aside, figcaption, figure, footer, header, hgroup, main, nav, section {
 
 body {
     margin: 0;
-    font-family: "Roboto", sans-serif;
+    font-family: "DM Sans", "Roboto", sans-serif;
     font-optical-sizing: auto;
     font-size: .875rem;
     font-weight: 400;
@@ -8591,7 +8591,7 @@ a:focus {
   }
   
   ::-webkit-scrollbar-thumb {
-    background-color: #D4AF37;  /* warna emas */
+    background-color: #417866;  /* warna ijo */
     border-radius: 6px;
     border: 3px solid transparent;  /* padding di thumb */
   }
@@ -8599,7 +8599,7 @@ a:focus {
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #D4AF37 transparent;
+    scrollbar-color: #417866 transparent;
   }
 .form-control {
     transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;

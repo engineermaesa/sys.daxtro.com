@@ -162,7 +162,7 @@ class LeadController extends Controller
 
                 if ($canShowClaim) {
                     $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
-                                <i class="bi bi-check-circle mr-1"></i> Claim
+                                <i class="bi bi-check-circle"></i> Claim
                             </a>';
                 }
 
@@ -1780,21 +1780,38 @@ class LeadController extends Controller
                 default          => 'Published',
             };
 
-            $rows[] = [
-                $lead->published_at, // published at
-                $claim?->sales?->name ?? '-', // sales name
-                $lead->name, // customer name
-                $lead->region->branch->name ?? '', // branch region
-                $lead->region->name ?? '', // region name
-                $lead->source->name ?? '', // source name
-                $lead->segment->name ?? '', // segment name
-                $lead->customer_type ?? '', // customer type
-                $lead->product_id ? ($lead->product->description ?? '') : ($lead->needs ?? ''), // product description
-                $quotation ? $quotation->quotation_no : '-',
-                $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
-                $invoice ? $invoice->invoice_no : '-',
-                $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
-                $stageLabel,
+            $record = [
+                'lead_name' => $lead->name ?? '-',
+                'branch_name' => $lead->region?->branch?->name ?? $lead->branch?->name ?? '-',
+                'sales_name' => $claim?->sales?->name ?? '-',
+                'phone' => $lead->phone ?? '-',
+                'source_name' => $lead->source?->name ?? '-',
+                'needs' => $lead->needs ?? '-',
+                'existing_industries' => $lead->industry?->name ?? '-',
+                'city_name' => $lead->region?->name ?? 'All Regions',
+                'regional_name' => $lead->region?->regional?->name ?? '-',
+                'customer_type' => $lead->customer_type ?? '-',
+                'quotation_number' => $quotation?->quotation_no ?? '-',
+                'quotation_price' => $quotation ? number_format($quotation->grand_total ?? 0, 2) : '-',
+                'invoice_number' => $invoice?->invoice_no ?? '-',
+                'invoice_price' => $invoice ? number_format($invoice->amount ?? 0, 2) : '-',
+                'quot_created' => $lead->published_at
+                    ? \Carbon\Carbon::parse($lead->published_at)->format('d/m/Y')
+                    : '-',
+                'quot_end_date' => $lead->updated_at
+                    ? \Carbon\Carbon::parse($lead->updated_at)->format('d/m/Y')
+                    : '-',
+                'act_last_time' => $latestActivity?->logged_at
+                    ? \Carbon\Carbon::parse($latestActivity->logged_at)->format('d/m/Y')
+                    : '-',
+                'act_status' => $latestActivity?->activity?->name ?? '-',
+                'created_at' => $lead->created_at
+                    ? \Carbon\Carbon::parse($lead->created_at)->format('d/m/Y')
+                    : '-',
+                'claimed_at' => $claim?->claimed_at
+                    ? \Carbon\Carbon::parse($claim->claimed_at)->format('d/m/Y')
+                    : '-',
+                'status_name' => $stageLabel,
             ];
 
             $rows[] = array_map(fn($column) => $record[$column['key']] ?? '-', $columns);

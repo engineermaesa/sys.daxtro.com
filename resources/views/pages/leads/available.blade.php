@@ -128,7 +128,7 @@
     </div>
     
     {{-- TABLES AVAILABLE LEADS --}}
-    <div class="max-xl:overflow-x-scroll">
+    <div class="max-2xl:overflow-x-scroll">
       <table id="availableLeadsTable" class="w-full text-[#1E1E1E]">
         <thead class="border-b border-b-[#D9D9D9]">
           <tr>
@@ -226,8 +226,8 @@ $(function () {
       const dates = (fp && fp.selectedDates) ? fp.selectedDates : [];
       if (dates.length !== 2) return;
 
-      const startDate = dates[0].toISOString().split('T')[0];
-      const endDate = dates[1].toISOString().split('T')[0];
+      const startDate = fp.formatDate(dates[0], 'Y-m-d');
+      const endDate = fp.formatDate(dates[1], 'Y-m-d');
 
       const label = document.getElementById('dateLabel');
       if (label) label.innerText = `${startDate} → ${endDate}`;
@@ -377,7 +377,7 @@ $(function () {
                         <td class="lg:p-3 sm:p-1">${row.region_name ?? '-'}</td>
                         <td class="lg:p-3 sm:p-1">${row.source_name ?? '-'}</td>
                         <td class="lg:p-3 sm:p-1">${row.segment_name ?? '-'}</td>
-                        <td class="p-3 grid grid-cols-1 gap-2 ">${row.actions ?? '-'}</td>
+                        <td class="p-3 grid gap-2">${row.actions ?? '-'}</td>
                     </tr>
                 `);
             });

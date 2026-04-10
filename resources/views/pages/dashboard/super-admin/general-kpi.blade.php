@@ -206,8 +206,8 @@
 
             const STATUS_CLASSES = "status-finish status-waiting status-expired";
             const VALUE_COLOR_CLASSES = "text-[#009951] text-[#E8B931] text-[#900B09]";
-            const BASE_TARGET_CLASSES = "font-semibold text-lg lg:text-2xl text-[#1E1E1E]";
-            const BASE_VALUE_CLASSES = "font-semibold text-lg lg:text-2xl";
+            const BASE_TARGET_CLASSES = "font-semibold text-xl xl:text-2xl text-[#1E1E1E]";
+            const BASE_VALUE_CLASSES = "font-semibold text-xl xl:text-2xl";
 
             function toNum(v) {
                 const n = Number(v);
@@ -288,21 +288,21 @@
             });
 
             // CLOSED DEAL (MTD) FETCH DATA CARDS
-            $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
+            $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-xl xl:text-2xl text-[#1E1E1E]');
 
             const totalAmountFormatted = formatRupiah(data.closed_deal.total_amount);
             $("#totalAmount").text("Amount: " + totalAmountFormatted).addClass('text-xs');
 
             if (data.closed_deal.conversion_rate > 75) {
-                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-finish text-xs lg:text-sm');
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-finish text-xs xl:text-sm!');
             } else if (data.closed_deal.conversion_rate > 35) {
-                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-waiting text-xs lg:text-sm');
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-waiting text-xs xl:text-sm!');
             } else {
-                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-expired text-xs lg:text-sm');
+                $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-expired text-xs xl:text-sm!');
             }
 
             // TOTAL ACTIVE LEADS FETCH DATA CARDS
-            $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-lg lg:text-2xl');
+            $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-xl xl:text-2xl');
             $("#totalTrash").text("Trash Leads: " + data.active_leads.trash).addClass('text-xs');
 
             $("#coldLeads").text(data.active_leads.cold + ' Cold').addClass('text-xs');
@@ -311,7 +311,7 @@
 
             // POTENTIAL DEALING FETCH DATA CARDS
             const potentialAmountFormatted = formatRupiah(data.potential_dealing.total_amount);
-            $("#potentialTotalAmount").text(potentialAmountFormatted).addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
+            $("#potentialTotalAmount").text(potentialAmountFormatted).addClass('font-semibold text-xl xl:text-2xl text-[#1E1E1E]');
             $("#potentialTotalOpportunity").text(data.potential_dealing.total_opportunity + ' Active Opportunity').addClass('text-right text-xs');
 
         } catch (error) {
