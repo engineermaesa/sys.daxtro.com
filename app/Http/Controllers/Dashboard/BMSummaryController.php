@@ -498,10 +498,13 @@ class BMSummaryController extends Controller
             $validationChecks = [
                 'contact_info' => !empty($lead->phone) || !empty($lead->email),
                 'business_reason' => !empty($lead->business_reason),
-                'quotation_exists' => !empty($lead->quotation?->quotation_no),
-                'quotation_amount' => !empty($lead->quotation?->grand_total) && ($lead->quotation->grand_total > 0),
-                'regional_info' => !empty($lead->region_id),
-                'product_info' => !empty($lead->product_id),
+                'quotation_exists' => !empty($lead->quotation?->quotation_no) || !empty($lead->quotation_no) || !empty($lead->tonase),
+                'quotation_amount' => (
+                    (!empty($lead->quotation?->grand_total) && $lead->quotation->grand_total > 0)
+                    || (!empty($lead->tonase) && floatval($lead->tonase) > 0)
+                ),
+                'regional_info' => !empty($lead->region_id) || !empty($lead->province) || !empty($lead->factory_city_id),
+                'product_info' => !empty($lead->product_id) || !empty($lead->needs) || !empty($lead->product),
             ];
 
             $passed = count(array_filter($validationChecks));
@@ -513,6 +516,10 @@ class BMSummaryController extends Controller
             } else {
                 $dataValidation = 'Incomplete';
             }
+
+            $failedKeys = array_keys(array_filter($validationChecks, function ($v) {
+                return ! $v;
+            }));
 
             return [
                 'id' => $lead->id,

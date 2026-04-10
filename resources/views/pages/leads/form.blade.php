@@ -330,6 +330,21 @@
                                         class="form-control mt-2 industry-other d-none" placeholder="Isi industri"
                                         value="{{ old('other_industry', $form_data->other_industry) }}" />
                                 </div>
+
+                                {{-- ASSIGNMENT FOR SALES DIRECTOR --}}
+                                @if(auth()->user()?->role?->code === 'sales_director')
+                                <div class="w-full grid grid-cols-1 mt-3">
+                                    <label class="text-[#1E1E1E]! mb-2! block!">Assign Branch</label>
+                                    <select name="{{ $isCreate ? 'assignment_branch[]' : 'assignment_branch' }}"
+                                        class="form-select select2">
+                                        <option value="">-- Assign Branch (JKT/MKS/SBY) --</option>
+                                        @foreach($branches as $br)
+                                        <option value="{{ $br->id }}" {{ (old('assignment_branch', $form_data->branch_id)==$br->id) ? 'selected' : '' }}>{{ $br->code }} - {{ $br->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @endif
+                                </div>
                             </div>
                         </div>
                     </div>

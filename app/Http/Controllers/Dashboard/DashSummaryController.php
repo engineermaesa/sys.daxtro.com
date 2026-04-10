@@ -504,10 +504,16 @@ class DashSummaryController extends Controller
             $validationChecks = [
                 'contact_info' => !empty($lead->phone) || !empty($lead->email),
                 'business_reason' => !empty($lead->business_reason),
-                'quotation_exists' => !empty($lead->quotation?->quotation_no),
-                'quotation_amount' => !empty($lead->quotation?->grand_total) && ($lead->quotation->grand_total > 0),
-                'regional_info' => !empty($lead->region_id),
-                'product_info' => !empty($lead->product_id),
+                // For manual leads, accept non-quotation indicators like `tonase` or free-text `quotation_no`
+                'quotation_exists' => !empty($lead->quotation?->quotation_no) || !empty($lead->quotation_no) || !empty($lead->tonase),
+                'quotation_amount' => (
+                    (!empty($lead->quotation?->grand_total) && $lead->quotation->grand_total > 0)
+                    || (!empty($lead->tonase) && floatval($lead->tonase) > 0)
+                ),
+                // regional info can come from region, province, or factory city
+                'regional_info' => !empty($lead->region_id) || !empty($lead->province) || !empty($lead->factory_city_id),
+                // product info may come from product_id, `needs`, or free-text `product`
+                'product_info' => !empty($lead->product_id) || !empty($lead->needs) || !empty($lead->product),
             ];
 
             $passed = count(array_filter($validationChecks));
@@ -519,6 +525,11 @@ class DashSummaryController extends Controller
             } else {
                 $dataValidation = 'Incomplete';
             }
+
+            // compute failed keys for debugging
+            $failedKeys = array_keys(array_filter($validationChecks, function ($v) {
+                return ! $v;
+            }));
 
             return [
                 'id' => $lead->id,
@@ -534,6 +545,8 @@ class DashSummaryController extends Controller
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),
                 'data_validation' => $dataValidation,
+                'validation' => $validationChecks,
+                'missing_fields' => $failedKeys,
                 'created_at' => $lead->created_at?->toDateString(),
             ];
         });
