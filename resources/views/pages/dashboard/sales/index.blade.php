@@ -1,5 +1,7 @@
 <section>
-    
+    {{-- FILTERING FOR KPI GRID --}}
+    @include('pages.dashboard.sales.filtering')
+
     {{-- PERSONAL KPI GRID --}}
     @include('pages.dashboard.sales.personal-kpi')
 

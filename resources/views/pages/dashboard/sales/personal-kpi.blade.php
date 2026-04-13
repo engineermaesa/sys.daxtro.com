@@ -171,7 +171,21 @@
     // LOAD GRID (PERSONAL-KPI)
     async function loadDashboardGrid() {
         try {
-            const response = await fetch("/api/leads/grid");
+            const params = new URLSearchParams();
+            const generalFilter = typeof getSuperAdminGeneralFilter === 'function'
+                ? getSuperAdminGeneralFilter()
+                : { start_date_grid: null, end_date_grid: null };
+
+            if (generalFilter.start_date_grid && generalFilter.end_date_grid) {
+                params.append('start_date_grid', generalFilter.start_date_grid);
+                params.append('end_date_grid', generalFilter.end_date_grid);
+            }
+
+            const apiUrl = params.toString()
+                ? `/api/leads/grid?${params.toString()}`
+                : '/api/leads/grid';
+
+            const response = await fetch(apiUrl);
             
             if (!response.ok) {
                 throw new Error("Network response was not ok");
@@ -301,5 +315,9 @@
             console.error("Error loading dashboard grid:", error);
         }
     }
+
+    window.addEventListener('super-admin-general-filter-change', function () {
+        loadDashboardGrid();
+    });
 
 </script>

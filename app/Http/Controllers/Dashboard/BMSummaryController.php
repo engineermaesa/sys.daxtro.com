@@ -32,12 +32,30 @@ class BMSummaryController extends Controller
             $salesId = null;
         }
 
-        $monthKey = (string) Carbon::now('Asia/Jakarta')->month;
-        $yearKey = (int) Carbon::now('Asia/Jakarta')->year;
-        $selectedMonthStart = Carbon::createFromDate($yearKey, (int) $monthKey, 1, 'Asia/Jakarta')->startOfMonth();
-        $selectedMonthEnd = (clone $selectedMonthStart)->endOfMonth();
-        $periodStart = $selectedMonthStart->toDateTimeString();
-        $periodEnd = $selectedMonthEnd->toDateTimeString();
+        $nowJakarta = Carbon::now('Asia/Jakarta');
+        $selectedPeriodStart = (clone $nowJakarta)->startOfMonth();
+        $selectedPeriodEnd = (clone $nowJakarta)->endOfMonth();
+
+        if ($request->filled('start_date_grid') && $request->filled('end_date_grid')) {
+            try {
+                $selectedPeriodStart = Carbon::createFromFormat('Y-m-d', (string) $request->input('start_date_grid'), 'Asia/Jakarta')->startOfDay();
+                $selectedPeriodEnd = Carbon::createFromFormat('Y-m-d', (string) $request->input('end_date_grid'), 'Asia/Jakarta')->endOfDay();
+
+                if ($selectedPeriodStart->gt($selectedPeriodEnd)) {
+                    [$selectedPeriodStart, $selectedPeriodEnd] = [$selectedPeriodEnd, $selectedPeriodStart];
+                    $selectedPeriodStart = $selectedPeriodStart->startOfDay();
+                    $selectedPeriodEnd = $selectedPeriodEnd->endOfDay();
+                }
+            } catch (\Throwable $e) {
+                $selectedPeriodStart = (clone $nowJakarta)->startOfMonth();
+                $selectedPeriodEnd = (clone $nowJakarta)->endOfMonth();
+            }
+        }
+
+        $monthKey = (string) $selectedPeriodStart->month;
+        $yearKey = (int) $selectedPeriodStart->year;
+        $periodStart = $selectedPeriodStart->toDateTimeString();
+        $periodEnd = $selectedPeriodEnd->toDateTimeString();
 
         $getMonthlyTarget = function ($raw, string $field, string $monthKey): float {
             if (empty($raw)) {
@@ -58,15 +76,15 @@ class BMSummaryController extends Controller
             return is_numeric($default) ? (float) $default : 0;
         };
 
-        $isInCurrentMonth = function ($date) use ($monthKey, $yearKey): bool {
+        $isInSelectedPeriod = function ($date) use ($selectedPeriodStart, $selectedPeriodEnd): bool {
             if (empty($date)) {
                 return false;
             }
 
             $d = Carbon::parse($date, 'Asia/Jakarta');
 
-            // Sinkronkan achievement ke bulan + tahun berjalan
-            return (string) $d->month === $monthKey && (int) $d->year === $yearKey;
+            // Sinkronkan achievement ke rentang tanggal grid yang aktif
+            return $d->between($selectedPeriodStart, $selectedPeriodEnd);
         };
 
         $allSalesUsers = User::query()
@@ -132,9 +150,9 @@ class BMSummaryController extends Controller
             if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
                 $completedDeals++;
 
-                // Achievement amount khusus pembayaran yang confirmed di bulan berjalan
-                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInCurrentMonth) {
-                    return $isInCurrentMonth($p->paymentConfirmation->confirmed_at ?? null);
+                // Achievement amount khusus pembayaran yang confirmed di periode grid
+                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInSelectedPeriod) {
+                    return $isInSelectedPeriod($p->paymentConfirmation->confirmed_at ?? null);
                 });
 
                 $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {

@@ -184,6 +184,11 @@
                 params.append('sales_id', generalFilter.sales_id);
             }
 
+            if (generalFilter.start_date_grid && generalFilter.end_date_grid) {
+                params.append('start_date_grid', generalFilter.start_date_grid);
+                params.append('end_date_grid', generalFilter.end_date_grid);
+            }
+
             const apiUrl = params.toString()
                 ? `/api/dashboard/grid?${params.toString()}`
                 : '/api/dashboard/grid';
