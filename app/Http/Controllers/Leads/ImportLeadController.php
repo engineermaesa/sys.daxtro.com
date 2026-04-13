@@ -254,8 +254,8 @@ class ImportLeadController extends Controller
         $statusValidation->setShowInputMessage(true);
         $statusValidation->setShowErrorMessage(true);
         $statusValidation->setShowDropDown(true);
-        // Tampilkan opsi status termasuk 'available'
-        $statusValidation->setFormula1('"cold,warm,hot,deal,available"');
+        // Tampilkan opsi status hanya cold, warm, available
+        $statusValidation->setFormula1('"cold,warm,available"');
 
         // Terapkan ke baris 2 s.d. 1000 di kolom O
         for ($row = 2; $row <= 1000; $row++) {
@@ -880,7 +880,7 @@ class ImportLeadController extends Controller
                 /* ----------------------------------------------------------
                 * status priority:
                 *   - if status_stage is set in file → map to LeadStatus
-                *       cold → COLD, warm → WARM, hot → HOT, deal → DEAL
+                *       cold → COLD, warm → WARM
                 *       available → PUBLISHED (available leads)
                 *   - otherwise fallback:
                 *       nip_sales present  → COLD
@@ -895,12 +895,6 @@ class ImportLeadController extends Controller
                         break;
                     case 'warm':
                         $status = LeadStatus::WARM;
-                        break;
-                    case 'hot':
-                        $status = LeadStatus::HOT;
-                        break;
-                    case 'deal':
-                        $status = LeadStatus::DEAL;
                         break;
                     case 'available':
                         // 'available' berarti lead masuk ke pool available (PUBLISHED)
