@@ -72,7 +72,7 @@ class ImportLeadController extends Controller
             'lead_needs',
             'nip_sales',           // jika diisi → langsung diklaim ke sales tsb
             'created_at',          // akan dipakai sebagai published_at
-            'status_stage',        // cold | warm | hot | deal
+            'status_stage',        // cold | warm | hot | deal | available
         ];
 
         $meetingHeaders = [
@@ -254,8 +254,8 @@ class ImportLeadController extends Controller
         $statusValidation->setShowInputMessage(true);
         $statusValidation->setShowErrorMessage(true);
         $statusValidation->setShowDropDown(true);
-        // Import saat ini khusus sampai WARM, jadi hanya tampilkan opsi cold & warm
-        $statusValidation->setFormula1('"cold,warm"');
+        // Tampilkan opsi status termasuk 'available'
+        $statusValidation->setFormula1('"cold,warm,hot,deal,available"');
 
         // Terapkan ke baris 2 s.d. 1000 di kolom O
         for ($row = 2; $row <= 1000; $row++) {
@@ -893,6 +893,7 @@ class ImportLeadController extends Controller
                 * status priority:
                 *   - if status_stage is set in file → map to LeadStatus
                 *       cold → COLD, warm → WARM, hot → HOT, deal → DEAL
+                *       available → PUBLISHED (available leads)
                 *   - otherwise fallback:
                 *       nip_sales present  → COLD
                 *       nip_sales null     → PUBLISHED
@@ -912,6 +913,12 @@ class ImportLeadController extends Controller
                         break;
                     case 'deal':
                         $status = LeadStatus::DEAL;
+                        break;
+                    case 'available':
+                        // 'available' berarti lead masuk ke pool available (PUBLISHED)
+                        $status = LeadStatus::PUBLISHED;
+                        // pastikan nip_sales dikosongkan agar tidak otomatis diklaim
+                        $base['nip_sales'] = null;
                         break;
                     default:
                         $status = $row['nip_sales']

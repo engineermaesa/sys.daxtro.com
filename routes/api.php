@@ -306,7 +306,7 @@ Route::group([
         Route::get('/list', [BankController::class, 'list'])->name('list');
         Route::get('/form/{id?}', [BankController::class, 'form'])->name('form');
         Route::post('/save/{id?}', [BankController::class, 'save'])->name('save');
-        Route::delete('/delete/{id}', [BankCoyntroller::class, 'delete'])->name('delete');
+        Route::delete('/delete/{id}', [BankController::class, 'delete'])->name('delete');
     });
 
     // ACCOUNTS (API)
