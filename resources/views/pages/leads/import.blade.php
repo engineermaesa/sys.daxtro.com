@@ -138,6 +138,7 @@
                       <option value="warm" {{ $stage==='warm' ? 'selected' : '' }}>warm</option>
                       <option value="hot" {{ $stage==='hot' ? 'selected' : '' }}>hot</option>
                       <option value="deal" {{ $stage==='deal' ? 'selected' : '' }}>deal</option>
+                      <option value="available" {{ $stage==='available' ? 'selected' : '' }}>available</option>
                     </select>
                   </td>
                   <td>
