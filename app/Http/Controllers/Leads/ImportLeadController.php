@@ -921,7 +921,7 @@ class ImportLeadController extends Controller
                         $base['nip_sales'] = null;
                         break;
                     default:
-                        $status = $row['nip_sales']
+                        $status = $base['nip_sales']
                             ? LeadStatus::COLD
                             : LeadStatus::PUBLISHED;
                         break;
@@ -1094,6 +1094,24 @@ class ImportLeadController extends Controller
     private function buildPreviewTableConfig(array $rows, $meetingTypes, $regions, $expenseTypes): array
     {
         $tabs = [
+            'available' => [
+                'label' => 'Available',
+                'headers' => [
+                    '#',
+                    'source_id*',
+                    'segment_id*',
+                    'region_id*',
+                    'lead_name',
+                    'lead_email',
+                    'lead_phone',
+                    'lead_needs',
+                    'published_at',
+                    'status_stage',
+                    'Status',
+                    '',
+                ],
+                'rows' => [],
+            ],
             'cold' => [
                 'label' => 'Cold',
                 'headers' => [
@@ -1133,29 +1151,66 @@ class ImportLeadController extends Controller
             ],
         ];
 
-        $stageCounts = [
-            'cold' => 0,
-            'warm' => 0,
+        $validStages = ['cold', 'warm', 'available'];
+        $availableCounter = 0;
+        $leadSerialCounter = 0;
+        $leadSerialByLinkKey = [];
+        $lastGroupByStage = [
+            'cold' => null,
+            'warm' => null,
+            'available' => null,
         ];
-
-        $lastGroup = null;
-        $groupIndex = 0;
+        $stagePresenceByLinkKey = [];
 
         foreach ($rows as $row) {
             $stage = strtolower(trim((string) ($row['status_stage'] ?? '')));
-            if (array_key_exists($stage, $stageCounts)) {
-                $stageCounts[$stage]++;
+            if (! in_array($stage, $validStages, true) || $stage === 'available') {
+                continue;
             }
 
-            $currentGroup = $row['group_key'] ?? (string) ($row['preview_index'] ?? $groupIndex);
-            $isFirstInGroup = $currentGroup !== $lastGroup;
-            if ($isFirstInGroup) {
-                $groupIndex++;
+            $linkKey = $this->buildPreviewLeadLinkKey($row);
+            if (! isset($stagePresenceByLinkKey[$linkKey])) {
+                $stagePresenceByLinkKey[$linkKey] = ['cold' => false, 'warm' => false];
+            }
+            $stagePresenceByLinkKey[$linkKey][$stage] = true;
+        }
 
-                $tabs['cold']['rows'][] = [
+        foreach ($rows as $row) {
+            $stage = strtolower(trim((string) ($row['status_stage'] ?? '')));
+            if (! in_array($stage, $validStages, true)) {
+                continue;
+            }
+
+            $currentGroup = $row['group_key'] ?? (string) ($row['preview_index'] ?? '');
+            $isFirstInGroup = $currentGroup !== $lastGroupByStage[$stage];
+            $linkKey = $this->buildPreviewLeadLinkKey($row);
+
+            if ($stage === 'available') {
+                if ($isFirstInGroup) {
+                    $availableCounter++;
+                }
+                $stageGroupIndex = $availableCounter;
+            } else {
+                if (! isset($leadSerialByLinkKey[$linkKey])) {
+                    $leadSerialCounter++;
+                    $leadSerialByLinkKey[$linkKey] = $leadSerialCounter;
+                }
+                $stageGroupIndex = $leadSerialByLinkKey[$linkKey];
+            }
+
+            $hasWarmStage = ! empty($stagePresenceByLinkKey[$linkKey]['warm']);
+            $displayPrefix = $stage === 'available'
+                ? 'A'
+                : ($hasWarmStage ? 'CW' : 'C');
+            $displayIndex = $displayPrefix . '-' . $stageGroupIndex;
+
+            if (($stage === 'cold' || $stage === 'warm' || $stage === 'available') && $isFirstInGroup) {
+                $coldLikeTab = $stage === 'available' ? 'available' : 'cold';
+                $tabs[$coldLikeTab]['rows'][] = [
                     'preview_index' => (string) ($row['preview_index'] ?? ''),
                     'group_key' => $currentGroup,
-                    'group_index' => $groupIndex,
+                    'group_index' => $stageGroupIndex,
+                    'display_index' => $displayIndex,
                     'row_class' => ! empty($row['error']) ? 'table-danger' : '',
                     'error' => $row['error'] ?? '',
                     'source_id' => $row['source_id'] ?? null,
@@ -1165,7 +1220,7 @@ class ImportLeadController extends Controller
                     'lead_email' => $row['lead_email'] ?? null,
                     'lead_phone' => $row['lead_phone'] ?? null,
                     'lead_needs' => $row['lead_needs'] ?? null,
-                    'nip_sales' => $row['nip_sales'] ?? null,
+                    'nip_sales' => $stage === 'available' ? null : ($row['nip_sales'] ?? null),
                     'published_at' => $row['published_at'] ?? null,
                     'status_stage' => $row['status_stage'] ?? '',
                 ];
@@ -1175,30 +1230,33 @@ class ImportLeadController extends Controller
             $meetingCity = $row['meeting_city'] ?? null;
             $expenseTypeId = $row['expense_type_id'] ?? null;
 
-            $tabs['warm']['rows'][] = [
-                'preview_index' => (string) ($row['preview_index'] ?? ''),
-                'group_key' => $currentGroup,
-                'group_index' => $groupIndex,
-                'is_first_in_group' => $isFirstInGroup,
-                'row_class' => ! empty($row['error']) ? 'table-danger' : '',
-                'error' => $row['error'] ?? '',
-                'meeting_type_label' => $this->resolveCollectionLabel($meetingTypes, $meetingTypeId),
-                'meeting_url' => $row['meeting_url'] ?? '',
-                'meeting_start_at' => $row['meeting_start_at'] ?? '',
-                'meeting_end_at' => $row['meeting_end_at'] ?? '',
-                'meeting_city_label' => $this->resolveCollectionLabel($regions, $meetingCity),
-                'meeting_address' => $row['meeting_address'] ?? '',
-                'expense_type_label' => $this->resolveCollectionLabel($expenseTypes, $expenseTypeId),
-                'expense_notes' => $row['expense_notes'] ?? '',
-                'expense_amount' => $row['expense_amount'] ?? '',
-            ];
+            if ($stage === 'warm') {
+                $tabs['warm']['rows'][] = [
+                    'preview_index' => (string) ($row['preview_index'] ?? ''),
+                    'group_key' => $currentGroup,
+                    'group_index' => $stageGroupIndex,
+                    'display_index' => $displayIndex,
+                    'is_first_in_group' => $isFirstInGroup,
+                    'row_class' => ! empty($row['error']) ? 'table-danger' : '',
+                    'error' => $row['error'] ?? '',
+                    'meeting_type_label' => $this->resolveCollectionLabel($meetingTypes, $meetingTypeId),
+                    'meeting_url' => $row['meeting_url'] ?? '',
+                    'meeting_start_at' => $row['meeting_start_at'] ?? '',
+                    'meeting_end_at' => $row['meeting_end_at'] ?? '',
+                    'meeting_city_label' => $this->resolveCollectionLabel($regions, $meetingCity),
+                    'meeting_address' => $row['meeting_address'] ?? '',
+                    'expense_type_label' => $this->resolveCollectionLabel($expenseTypes, $expenseTypeId),
+                    'expense_notes' => $row['expense_notes'] ?? '',
+                    'expense_amount' => $row['expense_amount'] ?? '',
+                ];
+            }
 
-            $lastGroup = $currentGroup;
+            $lastGroupByStage[$stage] = $currentGroup;
         }
 
         $defaultTab = 'cold';
-        foreach ($stageCounts as $stage => $count) {
-            if ($count > 0) {
+        foreach ($tabs as $stage => $config) {
+            if (! empty($config['rows'])) {
                 $defaultTab = $stage;
                 break;
             }
@@ -1214,6 +1272,27 @@ class ImportLeadController extends Controller
             'default_tab' => $defaultTab,
             'tabs' => $tabs,
         ];
+    }
+
+    private function buildPreviewLeadLinkKey(array $row): string
+    {
+        $parts = [
+            $row['source_id']       ?? '',
+            $row['segment_id']      ?? '',
+            $row['industry_id']     ?? '',
+            $row['region_id']       ?? '',
+            $row['company_name']    ?? '',
+            $row['company_address'] ?? '',
+            $row['lead_title']      ?? '',
+            $row['lead_name']       ?? '',
+            $row['lead_position']   ?? '',
+            $row['lead_phone']      ?? '',
+            $row['lead_email']      ?? '',
+            $row['lead_needs']      ?? '',
+            $row['published_at']    ?? '',
+        ];
+
+        return implode('|', $parts);
     }
 
     private function resolveCollectionLabel($items, $value): string
