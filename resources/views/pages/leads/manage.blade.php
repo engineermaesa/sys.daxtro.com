@@ -565,7 +565,7 @@
         <div>
             {{-- ALL STAGE TABLE --}}
             <div data-tab-container="all" class="leads-table-container">
-                <div class="max-xl:overflow-x-scroll">
+                <div class="overflow-x-scroll">
                     <table id="allLeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
                         {{-- HEADER TABLE --}}
                         <thead id="allHead" class="text-[#1E1E1E]"></thead>
@@ -605,45 +605,45 @@
         </div>
         {{-- CONDITIONAL STAGE TABLE --}}
         @foreach(['cold', 'warm', 'hot', 'deal'] as $tab)
-        <div data-tab-container="{{ $tab }}" class="leads-table-container">
-            <div class="overflow-x-scroll">
-                <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
-                    {{-- HEADER TABLE --}}
-                    <thead id="{{ $tab }}Head" class="text-[#1E1E1E]"></thead>
-                    <tbody id="{{ $tab }}Body" class="text-[#1E1E1E]"></tbody>
-                </table>
-            </div>
-
-            {{-- NAVIGATION ROWS --}}
-            <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
-                <div class="flex items-center gap-3">
-                    <p class="font-semibold">Show Rows</p>
-                    <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
-                        onchange="changePageSize('{{ $tab }}', this.value)">
-                        <option value="5">5</option>
-                        <option value="10" selected>10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
+            <div data-tab-container="{{ $tab }}" class="leads-table-container">
+                <div class="overflow-x-scroll">
+                    <table id="{{ $tab }}LeadsTableNew" class="w-full bg-white rounded-br-lg rounded-bl-lg">
+                        {{-- HEADER TABLE --}}
+                        <thead id="{{ $tab }}Head" class="text-[#1E1E1E]"></thead>
+                        <tbody id="{{ $tab }}Body" class="text-[#1E1E1E]"></tbody>
+                    </table>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
-                    <div>
-                        <button id="{{ $tab }}PrevBtn"
-                            class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                            onclick="goPrev('{{ $tab }}')">
-                            <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
-                        </button>
-                        <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
-                            onclick="goNext('{{ $tab }}')">
-                            <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
-                        </button>
+                {{-- NAVIGATION ROWS --}}
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                    <div class="flex items-center gap-3">
+                        <p class="font-semibold">Show Rows</p>
+                        <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md"
+                            onchange="changePageSize('{{ $tab }}', this.value)">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
+                        <div>
+                            <button id="{{ $tab }}PrevBtn"
+                                class="btn btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goPrev('{{ $tab }}')">
+                                <i class="fas fa-chevron-left text-black" style="font-size: 12px;"></i>
+                            </button>
+                            <button id="{{ $tab }}NextBtn" class="btn bg-white border! border-[#D9D9D9]! cursor-pointer!"
+                                onclick="goNext('{{ $tab }}')">
+                                <i class="fas fa-chevron-right text-black" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         @endforeach
     </div>
 </section>
@@ -964,12 +964,13 @@
 
         function updateExportButtonState() {
             const selectedCount = selectedLeadIds.size;
-            const label = selectedCount > 0
-                ? `Export Excel (${selectedCount} Selected)`
-                : 'Export Excel';
 
             document.querySelectorAll('[data-export-label]').forEach((node) => {
-                node.textContent = label;
+                if (selectedCount > 0) {
+                    node.innerHTML = `Export Excel <span class="block">(${selectedCount} Selected)</span>`;
+                } else {
+                    node.textContent = 'Export Excel';
+                }
             });
         }
 
