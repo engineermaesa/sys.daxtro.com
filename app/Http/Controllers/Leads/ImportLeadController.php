@@ -677,6 +677,7 @@ class ImportLeadController extends Controller
             $expenseAmount  = $row['X'] ?? null;
 
             $data = [
+                'preview_index'      => (string) $index,
                 'source_id'         => $sourceId,
                 'segment_id'        => $segmentId,
                 'industry_id'       => $industryId,
@@ -778,11 +779,14 @@ class ImportLeadController extends Controller
             $previewRows[] = $row;
         }
 
+        $previewTableConfig = $this->buildPreviewTableConfig($previewRows, $meetingTypes, $regions, $expenseTypes);
+
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'rows' => $previewRows,
                 'hasError' => $hasError,
                 'valid_count' => count($validRows),
+                'preview_table_config' => $previewTableConfig,
                 'sources' => $sources,
                 'segments' => $segments,
                 'regions' => $regions,
@@ -796,6 +800,7 @@ class ImportLeadController extends Controller
         return $this->render('pages.leads.import', [
             'rows'     => $previewRows,
             'hasError' => $hasError,
+            'previewTableConfig' => $previewTableConfig,
             'sources'  => $sources,
             'segments' => $segments,
             'regions'  => $regions,
@@ -816,6 +821,13 @@ class ImportLeadController extends Controller
 
         if (! empty($sessionRows)) {
             $rowsForImport = $sessionRows;
+
+            $postedIndexes = array_map('strval', array_keys($postedGroups));
+            if (! empty($postedIndexes)) {
+                $rowsForImport = array_values(array_filter($rowsForImport, function ($row) use ($postedIndexes) {
+                    return in_array((string) ($row['preview_index'] ?? ''), $postedIndexes, true);
+                }));
+            }
 
             // Jika user mengubah beberapa field di preview (source/segment/region/dll),
             // apply perubahan tersebut ke semua baris dalam grup yang sama.
@@ -903,7 +915,7 @@ class ImportLeadController extends Controller
                         $base['nip_sales'] = null;
                         break;
                     default:
-                        $status = $row['nip_sales']
+                        $status = $base['nip_sales']
                             ? LeadStatus::COLD
                             : LeadStatus::PUBLISHED;
                         break;
@@ -1071,6 +1083,221 @@ class ImportLeadController extends Controller
         ];
 
         return implode('|', $keyParts);
+    }
+
+    private function buildPreviewTableConfig(array $rows, $meetingTypes, $regions, $expenseTypes): array
+    {
+        $tabs = [
+            'available' => [
+                'label' => 'Available',
+                'headers' => [
+                    '#',
+                    'source_id*',
+                    'segment_id*',
+                    'region_id*',
+                    'lead_name',
+                    'lead_email',
+                    'lead_phone',
+                    'lead_needs',
+                    'published_at',
+                    'status_stage',
+                    'Status',
+                    '',
+                ],
+                'rows' => [],
+            ],
+            'cold' => [
+                'label' => 'Cold',
+                'headers' => [
+                    '#',
+                    'source_id*',
+                    'segment_id*',
+                    'region_id*',
+                    'lead_name',
+                    'lead_email',
+                    'lead_phone',
+                    'lead_needs',
+                    'nip_sales',
+                    'published_at',
+                    'status_stage',
+                    'Status',
+                    '',
+                ],
+                'rows' => [],
+            ],
+            'warm' => [
+                'label' => 'Warm',
+                'headers' => [
+                    '#',
+                    'Meeting Type',
+                    'Meeting URL',
+                    'Start Time Meeting',
+                    'End Time Meeting',
+                    'Meeting City',
+                    'Meeting Address',
+                    'Expense Type',
+                    'Expense Notes',
+                    'Expense Amount',
+                    'Status',
+                    '',
+                ],
+                'rows' => [],
+            ],
+        ];
+
+        $validStages = ['cold', 'warm', 'available'];
+        $availableCounter = 0;
+        $leadSerialCounter = 0;
+        $leadSerialByLinkKey = [];
+        $lastGroupByStage = [
+            'cold' => null,
+            'warm' => null,
+            'available' => null,
+        ];
+        $stagePresenceByLinkKey = [];
+
+        foreach ($rows as $row) {
+            $stage = strtolower(trim((string) ($row['status_stage'] ?? '')));
+            if (! in_array($stage, $validStages, true) || $stage === 'available') {
+                continue;
+            }
+
+            $linkKey = $this->buildPreviewLeadLinkKey($row);
+            if (! isset($stagePresenceByLinkKey[$linkKey])) {
+                $stagePresenceByLinkKey[$linkKey] = ['cold' => false, 'warm' => false];
+            }
+            $stagePresenceByLinkKey[$linkKey][$stage] = true;
+        }
+
+        foreach ($rows as $row) {
+            $stage = strtolower(trim((string) ($row['status_stage'] ?? '')));
+            if (! in_array($stage, $validStages, true)) {
+                continue;
+            }
+
+            $currentGroup = $row['group_key'] ?? (string) ($row['preview_index'] ?? '');
+            $isFirstInGroup = $currentGroup !== $lastGroupByStage[$stage];
+            $linkKey = $this->buildPreviewLeadLinkKey($row);
+
+            if ($stage === 'available') {
+                if ($isFirstInGroup) {
+                    $availableCounter++;
+                }
+                $stageGroupIndex = $availableCounter;
+            } else {
+                if (! isset($leadSerialByLinkKey[$linkKey])) {
+                    $leadSerialCounter++;
+                    $leadSerialByLinkKey[$linkKey] = $leadSerialCounter;
+                }
+                $stageGroupIndex = $leadSerialByLinkKey[$linkKey];
+            }
+
+            $hasWarmStage = ! empty($stagePresenceByLinkKey[$linkKey]['warm']);
+            $displayPrefix = $stage === 'available'
+                ? 'A'
+                : ($hasWarmStage ? 'CW' : 'C');
+            $displayIndex = $displayPrefix . '-' . $stageGroupIndex;
+
+            if (($stage === 'cold' || $stage === 'warm' || $stage === 'available') && $isFirstInGroup) {
+                $coldLikeTab = $stage === 'available' ? 'available' : 'cold';
+                $tabs[$coldLikeTab]['rows'][] = [
+                    'preview_index' => (string) ($row['preview_index'] ?? ''),
+                    'group_key' => $currentGroup,
+                    'group_index' => $stageGroupIndex,
+                    'display_index' => $displayIndex,
+                    'row_class' => ! empty($row['error']) ? 'table-danger' : '',
+                    'error' => $row['error'] ?? '',
+                    'source_id' => $row['source_id'] ?? null,
+                    'segment_id' => $row['segment_id'] ?? null,
+                    'region_id' => $row['region_id'] ?? null,
+                    'lead_name' => $row['lead_name'] ?? null,
+                    'lead_email' => $row['lead_email'] ?? null,
+                    'lead_phone' => $row['lead_phone'] ?? null,
+                    'lead_needs' => $row['lead_needs'] ?? null,
+                    'nip_sales' => $stage === 'available' ? null : ($row['nip_sales'] ?? null),
+                    'published_at' => $row['published_at'] ?? null,
+                    'status_stage' => $row['status_stage'] ?? '',
+                ];
+            }
+
+            $meetingTypeId = $row['meeting_type_id'] ?? null;
+            $meetingCity = $row['meeting_city'] ?? null;
+            $expenseTypeId = $row['expense_type_id'] ?? null;
+
+            if ($stage === 'warm') {
+                $tabs['warm']['rows'][] = [
+                    'preview_index' => (string) ($row['preview_index'] ?? ''),
+                    'group_key' => $currentGroup,
+                    'group_index' => $stageGroupIndex,
+                    'display_index' => $displayIndex,
+                    'is_first_in_group' => $isFirstInGroup,
+                    'row_class' => ! empty($row['error']) ? 'table-danger' : '',
+                    'error' => $row['error'] ?? '',
+                    'meeting_type_label' => $this->resolveCollectionLabel($meetingTypes, $meetingTypeId),
+                    'meeting_url' => $row['meeting_url'] ?? '',
+                    'meeting_start_at' => $row['meeting_start_at'] ?? '',
+                    'meeting_end_at' => $row['meeting_end_at'] ?? '',
+                    'meeting_city_label' => $this->resolveCollectionLabel($regions, $meetingCity),
+                    'meeting_address' => $row['meeting_address'] ?? '',
+                    'expense_type_label' => $this->resolveCollectionLabel($expenseTypes, $expenseTypeId),
+                    'expense_notes' => $row['expense_notes'] ?? '',
+                    'expense_amount' => $row['expense_amount'] ?? '',
+                ];
+            }
+
+            $lastGroupByStage[$stage] = $currentGroup;
+        }
+
+        $defaultTab = 'cold';
+        foreach ($tabs as $stage => $config) {
+            if (! empty($config['rows'])) {
+                $defaultTab = $stage;
+                break;
+            }
+        }
+
+        foreach ($tabs as $stage => &$config) {
+            $config['count'] = count($config['rows'] ?? []);
+            $config['has_rows'] = ($config['count'] ?? 0) > 0;
+        }
+        unset($config);
+
+        return [
+            'default_tab' => $defaultTab,
+            'tabs' => $tabs,
+        ];
+    }
+
+    private function buildPreviewLeadLinkKey(array $row): string
+    {
+        $parts = [
+            $row['source_id']       ?? '',
+            $row['segment_id']      ?? '',
+            $row['industry_id']     ?? '',
+            $row['region_id']       ?? '',
+            $row['company_name']    ?? '',
+            $row['company_address'] ?? '',
+            $row['lead_title']      ?? '',
+            $row['lead_name']       ?? '',
+            $row['lead_position']   ?? '',
+            $row['lead_phone']      ?? '',
+            $row['lead_email']      ?? '',
+            $row['lead_needs']      ?? '',
+            $row['published_at']    ?? '',
+        ];
+
+        return implode('|', $parts);
+    }
+
+    private function resolveCollectionLabel($items, $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        $resolved = $items->firstWhere('id', is_numeric($value) ? (int) $value : $value);
+
+        return (string) ($resolved->name ?? $value);
     }
 
     private function extractIdFromCell($value): ?string

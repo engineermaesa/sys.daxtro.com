@@ -955,7 +955,8 @@ class LeadController extends Controller
         $userBranchId = $user->branch_id && in_array($userRole, ['branch_manager', 'finance', 'accountant', 'purchasing'])
             ? $user->branch_id : null;
 
-        $countsQuery = Lead::select('status_id', DB::raw('COUNT(*) as cnt'))
+        // Keep count filters aligned with manageList() base filters.
+        $countBaseQuery = Lead::query()
             ->whereIn('status_id', [
                 LeadStatus::COLD,
                 LeadStatus::WARM,
@@ -963,11 +964,57 @@ class LeadController extends Controller
                 LeadStatus::DEAL,
             ]);
 
-        if ($userBranchId) {
-            $countsQuery->where('branch_id', $userBranchId);
+        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+        if (! $branchId && $userBranchId) {
+            $branchId = $userBranchId;
         }
 
-        $counts = $countsQuery->groupBy('status_id')->pluck('cnt', 'status_id');
+        if ($branchId) {
+            $countBaseQuery->where(function ($q) use ($branchId) {
+                $q->whereHas('region.branch', function ($subq) use ($branchId) {
+                    $subq->where('id', $branchId);
+                })->orWhere('branch_id', $branchId);
+            });
+        }
+
+        if ($request->filled('region_id')) {
+            $countBaseQuery->where('region_id', $request->region_id);
+        }
+
+        if ($request->filled('sales_id')) {
+            $countBaseQuery->whereHas('claims', function ($q) use ($request) {
+                $q->where('sales_id', $request->sales_id)
+                    ->whereNull('released_at');
+            });
+        }
+
+        if ($request->filled('status_id')) {
+            $countBaseQuery->where('status_id', $request->status_id);
+        }
+
+        $this->applyManageClaimedAtDateFilter($countBaseQuery, $request);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+
+            $countBaseQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('needs', 'like', "%{$search}%")
+                    ->orWhere('customer_type', 'like', "%{$search}%")
+                    ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
+                    ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
+            });
+        }
+
+        $counts = (clone $countBaseQuery)
+            ->select('status_id', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('status_id')
+            ->pluck('cnt', 'status_id');
 
         $coldCounts = $counts[LeadStatus::COLD] ?? 0;
         $warmCounts = $counts[LeadStatus::WARM] ?? 0;
