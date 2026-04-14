@@ -462,15 +462,36 @@ class DashSummaryController extends Controller
                         ->orWhere('company', 'like', "%{$search}%");
                 });
             }
-
-            if ($request->filled('start_date')) {
-                $q->whereDate('created_at', '>=', $request->start_date);
-            }
-
-            if ($request->filled('end_date')) {
-                $q->whereDate('created_at', '<=', $request->end_date);
-            }
         });
+
+        // Samakan basis rentang tanggal dengan grid:
+        // utamakan claimed_at, lalu fallback ke published_at jika claimed_at null.
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            $query->where(function ($dateQ) use ($request) {
+                $dateQ->where(function ($claimedQ) use ($request) {
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $claimedQ->whereDate('claimed_at', '>=', $request->start_date)
+                            ->whereDate('claimed_at', '<=', $request->end_date);
+                    } elseif ($request->filled('start_date')) {
+                        $claimedQ->whereDate('claimed_at', '>=', $request->start_date);
+                    } else {
+                        $claimedQ->whereDate('claimed_at', '<=', $request->end_date);
+                    }
+                })->orWhere(function ($fallbackQ) use ($request) {
+                    $fallbackQ->whereNull('claimed_at')
+                        ->whereHas('lead', function ($leadQ) use ($request) {
+                            if ($request->filled('start_date') && $request->filled('end_date')) {
+                                $leadQ->whereDate('published_at', '>=', $request->start_date)
+                                    ->whereDate('published_at', '<=', $request->end_date);
+                            } elseif ($request->filled('start_date')) {
+                                $leadQ->whereDate('published_at', '>=', $request->start_date);
+                            } else {
+                                $leadQ->whereDate('published_at', '<=', $request->end_date);
+                            }
+                        });
+                });
+            });
+        }
 
         // =========================
         // GET LATEST CLAIM PER LEAD
@@ -478,6 +499,8 @@ class DashSummaryController extends Controller
         $query->whereIn('id', function ($q) {
             $q->select(DB::raw('MAX(id)'))
                 ->from('lead_claims as lc2')
+                ->whereNull('lc2.released_at')
+                ->whereNull('lc2.deleted_at')
                 ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
                 ->groupBy('lead_id');
         });
@@ -950,12 +973,18 @@ class DashSummaryController extends Controller
             ->whereNull('deleted_at')
             ->groupBy('lead_id');
 
-        $rows = Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
-            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
-            ->leftJoin('lead_claims', function ($join) {
-                $join->on('lead_claims.lead_id', '=', 'leads.id')
-                    ->whereNull('lead_claims.released_at');
+        $rows = LeadClaim::query()
+            ->whereNull('lead_claims.released_at')
+            ->whereIn('lead_claims.id', function ($q) {
+                $q->select(DB::raw('MAX(lc2.id)'))
+                    ->from('lead_claims as lc2')
+                    ->whereNull('lc2.released_at')
+                    ->whereNull('lc2.deleted_at')
+                    ->groupBy('lc2.lead_id');
             })
+            ->join('leads', 'leads.id', '=', 'lead_claims.lead_id')
+            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
             ->leftJoinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
                 $join->on('latest_quo.lead_id', '=', 'leads.id');
             })
@@ -976,8 +1005,16 @@ class DashSummaryController extends Controller
                 $q->where('leads.branch_id', $branchId);
             })
             ->when(!empty($startDate) && !empty($endDate), function ($q) use ($startDate, $endDate) {
-                $q->whereDate('leads.created_at', '>=', $startDate)
-                    ->whereDate('leads.created_at', '<=', $endDate);
+                $q->where(function ($dateQ) use ($startDate, $endDate) {
+                    $dateQ->where(function ($claimedQ) use ($startDate, $endDate) {
+                        $claimedQ->whereDate('lead_claims.claimed_at', '>=', $startDate)
+                            ->whereDate('lead_claims.claimed_at', '<=', $endDate);
+                    })->orWhere(function ($fallbackQ) use ($startDate, $endDate) {
+                        $fallbackQ->whereNull('lead_claims.claimed_at')
+                            ->whereDate('leads.published_at', '>=', $startDate)
+                            ->whereDate('leads.published_at', '<=', $endDate);
+                    });
+                });
             })
             ->selectRaw(
                 "lead_sources.name as source,
