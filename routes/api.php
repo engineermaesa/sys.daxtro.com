@@ -61,6 +61,7 @@ Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
 Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'ActiveOpportunities']);
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
+Route::get('/dashboard/lead-volume', [DashSummaryController::class, 'leadVolume']);
 
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
@@ -76,6 +77,7 @@ Route::group([
     Route::get('/dashboard/bm/active-opportunities', [BMSummaryController::class, 'ActiveOpportunities']);
     Route::get('/dashboard/bm/sales-trend', [BMSummaryController::class, 'SalesTrend']);
     Route::get('/dashboard/bm/leads-performance', [BMSummaryController::class, 'LeadsPerformance']);
+    Route::get('/dashboard/bm/lead-volume', [BMSummaryController::class, 'leadVolume']);
 });
 
 
@@ -106,6 +108,7 @@ Route::group([
 
     // Dashboard Leads Summary (API)
     Route::get('/grid', [LeadSummaryController::class, 'grid'])->name('grid');
+    Route::get('/lead-volume', [LeadSummaryController::class, 'leadVolume'])->name('lead-volume');
     Route::get('/active-opportunities', [LeadSummaryController::class, 'ActiveOpportunities'])->name('active-opportunities');
     Route::get('/leads-performance', [LeadSummaryController::class, 'LeadsPerformance'])->name('leads-performance');
     Route::get('/personal-trend', [LeadSummaryController::class, 'PersonalTrend'])->name('personal-trend');

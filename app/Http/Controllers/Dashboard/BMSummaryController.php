@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -326,23 +327,23 @@ class BMSummaryController extends Controller
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
 
-        $activeClaims = LeadClaim::whereNull('released_at')
-            ->with('lead')
-            ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('claimed_at', [$periodStart, $periodEnd])
-                    ->orWhere(function ($sub) use ($periodStart, $periodEnd) {
-                        $sub->whereNull('claimed_at')
-                            ->whereHas('lead', function ($leadQ) use ($periodStart, $periodEnd) {
-                                $leadQ->whereBetween('published_at', [$periodStart, $periodEnd]);
-                            });
-                    });
+        $activeClaims = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+            ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
+            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->whereNull('lead_claims.trash_note')
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
+                    ->where('sales.branch_id', $branchId);
             })
-            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
-                $q->where('branch_id', $branchId);
-                if ($salesId) {
-                    $q->where('id', $salesId);
-                }
-            });
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->select('lead_claims.*')
+            ->with('lead');
 
         // Get active claims, but count unique leads to avoid double-counting
         $claims = $activeClaims->get();
@@ -421,7 +422,19 @@ class BMSummaryController extends Controller
 
         $perPage = $request->get('per_page', 5);
 
-        $query = LeadClaim::whereNull('released_at')
+        $startDate = $request->filled('start_date') ? (string) $request->start_date : null;
+        $endDate = $request->filled('end_date') ? (string) $request->end_date : null;
+
+        if ($startDate && $endDate && $startDate > $endDate) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
+        $periodStart = $startDate ? Carbon::parse($startDate)->startOfDay()->toDateTimeString() : null;
+        $periodEnd = $endDate ? Carbon::parse($endDate)->endOfDay()->toDateTimeString() : null;
+
+        $query = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
             ->with([
                 'lead.product',
                 'lead.segment',
@@ -430,58 +443,55 @@ class BMSummaryController extends Controller
                 'lead.status',
                 'sales',
             ])
-            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
-                $q->where('branch_id', $branchId);
-                if ($salesId) {
-                    $q->where('id', $salesId);
-                }
-            });
-
-        $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
-
-        $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
-
-            $q->whereIn('status_id', $allowedStatuses);
-
-            if ($request->filled('stage')) {
-                $q->where('status_id', $request->stage);
-            }
-
-            if ($request->filled('source_id')) {
-                $q->where('source_id', $request->source_id);
-            }
-
-            if ($request->filled('segment')) {
-                $q->where('segment_id', $request->segment);
-            }
-
-            if ($request->filled('search')) {
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
+            ->whereNull('lead_claims.trash_note')
+            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->when($periodStart && $periodEnd, function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd]);
+            })
+            ->when($periodStart && ! $periodEnd, function ($q) use ($periodStart) {
+                $q->where('lead_claims.claimed_at', '>=', $periodStart);
+            })
+            ->when(! $periodStart && $periodEnd, function ($q) use ($periodEnd) {
+                $q->where('lead_claims.claimed_at', '<=', $periodEnd);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
+                    ->where('sales.branch_id', $branchId);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->when($request->filled('stage'), function ($q) use ($request) {
+                $q->where('leads.status_id', $request->stage);
+            })
+            ->when($request->filled('source_id'), function ($q) use ($request) {
+                $q->where('leads.source_id', $request->source_id);
+            })
+            ->when($request->filled('segment'), function ($q) use ($request) {
+                $q->where('leads.segment_id', $request->segment);
+            })
+            ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->search;
                 $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('company', 'like', "%{$search}%");
+                    $sub->where('leads.name', 'like', "%{$search}%")
+                        ->orWhere('leads.phone', 'like', "%{$search}%")
+                        ->orWhere('leads.company', 'like', "%{$search}%");
                 });
-            }
-
-            if ($request->filled('start_date')) {
-                $q->whereDate('created_at', '>=', $request->start_date);
-            }
-
-            if ($request->filled('end_date')) {
-                $q->whereDate('created_at', '<=', $request->end_date);
-            }
-        });
+            });
 
         // =========================
         // GET LATEST CLAIM PER LEAD
         // =========================
-        $query->whereIn('id', function ($q) {
+        $query->whereIn('lead_claims.id', function ($q) {
             $q->select(DB::raw('MAX(id)'))
                 ->from('lead_claims as lc2')
+                ->whereNull('lc2.released_at')
+                ->whereNull('lc2.deleted_at')
                 ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
                 ->groupBy('lead_id');
-        });
+        })->select('lead_claims.*');
 
         $amountQuery = clone $query;
 
@@ -489,7 +499,7 @@ class BMSummaryController extends Controller
             return (float) ($claim->lead->quotation->grand_total ?? 0);
         });
 
-        $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $paginated = $query->orderByDesc('lead_claims.id')->paginate($perPage);
 
         // =========================
         // TRANSFORM DATA
@@ -750,6 +760,133 @@ class BMSummaryController extends Controller
         ]);
     }
 
+    public function leadVolume(Request $request): JsonResponse
+    {
+        $bm = Auth::user();
+
+        if (! $bm) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+        ]);
+
+        $branchId = $bm->branch_id;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+        $startDate = $validated['start_date'] ?? null;
+        $endDate = $validated['end_date'] ?? null;
+
+        $buildLeadVolumeBaseQuery = function () use ($branchId, $salesId, $startDate, $endDate) {
+            $query = LeadClaim::query()
+                ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+                ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+                ->leftJoin('users as sales_users', 'sales_users.id', '=', 'lead_claims.sales_id')
+                ->whereIn('lead_statuses.id', [2, 3, 4, 5])
+                ->whereNull('lead_claims.trash_note')
+                ->whereNotNull('leads.province')
+                ->whereRaw("TRIM(leads.province) <> ''")
+                ->where('sales_users.branch_id', $branchId)
+                ->when(!empty($salesId), function ($q) use ($salesId) {
+                    $q->where('lead_claims.sales_id', $salesId);
+                });
+
+            if (!empty($startDate) && !empty($endDate)) {
+                $query->whereBetween('lead_claims.claimed_at', [
+                    Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
+                    Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
+                ]);
+            } elseif (!empty($startDate)) {
+                $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
+            } elseif (!empty($endDate)) {
+                $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
+            }
+
+            return $query;
+        };
+
+        $topProvinceRows = $buildLeadVolumeBaseQuery()
+            ->selectRaw('leads.province as province, COUNT(*) as total_leads')
+            ->groupBy('leads.province')
+            ->orderByDesc('total_leads')
+            ->orderBy('leads.province')
+            ->limit(10)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'province' => $row->province,
+                    'total_leads' => (int) $row->total_leads,
+                ];
+            });
+
+        if ($topProvinceRows->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [],
+            ]);
+        }
+
+        $topProvinces = $topProvinceRows->pluck('province')->all();
+
+        $leadDetails = $buildLeadVolumeBaseQuery()
+            ->leftJoin('ref_regions', 'ref_regions.id', '=', 'leads.region_id')
+            ->leftJoin('ref_branches as region_branches', 'region_branches.id', '=', 'ref_regions.branch_id')
+            ->leftJoin('ref_branches as lead_branches', 'lead_branches.id', '=', 'leads.branch_id')
+            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->whereIn('leads.province', $topProvinces)
+            ->orderBy('leads.province')
+            ->orderByDesc('lead_claims.id')
+            ->get([
+                'leads.id as lead_id',
+                'leads.name',
+                'leads.company',
+                'leads.needs',
+                'leads.province',
+                'leads.created_at',
+                'lead_claims.claimed_at',
+                'sales_users.name as sales_name',
+                'ref_regions.name as city_name',
+                'lead_sources.name as source_name',
+                'lead_statuses.name as lead_stage',
+                DB::raw('COALESCE(region_branches.name, lead_branches.name) as branch_name'),
+            ])
+            ->map(function ($row) {
+                return [
+                    'nama' => $row->name ?: $row->company,
+                    'nama_branch' => $row->branch_name ?? '-',
+                    'nama_sales' => $row->sales_name ?? '-',
+                    'nama_kota' => $row->city_name ?? '-',
+                    'nama_provinsi' => $row->province,
+                    'needs' => format_needs_label($row->needs ?? null),
+                    'source' => $row->source_name ?? '-',
+                    'lead_stage' => $row->lead_stage ?? '-',
+                    'created_at' => $row->created_at,
+                    'claimed_at' => $row->claimed_at,
+                ];
+            });
+
+        $leadDetailsByProvince = $leadDetails->groupBy('nama_provinsi');
+
+        $data = $topProvinceRows->map(function ($provinceRow) use ($leadDetailsByProvince) {
+            return [
+                'province' => $provinceRow['province'],
+                'total_leads' => $provinceRow['total_leads'],
+                'leads' => $leadDetailsByProvince->get($provinceRow['province'], collect())->values()->all(),
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+        ]);
+    }
+
     private function calculateSalesAchievementForPeriod(User $user, string $startDate, string $endDate): float
     {
         $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
@@ -801,17 +938,34 @@ class BMSummaryController extends Controller
             ], 401);
         }
 
+        $validated = $request->validate([
+            'sales_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'source_id' => 'nullable|integer|exists:lead_sources,id',
+            'segment_id' => 'nullable|integer|exists:lead_segments,id',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+        ]);
+
         $branchId = $bm->branch_id;
-        $salesId = $request->filled('sales_id') ? (int) $request->input('sales_id') : null;
-        if ($salesId !== null && $salesId <= 0) {
-            $salesId = null;
+        $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
+        $sourceId = $validated['source_id'] ?? null;
+        $segmentId = $validated['segment_id'] ?? null;
+
+        // Keep compatibility with BM page params while aligning core query with DashSummaryController.
+        $startDate = $validated['start_date']
+            ?? $request->input('start_date_source')
+            ?? $request->input('start_date_segment');
+        $endDate = $validated['end_date']
+            ?? $request->input('end_date_source')
+            ?? $request->input('end_date_segment');
+
+        if ($startDate && $endDate && $startDate > $endDate) {
+            [$startDate, $endDate] = [$endDate, $startDate];
         }
 
-        $search = trim((string) $request->input('search', ''));
-        $sourceStartDate = $request->input('start_date_source', $request->input('start_date'));
-        $sourceEndDate = $request->input('end_date_source', $request->input('end_date'));
-        $segmentStartDate = $request->input('start_date_segment', $request->input('start_date'));
-        $segmentEndDate = $request->input('end_date_segment', $request->input('end_date'));
+        $periodStart = $startDate ? Carbon::parse($startDate)->startOfDay()->toDateTimeString() : null;
+        $periodEnd = $endDate ? Carbon::parse($endDate)->endOfDay()->toDateTimeString() : null;
 
         $latestQuotationSubquery = DB::table('quotations')
             ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
@@ -819,43 +973,51 @@ class BMSummaryController extends Controller
             ->whereNull('deleted_at')
             ->groupBy('lead_id');
 
-        $rows = Lead::leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
-            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
-            ->leftJoin('lead_claims', function ($join) {
-                $join->on('lead_claims.lead_id', '=', 'leads.id')
-                    ->whereNull('lead_claims.released_at');
+        $rows = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
+            ->whereNull('lead_claims.trash_note')
+            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->when($periodStart && $periodEnd, function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd]);
             })
+            ->when($periodStart && ! $periodEnd, function ($q) use ($periodStart) {
+                $q->where('lead_claims.claimed_at', '>=', $periodStart);
+            })
+            ->when(! $periodStart && $periodEnd, function ($q) use ($periodEnd) {
+                $q->where('lead_claims.claimed_at', '<=', $periodEnd);
+            })
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
+                    ->where('sales.branch_id', $branchId);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->when(!empty($sourceId), function ($q) use ($sourceId) {
+                $q->where('leads.source_id', $sourceId);
+            })
+            ->when(!empty($segmentId), function ($q) use ($segmentId) {
+                $q->where('leads.segment_id', $segmentId);
+            })
+            ->whereIn('lead_claims.id', function ($q) {
+                $q->select(DB::raw('MAX(lc2.id)'))
+                    ->from('lead_claims as lc2')
+                    ->whereNull('lc2.released_at')
+                    ->whereNull('lc2.deleted_at')
+                    ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
+                    ->groupBy('lc2.lead_id');
+            })
+            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
             ->leftJoinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
                 $join->on('latest_quo.lead_id', '=', 'leads.id');
             })
             ->leftJoin('quotations', function ($join) {
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
                     ->on('quotations.created_at', '=', 'latest_quo.latest_date');
-            })
-            ->where('leads.branch_id', $branchId)
-            ->when($salesId, function ($q) use ($salesId) {
-                $q->where('lead_claims.sales_id', $salesId);
-            })
-            ->when($request->source_id, function ($q) use ($request) {
-                $q->where('leads.source_id', $request->source_id);
-            })
-            ->when($request->segment_id, function ($q) use ($request) {
-                $q->where('leads.segment_id', $request->segment_id);
-            })
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('lead_sources.name', 'like', "%{$search}%")
-                        ->orWhere('lead_segments.name', 'like', "%{$search}%")
-                        ->orWhere('leads.customer_type', 'like', "%{$search}%");
-                });
-            })
-            ->when($sourceStartDate && $sourceEndDate, function ($q) use ($sourceStartDate, $sourceEndDate) {
-                $q->whereDate('leads.created_at', '>=', $sourceStartDate)
-                    ->whereDate('leads.created_at', '<=', $sourceEndDate);
-            })
-            ->when($segmentStartDate && $segmentEndDate, function ($q) use ($segmentStartDate, $segmentEndDate) {
-                $q->whereDate('leads.created_at', '>=', $segmentStartDate)
-                    ->whereDate('leads.created_at', '<=', $segmentEndDate);
             })
             ->selectRaw(
                 "lead_sources.name as source,

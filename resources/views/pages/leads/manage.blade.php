@@ -25,7 +25,7 @@
                     <p class="text-[#3F80EA] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Cold Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['cold'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="cold">{{ $leadCounts['cold'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -49,7 +49,7 @@
                     <p class="text-[#E5A000] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Warm Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['warm'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="warm">{{ $leadCounts['warm'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -73,7 +73,7 @@
                     <p class="text-[#EC221F] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Hot Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['hot'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="hot">{{ $leadCounts['hot'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -97,7 +97,7 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="deal">{{ $leadCounts['deal'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -394,7 +394,7 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="deal">{{ $leadCounts['deal'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -526,7 +526,7 @@
                         class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
                         <p class="text-[#083224]">
                             {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                            <span class="{{ 
+                            <span data-manage-tab-count="{{ $tab }}" class="{{ 
                                                 $tab === 'all' 
                                                     ? 'span-all' 
                                                     : ($tab === 'cold' 
@@ -788,6 +788,8 @@
             hot: {{ $leadCounts['hot'] ?? 0 }},
             deal: {{ $leadCounts['deal'] ?? 0 }}
         };
+
+        let manageCountsRequestToken = 0;
 
         const selectedLeadIds = new Set();
         let isManageExportSubmitting = false;
@@ -1180,6 +1182,34 @@
             };
         }
 
+        function normalizeManageCounts(leadCounts = {}) {
+            return {
+                all: Number(leadCounts?.all ?? 0),
+                cold: Number(leadCounts?.cold ?? 0),
+                warm: Number(leadCounts?.warm ?? 0),
+                hot: Number(leadCounts?.hot ?? 0),
+                deal: Number(leadCounts?.deal ?? 0),
+            };
+        }
+
+        function renderManageCounts(leadCounts = {}) {
+            const normalizedCounts = normalizeManageCounts(leadCounts);
+
+            Object.assign(totals, normalizedCounts);
+
+            ['cold', 'warm', 'hot', 'deal'].forEach((stage) => {
+                document.querySelectorAll(`[data-manage-card-count="${stage}"]`).forEach((node) => {
+                    node.textContent = normalizedCounts[stage];
+                });
+            });
+
+            Object.entries(normalizedCounts).forEach(([stage, value]) => {
+                document.querySelectorAll(`[data-manage-tab-count="${stage}"]`).forEach((node) => {
+                    node.textContent = stage === 'all' ? `(${value})` : String(value);
+                });
+            });
+        }
+
         function getSelectedOptionLabel(selectId) {
             const select = document.getElementById(selectId);
 
@@ -1267,6 +1297,12 @@
             }
         }
 
+        function buildManageCountUrl() {
+            const params = new URLSearchParams();
+            applyManageGeneralFilterToParams(params);
+            return `/api/leads/manage/counts?${params.toString()}`;
+        }
+
         function buildManageListUrl(tab, page, perPage) {
             const params = new URLSearchParams();
             params.append('page', page);
@@ -1279,6 +1315,30 @@
             applyManageGeneralFilterToParams(params);
 
             return `/api/leads/manage/list?${params.toString()}`;
+        }
+
+        async function loadManageCounts() {
+            const currentRequestToken = ++manageCountsRequestToken;
+
+            try {
+                const response = await fetch(buildManageCountUrl(), {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (currentRequestToken !== manageCountsRequestToken) {
+                    return;
+                }
+
+                renderManageCounts(result.leadCounts || result);
+            } catch (error) {
+                console.error('Gagal memuat manage counts:', error);
+            }
         }
 
         function syncSalesOptionsWithBranch() {
@@ -1498,23 +1558,27 @@
             const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
             pageSizeState[tab] = size;
             pageState[tab] = 1;
-            reloadTab(tab);
+            reloadTab(tab, { refreshCounts: false });
         }
 
         function goPrev(tab) {
             if ((pageState[tab] || 1) > 1) {
                 pageState[tab] = pageState[tab] - 1;
-                reloadTab(tab);
+                reloadTab(tab, { refreshCounts: false });
             }
         }
 
         function goNext(tab) {
             pageState[tab] = (pageState[tab] || 1) + 1;
-            reloadTab(tab);
+            reloadTab(tab, { refreshCounts: false });
         }
 
-        function reloadTab(tab) {
+        function reloadTab(tab, options = {}) {
+            const refreshCounts = options.refreshCounts !== false;
             loadManageLeads(tab);
+            if (refreshCounts) {
+                loadManageCounts();
+            }
         }
 
         // LOAD THE MAIN DATA TO THE TABLE (DATA-CONTAINER)
@@ -1538,7 +1602,6 @@
                 const result = await response.json();
 
                 updatePagerUI(tab, result.total);
-                totals[tab] = result.total || 0;
                 renderManageRows(tab, result.data || []);
             } catch (error) {
                 console.error(`Gagal load leads (${config.bodyId}):`, error);

@@ -1,6 +1,6 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Personal KPI</h1>
 
-<div class="grid grid-cols-3 gap-3 mt-2">
+<div class="grid grid-cols-2 2xl:grid-cols-3 gap-3 mt-2">
     {{-- ACHIEVEMENT VS TARGET SALE AMOUNT SECTION--}}
     <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
 

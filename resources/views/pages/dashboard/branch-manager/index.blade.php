@@ -2,8 +2,11 @@
     {{-- FILTERING --}}
     @include('pages.dashboard.branch-manager.filtering')
 
-    {{-- PERSONAL KPI GRID --}}
+    {{-- SALES KPI GRID --}}
     @include('pages.dashboard.branch-manager.sales-kpi')
+
+    {{-- REGIONAL REACH --}}
+    @include('pages.dashboard.branch-manager.regional-reach')
 
     {{-- ACTIVITY OPPORTUNITIES --}}
     @include('pages.dashboard.branch-manager.active-opportunities')
@@ -11,11 +14,11 @@
     {{-- LEADS PERFORMANCE--}}
     @include('pages.dashboard.branch-manager.leads-performance')
 
-    {{-- PERSONAL TRENDS --}}
+    {{-- SALES TRENDS --}}
     @include('pages.dashboard.branch-manager.sales-trends')
 
     {{-- SUMMARY --}}
-    @include('pages.dashboard.branch-manager.summary')
+    {{-- @include('pages.dashboard.branch-manager.summary') --}}
 
 </section>
 

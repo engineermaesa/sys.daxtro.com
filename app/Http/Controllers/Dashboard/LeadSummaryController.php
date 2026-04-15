@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, Lead, LeadActivityLog};
 use Carbon\Carbon;
@@ -290,27 +291,25 @@ class LeadSummaryController extends Controller
         $conversionRate = $potentialTotalOpportunity > 0
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
+        $branchId = $user?->branch_id;
+        $salesId = $user?->id;
 
-
-        $activeClaims = LeadClaim::whereNull('released_at')
-            ->with('lead')
-            ->where(function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('claimed_at', [$periodStart, $periodEnd])
-                    ->orWhere(function ($sub) use ($periodStart, $periodEnd) {
-                        $sub->whereNull('claimed_at')
-                            ->whereHas('lead', function ($leadQ) use ($periodStart, $periodEnd) {
-                                $leadQ->whereBetween('published_at', [$periodStart, $periodEnd]);
-                            });
-                    });
-            });
-
-        if ($roleCode === 'sales') {
-            $activeClaims->where('sales_id', $user?->id);
-        } elseif ($roleCode === 'branch_manager') {
-            $activeClaims->whereHas('sales', function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id);
-            });
-        }
+        $activeClaims = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+            ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
+            ->whereIn('lead_statuses.id', [2, 3, 4, 5])
+            ->whereNull('lead_claims.trash_note')
+            ->whereNull('lead_claims.released_at')
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
+                    ->where('sales.branch_id', $branchId);
+            })
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            })
+            ->select('lead_claims.*')
+            ->with('lead');
 
         // Get active claims, but count unique leads to avoid double-counting
         $claims = $activeClaims->get();
@@ -746,6 +745,129 @@ class LeadSummaryController extends Controller
                 'data' => $bySegment,
                 'summary' => $summaryBySegment
             ]
+        ]);
+    }
+
+    public function leadVolume(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+        ]);
+
+        $branchId = $user->branch_id;
+        $salesId = $user->id;
+        $startDate = $validated['start_date'] ?? null;
+        $endDate = $validated['end_date'] ?? null;
+
+        $buildLeadVolumeBaseQuery = function () use ($branchId, $salesId, $startDate, $endDate) {
+            $query = LeadClaim::query()
+                ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+                ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+                ->leftJoin('users as sales_users', 'sales_users.id', '=', 'lead_claims.sales_id')
+                ->whereIn('lead_statuses.id', [2, 3, 4, 5])
+                ->whereNull('lead_claims.trash_note')
+                ->whereNotNull('leads.province')
+                ->whereRaw("TRIM(leads.province) <> ''")
+                ->where('sales_users.branch_id', $branchId)
+                ->where('lead_claims.sales_id', $salesId);
+
+            if (!empty($startDate) && !empty($endDate)) {
+                $query->whereBetween('lead_claims.claimed_at', [
+                    Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
+                    Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
+                ]);
+            } elseif (!empty($startDate)) {
+                $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
+            } elseif (!empty($endDate)) {
+                $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
+            }
+
+            return $query;
+        };
+
+        $topProvinceRows = $buildLeadVolumeBaseQuery()
+            ->selectRaw('leads.province as province, COUNT(*) as total_leads')
+            ->groupBy('leads.province')
+            ->orderByDesc('total_leads')
+            ->orderBy('leads.province')
+            ->limit(10)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'province' => $row->province,
+                    'total_leads' => (int) $row->total_leads,
+                ];
+            });
+
+        if ($topProvinceRows->isEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [],
+            ]);
+        }
+
+        $topProvinces = $topProvinceRows->pluck('province')->all();
+
+        $leadDetails = $buildLeadVolumeBaseQuery()
+            ->leftJoin('ref_regions', 'ref_regions.id', '=', 'leads.region_id')
+            ->leftJoin('ref_branches as region_branches', 'region_branches.id', '=', 'ref_regions.branch_id')
+            ->leftJoin('ref_branches as lead_branches', 'lead_branches.id', '=', 'leads.branch_id')
+            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->whereIn('leads.province', $topProvinces)
+            ->orderBy('leads.province')
+            ->orderByDesc('lead_claims.id')
+            ->get([
+                'leads.id as lead_id',
+                'leads.name',
+                'leads.company',
+                'leads.needs',
+                'leads.province',
+                'leads.created_at',
+                'lead_claims.claimed_at',
+                'sales_users.name as sales_name',
+                'ref_regions.name as city_name',
+                'lead_sources.name as source_name',
+                'lead_statuses.name as lead_stage',
+                DB::raw('COALESCE(region_branches.name, lead_branches.name) as branch_name'),
+            ])
+            ->map(function ($row) {
+                return [
+                    'nama' => $row->name ?: $row->company,
+                    'nama_branch' => $row->branch_name ?? '-',
+                    'nama_sales' => $row->sales_name ?? '-',
+                    'nama_kota' => $row->city_name ?? '-',
+                    'nama_provinsi' => $row->province,
+                    'needs' => format_needs_label($row->needs ?? null),
+                    'source' => $row->source_name ?? '-',
+                    'lead_stage' => $row->lead_stage ?? '-',
+                    'created_at' => $row->created_at,
+                    'claimed_at' => $row->claimed_at,
+                ];
+            });
+
+        $leadDetailsByProvince = $leadDetails->groupBy('nama_provinsi');
+
+        $data = $topProvinceRows->map(function ($provinceRow) use ($leadDetailsByProvince) {
+            return [
+                'province' => $provinceRow['province'],
+                'total_leads' => $provinceRow['total_leads'],
+                'leads' => $leadDetailsByProvince->get($provinceRow['province'], collect())->values()->all(),
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
         ]);
     }
 
