@@ -146,6 +146,8 @@ Route::group([
             ->name('list');
         Route::get('/counts', [LeadController::class, 'manageCounts'])
             ->name('counts');
+        Route::get('/summary', [LeadController::class, 'manageSummary'])
+            ->name('summary');
 
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('form');

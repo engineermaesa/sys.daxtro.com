@@ -327,33 +327,68 @@ class BMSummaryController extends Controller
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
 
-        $activeClaims = LeadClaim::query()
+        $claimedQuery = DB::table('lead_claims')
             ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
-            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+            ->when(!empty($branchId), function ($q) use ($branchId) {
+                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
+                ->where('sales.branch_id', $branchId);
+            })
             ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
-            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->whereIn('leads.status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ])
             ->whereNull('lead_claims.trash_note')
             ->whereNull('lead_claims.released_at')
             ->whereNull('lead_claims.deleted_at')
-            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
-                    ->where('sales.branch_id', $branchId);
-            })
             ->when(!empty($salesId), function ($q) use ($salesId) {
                 $q->where('lead_claims.sales_id', $salesId);
             })
-            ->select('lead_claims.*')
-            ->with('lead');
+            ->selectRaw("
+                leads.id AS lead_id,
+                lead_claims.id AS claim_id,
+                lead_claims.sales_id,
+                lead_claims.claimed_at AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'claim' AS source_type
+            ");
 
-        // Get active claims, but count unique leads to avoid double-counting
-        $claims = $activeClaims->get();
+        $publishedQuery = DB::table('leads')
+            ->whereBetween('leads.published_at', [$periodStart, $periodEnd])
+            ->where('leads.status_id', LeadStatus::PUBLISHED) // kalau status published = NEW / 1
+            ->when(!empty($branchId), function ($q) use ($branchId) {
+                $q->where('leads.branch_id', $branchId);
+            })
+            ->selectRaw("
+                leads.id AS lead_id,
+                NULL AS claim_id,
+                NULL AS sales_id,
+                NULL AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'published' AS source_type
+            ");
 
-        // Extract lead models from claims, remove nulls, and ensure uniqueness by lead id
-        $uniqueLeads = $claims->pluck('lead')->filter()->unique('id');
+        $unionRows = $claimedQuery
+            ->unionAll($publishedQuery)
+            ->get();
+
+        $leadIds = $unionRows->pluck('lead_id')->filter()->unique()->values();
+
+        $uniqueLeads = Lead::query()
+            ->whereIn('id', $leadIds)
+            ->get()
+            ->unique('id');
 
         // Group unique leads by their status and count per status
         $counts = $uniqueLeads->groupBy('status_id')->map->count();
 
+        $published = (int) ($counts[LeadStatus::PUBLISHED] ?? 0);
         $cold = (int) ($counts[LeadStatus::COLD] ?? 0);
         $warm = (int) ($counts[LeadStatus::WARM] ?? 0);
         $hot  = (int) ($counts[LeadStatus::HOT] ?? 0);
@@ -370,6 +405,7 @@ class BMSummaryController extends Controller
         $activeLeads = [
             'total' => $totalActive,
             'trash' => $trash,
+            'published' => $published,
             'cold' => $cold,
             'warm' => $warm,
             'hot' => $hot,
@@ -788,7 +824,7 @@ class BMSummaryController extends Controller
                 ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
                 ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
                 ->leftJoin('users as sales_users', 'sales_users.id', '=', 'lead_claims.sales_id')
-                ->whereIn('lead_statuses.id', [2, 3, 4, 5])
+                ->whereIn('lead_statuses.id', [1, 2, 3, 4, 5])
                 ->whereNull('lead_claims.trash_note')
                 ->whereNotNull('leads.province')
                 ->whereRaw("TRIM(leads.province) <> ''")
@@ -854,10 +890,11 @@ class BMSummaryController extends Controller
                 'ref_regions.name as city_name',
                 'lead_sources.name as source_name',
                 'lead_statuses.name as lead_stage',
-                DB::raw('COALESCE(region_branches.name, lead_branches.name) as branch_name'),
+                'lead_branches.name as branch_name',
             ])
             ->map(function ($row) {
                 return [
+                    'id' => $row->lead_id,
                     'nama' => $row->name ?: $row->company,
                     'nama_branch' => $row->branch_name ?? '-',
                     'nama_sales' => $row->sales_name ?? '-',
@@ -979,7 +1016,7 @@ class BMSummaryController extends Controller
             ->whereNull('lead_claims.released_at')
             ->whereNull('lead_claims.deleted_at')
             ->whereNull('lead_claims.trash_note')
-            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->whereIn('lead_statuses.id', [LeadStatus::PUBLISHED, LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
             ->when($periodStart && $periodEnd, function ($q) use ($periodStart, $periodEnd) {
                 $q->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd]);
             })

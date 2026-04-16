@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog};
 use App\Services\AutoTrashService;
+use App\Services\MyLeadQueryService;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Carbon;
 
@@ -16,11 +17,9 @@ class HotLeadController extends Controller
     {
         AutoTrashService::triggerIfNeeded();
 
-        $user     = $request->user();
-        $roleCode = $user->role?->code;
         $perPage  = $request->get('per_page', 10);
         
-        $claimsQuery = LeadClaim::with([
+        $claimsQuery = MyLeadQueryService::baseClaimsQuery($request, LeadStatus::HOT, [
             'lead.statusLogs' => fn($q) => $q->where('status_id', LeadStatus::HOT)
                                             ->orderByDesc('created_at'),
             'lead.segment',
@@ -29,87 +28,10 @@ class HotLeadController extends Controller
             'lead.region.regional',
             'lead.quotation',
             'sales'
-        ])
-        ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
-        ->whereNull('released_at');
-
-        $roleCode = $request->user()->role?->code;
-
-        if ($roleCode === 'sales') {
-        $claimsQuery->where('sales_id', $user->id);
-
-        } elseif ($roleCode === 'branch_manager') {
-            $claimsQuery->whereHas('sales', function ($q) use ($user) {
-                $q->where('branch_id', $user->branch_id);
-            });
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-
-            $claimsQuery->where(function ($query) use ($search) {
-                // Lead basic fields + needs + customer type
-                $query->whereHas('lead', function ($q) use ($search) {
-                    $q->where(function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('needs', 'like', "%{$search}%")
-                            ->orWhere('customer_type', 'like', "%{$search}%");
-                    });
-                })
-                // Sales name
-                ->orWhereHas('sales', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Source name
-                ->orWhereHas('lead.source', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // City name
-                ->orWhereHas('lead.region', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Regional name
-                ->orWhereHas('lead.region.regional', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                });
-            });
-        }
-
-        // FILTER DATE
-        if ($request->filled('start_date') || $request->filled('end_date')) {
-            $claimsQuery->whereHas('lead', function ($q) use ($request) {
-                if ($request->filled('start_date') && $request->filled('end_date')) {
-                    $q->whereDate('claimed_at', '>=', $request->start_date)
-                        ->whereDate('claimed_at', '<=', $request->end_date);
-                } elseif ($request->filled('start_date')) {
-                    $q->whereDate('claimed_at', '>=', $request->start_date);
-                } else {
-                    $q->whereDate('claimed_at', '<=', $request->end_date);
-                }
-            });
-        }
-
-        // Source filter
-        if ($request->filled('sources')) {
-            $source = $request->input('sources');
-
-            if (is_string($source) && str_contains($source, ',')) {
-                $source = array_filter(array_map('trim', explode(',', $source)));
-            }
-
-            $claimsQuery->whereHas('lead', function ($q) use ($source) {
-                if (is_array($source)) {
-                    $q->whereIn('source_id', $source);
-                } else {
-                    $q->where('source_id', $source);
-                }
-            });
-        }
+        ]);
 
         $paginated = $claimsQuery
-            ->orderByDesc('id')
+            ->orderByDesc('lead_claims.id')
             ->paginate($perPage);
 
         $paginated->getCollection()->transform(function ($row) {

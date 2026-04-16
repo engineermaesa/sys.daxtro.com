@@ -32,7 +32,7 @@
         loadSource();
         loadSegment();
         loadPersonalTrends();
-        loadSummary();
+        // loadSummary();
 
         function initFlatpickr() {
             var input = document.getElementById('source-date-range');

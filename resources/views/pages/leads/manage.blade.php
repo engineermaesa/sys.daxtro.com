@@ -790,6 +790,7 @@
         };
 
         let manageCountsRequestToken = 0;
+        let manageSummaryRequestToken = 0;
 
         const selectedLeadIds = new Set();
         let isManageExportSubmitting = false;
@@ -1303,6 +1304,12 @@
             return `/api/leads/manage/counts?${params.toString()}`;
         }
 
+        function buildManageSummaryUrl() {
+            const params = new URLSearchParams();
+            applyManageGeneralFilterToParams(params);
+            return `/api/leads/manage/summary?${params.toString()}`;
+        }
+
         function buildManageListUrl(tab, page, perPage) {
             const params = new URLSearchParams();
             params.append('page', page);
@@ -1558,26 +1565,30 @@
             const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
             pageSizeState[tab] = size;
             pageState[tab] = 1;
-            reloadTab(tab, { refreshCounts: false });
+            reloadTab(tab, { refreshCounts: false, refreshSummary: false });
         }
 
         function goPrev(tab) {
             if ((pageState[tab] || 1) > 1) {
                 pageState[tab] = pageState[tab] - 1;
-                reloadTab(tab, { refreshCounts: false });
+                reloadTab(tab, { refreshCounts: false, refreshSummary: false });
             }
         }
 
         function goNext(tab) {
             pageState[tab] = (pageState[tab] || 1) + 1;
-            reloadTab(tab, { refreshCounts: false });
+            reloadTab(tab, { refreshCounts: false, refreshSummary: false });
         }
 
         function reloadTab(tab, options = {}) {
             const refreshCounts = options.refreshCounts !== false;
+            const refreshSummary = options.refreshSummary !== false;
             loadManageLeads(tab);
             if (refreshCounts) {
                 loadManageCounts();
+            }
+            if (refreshSummary) {
+                loadManageSummary();
             }
         }
 
@@ -1610,79 +1621,96 @@
         }
         
         // LOAD THE SUMMARY ON CARDS (FORCardsCounts)
-        $(document).ready(function () {
-            loadColdSummary();
-            loadWarmSummary();
-            loadHotSummary();
-        });
+        async function loadManageSummary() {
+            const currentRequestToken = ++manageSummaryRequestToken;
 
-        function loadColdSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderColdSummary(response.cold);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
+            try {
+                const response = await fetch(buildManageSummaryUrl(), {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            });
-        }
 
-        function renderColdSummary(cold) {
-            $("#summary-cold-total").text(cold.total);
-            $("#summary-cold-raw").text(`( ${cold.raw} Raw Leads )`);
-            $("#summary-initiation-count").text(cold.initiation);
-            $("#summary-total-pending").text(cold.approval_status);
-            $("#summary-pending-count").text(`( ${cold.pending} Pending & `);
-            $("#summary-rejected-count").text(`${cold.rejected} Rejected )`);
-            $("#summary-total-meeting").text(cold.meeting_scheduled);
-            $("#summary-meeting-online").text(`( ${cold.meet_online} Online & `);
-            $("#summary-meeting-offline").text(`${cold.meet_offline} Offline )`);
-        }
+                const summary = await response.json();
 
-        function loadWarmSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderWarmSummary(response.warm);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
+                if (currentRequestToken !== manageSummaryRequestToken) {
+                    return;
                 }
-            });
+
+                renderManageSummary(summary || {});
+            } catch (error) {
+                console.error('Gagal memuat manage summary:', error);
+            }
         }
 
-        function renderWarmSummary(warm) {
-            $("#summary-warm-total").text(warm.total);
-            $("#summary-warm-no-quotation").text(`( ${warm.no_quotation} No Quotation )`);
-            $("#summary-warm-total-pending").text(warm.approval_status);
-            $("#summary-warm-pending-count").text(`( ${warm.pending} Pending & `);
-            $("#summary-warm-rejected-count").text(`${warm.rejected} Rejected )`);
-            $("#summary-warm-quotations").text(`${warm.quotation_published}`);
-        }
-        
-        function loadHotSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderHotSummary(response.hot);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
-                }
-            });
+        function renderManageSummary(summary = {}) {
+            const leadCounts = summary.leadCounts || {};
+
+            if (Object.keys(leadCounts).length > 0) {
+                renderManageCounts(leadCounts);
+            }
+
+            renderColdSummary(summary.cold || {});
+            renderWarmSummary(summary.warm || {});
+            renderHotSummary(summary.hot || {});
+            renderDealSummary(summary.deal || {});
         }
 
-        function renderHotSummary(hot) {
-            $("#summary-hot-total").text(hot.total);
-            $("#summary-hot-expire-7-days").text(hot.expiring_7_days);
-            $("#summary-hot-expire-8-days-more").text(hot.expiring_8_plus_days);
+        function renderColdSummary(cold = {}) {
+            const total = Number(cold.total ?? 0);
+            const raw = Number(cold.raw ?? 0);
+            const initiation = Number(cold.initiation ?? 0);
+            const approvalStatus = Number(cold.approval_status ?? 0);
+            const pending = Number(cold.pending ?? 0);
+            const rejected = Number(cold.rejected ?? 0);
+            const meetingScheduled = Number(cold.meeting_scheduled ?? 0);
+            const meetOnline = Number(cold.meet_online ?? 0);
+            const meetOffline = Number(cold.meet_offline ?? 0);
+
+            $("#summary-cold-total").text(total);
+            $("#summary-cold-raw").text(`( ${raw} Raw Leads )`);
+            $("#summary-initiation-count").text(initiation);
+            $("#summary-total-pending").text(approvalStatus);
+            $("#summary-pending-count").text(`( ${pending} Pending & `);
+            $("#summary-rejected-count").text(`${rejected} Rejected )`);
+            $("#summary-total-meeting").text(meetingScheduled);
+            $("#summary-meeting-online").text(`( ${meetOnline} Online & `);
+            $("#summary-meeting-offline").text(`${meetOffline} Offline )`);
+        }
+
+        function renderWarmSummary(warm = {}) {
+            const total = Number(warm.total ?? 0);
+            const noQuotation = Number(warm.no_quotation ?? 0);
+            const approvalStatus = Number(warm.approval_status ?? 0);
+            const pending = Number(warm.pending ?? 0);
+            const rejected = Number(warm.rejected ?? 0);
+            const quotationPublished = Number(warm.quotation_published ?? 0);
+
+            $("#summary-warm-total").text(total);
+            $("#summary-warm-no-quotation").text(`( ${noQuotation} No Quotation )`);
+            $("#summary-warm-total-pending").text(approvalStatus);
+            $("#summary-warm-pending-count").text(`( ${pending} Pending & `);
+            $("#summary-warm-rejected-count").text(`${rejected} Rejected )`);
+            $("#summary-warm-quotations").text(`${quotationPublished}`);
+        }
+
+        function renderHotSummary(hot = {}) {
+            const total = Number(hot.total ?? 0);
+            const expiringSoon = Number(hot.expiring_7_days ?? 0);
+            const expiringLater = Number(hot.expiring_8_plus_days ?? 0);
+
+            $("#summary-hot-total").text(total);
+            $("#summary-hot-expire-7-days").text(expiringSoon);
+            $("#summary-hot-expire-8-days-more").text(expiringLater);
+        }
+
+        function renderDealSummary(deal = {}) {
+            const total = Number(deal.total ?? totals.deal ?? 0);
+            document.querySelectorAll('[data-manage-card-count="deal"]').forEach((node) => {
+                node.textContent = total;
+            });
         }
 
         // SEARCH SECTION BY SEARCHINPUT

@@ -122,7 +122,7 @@
         <div>
             <div class="mt-3 text-[#757575]">
                 <p id="totalLeads">0/</p>
-                <p id="totalTrash">Trash Leads: 0</p>
+                <p id="totalAvailable">Available Leads: 0</p>
             </div>
 
             <div class="flex items-center justify-start gap-3 mt-3">
@@ -300,7 +300,7 @@
 
             // TOTAL ACTIVE LEADS FETCH DATA CARDS
             $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-lg lg:text-2xl');
-            $("#totalTrash").text("Trash Leads: " + data.active_leads.trash).addClass('text-xs');
+            $("#totalAvailable").text("Available Leads: " + data.active_leads.published).addClass('text-xs');
 
             $("#coldLeads").text(data.active_leads.cold + ' Cold').addClass('text-xs');
             $("#warmLeads").text(data.active_leads.warm + ' Warm').addClass('text-xs');

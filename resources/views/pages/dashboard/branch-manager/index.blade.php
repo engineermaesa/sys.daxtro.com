@@ -30,7 +30,6 @@
         loadSource();
         loadSegment();
         loadPersonalTrends();
-        loadSummary();
     });
     
     // PAGINATION STATE

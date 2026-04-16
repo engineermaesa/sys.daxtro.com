@@ -294,32 +294,61 @@ class LeadSummaryController extends Controller
         $branchId = $user?->branch_id;
         $salesId = $user?->id;
 
-        $activeClaims = LeadClaim::query()
+        $claimedQuery = DB::table('lead_claims')
             ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
-            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
             ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
-            ->whereIn('lead_statuses.id', [2, 3, 4, 5])
+            ->whereIn('leads.status_id', [2, 3, 4, 5])
             ->whereNull('lead_claims.trash_note')
             ->whereNull('lead_claims.released_at')
             ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
-                    ->where('sales.branch_id', $branchId);
+                $q->where('leads.branch_id', $branchId);
             })
             ->when(!empty($salesId), function ($q) use ($salesId) {
                 $q->where('lead_claims.sales_id', $salesId);
             })
-            ->select('lead_claims.*')
-            ->with('lead');
+            ->selectRaw("
+                leads.id AS lead_id,
+                lead_claims.id AS claim_id,
+                lead_claims.sales_id,
+                lead_claims.claimed_at AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'claim' AS source_type
+            ");
 
-        // Get active claims, but count unique leads to avoid double-counting
-        $claims = $activeClaims->get();
+        $publishedQuery = DB::table('leads')
+            ->whereBetween('leads.published_at', [$periodStart, $periodEnd])
+            ->where('leads.status_id', 1)
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('leads.branch_id', $branchId);
+            })
+            ->selectRaw("
+                leads.id AS lead_id,
+                NULL AS claim_id,
+                NULL AS sales_id,
+                NULL AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'published' AS source_type
+            ");
 
-        // Extract lead models from claims, remove nulls, and ensure uniqueness by lead id
-        $uniqueLeads = $claims->pluck('lead')->filter()->unique('id');
+        $unionRows = $claimedQuery
+            ->unionAll($publishedQuery)
+            ->get();
+
+        $leadIds = $unionRows->pluck('lead_id')->filter()->unique()->values();
+
+        $uniqueLeads = Lead::query()
+            ->whereIn('id', $leadIds)
+            ->get()
+            ->unique('id');
 
         // Group unique leads by their status and count per status
         $counts = $uniqueLeads->groupBy('status_id')->map->count();
 
+        $published = (int) ($counts[LeadStatus::PUBLISHED] ?? 0);
         $cold = $counts[LeadStatus::COLD] ?? 0;
         $warm = $counts[LeadStatus::WARM] ?? 0;
         $hot  = $counts[LeadStatus::HOT] ?? 0;
@@ -342,6 +371,7 @@ class LeadSummaryController extends Controller
         $activeLeads = [
             'total' => $totalActive,
             'trash' => $trash,
+            'published' => $published,
             'cold' => $cold,
             'warm' => $warm,
             'hot' => $hot,

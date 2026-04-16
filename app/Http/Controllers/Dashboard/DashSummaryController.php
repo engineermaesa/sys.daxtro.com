@@ -326,28 +326,68 @@ class DashSummaryController extends Controller
             ? round(($closedDeals / $potentialTotalOpportunity) * 100, 2)
             : 0;
 
-        // Global active claims, lalu hitung unique lead agar tidak double count antar sales/branch.
-       $activeClaims = LeadClaim::query()
+        // Global active leads for super admin: branch dan sales hanya difilter jika param tersedia.
+        $claimedQuery = DB::table('lead_claims')
             ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
-            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
-            ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
-            ->whereIn('lead_statuses.id', [2, 3, 4, 5])
-            ->whereNull('lead_claims.trash_note')
-            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+            ->when(!empty($branchId), function ($q) use ($branchId) {
                 $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
-                ->where('sales.branch_id', $branchId);
+                    ->where('sales.branch_id', $branchId);
             })
+            ->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd])
+            ->whereIn('leads.status_id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ])
+            ->whereNull('lead_claims.trash_note')
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
             ->when(!empty($salesId), function ($q) use ($salesId) {
                 $q->where('lead_claims.sales_id', $salesId);
             })
-            ->select('lead_claims.*')
-            ->with('lead');
+            ->selectRaw("
+                leads.id AS lead_id,
+                lead_claims.id AS claim_id,
+                lead_claims.sales_id,
+                lead_claims.claimed_at AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'claim' AS source_type
+            ");
 
-        $activeClaimRows = $activeClaims->get();
-        $uniqueLeads = $activeClaimRows->pluck('lead')->filter()->unique('id');
+        $publishedQuery = DB::table('leads')
+            ->whereBetween('leads.published_at', [$periodStart, $periodEnd])
+            ->where('leads.status_id', LeadStatus::PUBLISHED)
+            ->when(!empty($branchId), function ($q) use ($branchId) {
+                $q->where('leads.branch_id', $branchId);
+            })
+            ->selectRaw("
+                leads.id AS lead_id,
+                NULL AS claim_id,
+                NULL AS sales_id,
+                NULL AS activity_date,
+                leads.published_at,
+                leads.status_id,
+                leads.branch_id,
+                'published' AS source_type
+            ");
+
+        $unionRows = $claimedQuery
+            ->unionAll($publishedQuery)
+            ->get();
+
+        $leadIds = $unionRows->pluck('lead_id')->filter()->unique()->values();
+
+        $uniqueLeads = Lead::query()
+            ->whereIn('id', $leadIds)
+            ->get()
+            ->unique('id');
 
         $counts = $uniqueLeads->groupBy('status_id')->map->count();
 
+        $published = (int) ($counts[LeadStatus::PUBLISHED] ?? 0);
         $cold = (int) ($counts[LeadStatus::COLD] ?? 0);
         $warm = (int) ($counts[LeadStatus::WARM] ?? 0);
         $hot  = (int) ($counts[LeadStatus::HOT] ?? 0);
@@ -363,6 +403,7 @@ class DashSummaryController extends Controller
         $activeLeads = [
             'total' => $totalActive,
             'trash' => $trash,
+            'published' => $published,
             'cold' => $cold,
             'warm' => $warm,
             'hot' => $hot,
@@ -1238,7 +1279,7 @@ class DashSummaryController extends Controller
                 'ref_regions.name as city_name',
                 'lead_sources.name as source_name',
                 'lead_statuses.name as lead_stage',
-                DB::raw('COALESCE(region_branches.name, lead_branches.name) as branch_name'),
+                'lead_branches.name as branch_name',
             ])
             ->map(function ($row) {
                 return [

@@ -67,7 +67,6 @@
     </div>
 </div>
 
-{{-- ACTIVITY LOGS MODAL --}}
 
 <script>
     let regionalReachChart = null;

@@ -26,7 +26,9 @@
                     <p class="text-[#3F80EA] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Cold Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['cold'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    <span id="summary-all-cold-total">{{ $leadCounts['cold'] }}</span>
+                </p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,7 +52,9 @@
                     <p class="text-[#E5A000] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Warm Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['warm'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    <span id="summary-all-warm-total">{{ $leadCounts['warm'] }}</span>
+                </p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -74,7 +78,9 @@
                     <p class="text-[#EC221F] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Hot Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['hot'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    <span id="summary-all-hot-total">{{ $leadCounts['hot'] }}</span>
+                </p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -98,7 +104,9 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    <span id="summary-all-deal-total">{{ $leadCounts['deal'] }}</span>
+                </p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -395,7 +403,9 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black">
+                    <span id="summary-deal-total">{{ $leadCounts['deal'] }}</span>
+                </p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -525,7 +535,7 @@
                         class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active flex items-center justify-center">
                         <p class="text-[#083224]">
                             {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                            <span class="{{ 
+                            <span id="nav-count-{{ $tab }}" class="{{ 
                                             $tab === 'all' 
                                                 ? 'span-all' 
                                                 : ($tab === 'cold' 
@@ -585,6 +595,7 @@
 
                                 <th class="p-1 lg:p-3">City</th>
                                 <th class="p-1 lg:p-3">Regional</th>
+                                <th class="p-1 lg:p-3">Province</th>
 
                                 @if ($tab === 'cold' || $tab === 'warm')
                                 <th class="p-1 lg:p-3">Status</th>
@@ -807,6 +818,7 @@
         hot : {{ $leadCounts['hot'] ?? 0}},
         deal : {{ $leadCounts['deal'] ?? 0}}
     };
+    const summaryEndpoint = @json(url('/leads/my/summary'));
 
     let searchTimeout = null;
     let searchState = '';
@@ -822,8 +834,102 @@
         });
     }
 
-   function getSearchQuery() {
+    function getSearchQuery() {
         return searchState;
+    }
+
+    function setText(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value ?? 0;
+        }
+    }
+
+    function buildFilterParams() {
+        const params = new URLSearchParams();
+        const searchQuery = getSearchQuery();
+
+        if (searchQuery) {
+            params.append('search', searchQuery);
+        }
+        if (sourceSelected) {
+            params.append('sources', sourceSelected);
+        }
+        if (filterStartDate) {
+            params.append('start_date', filterStartDate);
+        }
+        if (filterEndDate) {
+            params.append('end_date', filterEndDate);
+        }
+
+        return params;
+    }
+
+    function updateBadgeCounts() {
+        totals.all = (totals.cold || 0) + (totals.warm || 0) + (totals.hot || 0) + (totals.deal || 0);
+
+        const navCounts = {
+            all: `(${totals.all || 0})`,
+            cold: totals.cold || 0,
+            warm: totals.warm || 0,
+            hot: totals.hot || 0,
+            deal: totals.deal || 0,
+        };
+
+        Object.entries(navCounts).forEach(([tab, value]) => {
+            setText(`nav-count-${tab}`, value);
+        });
+    }
+
+    function renderAllSummary(leadCounts = {}) {
+        setText('summary-all-cold-total', leadCounts.cold || 0);
+        setText('summary-all-warm-total', leadCounts.warm || 0);
+        setText('summary-all-hot-total', leadCounts.hot || 0);
+        setText('summary-all-deal-total', leadCounts.deal || 0);
+    }
+
+    function renderDealSummary(deal = {}) {
+        setText('summary-deal-total', deal.total || 0);
+    }
+
+    async function refreshDynamicCounts() {
+        try {
+            const params = buildFilterParams();
+            const queryString = params.toString();
+            const url = queryString ? `${summaryEndpoint}?${queryString}` : summaryEndpoint;
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch summary (${response.status})`);
+            }
+
+            const result = await response.json();
+            const leadCounts = result.leadCounts || {};
+
+            totals.cold = leadCounts.cold || 0;
+            totals.warm = leadCounts.warm || 0;
+            totals.hot = leadCounts.hot || 0;
+            totals.deal = leadCounts.deal || 0;
+
+            updateBadgeCounts();
+            renderAllSummary(leadCounts);
+            renderColdSummary(result.cold || {});
+            renderWarmSummary(result.warm || {});
+            renderHotSummary(result.hot || {});
+            renderDealSummary(result.deal || {});
+        } catch (error) {
+            console.error('Summary fetch error:', error);
+        }
+    }
+
+    function refreshActiveTabAndCounts() {
+        reloadTab(activeTabState || 'all');
+        refreshDynamicCounts();
     }
 
     const searchInputs = document.querySelectorAll('.searchInput');
@@ -843,8 +949,8 @@
                 const activeTab = activeTabState || 'all';
 
                 console.log(`Searching for: "${searchState}" on tab: ${activeTab}`);
-                
-                reloadTab(activeTab);
+
+                refreshActiveTabAndCounts();
             }, 500);
         });
     });
@@ -858,7 +964,7 @@
         sourceSelect.addEventListener('change', function () {
             sourceSelected = this.value || '';
             resetAllPages();
-            reloadTab(activeTabState || 'all');
+            refreshActiveTabAndCounts();
         });
     }
 
@@ -924,7 +1030,7 @@
                 }
 
                 resetAllPages();
-                reloadTab(activeTabState || 'all');
+                refreshActiveTabAndCounts();
                 closeDropdown();
             });
         }
@@ -949,7 +1055,7 @@
         }
 
         resetAllPages();
-        reloadTab(activeTabState || 'all');
+        refreshActiveTabAndCounts();
     }
 
     function updatePagerUI(tab, totalItems) {
@@ -1129,6 +1235,10 @@
             tab.addEventListener('click', function () {
                 const statusTarget = this.getAttribute('data-status');
                 switchTab(statusTarget);
+
+                if (myRoutes[statusTarget]) {
+                    reloadTab(statusTarget);
+                }
             });
         });
     });
@@ -1137,23 +1247,9 @@
     async function initTable(selector, route) {
         const page = pageState[selector] || 1;
         const perPage = pageSizeState[selector] || DEFAULT_PAGE_SIZE;
-        const searchQuery = getSearchQuery();
-
-        const params = new URLSearchParams({
-            page: page,
-            per_page: perPage,
-            search: searchQuery,
-        });
-
-        if (sourceSelected) {
-            params.append('sources', sourceSelected);
-        }
-        if (filterStartDate) {
-            params.append('start_date', filterStartDate);
-        }
-        if (filterEndDate) {
-            params.append('end_date', filterEndDate);
-        }
+        const params = buildFilterParams();
+        params.set('page', page);
+        params.set('per_page', perPage);
 
         const tbody = document.getElementById(`${selector}BodyTable`);
 
@@ -1174,26 +1270,17 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-                    
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch table data (${response.status})`);
+            }
+
             const result = await response.json();
             totals[selector] = result.total || 0;
-    
+
             updatePagerUI(selector, result.total);
-            if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-                
             tbody.innerHTML = '';
-    
-            if (typeof updatePagerUI === 'function') updatePagerUI(selector, result.total);
-    
-            if (typeof totals !== 'undefined') {
-                if (selector === 'cold') totals.cold = result.total || 0;
-                if (selector === 'warm') totals.warm = result.total || 0;
-                if (selector === 'hot') totals.hot = result.total || 0;
-                if (selector === 'deal') totals.deal = result.total || 0;
-            }
-    
-            if (typeof updateBadgeCounts === 'function') updateBadgeCounts();
-    
+
             if (result.data && result.data.length > 0) {
                 result.data.forEach(row => {
                     let statusContent = '';
@@ -1243,13 +1330,14 @@
                             <td class="hidden">${row.id}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.claimed_at}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.name}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? '-'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? '-'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? '-'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? '-'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.segment?.name ?? row.lead?.customer_type ?? '-'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? ''}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? ''}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.sales?.name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.phone ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.other_industry ?? row.lead?.customer_type ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.province ?? 'Not Set'}</td>
     
                             ${selector !== 'deal' ? `
                                 <td class="p-1 md:p-2 lg:p-3">
@@ -1273,25 +1361,11 @@
     }
 
     $(document).ready(function () {
-        loadColdSummary();
-        loadWarmSummary();
-        loadHotSummary();
-        // Kalo nyari loadDealSummary() kagak ada, tariknya udah langsung $leadCounts
+        updateBadgeCounts();
+        renderAllSummary(totals);
+        renderDealSummary({ total: totals.deal });
+        refreshDynamicCounts();
     });
-
-    function loadColdSummary(){
-        $.ajax({
-            url: "/api/leads/my/summary",
-            type: "GET",
-            dataType: "json",
-            success: function (response) {
-                renderColdSummary(response.cold);
-            },
-            error: function (xhr) {
-                console.log("There are error when fetch summary:", xhr.responseText);
-            }
-        });
-    }
 
     function renderColdSummary(cold) {
         // TOTAL COLD
@@ -1312,20 +1386,6 @@
         $("#summary-meeting-offline").text(`${cold.meet_offline} Offline )`);
     }
 
-    function loadWarmSummary(){
-        $.ajax({
-            url: "/api/leads/my/summary",
-            type: "GET",
-            dataType: "json",
-            success: function (response) {
-                renderWarmSummary(response.warm);
-            },
-            error: function (xhr) {
-                console.log("There are error when fetch summary:", xhr.responseText);
-            }
-        });
-    }
-
     function renderWarmSummary(warm) {
         // TOTAL WARM
         $("#summary-warm-total").text(warm.total);
@@ -1338,20 +1398,6 @@
         
         // QUOTATIONS
         $("#summary-warm-quotations").text(`${warm.quotation_published}`);
-    }
-    
-    function loadHotSummary(){
-        $.ajax({
-            url: "/api/leads/my/summary",
-            type: "GET",
-            dataType: "json",
-            success: function (response) {
-                renderHotSummary(response.hot);
-            },
-            error: function (xhr) {
-                console.log("There are error when fetch summary:", xhr.responseText);
-            }
-        });
     }
 
     function renderHotSummary(hot) {
@@ -1386,7 +1432,7 @@
                     _token: $('meta[name="csrf-token"]').attr('content')
                 }, function(res) {
                     notif(res.message || 'Meeting canceled');
-                    $('#coldLeadsTable').DataTable().ajax.reload();
+                    refreshActiveTabAndCounts();
                 }).fail(function(xhr) {
                     let err = 'Failed to cancel meeting';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
@@ -1465,9 +1511,9 @@
                             reloadTab(tab);
                         }
                     });
-                    loadColdSummary();
-                    loadWarmSummary();
-                    loadHotSummary();
+                    refreshDynamicCounts();
+                } else {
+                    refreshActiveTabAndCounts();
                 }
             },
             error: function(xhr) {
@@ -1532,8 +1578,13 @@
                     note: result.value
                 }, function(res) {
                     notif(res.message || 'Lead moved to trash');
-                    $('#coldLeadsTable').DataTable().ajax.reload();
-                    $('#warmLeadsTable').DataTable().ajax.reload();
+                    resetAllPages();
+                    ['all', 'cold', 'warm', 'hot', 'deal'].forEach(function(tab) {
+                        if (myRoutes[tab]) {
+                            reloadTab(tab);
+                        }
+                    });
+                    refreshDynamicCounts();
                 }).fail(function(xhr) {
                     let err = 'Failed to trash lead';
                     if (xhr.responseJSON && xhr.responseJSON.message) {

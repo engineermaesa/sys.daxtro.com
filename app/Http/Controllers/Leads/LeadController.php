@@ -239,7 +239,9 @@ class LeadController extends Controller
             $isMyForm = $request->routeIs('leads.my.save');
 
             // 1. Build validation rules
-            $segmentRule = $isSales && !$id ? 'required' : 'nullable';
+            $segmentRule = $isSales && !$id
+                ? 'required|integer|exists:lead_segments,id'
+                : 'nullable|integer|exists:lead_segments,id';
             $rules = [
                 'source_id'   => 'required',
                 'segment_id'  => $segmentRule,
@@ -461,9 +463,11 @@ class LeadController extends Controller
                     // Jika segment_id belum diisi tapi Customer Type ada,
                     // coba mapping ke master lead_segments berdasarkan nama yang sama.
                     if (! $lead->segment_id && $lead->customer_type) {
-                        $segment = LeadSegment::where('name', $lead->customer_type)->first();
-                        if ($segment) {
-                            $lead->segment_id = $segment->id;
+                        $mappedSegmentId = DB::table('lead_segments')
+                            ->where('name', $lead->customer_type)
+                            ->value('id');
+                        if ($mappedSegmentId) {
+                            $lead->segment_id = $mappedSegmentId;
                         }
                     }
 
@@ -595,9 +599,11 @@ class LeadController extends Controller
 
             // Mapping otomatis segment berdasarkan Customer Type jika segment belum di-set.
             if (! $lead->segment_id && $lead->customer_type) {
-                $segment = LeadSegment::where('name', $lead->customer_type)->first();
-                if ($segment) {
-                    $lead->segment_id = $segment->id;
+                $mappedSegmentId = DB::table('lead_segments')
+                    ->where('name', $lead->customer_type)
+                    ->value('id');
+                if ($mappedSegmentId) {
+                    $lead->segment_id = $mappedSegmentId;
                 }
             }
             $lead->published_at = $id ? $lead->published_at : now();
@@ -871,6 +877,15 @@ class LeadController extends Controller
         ]);
     }
 
+    public function manageSummary(Request $request)
+    {
+        if ($request->user()->role?->code === 'sales') {
+            abort(403);
+        }
+
+        return response()->json($this->buildManageSummary($request));
+    }
+
     public function manage(Request $request)
     {
         $user = request()->user();
@@ -949,9 +964,10 @@ class LeadController extends Controller
         ];
     }
 
-    private function buildManageActiveClaimsCountQuery(array $filters)
+    private function buildManageActiveClaimsQuery(array $filters, array $with = [], ?string $stage = null)
     {
         $activeClaims = LeadClaim::query()
+            ->with($with)
             ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
             ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
             ->whereIn('lead_statuses.id', [
@@ -983,8 +999,17 @@ class LeadController extends Controller
             ->when(! empty($filters['status_id']), function ($q) use ($filters) {
                 $q->where('leads.status_id', $filters['status_id']);
             })
-            ->select('lead_claims.*')
-            ->with('lead');
+            ->when(in_array($stage, ['cold', 'warm', 'hot', 'deal'], true), function ($q) use ($stage) {
+                $statusMap = [
+                    'cold' => LeadStatus::COLD,
+                    'warm' => LeadStatus::WARM,
+                    'hot'  => LeadStatus::HOT,
+                    'deal' => LeadStatus::DEAL,
+                ];
+
+                $q->where('leads.status_id', $statusMap[$stage]);
+            })
+            ->select('lead_claims.*');
 
         if ($filters['search'] !== '') {
             $search = $filters['search'];
@@ -1007,10 +1032,13 @@ class LeadController extends Controller
         return $activeClaims;
     }
 
-    private function buildManageLeadCounts(Request $request): array
+    private function buildManageActiveClaimsCountQuery(array $filters)
     {
-        $filters = $this->resolveManageCountFilters($request);
+        return $this->buildManageActiveClaimsQuery($filters, ['lead']);
+    }
 
+    private function buildManageLeadCountsFromFilters(array $filters): array
+    {
         $activeClaimRows = $this->buildManageActiveClaimsCountQuery($filters)->get();
         $uniqueLeads = $activeClaimRows->pluck('lead')->filter()->unique('id');
         $counts = $uniqueLeads->groupBy('status_id')->map->count();
@@ -1029,118 +1057,161 @@ class LeadController extends Controller
         ];
     }
 
+    private function buildManageLeadCounts(Request $request): array
+    {
+        $filters = $this->resolveManageCountFilters($request);
+
+        return $this->buildManageLeadCountsFromFilters($filters);
+    }
+
+    private function buildManageSummary(Request $request): array
+    {
+        $filters = $this->resolveManageCountFilters($request);
+        $leadCounts = $this->buildManageLeadCountsFromFilters($filters);
+        $initiationCodes = ['A01', 'A02', 'A03', 'A04'];
+
+        $coldBase = $this->buildManageActiveClaimsQuery($filters)
+            ->where('leads.status_id', LeadStatus::COLD);
+        $coldInitiation = (clone $coldBase)
+            ->whereHas('lead.activityLogs.activity', fn($q) => $q->whereIn('code', $initiationCodes))
+            ->whereDoesntHave('lead.meetings')
+            ->count();
+        $coldRaw = (clone $coldBase)
+            ->whereDoesntHave('lead.activityLogs.activity', fn($q) => $q->whereIn('code', $initiationCodes))
+            ->whereDoesntHave('lead.meetings')
+            ->count();
+        $coldPending = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('is_online', 0)
+                ->whereHas('expense', fn($sq) => $sq->where('status', 'submitted')))
+            ->count();
+        $coldRejected = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('is_online', 0)
+                ->whereHas('expense', fn($sq) => $sq->where('status', 'rejected')))
+            ->count();
+        $coldMeetOnline = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', now())
+                ->where('is_online', 1))
+            ->count();
+        $coldMeetOffline = (clone $coldBase)
+            ->whereHas('lead.meetings', fn($q) => $q->where('scheduled_end_at', '>', now())
+                ->where('is_online', 0))
+            ->count();
+
+        $warmBase = $this->buildManageActiveClaimsQuery($filters)
+            ->where('leads.status_id', LeadStatus::WARM);
+        $warmPending = (clone $warmBase)
+            ->whereHas('lead.quotation', fn($q) => $q->whereIn('status', ['review', 'pending_finance']))
+            ->count();
+        $warmRejected = (clone $warmBase)
+            ->whereHas('lead.quotation', fn($q) => $q->where('status', 'rejected'))
+            ->count();
+        $warmNoQuotation = (clone $warmBase)
+            ->whereDoesntHave('lead.quotation')
+            ->count();
+        $warmPublished = (clone $warmBase)
+            ->whereHas('lead.quotation', fn($q) => $q->where('status', 'published'))
+            ->count();
+
+        $hotBase = $this->buildManageActiveClaimsQuery($filters)
+            ->where('leads.status_id', LeadStatus::HOT);
+        $hotClaims = (clone $hotBase)->with([
+            'lead.statusLogs' => fn($q) => $q->where('status_id', LeadStatus::HOT)->orderByDesc('created_at'),
+        ])->get();
+
+        $hotExpiringSoon = 0;
+        $hotExpiringLater = 0;
+
+        foreach ($hotClaims as $claim) {
+            $hotLog = $claim->lead?->statusLogs?->first();
+            $claimedAt = $claim->claimed_at ? \Illuminate\Support\Carbon::parse($claim->claimed_at) : null;
+            $hotAt = $hotLog?->created_at ? \Illuminate\Support\Carbon::parse($hotLog->created_at) : null;
+            $baseAt = $claimedAt ?? $hotAt;
+
+            if (! $baseAt) {
+                continue;
+            }
+
+            $daysLeft = \Illuminate\Support\Carbon::now()->startOfDay()->diffInDays(
+                $baseAt->copy()->startOfDay()->addDays(30),
+                false
+            );
+
+            if ($daysLeft < 0) {
+                $daysLeft = 0;
+            }
+
+            if ($daysLeft <= 7) {
+                $hotExpiringSoon++;
+            } else {
+                $hotExpiringLater++;
+            }
+        }
+
+        return [
+            'leadCounts' => $leadCounts,
+            'cold' => [
+                'total' => $leadCounts['cold'],
+                'initiation' => $coldInitiation,
+                'raw' => $coldRaw,
+                'approval_status' => $coldPending + $coldRejected,
+                'pending' => $coldPending,
+                'rejected' => $coldRejected,
+                'meet_online' => $coldMeetOnline,
+                'meet_offline' => $coldMeetOffline,
+                'meeting_scheduled' => $coldMeetOnline + $coldMeetOffline,
+            ],
+            'warm' => [
+                'total' => $leadCounts['warm'],
+                'approval_status' => $warmPending + $warmRejected,
+                'pending' => $warmPending,
+                'rejected' => $warmRejected,
+                'no_quotation' => $warmNoQuotation,
+                'quotation_published' => $warmPublished,
+            ],
+            'hot' => [
+                'total' => $leadCounts['hot'],
+                'expiring_7_days' => $hotExpiringSoon,
+                'expiring_8_plus_days' => $hotExpiringLater,
+            ],
+            'deal' => [
+                'total' => $leadCounts['deal'],
+            ],
+        ];
+    }
+
     public function manageList(Request $request)
     {
         if ($request->user()->role?->code === 'sales') {
             abort(403);
         }
 
-        $user = $request->user();
-
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
 
-        $branchId = $request->filled('branch_id') ? $request->branch_id : null;
-        $salesId = $request->filled('sales_id') ? $request->sales_id : null;
-
-        if (! $branchId && $user->branch_id && in_array($user->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
-            $branchId = $user->branch_id;
-        }
-
+        $filters = $this->resolveManageCountFilters($request);
         $stage = $request->filled('stage') ? strtolower($request->stage) : null;
-        $statusMap = [
-            'cold' => LeadStatus::COLD,
-            'warm' => LeadStatus::WARM,
-            'hot'  => LeadStatus::HOT,
-            'deal' => LeadStatus::DEAL,
-        ];
-
-        $startDate = $request->filled('start_date') ? (string) $request->start_date : null;
-        $endDate = $request->filled('end_date') ? (string) $request->end_date : null;
-
-        if ($startDate && $endDate && $startDate > $endDate) {
-            [$startDate, $endDate] = [$endDate, $startDate];
-        }
-
-        $periodStart = $startDate ? $startDate . ' 00:00:00' : null;
-        $periodEnd = $endDate ? $endDate . ' 23:59:59' : null;
-
-        $activeClaims = LeadClaim::query()
-            ->with([
-                'sales',
-                'lead.branch',
-                'lead.firstSales',
-                'lead.region.branch',
-                'lead.region.regional',
-                'lead.source',
-                'lead.industry',
-                'lead.segment',
-                'lead.status',
-                'lead.quotation',
-                'lead.quotation.createdBy',
-                'lead.quotation.proformas.invoice',
-                'lead.activityLogs.activity',
-                'lead.meetings',
-            ])
-            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
-            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
-            ->when($periodStart && $periodEnd, function ($q) use ($periodStart, $periodEnd) {
-                $q->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd]);
-            })
-            ->when($periodStart && ! $periodEnd, function ($q) use ($periodStart) {
-                $q->where('lead_claims.claimed_at', '>=', $periodStart);
-            })
-            ->when(! $periodStart && $periodEnd, function ($q) use ($periodEnd) {
-                $q->where('lead_claims.claimed_at', '<=', $periodEnd);
-            })
-            ->whereIn('lead_statuses.id', [
-                LeadStatus::COLD,
-                LeadStatus::WARM,
-                LeadStatus::HOT,
-                LeadStatus::DEAL,
-            ])
-            ->whereNull('lead_claims.trash_note')
-            ->when(! empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->join('users as sales', 'lead_claims.sales_id', '=', 'sales.id')
-                    ->where('sales.branch_id', $branchId);
-            })
-            ->when(! empty($salesId), function ($q) use ($salesId) {
-                $q->where('lead_claims.sales_id', $salesId);
-            })
-            ->when(isset($statusMap[$stage]), function ($q) use ($statusMap, $stage) {
-                $q->where('leads.status_id', $statusMap[$stage]);
-            })
-            ->when($request->filled('region_id'), function ($q) use ($request) {
-                $q->where('leads.region_id', $request->region_id);
-            })
-            ->when($request->filled('status_id'), function ($q) use ($request) {
-                $q->where('leads.status_id', $request->status_id);
-            })
-            ->select('lead_claims.*');
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-
-            $activeClaims->where(function ($q) use ($search) {
-                $q->where('leads.name', 'like', "%{$search}%")
-                    ->orWhere('leads.phone', 'like', "%{$search}%")
-                    ->orWhere('leads.needs', 'like', "%{$search}%")
-                    ->orWhere('leads.province', 'like', "%{$search}%")
-                    ->orWhere('leads.customer_type', 'like', "%{$search}%")
-                    ->orWhereHas('lead.region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('lead.region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('lead.source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('lead.quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
-                    ->orWhereHas('lead.quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
-            });
-        }
+        $activeClaims = $this->buildManageActiveClaimsQuery($filters, [
+            'sales',
+            'lead.branch',
+            'lead.firstSales',
+            'lead.region.branch',
+            'lead.region.regional',
+            'lead.source',
+            'lead.industry',
+            'lead.segment',
+            'lead.status',
+            'lead.quotation',
+            'lead.quotation.createdBy',
+            'lead.quotation.proformas.invoice',
+            'lead.activityLogs.activity',
+            'lead.meetings',
+        ], $stage);
 
         // =========================
         // PAGINATION
         // =========================
 
-        $perPage = $request->get('per_page', 10);
+        $perPage = max(1, (int) $request->get('per_page', 10));
 
         $paginated = $activeClaims
             ->orderByDesc('lead_claims.claimed_at')
