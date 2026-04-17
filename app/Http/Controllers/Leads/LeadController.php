@@ -7,7 +7,8 @@ use App\Http\Classes\ActivityLogger;
 use App\Services\AutoTrashService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
-use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment, LeadPicExtension};
+use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment};
+// LeadPicExtension
 use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -46,11 +47,12 @@ class LeadController extends Controller
         $leads = Lead::with([
             'region',
             'region.branch',
+            'branch',
             'source',
             'segment',
             'status',
             'industry',
-            'quotation'
+            'quotation',
         ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
@@ -126,7 +128,14 @@ class LeadController extends Controller
 
         return DataTables::of($leads)
             ->addColumn('region_name', fn($row) => $row->region->name ?? '')
-            ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
+            ->addColumn('branch_name', function ($row) {
+                if (!empty($row->branch_id) && $row->branch) {
+                    return $row->branch->name;
+                }
+
+                return $row->region->branch->name ?? 'Unassigned Branch';
+            })
+            // ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
             ->addColumn('source_name', fn($row) => $row->source->name ?? '')
             // Fallback ke customer_type kalau segment belum di-set
             ->addColumn('segment_name', fn($row) => $row->segment->name ?? $row->customer_type ?? 'Not Set')
@@ -160,7 +169,7 @@ class LeadController extends Controller
                     $canShowClaim = false;
                 }
 
-                if ($canShowClaim) {
+                if ($canShowClaim && auth()->user()->role_id == 2) {
                     $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
                                 <i class="bi bi-check-circle"></i> Claim
                             </a>';
@@ -549,8 +558,8 @@ class LeadController extends Controller
             $assignedBranchSingle = $request->assignment_branch ?? null;
             if ($isSalesDirector && $assignedBranchSingle) {
                 $lead->branch_id = $assignedBranchSingle;
-                $lead->region_id = null;
-                $lead->province = null;
+                $lead->region_id = $rawRegion;
+                $lead->province = $provinceName;
 
                 // status dipaksa published hanya saat create
                 if (! $id) {
@@ -771,11 +780,12 @@ class LeadController extends Controller
         AutoTrashService::triggerIfNeeded();
 
         $user = $request->user();
+        $selfScopedRoles = ['sales', 'branch_manager', 'sales_director'];
 
         $claims = LeadClaim::whereNull('released_at')
             ->with('lead');
 
-        if ($user->role?->code === 'sales') {
+        if (in_array($user->role?->code, $selfScopedRoles, true)) {
             $claims->where('sales_id', $user->id);
         }
 
@@ -821,11 +831,13 @@ class LeadController extends Controller
     {
         // Trigger auto-trash if needed (non-blocking)
         AutoTrashService::triggerIfNeeded();
+        $user = $request->user();
+        $selfScopedRoles = ['sales', 'branch_manager', 'sales_director'];
 
         $claims = LeadClaim::whereNull('released_at');
 
-        if ($request->user()->role?->code === 'sales') {
-            $claims->where('sales_id', $request->user()->id);
+        if (in_array($user->role?->code, $selfScopedRoles, true)) {
+            $claims->where('sales_id', $user->id);
         }
 
         $start = $request->input('start_date');
@@ -1386,7 +1398,7 @@ class LeadController extends Controller
         ])
             ->where('status_id', LeadStatus::PUBLISHED);
 
-        if (! in_array($user->role?->code, ['super_admin'])) {
+        if (! in_array($user->role?->code, ['super_admin', 'sales_director'])) {
             $leads->where(function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -2349,6 +2361,7 @@ class LeadController extends Controller
 
         $user    = $request->user();
         $perPage = $request->get('per_page', 10);
+        $selfScopedRoles = ['sales', 'branch_manager', 'sales_director'];
 
         $allowedStatuses = [
             LeadStatus::COLD,
@@ -2377,7 +2390,7 @@ class LeadController extends Controller
                 }
             });
 
-        if ($user->role?->code === 'sales') {
+        if (in_array($user->role?->code, $selfScopedRoles, true)) {
             $claims->where('sales_id', $user->id);
         }
 
@@ -2449,9 +2462,58 @@ class LeadController extends Controller
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        $paginated->getCollection()->transform(function ($row) use ($user) {
+        $cityIds = $paginated->getCollection()
+            ->pluck('lead.factory_city_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $cities = collect();
+        $regionals = collect();
+        $provinces = collect();
+
+        if ($cityIds->isNotEmpty()) {
+            $cities = DB::table('ref_regions')
+                ->whereIn('id', $cityIds)
+                ->select('id', 'name', 'regional_id', 'province_id')
+                ->get()
+                ->keyBy('id');
+
+            $regionalIds = $cities->pluck('regional_id')->filter()->unique()->values();
+            $provinceIds = $cities->pluck('province_id')->filter()->unique()->values();
+
+            if ($regionalIds->isNotEmpty()) {
+                $regionals = DB::table('ref_regionals')
+                    ->whereIn('id', $regionalIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+
+            if ($provinceIds->isNotEmpty()) {
+                $provinces = DB::table('ref_provinces')
+                    ->whereIn('id', $provinceIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+        }
+
+        $paginated->getCollection()->transform(function ($row) use ($user, $cities, $regionals, $provinces) {
 
             $lead = $row->lead;
+            $city = $lead ? $cities->get($lead->factory_city_id) : null;
+
+            if ($lead) {
+                $lead->alternate_location = $city ? [
+                    'region_id' => $city->id,
+                    'region_name' => $city->name,
+                    'regional_id' => $city->regional_id,
+                    'regional_name' => optional($regionals->get($city->regional_id))->name,
+                    'province_id' => $city->province_id,
+                    'province_name' => optional($provinces->get($city->province_id))->name,
+                ] : null;
+            }
 
             $row->name          = $lead->name ?? '-';
             $row->phone         = $lead->phone ?? '-';

@@ -39,12 +39,8 @@ class MyLeadQueryService
         $user = $request->user();
         $roleCode = $user?->role?->code;
 
-        if ($roleCode === 'sales') {
+        if (in_array($roleCode, ['sales', 'branch_manager', 'sales_director'], true)) {
             $query->where('lead_claims.sales_id', $user->id);
-        } elseif ($roleCode === 'branch_manager') {
-            $query->whereHas('sales', function ($salesQuery) use ($user) {
-                $salesQuery->where('branch_id', $user->branch_id);
-            });
         }
 
         return $query;

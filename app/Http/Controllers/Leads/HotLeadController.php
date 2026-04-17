@@ -34,9 +34,48 @@ class HotLeadController extends Controller
             ->orderByDesc('lead_claims.id')
             ->paginate($perPage);
 
-        $paginated->getCollection()->transform(function ($row) {
+        $cityIds = $paginated->getCollection()
+            ->pluck('lead.factory_city_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $cities = collect();
+        $regionals = collect();
+        $provinces = collect();
+
+        if ($cityIds->isNotEmpty()) {
+            $cities = DB::table('ref_regions')
+                ->whereIn('id', $cityIds)
+                ->select('id', 'name', 'regional_id', 'province_id')
+                ->get()
+                ->keyBy('id');
+
+            $regionalIds = $cities->pluck('regional_id')->filter()->unique()->values();
+            $provinceIds = $cities->pluck('province_id')->filter()->unique()->values();
+
+            if ($regionalIds->isNotEmpty()) {
+                $regionals = DB::table('ref_regionals')
+                    ->whereIn('id', $regionalIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+
+            if ($provinceIds->isNotEmpty()) {
+                $provinces = DB::table('ref_provinces')
+                    ->whereIn('id', $provinceIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+        }
+
+        $paginated->getCollection()->transform(function ($row) use ($cities, $regionals, $provinces){
 
             $lead = $row->lead;
+            $city = $lead ? $cities->get($lead->factory_city_id) : null;
+
 
             // Ambil waktu HOT dari status log
             $hotLog    = $lead->statusLogs->first();
@@ -68,6 +107,17 @@ class HotLeadController extends Controller
                 $meetingStatus = 'Today';
             } else {
                 $meetingStatus = '<span class="status-expired">Hot</span>';
+            }
+
+            if ($lead) {
+                $lead->alternate_location = $city ? [
+                    'region_id' => $city->id,
+                    'region_name' => $city->name,
+                    'regional_id' => $city->regional_id,
+                    'regional_name' => optional($regionals->get($city->regional_id))->name,
+                    'province_id' => $city->province_id,
+                    'province_name' => optional($provinces->get($city->province_id))->name,
+                ] : null;
             }
 
             $row->name          = $lead->name ?? '-';

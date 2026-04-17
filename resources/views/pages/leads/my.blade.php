@@ -1335,9 +1335,9 @@
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.source?.name ?? 'Not Set'}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.needs?? 'Not Set'}</td>
                             <td class="p-1 md:p-2 lg:p-3">${row.lead?.other_industry ?? row.lead?.customer_type ?? 'Not Set'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? 'Not Set'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? 'Not Set'}</td>
-                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.province ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name ?? row.lead?.alternate_location?.region_name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.regional?.name ?? row.lead?.alternate_location?.regional_name ?? 'Not Set'}</td>
+                            <td class="p-1 md:p-2 lg:p-3">${row.lead?.province ?? row.lead?.alternate_location?.province_name ?? 'Not Set'}</td>
     
                             ${selector !== 'deal' ? `
                                 <td class="p-1 md:p-2 lg:p-3">
