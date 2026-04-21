@@ -1,6 +1,6 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Regional Reach Overview</h1>
 
-<div class="grid grid-cols-1 2xl:grid-cols-3 gap-3 mt-2">
+<div class="grid grid-cols-2 gap-3 mt-2">
     <div class="bg-white p-3 border border-[#D9D9D9] rounded-lg">
         <div class="flex items-center justify-between">
             <h1 class="text-[#757575] font-semibold">Top 10 Provinces by Lead Volume</h1>
@@ -14,48 +14,50 @@
         <div id="regionalReachChart" class="mt-4"></div>
     </div>
 
-    <div class="bg-white p-3 border border-[#D9D9D9] rounded-lg">
-        <div class="flex items-center justify-between">
-            <h1 class="text-[#757575] font-semibold">Province Coverage</h1>
-
-            <button id="triggerProvinceCoverage" type="button"
-                class="p-3 border border-[#D9D9D9] rounded-md text-[#417866] cursor-pointer duration-200 hover:bg-gray-200">
-                <x-icon.globe/>
-            </button>
-        </div>
-
-        <div class="triggerModalTable">
-            <div class="mt-3 text-[#757575]">
-                <p id="achievementRegion">0/</p>
-                <p id="totalRegion">0</p>
+    <div class="grid grid-cols-1 gap-3">
+        <div class="bg-white p-3 border border-[#D9D9D9] rounded-lg">
+            <div class="flex items-center justify-between">
+                <h1 class="text-[#757575] font-semibold">Province Coverage</h1>
+    
+                <button id="triggerProvinceCoverage" type="button"
+                    class="p-3 border border-[#D9D9D9] rounded-md text-[#417866] cursor-pointer duration-200 hover:bg-gray-200">
+                    <x-icon.globe/>
+                </button>
             </div>
-
-            <div class="flex items-center justify-start gap-2 mt-3">
-                <p id="percentageAchievementRegion">0%</p>
-                <p class="text-[#1E1E1E] text-xs">Achievement</p>
+    
+            <div class="triggerModalTable">
+                <div class="mt-3 text-[#757575]">
+                    <p id="achievementRegion">0/</p>
+                    <p id="totalRegion">0</p>
+                </div>
+    
+                <div class="flex items-center justify-start gap-2 mt-3">
+                    <p id="percentageAchievementRegion">0%</p>
+                    <p class="text-[#1E1E1E] text-xs">Achievement</p>
+                </div>
             </div>
         </div>
-    </div>
-
-    <div class="bg-white p-3 border border-[#D9D9D9] rounded-lg">
-        <div class="flex items-center justify-between">
-            <h1 class="text-[#757575] font-semibold">City Coverage</h1>
-
-            <button id="triggerMappingBranch" type="button"
-                class="p-3 border border-[#D9D9D9] rounded-md text-[#417866] cursor-pointer duration-200 hover:bg-gray-200">
-                <x-icon.location/>
-            </button>
-        </div>
-
-        <div class="triggerModalTable">
-            <div class="mt-3 text-[#757575]">
-                <p id="achievementCity">0/</p>
-                <p id="totalCity">0</p>
+    
+        <div class="bg-white p-3 border border-[#D9D9D9] rounded-lg">
+            <div class="flex items-center justify-between">
+                <h1 class="text-[#757575] font-semibold">City Coverage</h1>
+    
+                <button id="triggerMappingBranch" type="button"
+                    class="p-3 border border-[#D9D9D9] rounded-md text-[#417866] cursor-pointer duration-200 hover:bg-gray-200">
+                    <x-icon.location/>
+                </button>
             </div>
-
-            <div class="flex items-center justify-start gap-2 mt-3">
-                <p id="percentageAchievementCity">0%</p>
-                <p class="text-[#1E1E1E] text-xs">Achievement</p>
+    
+            <div class="triggerModalTable">
+                <div class="mt-3 text-[#757575]">
+                    <p id="achievementCity">0/</p>
+                    <p id="totalCity">0</p>
+                </div>
+    
+                <div class="flex items-center justify-start gap-2 mt-3">
+                    <p id="percentageAchievementCity">0%</p>
+                    <p class="text-[#1E1E1E] text-xs">Achievement</p>
+                </div>
             </div>
         </div>
     </div>
