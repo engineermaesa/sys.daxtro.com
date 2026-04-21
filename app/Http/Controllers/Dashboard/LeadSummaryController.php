@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, Lead, LeadActivityLog};
+use App\Models\Masters\Province;
+use App\Models\Masters\Region;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -409,71 +411,87 @@ class LeadSummaryController extends Controller
     {
         $user = Auth::user();
         $roleCode = $user?->role?->code;
+        abort_if($roleCode !== 'sales', 403);
+
+        $validated = $request->validate([
+            'source_id' => 'nullable|integer|exists:lead_sources,id',
+        ]);
+
+        $salesId = $user?->id;
+        $sourceId = $validated['source_id'] ?? null;
+        $startDate = $request->filled('start_date') ? (string) $request->start_date : null;
+        $endDate = $request->filled('end_date') ? (string) $request->end_date : null;
+
+        if ($startDate && $endDate && $startDate > $endDate) {
+            [$startDate, $endDate] = [$endDate, $startDate];
+        }
+
+        $periodStart = $startDate ? Carbon::parse($startDate)->startOfDay()->toDateTimeString() : null;
+        $periodEnd = $endDate ? Carbon::parse($endDate)->endOfDay()->toDateTimeString() : null;
 
         $perPage = $request->get('per_page', 5);
 
-        $query = LeadClaim::whereNull('released_at')
+        $query = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
             ->with([
                 'lead.product',
                 'lead.segment',
+                'lead.branch',
                 'lead.latestStatusLog',
                 'lead.quotation.items.product',
-                'lead.status'
-            ]);
-
-        if ($roleCode === 'sales') {
-            $query->where('sales_id', $user?->id);
-        } elseif ($roleCode === 'branch_manager') {
-            $query->whereHas('sales', function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id);
-            });
-        }
-
-        $allowedStatuses = [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT];
-
-        $query->whereHas('lead', function ($q) use ($allowedStatuses, $request) {
-
-            $q->whereIn('status_id', $allowedStatuses);
-
-            if ($request->filled('stage')) {
-                $q->where('status_id', $request->stage);
-            }
-
-            if ($request->filled('source_id')) {
-                $q->where('source_id', $request->source_id);
-            }
-
-            if ($request->filled('segment')) {
-                $q->where('segment_id', $request->segment);
-            }
-
-            if ($request->filled('search')) {
+                'lead.status',
+                'sales',
+                'sales.branch',
+            ])
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
+            ->whereNull('lead_claims.trash_note')
+            ->whereIn('lead_statuses.id', [
+                LeadStatus::COLD,
+                LeadStatus::WARM,
+                LeadStatus::HOT,
+                LeadStatus::DEAL,
+            ])
+            ->where('lead_claims.sales_id', $salesId)
+            ->when($periodStart && $periodEnd, function ($q) use ($periodStart, $periodEnd) {
+                $q->whereBetween('lead_claims.claimed_at', [$periodStart, $periodEnd]);
+            })
+            ->when($periodStart && ! $periodEnd, function ($q) use ($periodStart) {
+                $q->where('lead_claims.claimed_at', '>=', $periodStart);
+            })
+            ->when(! $periodStart && $periodEnd, function ($q) use ($periodEnd) {
+                $q->where('lead_claims.claimed_at', '<=', $periodEnd);
+            })
+            ->when(! empty($sourceId), function ($q) use ($sourceId) {
+                $q->where('leads.source_id', $sourceId);
+            })
+            ->when($request->filled('stage'), function ($q) use ($request) {
+                $q->where('leads.status_id', $request->stage);
+            })
+            ->when($request->filled('segment'), function ($q) use ($request) {
+                $q->where('leads.segment_id', $request->segment);
+            })
+            ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->search;
                 $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('company', 'like', "%{$search}%");
+                    $sub->where('leads.name', 'like', "%{$search}%")
+                        ->orWhere('leads.phone', 'like', "%{$search}%")
+                        ->orWhere('leads.company', 'like', "%{$search}%");
                 });
-            }
-
-            if ($request->filled('start_date')) {
-                $q->whereDate('created_at', '>=', $request->start_date);
-            }
-
-            if ($request->filled('end_date')) {
-                $q->whereDate('created_at', '<=', $request->end_date);
-            }
-        });
+            });
 
         // =========================
         // GET LATEST CLAIM PER LEAD
         // =========================
-        $query->whereIn('id', function ($q) {
+        $query->whereIn('lead_claims.id', function ($q) {
             $q->select(DB::raw('MAX(id)'))
                 ->from('lead_claims as lc2')
+                ->whereNull('lc2.released_at')
+                ->whereNull('lc2.deleted_at')
                 ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
                 ->groupBy('lead_id');
-        });
+        })->select('lead_claims.*');
 
         $amountQuery = clone $query;
 
@@ -481,7 +499,7 @@ class LeadSummaryController extends Controller
             return (float) ($claim->lead->quotation->grand_total ?? 0);
         });
 
-        $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $paginated = $query->orderByDesc('lead_claims.id')->paginate($perPage);
 
         // =========================
         // TRANSFORM DATA
@@ -498,8 +516,11 @@ class LeadSummaryController extends Controller
 
             $segment = $lead->segment?->name ?? $lead->customer_type ?? null;
 
-            // Use `needs` as the primary field; fall back to product name if empty
             $needs = format_needs_label($lead->needs ?? $product ?? null);
+            $salesName = $claim->sales?->name ?? null;
+            $branchName = $claim->sales?->branch?->name
+                ?? $lead->branch?->name
+                ?? null;
 
             $lastActivity = $lead->latestStatusLog?->created_at
                 ?? $lead->updated_at;
@@ -507,15 +528,12 @@ class LeadSummaryController extends Controller
             $validationChecks = [
                 'contact_info' => !empty($lead->phone) || !empty($lead->email),
                 'business_reason' => !empty($lead->business_reason),
-                // For manual leads, allow non-quotation indicators (e.g. tonase) to satisfy these checks
                 'quotation_exists' => !empty($lead->quotation?->quotation_no) || !empty($lead->quotation_no) || !empty($lead->tonase),
                 'quotation_amount' => (
                     (!empty($lead->quotation?->grand_total) && $lead->quotation->grand_total > 0)
                     || (!empty($lead->tonase) && floatval($lead->tonase) > 0)
                 ),
-                // regional info can be satisfied by region or province or factory city
                 'regional_info' => !empty($lead->region_id) || !empty($lead->province) || !empty($lead->factory_city_id),
-                // product info may come from product_id or free-text `needs`/`product` entered during manual creation
                 'product_info' => !empty($lead->product_id) || !empty($lead->needs) || !empty($lead->product),
             ];
 
@@ -529,7 +547,6 @@ class LeadSummaryController extends Controller
                 $dataValidation = 'Incomplete';
             }
 
-            // Provide debug details so frontend can show which checks failed
             $failedKeys = array_keys(array_filter($validationChecks, function ($v) {
                 return ! $v;
             }));
@@ -539,14 +556,16 @@ class LeadSummaryController extends Controller
                 'customer_name' => $lead->name ?? $lead->company,
                 'stage' => $stage,
                 'amount' => $amount,
+                'product' => $product,
                 'needs' => $needs,
                 'segment' => $segment,
+                'branch' => $branchName,
+                'sales' => $salesName,
+                'sales_name' => $salesName,
                 'data_status' => $passed . '/6',
                 'last_activity' => $lastActivity?->toDateTimeString(),
                 'data_validation' => $dataValidation,
-                // raw validation booleans
                 'validation' => $validationChecks,
-                // list of failed validation keys (e.g. ["quotation_exists"])
                 'missing_fields' => $failedKeys,
                 'created_at' => $lead->created_at?->toDateString(),
             ];
@@ -792,6 +811,22 @@ class LeadSummaryController extends Controller
         $validated = $request->validate([
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
+            'top_province' => 'nullable|string',
+            'top_region' => 'nullable|string',
+            'top_search' => 'nullable|string',
+            'top_page' => 'nullable|integer|min:1',
+            'top_per_page' => 'nullable|integer|min:1|max:100',
+            'coverage_province' => 'nullable|integer|exists:ref_provinces,id',
+            'coverage_region' => 'nullable|integer|exists:ref_regions,id',
+            'coverage_search' => 'nullable|string',
+            'coverage_page' => 'nullable|integer|min:1',
+            'coverage_per_page' => 'nullable|integer|min:1|max:100',
+            'mapping_branch' => 'nullable|integer|exists:ref_branches,id',
+            'mapping_province' => 'nullable|integer|exists:ref_provinces,id',
+            'mapping_region' => 'nullable|integer|exists:ref_regions,id',
+            'mapping_search' => 'nullable|string',
+            'mapping_page' => 'nullable|integer|min:1',
+            'mapping_per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
         $branchId = $user->branch_id;
@@ -799,37 +834,16 @@ class LeadSummaryController extends Controller
         $startDate = $validated['start_date'] ?? null;
         $endDate = $validated['end_date'] ?? null;
 
-        $buildLeadVolumeBaseQuery = function () use ($branchId, $salesId, $startDate, $endDate) {
-            $query = LeadClaim::query()
-                ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
-                ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
-                ->leftJoin('users as sales_users', 'sales_users.id', '=', 'lead_claims.sales_id')
-                ->whereIn('lead_statuses.id', [2, 3, 4, 5])
-                ->whereNull('lead_claims.trash_note')
-                ->whereNotNull('leads.province')
-                ->whereRaw("TRIM(leads.province) <> ''")
-                ->where('sales_users.branch_id', $branchId)
-                ->where('lead_claims.sales_id', $salesId);
+        $provinceExpression = $this->regionalReachProvinceExpression();
+        $branchExpression = $this->regionalReachBranchExpression();
+        $leadBaseQuery = $this->buildRegionalReachLeadBaseQuery($branchId, $salesId, $startDate, $endDate);
 
-            if (!empty($startDate) && !empty($endDate)) {
-                $query->whereBetween('lead_claims.claimed_at', [
-                    Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
-                    Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
-                ]);
-            } elseif (!empty($startDate)) {
-                $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
-            } elseif (!empty($endDate)) {
-                $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
-            }
-
-            return $query;
-        };
-
-        $topProvinceRows = $buildLeadVolumeBaseQuery()
-            ->selectRaw('leads.province as province, COUNT(*) as total_leads')
-            ->groupBy('leads.province')
+        $topSummary = (clone $leadBaseQuery)
+            ->whereRaw($provinceExpression . ' IS NOT NULL')
+            ->selectRaw($provinceExpression . ' as province, COUNT(*) as total_leads')
+            ->groupBy(DB::raw($provinceExpression))
             ->orderByDesc('total_leads')
-            ->orderBy('leads.province')
+            ->orderBy('province')
             ->limit(10)
             ->get()
             ->map(function ($row) {
@@ -837,68 +851,452 @@ class LeadSummaryController extends Controller
                     'province' => $row->province,
                     'total_leads' => (int) $row->total_leads,
                 ];
-            });
+            })
+            ->values();
 
-        if ($topProvinceRows->isEmpty()) {
-            return response()->json([
-                'status' => 'success',
-                'data' => [],
-            ]);
+        $topProvinceNames = $topSummary->pluck('province')->filter()->values()->all();
+        $topProvinceFilter = $validated['top_province'] ?? null;
+        $topRegionFilter = $validated['top_region'] ?? null;
+        $topSearch = $validated['top_search'] ?? null;
+        $topPage = (int) ($validated['top_page'] ?? 1);
+        $topPerPage = $this->resolveRegionalReachPerPage($validated['top_per_page'] ?? 10);
+
+        $topItemsQuery = (clone $leadBaseQuery)
+            ->whereRaw($provinceExpression . ' IS NOT NULL');
+
+        if (empty($topProvinceNames)) {
+            $topItemsQuery->whereRaw('1 = 0');
+        } else {
+            $topItemsQuery->whereIn(DB::raw($provinceExpression), $topProvinceNames);
         }
 
-        $topProvinces = $topProvinceRows->pluck('province')->all();
+        if (!empty($topProvinceFilter)) {
+            $topItemsQuery->whereRaw($provinceExpression . ' = ?', [$topProvinceFilter]);
+        }
 
-        $leadDetails = $buildLeadVolumeBaseQuery()
-            ->leftJoin('ref_regions', 'ref_regions.id', '=', 'leads.region_id')
-            ->leftJoin('ref_branches as region_branches', 'region_branches.id', '=', 'ref_regions.branch_id')
-            ->leftJoin('ref_branches as lead_branches', 'lead_branches.id', '=', 'leads.branch_id')
-            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
-            ->whereIn('leads.province', $topProvinces)
-            ->orderBy('leads.province')
-            ->orderByDesc('lead_claims.id')
-            ->get([
+        if (!empty($topRegionFilter)) {
+            $topItemsQuery->where('ref_regions.name', $topRegionFilter);
+        }
+
+        if (!empty($topSearch)) {
+            $this->applyRegionalReachLeadSearch($topItemsQuery, $topSearch, $provinceExpression, $branchExpression);
+        }
+
+        $topPaginator = $topItemsQuery
+            ->select([
                 'leads.id as lead_id',
                 'leads.name',
                 'leads.company',
                 'leads.needs',
-                'leads.province',
                 'leads.created_at',
                 'lead_claims.claimed_at',
                 'sales_users.name as sales_name',
-                'ref_regions.name as city_name',
+                'ref_regions.name as region_name',
                 'lead_sources.name as source_name',
                 'lead_statuses.name as lead_stage',
-                DB::raw('COALESCE(region_branches.name, lead_branches.name) as branch_name'),
+                DB::raw($provinceExpression . ' as province_name'),
+                DB::raw($branchExpression . ' as branch_name'),
             ])
-            ->map(function ($row) {
-                return [
-                    'nama' => $row->name ?: $row->company,
-                    'nama_branch' => $row->branch_name ?? '-',
-                    'nama_sales' => $row->sales_name ?? '-',
-                    'nama_kota' => $row->city_name ?? '-',
-                    'nama_provinsi' => $row->province,
-                    'needs' => format_needs_label($row->needs ?? null),
-                    'source' => $row->source_name ?? '-',
-                    'lead_stage' => $row->lead_stage ?? '-',
-                    'created_at' => $row->created_at,
-                    'claimed_at' => $row->claimed_at,
-                ];
+            ->orderByDesc('lead_claims.id')
+            ->paginate($topPerPage, ['*'], 'top_page', $topPage);
+
+        $topRegionFiltersQuery = (clone $leadBaseQuery)
+            ->whereRaw($provinceExpression . ' IS NOT NULL');
+
+        if (empty($topProvinceNames)) {
+            $topRegionFiltersQuery->whereRaw('1 = 0');
+        } else {
+            $topRegionFiltersQuery->whereIn(DB::raw($provinceExpression), $topProvinceNames);
+        }
+
+        if (!empty($topProvinceFilter)) {
+            $topRegionFiltersQuery->whereRaw($provinceExpression . ' = ?', [$topProvinceFilter]);
+        }
+
+        $topTenProvinces = [
+            'summary' => $topSummary->all(),
+            'items' => collect($topPaginator->items())
+                ->map(function ($row) {
+                    return $this->mapRegionalReachLeadRow($row, false);
+                })
+                ->values()
+                ->all(),
+            'pagination' => $this->formatRegionalReachPagination($topPaginator),
+            'filters' => [
+                'provinces' => $topSummary->map(function (array $row) {
+                    return [
+                        'value' => $row['province'],
+                        'label' => $row['province'],
+                    ];
+                })->values()->all(),
+                'regions' => $topRegionFiltersQuery
+                    ->whereNotNull('ref_regions.name')
+                    ->whereRaw("TRIM(ref_regions.name) <> ''")
+                    ->select('ref_regions.name as name')
+                    ->distinct()
+                    ->orderBy('name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'value' => $row->name,
+                            'label' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ],
+        ];
+
+        $coverageBaseQuery = (clone $leadBaseQuery)
+            ->whereNotNull('leads.region_id')
+            ->whereNotNull('ref_regions.province_id');
+
+        $coverageProvinceFilter = $validated['coverage_province'] ?? null;
+        $coverageRegionFilter = $validated['coverage_region'] ?? null;
+        $coverageSearch = $validated['coverage_search'] ?? null;
+        $coveragePage = (int) ($validated['coverage_page'] ?? 1);
+        $coveragePerPage = $this->resolveRegionalReachPerPage($validated['coverage_per_page'] ?? 10);
+
+        $coverageSummaryQuery = clone $coverageBaseQuery;
+        $coverageItemsQuery = clone $coverageBaseQuery;
+
+        if (!empty($coverageProvinceFilter)) {
+            $coverageItemsQuery->where('ref_provinces.id', $coverageProvinceFilter);
+        }
+
+        if (!empty($coverageRegionFilter)) {
+            $coverageItemsQuery->where('ref_regions.id', $coverageRegionFilter);
+        }
+
+        if (!empty($coverageSearch)) {
+            $this->applyRegionalReachLeadSearch($coverageItemsQuery, $coverageSearch, $provinceExpression, $branchExpression);
+        }
+
+        $coveragePaginator = $coverageItemsQuery
+            ->select([
+                'leads.id as lead_id',
+                'leads.name',
+                'leads.company',
+                'leads.needs',
+                'leads.created_at',
+                'lead_claims.claimed_at',
+                'sales_users.name as sales_name',
+                'ref_regions.id as region_id',
+                'ref_regions.name as region_name',
+                'ref_provinces.id as province_id',
+                'ref_provinces.name as province_name',
+                'lead_sources.name as source_name',
+                'lead_statuses.name as lead_stage',
+                DB::raw($branchExpression . ' as branch_name'),
+            ])
+            ->orderByDesc('lead_claims.claimed_at')
+            ->orderByDesc('lead_claims.id')
+            ->paginate($coveragePerPage, ['*'], 'coverage_page', $coveragePage);
+
+        $coverageRegionFiltersQuery = clone $coverageSummaryQuery;
+        if (!empty($coverageProvinceFilter)) {
+            $coverageRegionFiltersQuery->where('ref_provinces.id', $coverageProvinceFilter);
+        }
+
+        $scopedMappingBranchId = $this->resolveRegionalReachScopeBranchId($branchId, $salesId);
+
+        $coverageTotalsQuery = Region::query();
+        if (!empty($scopedMappingBranchId)) {
+            $coverageTotalsQuery->where('branch_id', $scopedMappingBranchId);
+        }
+
+        $coverage = [
+            'total_provinces' => !empty($scopedMappingBranchId)
+                ? (clone $coverageTotalsQuery)->whereNotNull('province_id')->distinct()->count('province_id')
+                : Province::query()->count(),
+            'reached_provinces' => (clone $coverageSummaryQuery)->distinct()->count('ref_regions.province_id'),
+            'total_cities' => !empty($scopedMappingBranchId)
+                ? (clone $coverageTotalsQuery)->count()
+                : Region::query()->count(),
+            'reached_cities' => (clone $coverageSummaryQuery)->distinct()->count('ref_regions.id'),
+            'items' => collect($coveragePaginator->items())
+                ->map(function ($row) {
+                    return $this->mapRegionalReachLeadRow($row, true);
+                })
+                ->values()
+                ->all(),
+            'pagination' => $this->formatRegionalReachPagination($coveragePaginator),
+            'filters' => [
+                'provinces' => (clone $coverageSummaryQuery)
+                    ->whereNotNull('ref_provinces.id')
+                    ->select('ref_provinces.id', 'ref_provinces.name')
+                    ->distinct()
+                    ->orderBy('ref_provinces.name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+                'regions' => $coverageRegionFiltersQuery
+                    ->select('ref_regions.id', 'ref_regions.name')
+                    ->distinct()
+                    ->orderBy('ref_regions.name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ],
+        ];
+
+        $mappingBaseQuery = Region::query()
+            ->join('ref_branches', 'ref_branches.id', '=', 'ref_regions.branch_id')
+            ->leftJoin('ref_provinces', 'ref_provinces.id', '=', 'ref_regions.province_id');
+
+        if (!empty($scopedMappingBranchId)) {
+            $mappingBaseQuery->where('ref_regions.branch_id', $scopedMappingBranchId);
+        }
+
+        $mappingBranchFilter = $validated['mapping_branch'] ?? null;
+        $mappingProvinceFilter = $validated['mapping_province'] ?? null;
+        $mappingRegionFilter = $validated['mapping_region'] ?? null;
+        $mappingSearch = $validated['mapping_search'] ?? null;
+        $mappingPage = (int) ($validated['mapping_page'] ?? 1);
+        $mappingPerPage = $this->resolveRegionalReachPerPage($validated['mapping_per_page'] ?? 10);
+
+        $mappingSummaryQuery = clone $mappingBaseQuery;
+        $mappingItemsQuery = clone $mappingBaseQuery;
+
+        if (!empty($mappingBranchFilter)) {
+            $mappingItemsQuery->where('ref_regions.branch_id', $mappingBranchFilter);
+        }
+
+        if (!empty($mappingProvinceFilter)) {
+            $mappingItemsQuery->where('ref_regions.province_id', $mappingProvinceFilter);
+        }
+
+        if (!empty($mappingRegionFilter)) {
+            $mappingItemsQuery->where('ref_regions.id', $mappingRegionFilter);
+        }
+
+        if (!empty($mappingSearch)) {
+            $like = '%' . trim($mappingSearch) . '%';
+            $mappingItemsQuery->where(function ($q) use ($like) {
+                $q->where('ref_branches.name', 'like', $like)
+                    ->orWhere('ref_regions.name', 'like', $like)
+                    ->orWhere('ref_provinces.name', 'like', $like);
             });
+        }
 
-        $leadDetailsByProvince = $leadDetails->groupBy('nama_provinsi');
+        $mappingPaginator = $mappingItemsQuery
+            ->select([
+                'ref_branches.id as branch_id',
+                'ref_branches.name as branch_name',
+                'ref_provinces.id as province_id',
+                'ref_provinces.name as province_name',
+                'ref_regions.id as region_id',
+                'ref_regions.name as region_name',
+            ])
+            ->orderBy('ref_branches.name')
+            ->orderBy('ref_provinces.name')
+            ->orderBy('ref_regions.name')
+            ->paginate($mappingPerPage, ['*'], 'mapping_page', $mappingPage);
 
-        $data = $topProvinceRows->map(function ($provinceRow) use ($leadDetailsByProvince) {
-            return [
-                'province' => $provinceRow['province'],
-                'total_leads' => $provinceRow['total_leads'],
-                'leads' => $leadDetailsByProvince->get($provinceRow['province'], collect())->values()->all(),
-            ];
-        })->values();
+        $mappingProvinceFiltersQuery = clone $mappingSummaryQuery;
+        if (!empty($mappingBranchFilter)) {
+            $mappingProvinceFiltersQuery->where('ref_regions.branch_id', $mappingBranchFilter);
+        }
+
+        $mappingRegionFiltersQuery = clone $mappingProvinceFiltersQuery;
+        if (!empty($mappingProvinceFilter)) {
+            $mappingRegionFiltersQuery->where('ref_regions.province_id', $mappingProvinceFilter);
+        }
+
+        $branchMapping = [
+            'total_branches' => (clone $mappingSummaryQuery)->distinct()->count('ref_regions.branch_id'),
+            'total_regions' => (clone $mappingSummaryQuery)->count(),
+            'items' => collect($mappingPaginator->items())
+                ->map(function ($row) {
+                    return [
+                        'branch_id' => (int) $row->branch_id,
+                        'branch_name' => $row->branch_name,
+                        'province_id' => !empty($row->province_id) ? (int) $row->province_id : null,
+                        'province_name' => $row->province_name ?? '-',
+                        'region_id' => (int) $row->region_id,
+                        'region_name' => $row->region_name,
+                    ];
+                })
+                ->values()
+                ->all(),
+            'pagination' => $this->formatRegionalReachPagination($mappingPaginator),
+            'filters' => [
+                'branches' => (clone $mappingSummaryQuery)
+                    ->select('ref_branches.id', 'ref_branches.name')
+                    ->distinct()
+                    ->orderBy('ref_branches.name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+                'provinces' => $mappingProvinceFiltersQuery
+                    ->whereNotNull('ref_provinces.id')
+                    ->select('ref_provinces.id', 'ref_provinces.name')
+                    ->distinct()
+                    ->orderBy('ref_provinces.name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+                'regions' => $mappingRegionFiltersQuery
+                    ->select('ref_regions.id', 'ref_regions.name')
+                    ->distinct()
+                    ->orderBy('ref_regions.name')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ],
+        ];
 
         return response()->json([
             'status' => 'success',
-            'data' => $data,
+            'top_10_provinces' => $topTenProvinces,
+            'coverage' => $coverage,
+            'branch_mapping' => $branchMapping,
+            'data' => $topTenProvinces['summary'],
         ]);
+    }
+
+    private function buildRegionalReachLeadBaseQuery(?int $branchId, ?int $salesId, ?string $startDate, ?string $endDate)
+    {
+        $query = LeadClaim::query()
+            ->join('leads', 'lead_claims.lead_id', '=', 'leads.id')
+            ->join('lead_statuses', 'leads.status_id', '=', 'lead_statuses.id')
+            ->leftJoin('users as sales_users', 'sales_users.id', '=', 'lead_claims.sales_id')
+            ->leftJoin('ref_regions', 'ref_regions.id', '=', 'leads.region_id')
+            ->leftJoin('ref_provinces', 'ref_provinces.id', '=', 'ref_regions.province_id')
+            ->leftJoin('ref_branches as region_branches', 'region_branches.id', '=', 'ref_regions.branch_id')
+            ->leftJoin('ref_branches as lead_branches', 'lead_branches.id', '=', 'leads.branch_id')
+            ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
+            ->whereIn('lead_statuses.id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->whereNull('lead_claims.trash_note')
+            ->where('sales_users.branch_id', $branchId)
+            ->when(!empty($salesId), function ($q) use ($salesId) {
+                $q->where('lead_claims.sales_id', $salesId);
+            });
+
+        if (!empty($startDate) && !empty($endDate)) {
+            $query->whereBetween('lead_claims.claimed_at', [
+                Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
+                Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
+            ]);
+        } elseif (!empty($startDate)) {
+            $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
+        } elseif (!empty($endDate)) {
+            $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
+        }
+
+        return $query;
+    }
+
+    private function resolveRegionalReachScopeBranchId(?int $branchId, ?int $salesId): ?int
+    {
+        return !empty($branchId) ? (int) $branchId : null;
+    }
+
+    private function regionalReachProvinceExpression(): string
+    {
+        return "COALESCE(NULLIF(TRIM(ref_provinces.name), ''), NULLIF(TRIM(leads.province), ''))";
+    }
+
+    private function regionalReachBranchExpression(): string
+    {
+        return "COALESCE(NULLIF(TRIM(lead_branches.name), ''), NULLIF(TRIM(region_branches.name), ''))";
+    }
+
+    private function applyRegionalReachLeadSearch($query, string $search, string $provinceExpression, string $branchExpression): void
+    {
+        $like = '%' . trim($search) . '%';
+
+        $query->where(function ($q) use ($like, $provinceExpression, $branchExpression) {
+            $q->where('leads.name', 'like', $like)
+                ->orWhere('leads.company', 'like', $like)
+                ->orWhere('leads.needs', 'like', $like)
+                ->orWhere('sales_users.name', 'like', $like)
+                ->orWhere('lead_sources.name', 'like', $like)
+                ->orWhere('lead_statuses.name', 'like', $like)
+                ->orWhere('ref_regions.name', 'like', $like)
+                ->orWhereRaw($provinceExpression . ' LIKE ?', [$like])
+                ->orWhereRaw($branchExpression . ' LIKE ?', [$like]);
+        });
+    }
+
+    private function mapRegionalReachLeadRow($row, bool $includeIds = true): array
+    {
+        $item = [
+            'lead_id' => (int) $row->lead_id,
+            'lead_name' => $row->name ?: $row->company ?: '-',
+            'branch_name' => $row->branch_name ?? '-',
+            'sales_name' => $row->sales_name ?? '-',
+            'region_name' => $row->region_name ?? '-',
+            'province_name' => $row->province_name ?? '-',
+            'needs' => format_needs_label($row->needs ?? null),
+            'source' => $row->source_name ?? '-',
+            'lead_stage' => $row->lead_stage ?? '-',
+            'created_at' => $row->created_at,
+            'claimed_at' => $row->claimed_at,
+        ];
+
+        if ($includeIds) {
+            $item['region_id'] = !empty($row->region_id) ? (int) $row->region_id : null;
+            $item['province_id'] = !empty($row->province_id) ? (int) $row->province_id : null;
+        } else {
+            $item['province'] = $item['province_name'];
+            $item['region'] = $item['region_name'];
+        }
+
+        return $item;
+    }
+
+    private function resolveRegionalReachPerPage($value, int $default = 10): int
+    {
+        $perPage = (int) $value;
+
+        if ($perPage <= 0) {
+            return $default;
+        }
+
+        return min($perPage, 100);
+    }
+
+    private function formatRegionalReachPagination($paginator): array
+    {
+        return [
+            'page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'last_page' => $paginator->lastPage(),
+            'from' => $paginator->firstItem() ?? 0,
+            'to' => $paginator->lastItem() ?? 0,
+        ];
     }
 
     public function PersonalTrend(Request $request)

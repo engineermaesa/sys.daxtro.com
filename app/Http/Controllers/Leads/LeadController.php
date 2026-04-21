@@ -133,7 +133,8 @@ class LeadController extends Controller
                     return $row->branch->name;
                 }
 
-                return $row->region->branch->name ?? 'Unassigned Branch';
+                // return $row->region->branch->name ?? 'Unassigned Branch';
+                return 'Unassigned Branch';
             })
             // ->addColumn('branch_name', fn($row) => $row->region->branch->name ?? '')
             ->addColumn('source_name', fn($row) => $row->source->name ?? '')
@@ -169,7 +170,7 @@ class LeadController extends Controller
                     $canShowClaim = false;
                 }
 
-                if ($canShowClaim && auth()->user()->role_id == 2) {
+                if ($canShowClaim && auth()->user()->role_id == 2 && $row->branch_id == auth()->user()->branch_id) {
                     $html .= '<a class="text-white bg-[#115640] px-3 py-1 rounded-lg font-medium claim-lead flex items-center gap-1 justify-start" href="' . e($claimUrl) . '">
                                 <i class="bi bi-check-circle"></i> Claim
                             </a>';
@@ -386,6 +387,20 @@ class LeadController extends Controller
 
             $request->validate($rules);
 
+            if (! $id) {
+                if (is_array($request->input('phone'))) {
+                    $phones = collect($request->input('phone', []))
+                        ->filter(fn($phone) => $phone !== null && $phone !== '')
+                        ->values();
+
+                    if ($phones->isNotEmpty() && Lead::whereIn('phone', $phones->all())->exists()) {
+                        throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
+                    }
+                } elseif (Lead::where('phone', $request->phone)->exists()) {
+                    throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
+                }
+            }
+
             // 2. Handle multiple leads
             if (is_array($request->input('source_id')) && !$id) {
                 $ids = [];
@@ -565,7 +580,7 @@ class LeadController extends Controller
                 if (! $id) {
                     $lead->status_id = LeadStatus::PUBLISHED;
                 }
-}
+            }
             $rawFactoryRegion = ($request->factory_city_id ?? null) === 'ALL'
                 ? null
                 : ($request->factory_city_id ?? null);
@@ -668,10 +683,16 @@ class LeadController extends Controller
                 'request_data' => $request->all() // Log the request data
             ]);
 
+            $message = $e->getMessage() === 'Nomor Telepon Tersebut Sudah Ada Di Leads'
+                ? $e->getMessage()
+                : 'Error saving lead: ' . $e->getMessage();
+
+            $statusCode = $e->getMessage() === 'Nomor Telepon Tersebut Sudah Ada Di Leads' ? 422 : 500;
+
             return response()->json([
                 'error' => true,
-                'message' => 'Error saving lead: ' . $e->getMessage()
-            ], 500);
+                'message' => $message
+            ], $statusCode);
         }
     }
 
@@ -989,6 +1010,8 @@ class LeadController extends Controller
                 LeadStatus::DEAL,
             ])
             ->whereNull('lead_claims.trash_note')
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.deleted_at')
             ->when($filters['period_start'] && $filters['period_end'], function ($q) use ($filters) {
                 $q->whereBetween('lead_claims.claimed_at', [$filters['period_start'], $filters['period_end']]);
             })
@@ -1232,16 +1255,54 @@ class LeadController extends Controller
 
         $role = $request->user()->role?->code;
 
+        $cityIds = $paginated->getCollection()
+            ->pluck('lead.factory_city_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $cities = collect();
+        $regionals = collect();
+        $provinces = collect();
+
+        if ($cityIds->isNotEmpty()) {
+            $cities = DB::table('ref_regions')
+                ->whereIn('id', $cityIds)
+                ->select('id', 'name', 'regional_id', 'province_id')
+                ->get()
+                ->keyBy('id');
+
+            $regionalIds = $cities->pluck('regional_id')->filter()->unique()->values();
+            $provinceIds = $cities->pluck('province_id')->filter()->unique()->values();
+
+            if ($regionalIds->isNotEmpty()) {
+                $regionals = DB::table('ref_regionals')
+                    ->whereIn('id', $regionalIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+
+            if ($provinceIds->isNotEmpty()) {
+                $provinces = DB::table('ref_provinces')
+                    ->whereIn('id', $provinceIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+        }
+
         // =========================
         // TRANSFORM DATA
         // =========================
 
-        $paginated->getCollection()->transform(function ($claim) use ($role) {
-            $lead = $claim->lead;
+        $paginated->getCollection()->transform(function ($claim) use ($role, $cities, $regionals, $provinces) {
+            $lead = $claim->lead;       
 
             if (! $lead) {
                 return null;
             }
+
+            $city = $lead ? $cities->get($lead->factory_city_id) : null;
 
             $latestActivity = $lead->activityLogs
                 ->sortByDesc(function ($activity) {
@@ -1326,6 +1387,14 @@ class LeadController extends Controller
                     ? \Carbon\Carbon::parse($lead->created_at)->format('d/m/Y')
                     : '-',
                 'status_name' => $lead->status?->name ?? '-',
+                'alternate_location' => [ $city ? [
+                    'region_id' => $city->id,
+                    'region_name' => $city->name,
+                    'regional_id' => $city->regional_id,
+                    'regional_name' => optional($regionals->get($city->regional_id))->name,
+                    'province_id' => $city->province_id,
+                    'province_name' => optional($provinces->get($city->province_id))->name,
+                ] : null ],
                 'actions' => $html
             ];
         });
@@ -2380,6 +2449,7 @@ class LeadController extends Controller
             'sales'
         ])
             ->whereNull('released_at')
+            ->whereNull('trash_note')
             ->whereHas('lead', function ($q) use ($request, $allowedStatuses) {
                 // Selalu batasi hanya ke status aktif (Cold/Warm/Hot/Deal)
                 $q->whereIn('status_id', $allowedStatuses);

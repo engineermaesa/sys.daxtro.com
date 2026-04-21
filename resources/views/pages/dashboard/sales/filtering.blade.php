@@ -44,6 +44,8 @@
 </div>
 
 <script>
+    const SALES_DEFAULT_BRANCH_ID = @json(auth()->user()?->branch_id ? (string) auth()->user()->branch_id : '');
+    const SALES_DEFAULT_SALES_ID = @json(auth()->id() ? (string) auth()->id() : '');
     const salesGridDateFilter = {
         start_date_grid: null,
         end_date_grid: null,
@@ -51,14 +53,26 @@
 
     function getSuperAdminGeneralFilter() {
         return {
+            branch_id: SALES_DEFAULT_BRANCH_ID || null,
+            sales_id: SALES_DEFAULT_SALES_ID || null,
             start_date_grid: salesGridDateFilter.start_date_grid,
             end_date_grid: salesGridDateFilter.end_date_grid,
         };
     }
 
     function applySuperAdminGeneralFilterToParams(params, options = {}) {
-        const withGridDate = options.withGridDate !== false;
+        const withBranch = options.withBranch !== false;
+        const withSales = options.withSales !== false;
+        const withGridDate = options.withGridDate === true;
         const generalFilter = getSuperAdminGeneralFilter();
+
+        if (withBranch && generalFilter.branch_id && !params.has('branch_id')) {
+            params.append('branch_id', generalFilter.branch_id);
+        }
+
+        if (withSales && generalFilter.sales_id && !params.has('sales_id')) {
+            params.append('sales_id', generalFilter.sales_id);
+        }
 
         if (
             withGridDate

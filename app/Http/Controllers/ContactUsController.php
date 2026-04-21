@@ -76,7 +76,6 @@ class ContactUsController extends Controller
             'agent_name' => 'nullable|string|max:150',
             'spk_canvassing' => 'nullable|string|max:255',
         ]);
-
         try {
             // Handle region_id for "ALL"
             $regionId = $request->region_id === 'ALL' ? null : $request->region_id;
@@ -98,6 +97,10 @@ class ContactUsController extends Controller
             'industryId' => $industryId,
             'factoryIndustryId' => $factoryIndustryId,
         ]);
+
+            if (Lead::where('phone', $request->phone)->exists()) {
+                throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
+            }
 
             // Create the lead directly in database
             $lead = Lead::create([
@@ -143,7 +146,11 @@ class ContactUsController extends Controller
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
-            return back()->withErrors('Submission failed: ' . $e->getMessage())->withInput();
+            $message = $e->getMessage() === 'Nomor Telepon Tersebut Sudah Ada Di Leads'
+                ? $e->getMessage()
+                : 'Submission failed: ' . $e->getMessage();
+
+            return back()->withErrors($message)->withInput();
         }
     }
 }

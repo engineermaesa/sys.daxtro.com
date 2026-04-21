@@ -1029,6 +1029,9 @@
 
         function renderManageCell(column, row) {
             const value = row?.[column.key];
+            const primaryAlternateLocation = Array.isArray(row?.alternate_location)
+                ? row.alternate_location[0]
+                : null;
 
             if (column.type === 'html') {
                 return value ?? '-';
@@ -1044,6 +1047,28 @@
                         ${dotClass ? `<span class="${dotClass}"></span>` : ''}
                     </span>
                 `;
+            }
+
+            if (column.key === 'city_name') {
+                const cityName = String(value ?? '').trim();
+                const alternateCity = String(primaryAlternateLocation?.region_name ?? '').trim();
+
+                if (!cityName || cityName === '-' || cityName === 'All Regions') {
+                    return escapeHtml(`${alternateCity || '-'}*`);
+                }
+
+                return escapeHtml(cityName);
+            }
+
+            if (column.key === 'regional_name') {
+                const regionalName = String(value ?? '').trim();
+                const alternateRegional = String(primaryAlternateLocation?.regional_name ?? '').trim();
+
+                if (!regionalName || regionalName === '-') {
+                    return escapeHtml(`${alternateRegional || '-'}*`);
+                }
+
+                return escapeHtml(regionalName);
             }
 
             return escapeHtml(value ?? '-');

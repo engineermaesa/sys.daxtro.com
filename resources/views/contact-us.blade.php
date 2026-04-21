@@ -28,6 +28,9 @@
             @if(session('success'))
             <div id="success-message"></div>
             @endif
+            @if($errors->any())
+            <div id="error-message" data-message="{{ e($errors->first()) }}"></div>
+            @endif
             <form action="{{ route('contact-us.store') }}" method="POST">
             @csrf
             <div class="grid grid-cols-2 gap-5">
@@ -469,6 +472,14 @@ $(document).ready(function () {
                    We've successfully received your information.<br>
                    Our team will review your needs and reach out shortly.<br><br>
                    At DAXTRO, every detail is engineered for your progress.`
+        });
+    }
+
+    const errorMessage = document.getElementById('error-message');
+    if (errorMessage) {
+        Swal.fire({
+            icon: 'error',
+            text: errorMessage.dataset.message
         });
     }
 

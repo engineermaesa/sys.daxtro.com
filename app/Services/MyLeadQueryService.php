@@ -23,7 +23,8 @@ class MyLeadQueryService
     {
         $query = LeadClaim::query()
             ->with($with)
-            ->whereNull('lead_claims.released_at');
+            ->whereNull('lead_claims.released_at')
+            ->whereNull('lead_claims.trash_note');
 
         self::applyRoleFilter($query, $request);
 
