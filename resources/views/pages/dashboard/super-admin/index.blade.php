@@ -2,8 +2,11 @@
     {{-- FILTERING --}}
     @include('pages.dashboard.super-admin.filtering')
 
-    {{-- PERSONAL KPI GRID --}}
+    {{-- GENERAL KPI GRID --}}
     @include('pages.dashboard.super-admin.general-kpi')
+    
+    {{-- REGIONAL REACH OVERVIEW --}}
+    @include('pages.dashboard.super-admin.regional-reach')
 
     {{-- ACTIVITY OPPORTUNITIES --}}
     @include('pages.dashboard.super-admin.active-opportunities')
@@ -11,12 +14,14 @@
     {{-- LEADS PERFORMANCE--}}
     @include('pages.dashboard.super-admin.leads-performance')
 
-    {{-- PERSONAL TRENDS --}}
+    {{-- GENERAL TRENDS --}}
     @include('pages.dashboard.super-admin.general-trends')
 
     {{-- SUMMARY --}}
-    @include('pages.dashboard.super-admin.summary')
+    {{-- @include('pages.dashboard.super-admin.summary') --}}
 
+    {{-- AGENTS --}}
+    @include('pages.dashboard.super-admin.agent')
 </section>
 
 <script>
@@ -29,7 +34,7 @@
         loadSource();
         loadSegment();
         loadPersonalTrends();
-        loadSummary();
+        // loadSummary();
 
         function initFlatpickr() {
             var input = document.getElementById('source-date-range');

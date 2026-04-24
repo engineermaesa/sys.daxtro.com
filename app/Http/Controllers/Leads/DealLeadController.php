@@ -5,104 +5,68 @@ namespace App\Http\Controllers\Leads;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus};
+use App\Services\MyLeadQueryService;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class DealLeadController extends Controller
 {
     public function myDealList(Request $request)
     {
-        $user     = $request->user();
-        $roleCode = $user->role?->code;
         $perPage  = $request->get('per_page', 10);
 
-       $claimsQuery = LeadClaim::with([
+       $claimsQuery = MyLeadQueryService::baseClaimsQuery($request, LeadStatus::DEAL, [
             'lead.segment',
             'lead.source',
             'lead.industry',
             'lead.region.regional',
             'lead.quotation.proformas.paymentConfirmation',
             'sales'
-        ])
-        ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
-        ->whereNull('released_at');
-
-        if ($roleCode === 'sales') {
-            $claimsQuery->where('sales_id', $request->user()->id);
-        } elseif ($roleCode === 'branch_manager') {
-            $claimsQuery->whereHas('sales', function ($q) {
-                $q->where('branch_id', auth()->user()->branch_id);
-            });
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-
-            $claimsQuery->where(function ($query) use ($search) {
-                // Lead basic fields + needs + customer type
-                $query->whereHas('lead', function ($q) use ($search) {
-                    $q->where(function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('needs', 'like', "%{$search}%")
-                            ->orWhere('customer_type', 'like', "%{$search}%");
-                    });
-                })
-                // Sales name
-                ->orWhereHas('sales', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Source name
-                ->orWhereHas('lead.source', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // City name
-                ->orWhereHas('lead.region', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                })
-                // Regional name
-                ->orWhereHas('lead.region.regional', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%");
-                });
-            });
-        }
-
-        // FILTER DATE
-        if ($request->filled('start_date') || $request->filled('end_date')) {
-            $claimsQuery->whereHas('lead', function ($q) use ($request) {
-                if ($request->filled('start_date') && $request->filled('end_date')) {
-                    $q->whereDate('claimed_at', '>=', $request->start_date)
-                        ->whereDate('claimed_at', '<=', $request->end_date);
-                } elseif ($request->filled('start_date')) {
-                    $q->whereDate('claimed_at', '>=', $request->start_date);
-                } else {
-                    $q->whereDate('claimed_at', '<=', $request->end_date);
-                }
-            });
-        }
-
-        // Source filter
-        if ($request->filled('sources')) {
-            $source = $request->input('sources');
-
-            if (is_string($source) && str_contains($source, ',')) {
-                $source = array_filter(array_map('trim', explode(',', $source)));
-            }
-
-            $claimsQuery->whereHas('lead', function ($q) use ($source) {
-                if (is_array($source)) {
-                    $q->whereIn('source_id', $source);
-                } else {
-                    $q->where('source_id', $source);
-                }
-            });
-        }
+        ]);
 
         $paginated = $claimsQuery
-            ->orderByDesc('id')
+            ->orderByDesc('lead_claims.claimed_at')
+            ->orderByDesc('lead_claims.id')
             ->paginate($perPage);
 
-        $paginated->getCollection()->transform(function ($row) {
+        $cityIds = $paginated->getCollection()
+            ->pluck('lead.factory_city_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $cities = collect();
+        $regionals = collect();
+        $provinces = collect();
+
+        if ($cityIds->isNotEmpty()) {
+            $cities = DB::table('ref_regions')
+                ->whereIn('id', $cityIds)
+                ->select('id', 'name', 'regional_id', 'province_id')
+                ->get()
+                ->keyBy('id');
+
+            $regionalIds = $cities->pluck('regional_id')->filter()->unique()->values();
+            $provinceIds = $cities->pluck('province_id')->filter()->unique()->values();
+
+            if ($regionalIds->isNotEmpty()) {
+                $regionals = DB::table('ref_regionals')
+                    ->whereIn('id', $regionalIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+
+            if ($provinceIds->isNotEmpty()) {
+                $provinces = DB::table('ref_provinces')
+                    ->whereIn('id', $provinceIds)
+                    ->select('id', 'name')
+                    ->get()
+                    ->keyBy('id');
+            }
+        }
+
+        $paginated->getCollection()->transform(function ($row) use ($cities, $regionals, $provinces){
 
             $lead      = $row->lead;
             $quotation = $lead->quotation;
@@ -114,6 +78,19 @@ class DealLeadController extends Controller
                 $approvedPayments = collect($quotation->proformas)->filter(function ($p) {
                     return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
                 })->count();
+            }
+
+            $city = $lead ? $cities->get($lead->factory_city_id) : null;
+
+            if ($lead) {
+                $lead->alternate_location = $city ? [
+                    'region_id' => $city->id,
+                    'region_name' => $city->name,
+                    'regional_id' => $city->regional_id,
+                    'regional_name' => optional($regionals->get($city->regional_id))->name,
+                    'province_id' => $city->province_id,
+                    'province_name' => optional($provinces->get($city->province_id))->name,
+                ] : null;
             }
 
             $row->name          = $lead->name ?? '-';

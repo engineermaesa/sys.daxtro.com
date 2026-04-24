@@ -25,7 +25,7 @@
                     <p class="text-[#3F80EA] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Cold Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['cold'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="cold">{{ $leadCounts['cold'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -49,7 +49,7 @@
                     <p class="text-[#E5A000] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Warm Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['warm'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="warm">{{ $leadCounts['warm'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -73,7 +73,7 @@
                     <p class="text-[#EC221F] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Hot Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['hot'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="hot">{{ $leadCounts['hot'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -97,7 +97,7 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="deal">{{ $leadCounts['deal'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -394,7 +394,7 @@
                     <p class="text-[#14AE5C] text-4xl">•</p>
                     <p class="font-semibold text-[#1E1E1E]">Total Deal Leads</p>
                 </div>
-                <p class="mt-auto text-2xl font-bold pt-3 text-black">{{ $leadCounts['deal'] }}</p>
+                <p class="mt-auto text-2xl font-bold pt-3 text-black" data-manage-card-count="deal">{{ $leadCounts['deal'] }}</p>
             </div>
             <div>
                 <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -526,7 +526,7 @@
                         class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
                         <p class="text-[#083224]">
                             {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                            <span class="{{ 
+                            <span data-manage-tab-count="{{ $tab }}" class="{{ 
                                                 $tab === 'all' 
                                                     ? 'span-all' 
                                                     : ($tab === 'cold' 
@@ -789,6 +789,9 @@
             deal: {{ $leadCounts['deal'] ?? 0 }}
         };
 
+        let manageCountsRequestToken = 0;
+        let manageSummaryRequestToken = 0;
+
         const selectedLeadIds = new Set();
         let isManageExportSubmitting = false;
 
@@ -1026,6 +1029,9 @@
 
         function renderManageCell(column, row) {
             const value = row?.[column.key];
+            const primaryAlternateLocation = Array.isArray(row?.alternate_location)
+                ? row.alternate_location[0]
+                : null;
 
             if (column.type === 'html') {
                 return value ?? '-';
@@ -1041,6 +1047,28 @@
                         ${dotClass ? `<span class="${dotClass}"></span>` : ''}
                     </span>
                 `;
+            }
+
+            if (column.key === 'city_name') {
+                const cityName = String(value ?? '').trim();
+                const alternateCity = String(primaryAlternateLocation?.region_name ?? '').trim();
+
+                if (!cityName || cityName === '-' || cityName === 'All Regions') {
+                    return escapeHtml(`${alternateCity || '-'}*`);
+                }
+
+                return escapeHtml(cityName);
+            }
+
+            if (column.key === 'regional_name') {
+                const regionalName = String(value ?? '').trim();
+                const alternateRegional = String(primaryAlternateLocation?.regional_name ?? '').trim();
+
+                if (!regionalName || regionalName === '-') {
+                    return escapeHtml(`${alternateRegional || '-'}*`);
+                }
+
+                return escapeHtml(regionalName);
             }
 
             return escapeHtml(value ?? '-');
@@ -1180,6 +1208,34 @@
             };
         }
 
+        function normalizeManageCounts(leadCounts = {}) {
+            return {
+                all: Number(leadCounts?.all ?? 0),
+                cold: Number(leadCounts?.cold ?? 0),
+                warm: Number(leadCounts?.warm ?? 0),
+                hot: Number(leadCounts?.hot ?? 0),
+                deal: Number(leadCounts?.deal ?? 0),
+            };
+        }
+
+        function renderManageCounts(leadCounts = {}) {
+            const normalizedCounts = normalizeManageCounts(leadCounts);
+
+            Object.assign(totals, normalizedCounts);
+
+            ['cold', 'warm', 'hot', 'deal'].forEach((stage) => {
+                document.querySelectorAll(`[data-manage-card-count="${stage}"]`).forEach((node) => {
+                    node.textContent = normalizedCounts[stage];
+                });
+            });
+
+            Object.entries(normalizedCounts).forEach(([stage, value]) => {
+                document.querySelectorAll(`[data-manage-tab-count="${stage}"]`).forEach((node) => {
+                    node.textContent = stage === 'all' ? `(${value})` : String(value);
+                });
+            });
+        }
+
         function getSelectedOptionLabel(selectId) {
             const select = document.getElementById(selectId);
 
@@ -1267,6 +1323,18 @@
             }
         }
 
+        function buildManageCountUrl() {
+            const params = new URLSearchParams();
+            applyManageGeneralFilterToParams(params);
+            return `/api/leads/manage/counts?${params.toString()}`;
+        }
+
+        function buildManageSummaryUrl() {
+            const params = new URLSearchParams();
+            applyManageGeneralFilterToParams(params);
+            return `/api/leads/manage/summary?${params.toString()}`;
+        }
+
         function buildManageListUrl(tab, page, perPage) {
             const params = new URLSearchParams();
             params.append('page', page);
@@ -1279,6 +1347,30 @@
             applyManageGeneralFilterToParams(params);
 
             return `/api/leads/manage/list?${params.toString()}`;
+        }
+
+        async function loadManageCounts() {
+            const currentRequestToken = ++manageCountsRequestToken;
+
+            try {
+                const response = await fetch(buildManageCountUrl(), {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (currentRequestToken !== manageCountsRequestToken) {
+                    return;
+                }
+
+                renderManageCounts(result.leadCounts || result);
+            } catch (error) {
+                console.error('Gagal memuat manage counts:', error);
+            }
         }
 
         function syncSalesOptionsWithBranch() {
@@ -1498,23 +1590,31 @@
             const size = parseInt(value, 10) || DEFAULT_PAGE_SIZE;
             pageSizeState[tab] = size;
             pageState[tab] = 1;
-            reloadTab(tab);
+            reloadTab(tab, { refreshCounts: false, refreshSummary: false });
         }
 
         function goPrev(tab) {
             if ((pageState[tab] || 1) > 1) {
                 pageState[tab] = pageState[tab] - 1;
-                reloadTab(tab);
+                reloadTab(tab, { refreshCounts: false, refreshSummary: false });
             }
         }
 
         function goNext(tab) {
             pageState[tab] = (pageState[tab] || 1) + 1;
-            reloadTab(tab);
+            reloadTab(tab, { refreshCounts: false, refreshSummary: false });
         }
 
-        function reloadTab(tab) {
+        function reloadTab(tab, options = {}) {
+            const refreshCounts = options.refreshCounts !== false;
+            const refreshSummary = options.refreshSummary !== false;
             loadManageLeads(tab);
+            if (refreshCounts) {
+                loadManageCounts();
+            }
+            if (refreshSummary) {
+                loadManageSummary();
+            }
         }
 
         // LOAD THE MAIN DATA TO THE TABLE (DATA-CONTAINER)
@@ -1538,7 +1638,6 @@
                 const result = await response.json();
 
                 updatePagerUI(tab, result.total);
-                totals[tab] = result.total || 0;
                 renderManageRows(tab, result.data || []);
             } catch (error) {
                 console.error(`Gagal load leads (${config.bodyId}):`, error);
@@ -1547,79 +1646,96 @@
         }
         
         // LOAD THE SUMMARY ON CARDS (FORCardsCounts)
-        $(document).ready(function () {
-            loadColdSummary();
-            loadWarmSummary();
-            loadHotSummary();
-        });
+        async function loadManageSummary() {
+            const currentRequestToken = ++manageSummaryRequestToken;
 
-        function loadColdSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderColdSummary(response.cold);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
+            try {
+                const response = await fetch(buildManageSummaryUrl(), {
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            });
-        }
 
-        function renderColdSummary(cold) {
-            $("#summary-cold-total").text(cold.total);
-            $("#summary-cold-raw").text(`( ${cold.raw} Raw Leads )`);
-            $("#summary-initiation-count").text(cold.initiation);
-            $("#summary-total-pending").text(cold.approval_status);
-            $("#summary-pending-count").text(`( ${cold.pending} Pending & `);
-            $("#summary-rejected-count").text(`${cold.rejected} Rejected )`);
-            $("#summary-total-meeting").text(cold.meeting_scheduled);
-            $("#summary-meeting-online").text(`( ${cold.meet_online} Online & `);
-            $("#summary-meeting-offline").text(`${cold.meet_offline} Offline )`);
-        }
+                const summary = await response.json();
 
-        function loadWarmSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderWarmSummary(response.warm);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
+                if (currentRequestToken !== manageSummaryRequestToken) {
+                    return;
                 }
-            });
+
+                renderManageSummary(summary || {});
+            } catch (error) {
+                console.error('Gagal memuat manage summary:', error);
+            }
         }
 
-        function renderWarmSummary(warm) {
-            $("#summary-warm-total").text(warm.total);
-            $("#summary-warm-no-quotation").text(`( ${warm.no_quotation} No Quotation )`);
-            $("#summary-warm-total-pending").text(warm.approval_status);
-            $("#summary-warm-pending-count").text(`( ${warm.pending} Pending & `);
-            $("#summary-warm-rejected-count").text(`${warm.rejected} Rejected )`);
-            $("#summary-warm-quotations").text(`${warm.quotation_published}`);
-        }
-        
-        function loadHotSummary(){
-            $.ajax({
-                url: "/api/leads/my/summary",
-                type: "GET",
-                dataType: "json",
-                success: function (response) {
-                    renderHotSummary(response.hot);
-                },
-                error: function (xhr) {
-                    console.log("There are error when fetch summary:", xhr.responseText);
-                }
-            });
+        function renderManageSummary(summary = {}) {
+            const leadCounts = summary.leadCounts || {};
+
+            if (Object.keys(leadCounts).length > 0) {
+                renderManageCounts(leadCounts);
+            }
+
+            renderColdSummary(summary.cold || {});
+            renderWarmSummary(summary.warm || {});
+            renderHotSummary(summary.hot || {});
+            renderDealSummary(summary.deal || {});
         }
 
-        function renderHotSummary(hot) {
-            $("#summary-hot-total").text(hot.total);
-            $("#summary-hot-expire-7-days").text(hot.expiring_7_days);
-            $("#summary-hot-expire-8-days-more").text(hot.expiring_8_plus_days);
+        function renderColdSummary(cold = {}) {
+            const total = Number(cold.total ?? 0);
+            const raw = Number(cold.raw ?? 0);
+            const initiation = Number(cold.initiation ?? 0);
+            const approvalStatus = Number(cold.approval_status ?? 0);
+            const pending = Number(cold.pending ?? 0);
+            const rejected = Number(cold.rejected ?? 0);
+            const meetingScheduled = Number(cold.meeting_scheduled ?? 0);
+            const meetOnline = Number(cold.meet_online ?? 0);
+            const meetOffline = Number(cold.meet_offline ?? 0);
+
+            $("#summary-cold-total").text(total);
+            $("#summary-cold-raw").text(`( ${raw} Raw Leads )`);
+            $("#summary-initiation-count").text(initiation);
+            $("#summary-total-pending").text(approvalStatus);
+            $("#summary-pending-count").text(`( ${pending} Pending & `);
+            $("#summary-rejected-count").text(`${rejected} Rejected )`);
+            $("#summary-total-meeting").text(meetingScheduled);
+            $("#summary-meeting-online").text(`( ${meetOnline} Online & `);
+            $("#summary-meeting-offline").text(`${meetOffline} Offline )`);
+        }
+
+        function renderWarmSummary(warm = {}) {
+            const total = Number(warm.total ?? 0);
+            const noQuotation = Number(warm.no_quotation ?? 0);
+            const approvalStatus = Number(warm.approval_status ?? 0);
+            const pending = Number(warm.pending ?? 0);
+            const rejected = Number(warm.rejected ?? 0);
+            const quotationPublished = Number(warm.quotation_published ?? 0);
+
+            $("#summary-warm-total").text(total);
+            $("#summary-warm-no-quotation").text(`( ${noQuotation} No Quotation )`);
+            $("#summary-warm-total-pending").text(approvalStatus);
+            $("#summary-warm-pending-count").text(`( ${pending} Pending & `);
+            $("#summary-warm-rejected-count").text(`${rejected} Rejected )`);
+            $("#summary-warm-quotations").text(`${quotationPublished}`);
+        }
+
+        function renderHotSummary(hot = {}) {
+            const total = Number(hot.total ?? 0);
+            const expiringSoon = Number(hot.expiring_7_days ?? 0);
+            const expiringLater = Number(hot.expiring_8_plus_days ?? 0);
+
+            $("#summary-hot-total").text(total);
+            $("#summary-hot-expire-7-days").text(expiringSoon);
+            $("#summary-hot-expire-8-days-more").text(expiringLater);
+        }
+
+        function renderDealSummary(deal = {}) {
+            const total = Number(deal.total ?? totals.deal ?? 0);
+            document.querySelectorAll('[data-manage-card-count="deal"]').forEach((node) => {
+                node.textContent = total;
+            });
         }
 
         // SEARCH SECTION BY SEARCHINPUT

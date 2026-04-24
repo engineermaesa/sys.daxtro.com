@@ -57,7 +57,7 @@ class AutoTrashService
                         ->whereDoesntHave('quotation');
                 })
                 ->whereNull('released_at')
-                ->where('claimed_at', '<', now()->subDays(14))
+                ->where('claimed_at', '<', now()->subDays(30))
                 ->get();
 
             foreach ($expiredWarmClaims as $claim) {
@@ -80,7 +80,7 @@ class AutoTrashService
             $expiredHotClaims = LeadClaim::with('lead')
                 ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
                 ->whereNull('released_at')
-                ->where('claimed_at', '<', now()->subDays(14))
+                ->where('claimed_at', '<', now()->subDays(30))
                 ->get();
 
             foreach ($expiredHotClaims as $claim) {

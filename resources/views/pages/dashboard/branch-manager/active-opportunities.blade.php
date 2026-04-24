@@ -311,7 +311,7 @@
                                     item.stage === 'Cold' ? 'status-cold' :
                                     item.stage === 'Warm' ? 'status-warm' :
                                     item.stage === 'Hot' ? 'status-hot' :
-                                    ''
+                                    'status-deal'
                                 }
                                 ">
                                     ${item.stage ?? '-'}

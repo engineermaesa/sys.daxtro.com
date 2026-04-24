@@ -1,5 +1,5 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">My Leads Performance</h1>
-<div class="grid xl:grid-cols-2 gap-4 mt-2">
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-2">
     {{-- SOURCES SECTION --}}
     <div class="bg-white rounded-lg border-r border-l border-t border-[#D9D9D9]">
         <h1 class="text-lg font-semibold p-3 text-[#1E1E1E] border-b border-b-[#D9D9D9]">

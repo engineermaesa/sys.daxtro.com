@@ -22,6 +22,7 @@ use App\Http\Controllers\Leads\SummaryController;
 
 // MASTERS (API)
 use App\Http\Controllers\Masters\AccountController;
+use App\Http\Controllers\Masters\AgentController;
 use App\Http\Controllers\Masters\BankController;
 use App\Http\Controllers\Masters\BranchController;
 use App\Http\Controllers\Masters\CompanyController;
@@ -60,7 +61,9 @@ Route::get('/dashboard/potential-dealing', [DashboardController::class, 'potenti
 Route::get('/dashboard/grid', [DashSummaryController::class, 'grid']);
 Route::get('/dashboard/active-opportunities', [DashSummaryController::class, 'ActiveOpportunities']);
 Route::get('/dashboard/sales-trend', [DashSummaryController::class, 'SalesTrend']);
+Route::get('/dashboard/agent-summary', [DashSummaryController::class, 'AgentSummary']);
 Route::get('/dashboard/leads-performance', [DashSummaryController::class, 'LeadsPerformance']);
+Route::get('/dashboard/lead-volume', [DashSummaryController::class, 'leadVolume']);
 
 Route::get('/dashboard/source-conversion-lists', [DashSummaryController::class, 'SourceConversionLists']);
 Route::get('/dashboard/sales-segment-performance', [DashSummaryController::class, 'SalesSegmentPerformance']);
@@ -75,7 +78,9 @@ Route::group([
     Route::get('/dashboard/bm/grid', [BMSummaryController::class, 'grid']);
     Route::get('/dashboard/bm/active-opportunities', [BMSummaryController::class, 'ActiveOpportunities']);
     Route::get('/dashboard/bm/sales-trend', [BMSummaryController::class, 'SalesTrend']);
+    Route::get('/dashboard/bm/agent-summary', [BMSummaryController::class, 'AgentSummary']);
     Route::get('/dashboard/bm/leads-performance', [BMSummaryController::class, 'LeadsPerformance']);
+    Route::get('/dashboard/bm/lead-volume', [BMSummaryController::class, 'leadVolume']);
 });
 
 
@@ -106,6 +111,7 @@ Route::group([
 
     // Dashboard Leads Summary (API)
     Route::get('/grid', [LeadSummaryController::class, 'grid'])->name('grid');
+    Route::get('/lead-volume', [LeadSummaryController::class, 'leadVolume'])->name('lead-volume');
     Route::get('/active-opportunities', [LeadSummaryController::class, 'ActiveOpportunities'])->name('active-opportunities');
     Route::get('/leads-performance', [LeadSummaryController::class, 'LeadsPerformance'])->name('leads-performance');
     Route::get('/personal-trend', [LeadSummaryController::class, 'PersonalTrend'])->name('personal-trend');
@@ -143,6 +149,8 @@ Route::group([
             ->name('list');
         Route::get('/counts', [LeadController::class, 'manageCounts'])
             ->name('counts');
+        Route::get('/summary', [LeadController::class, 'manageSummary'])
+            ->name('summary');
 
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('form');
@@ -300,6 +308,13 @@ Route::group([
     'as' => 'masters.',
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
+
+    // AGENTS (API)
+    Route::prefix('agents')->name('agents.')->group(function () {
+        Route::get('/list', [AgentController::class, 'list'])->name('list');
+        Route::get('/form/{id?}', [AgentController::class, 'form'])->name('form');
+        Route::post('/save/{id?}', [AgentController::class, 'save'])->name('save');
+    });
 
     // BANKS (API)
     Route::prefix('banks')->name('banks.')->group(function () {

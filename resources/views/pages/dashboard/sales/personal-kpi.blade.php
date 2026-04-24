@@ -1,6 +1,6 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">Personal KPI</h1>
 
-<div class="grid grid-cols-3 gap-3 mt-2">
+<div class="grid grid-cols-2 2xl:grid-cols-3 gap-3 mt-2">
     {{-- ACHIEVEMENT VS TARGET SALE AMOUNT SECTION--}}
     <div class="p-3 bg-white border border-[#D9D9D9] rounded-lg animate__animated animate__fadeInUp" style="animation-delay: 0s;">
 
@@ -122,7 +122,7 @@
         <div>
             <div class="mt-3 text-[#757575]">
                 <p id="totalLeads">0/</p>
-                <p id="totalTrash">Trash Leads: 0</p>
+                <p id="totalAvailable">Available Leads: 0</p>
             </div>
 
             <div class="flex items-center justify-start gap-3 mt-3">
@@ -171,7 +171,21 @@
     // LOAD GRID (PERSONAL-KPI)
     async function loadDashboardGrid() {
         try {
-            const response = await fetch("/api/leads/grid");
+            const params = new URLSearchParams();
+            const generalFilter = typeof getSuperAdminGeneralFilter === 'function'
+                ? getSuperAdminGeneralFilter()
+                : { start_date_grid: null, end_date_grid: null };
+
+            if (generalFilter.start_date_grid && generalFilter.end_date_grid) {
+                params.append('start_date_grid', generalFilter.start_date_grid);
+                params.append('end_date_grid', generalFilter.end_date_grid);
+            }
+
+            const apiUrl = params.toString()
+                ? `/api/leads/grid?${params.toString()}`
+                : '/api/leads/grid';
+
+            const response = await fetch(apiUrl);
             
             if (!response.ok) {
                 throw new Error("Network response was not ok");
@@ -286,7 +300,7 @@
 
             // TOTAL ACTIVE LEADS FETCH DATA CARDS
             $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-lg lg:text-2xl');
-            $("#totalTrash").text("Trash Leads: " + data.active_leads.trash).addClass('text-xs');
+            $("#totalAvailable").text("Available Leads: " + data.active_leads.published).addClass('text-xs');
 
             $("#coldLeads").text(data.active_leads.cold + ' Cold').addClass('text-xs');
             $("#warmLeads").text(data.active_leads.warm + ' Warm').addClass('text-xs');
@@ -301,5 +315,9 @@
             console.error("Error loading dashboard grid:", error);
         }
     }
+
+    window.addEventListener('super-admin-general-filter-change', function () {
+        loadDashboardGrid();
+    });
 
 </script>

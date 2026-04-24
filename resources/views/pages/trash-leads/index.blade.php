@@ -2,6 +2,15 @@
 
 @section('content')
 
+@php
+  $roleCode = auth()->user()->role?->code;
+  $canFilterBranches = in_array($roleCode, ['super_admin', 'sales_director'], true);
+  $canFilterSales = $roleCode !== 'sales';
+  $filterGridClass = $canFilterBranches
+    ? 'grid-cols-5'
+    : ($canFilterSales ? 'grid-cols-4' : 'grid-cols-3');
+@endphp
+
 <section class="min-h-screen sm:text-xs! lg:text-sm!">
   {{-- HEADER PAGES --}}
   <div class="pt-4">
@@ -29,18 +38,32 @@
         {{-- FILTERING TRASH LEADS AND NAVIGATION STATUS TABLES --}}
         <div class="grid grid-cols-[2fr_1fr] gap-4">
           {{-- FILTERING TRASH LEADS --}}
-          <div class="w-full border border-[#D5D5D5] rounded-lg grid grid-cols-4">
-            <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-2 h-full">
+          <div 
+            class="w-full border border-[#D5D5D5] rounded-lg grid {{ $filterGridClass }}">
+            @if($canFilterBranches)
+              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-2 h-full text-[#1E1E1E]">
+                <select id="filterBranches" class="w-full text-sm font-semibold text-center focus:outline-none cursor-pointer">
+                  <option value="">All Branches</option>
+                    @foreach($branches as $branch)
+                      <option value="{{ $branch->id }}">
+                        {{ $branch->name }}
+                  </option>
+                    @endforeach
+                </select>
+              </div>
+            @endif
+            @if($canFilterSales)
+              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-2 h-full text-[#1E1E1E]">
               <select id="filterSales" class="w-full text-sm font-semibold text-center focus:outline-none cursor-pointer">
                 <option value="">All Sales</option>
                 @foreach($salesFilters as $salesFilter)
-                  <option value="{{ $salesFilter->id }}">
-                    {{ $salesFilter->name }} - {{ $salesFilter->branch->name ?? '-' }}
+                  <option value="{{ $salesFilter->id }}" data-branch-id="{{ $salesFilter->branch_id }}">
+                    {{ $salesFilter->name }}
                   </option>
                 @endforeach
               </select>
             </div>
-
+            @endif
             <div class="cursor-pointer w-full relative grid grid-cols-1 items-center h-full border-b lg:border-b-0 lg:border-r border-[#D9D9D9]">
               <div id="openClaimedDateDropdown" class="flex justify-center items-center gap-2 py-2">
                 <p id="claimedDateLabel" class="font-medium text-black text-sm">Claimed At</p>
@@ -95,6 +118,7 @@
                       <p class="text-[#083224]">
                           {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
                           <span 
+                              id="nav-count-{{ $tab }}"
                               class="{{ 
                                   $tab === 'all' 
                                       ? 'span-all' 
@@ -153,6 +177,15 @@
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
                         Source
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Branch
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Province
+                    </th>
+                    <th class="p-1 md:p-2 lg:p-3">
+                        Region
                     </th>
                     <th class="p-1 md:p-2 lg:p-3">
                         First Sales
@@ -262,11 +295,18 @@
     @endphp
     
     const trashRoutes = @json($trashRoutes);
+    const trashIndexEndpoint = @json(route('trash-leads.index'));
 
     // LEADS
     const DEFAULT_PAGE_SIZE = 10;
     const pageState = { all: 1, cold: 1, warm: 1, hot: 1 };
     const pageSizeState = { all: DEFAULT_PAGE_SIZE, cold: DEFAULT_PAGE_SIZE, warm: DEFAULT_PAGE_SIZE, hot: DEFAULT_PAGE_SIZE };
+    const navLeadCounts = {
+        all: {{ $leadCounts['all'] ?? 0 }},
+        cold: {{ $leadCounts['cold'] ?? 0 }},
+        warm: {{ $leadCounts['warm'] ?? 0 }},
+        hot: {{ $leadCounts['hot'] ?? 0 }}
+    };
 
     const totals = {
         all: {{ $leadCounts['all'] ?? 0 }},
@@ -283,6 +323,7 @@
     };
 
     const filterState = {
+      branch: '',
       sales: '',
       filter_by_claimed_at: { start_at: '', end_at: '' },
       filter_by_to_trash_at: { start_at: '', end_at: '' }
@@ -309,6 +350,31 @@
       const $icon = $(iconSelector);
       $dropdown.addClass('opacity-0 scale-95 pointer-events-none');
       $icon.removeClass('rotate-180');
+    }
+
+    function syncTrashSalesOptionsWithBranch() {
+      const branchSelect = document.getElementById('filterBranches');
+      const salesSelect = document.getElementById('filterSales');
+
+      if (!salesSelect) {
+        return;
+      }
+
+      const selectedBranch = branchSelect ? (branchSelect.value || '') : '';
+      const salesOptions = Array.from(salesSelect.options).slice(1);
+
+      salesOptions.forEach((option) => {
+        const optionBranchId = option.dataset.branchId || '';
+        const isVisible = !selectedBranch || optionBranchId === selectedBranch;
+
+        option.hidden = !isVisible;
+        option.disabled = !isVisible;
+      });
+
+      const selectedSalesOption = salesSelect.options[salesSelect.selectedIndex];
+      if (selectedSalesOption && selectedSalesOption.disabled) {
+        salesSelect.value = '';
+      }
     }
 
     function getSelectedClaimIds() {
@@ -361,6 +427,75 @@
         return (el?.value || '').trim();
     }
 
+    function updateBadgeCounts() {
+      const navCounts = {
+        all: `(${navLeadCounts.all || 0})`,
+        cold: navLeadCounts.cold || 0,
+        warm: navLeadCounts.warm || 0,
+      };
+
+      Object.entries(navCounts).forEach(([tab, value]) => {
+        const el = document.getElementById(`nav-count-${tab}`);
+        if (el) {
+          el.textContent = value;
+        }
+      });
+    }
+
+    function buildTrashCountParams() {
+      const params = new URLSearchParams();
+      const search = getSearchQuery();
+
+      if (search) params.set('search', search);
+      if (filterState.branch) params.set('branch', filterState.branch);
+      if (filterState.sales) params.set('sales', filterState.sales);
+      if (filterState.filter_by_claimed_at.start_at) {
+        params.set('filter_by_claimed_at[start_at]', filterState.filter_by_claimed_at.start_at);
+      }
+      if (filterState.filter_by_claimed_at.end_at) {
+        params.set('filter_by_claimed_at[end_at]', filterState.filter_by_claimed_at.end_at);
+      }
+      if (filterState.filter_by_to_trash_at.start_at) {
+        params.set('filter_by_to_trash_at[start_at]', filterState.filter_by_to_trash_at.start_at);
+      }
+      if (filterState.filter_by_to_trash_at.end_at) {
+        params.set('filter_by_to_trash_at[end_at]', filterState.filter_by_to_trash_at.end_at);
+      }
+
+      return params;
+    }
+
+    async function refreshTrashLeadCounts() {
+      try {
+        const params = buildTrashCountParams();
+        const queryString = params.toString();
+        const url = queryString ? `${trashIndexEndpoint}?${queryString}` : trashIndexEndpoint;
+
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch trash lead counts (${response.status})`);
+        }
+
+        const result = await response.json();
+        const leadCounts = result?.leadCounts || {};
+
+        navLeadCounts.all = Number(leadCounts.all ?? 0);
+        navLeadCounts.cold = Number(leadCounts.cold ?? 0);
+        navLeadCounts.warm = Number(leadCounts.warm ?? 0);
+        navLeadCounts.hot = Number(leadCounts.hot ?? 0);
+
+        updateBadgeCounts();
+      } catch (error) {
+        console.error('Refresh Trash Lead Counts Error:', error);
+      }
+    }
+
     const searchInput = document.getElementById('searchInput');
     
     if (searchInput) {
@@ -371,6 +506,7 @@
 
           searchTimeout = setTimeout(() => {
               resetAllPagesToFirst();
+              refreshTrashLeadCounts();
               reloadActiveStatusTab();
           }, 500);
       });
@@ -464,6 +600,8 @@
     });
 
   document.addEventListener("DOMContentLoaded", function() {
+    updateBadgeCounts();
+
     ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
       if (trashRoutes[tab]) {
         initTrashTable(tab, trashRoutes[tab]);
@@ -486,6 +624,10 @@
 
     const search = getSearchQuery();
     if (search) params.set('search', search);
+
+    if (filterState.branch) {
+      params.set('branch', filterState.branch);
+    }
 
     if (filterState.sales) {
       params.set('sales', filterState.sales);
@@ -545,6 +687,9 @@
                     <td class="p-1 md:p-2 lg:p-3">${row.name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.segment_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.source}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.branch?.name ?? row.lead?.branch?.name ?? row.lead?.first_sales?.branch?.name}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.lead?.province}</td>
+                    <td class="p-1 md:p-2 lg:p-3">${row.lead?.region?.name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.first_sales_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.last_sales_name}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.status_lead}</td>
@@ -572,6 +717,7 @@
 
 $(function () {
   updateBulkRestoreUI();
+  syncTrashSalesOptionsWithBranch();
 
   const claimedPicker = (typeof flatpickr !== 'undefined')
     ? flatpickr('#claimed-source-date-range', {
@@ -608,9 +754,22 @@ $(function () {
     $(labelSelector).text(defaultLabel);
   }
 
+  $('#filterBranches').on('change', function () {
+    filterState.branch = ($(this).val() || '').trim();
+    filterState.sales = '';
+
+    $('#filterSales').val('');
+    syncTrashSalesOptionsWithBranch();
+
+    resetAllPagesToFirst();
+    refreshTrashLeadCounts();
+    reloadActiveStatusTab();
+  });
+
   $('#filterSales').on('change', function () {
     filterState.sales = ($(this).val() || '').trim();
     resetAllPagesToFirst();
+    refreshTrashLeadCounts();
     reloadActiveStatusTab();
   });
 
@@ -649,6 +808,7 @@ $(function () {
 
     closeDateDropdown('#claimedDateDropdown', '#claimedIconDate');
     resetAllPagesToFirst();
+    refreshTrashLeadCounts();
     reloadActiveStatusTab();
   });
 
@@ -663,12 +823,16 @@ $(function () {
 
     closeDateDropdown('#toTrashDateDropdown', '#toTrashIconDate');
     resetAllPagesToFirst();
+    refreshTrashLeadCounts();
     reloadActiveStatusTab();
   });
 
   $('#resetTrashLeadFilter').on('click', function () {
+    filterState.branch = '';
     filterState.sales = '';
+    $('#filterBranches').val('');
     $('#filterSales').val('');
+    syncTrashSalesOptionsWithBranch();
 
     clearRangeFilter(claimedPicker, '#claimedDateLabel', 'Claimed At', 'filter_by_claimed_at');
     clearRangeFilter(toTrashPicker, '#toTrashDateLabel', 'To Trash At', 'filter_by_to_trash_at');
@@ -677,6 +841,7 @@ $(function () {
     closeDateDropdown('#toTrashDateDropdown', '#toTrashIconDate');
 
     resetAllPagesToFirst();
+    refreshTrashLeadCounts();
     reloadActiveStatusTab();
   });
 
@@ -751,6 +916,7 @@ $(function () {
           syncSelectAllState(tab);
         });
         updateBulkRestoreUI();
+        refreshTrashLeadCounts();
 
         ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
           reloadTab(tab);
@@ -781,6 +947,7 @@ $(function () {
       if (result.isConfirmed) {
         $.post(url, {_token: '{{ csrf_token() }}'}, function(res){
           notif(res.message || 'Lead restored successfully');
+          refreshTrashLeadCounts();
           ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
             reloadTab(tab);
           });
@@ -828,6 +995,7 @@ $(function () {
     $.post(url, {sales_id: salesId, _token: '{{ csrf_token() }}'}, function(res){
       notif(res.message || 'Lead assigned successfully');
       $('#assignLeadModal').modal('hide');
+      refreshTrashLeadCounts();
       ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
         reloadTab(tab);
       });

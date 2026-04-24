@@ -31,6 +31,20 @@
     <div id="mastersMenu"
         class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0{{ request()->is('masters/*') }}">
         <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
+            {{-- MASTER AGENTS --}}
+            @if(auth()->check() && auth()->user()->hasPermission('masters.agents'))
+            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/agents*')}}"
+                href="{{ route('masters.agents.index') }}">
+                <span
+                    class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/agents*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                </span>
+                <span
+                    class="{{ request()->is('masters/agents*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                    Agents
+                </span>
+            </a>
+            @endif
+
             {{-- MASTER COMPANIES --}}
             @if(auth()->check() && auth()->user()->hasPermission('masters.companies'))
             <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/companies*')}}"
@@ -178,6 +192,7 @@
 {{-- Scripts for collapse masters --}}
 @php
 $isMastersActive =
+request()->is('masters/agents*') ||
 request()->is('masters/companies*') ||
 request()->is('masters/provinces*') ||
 request()->is('masters/branches*') ||

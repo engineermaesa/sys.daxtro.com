@@ -1,5 +1,5 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General Trends</h1>
-<div class="grid grid-cols-1 bg-white p-3 rounded-lg border border-[#D9D9D9] mt-2">
+<div class="grid grid-cols-1 bg-white p-3 rounded-lg border border-[#D9D9D9] mt-2 mb-4">
     <div class="flex items-center justify-between gap-4 mb-4">
         <div class="grid grid-cols-4 gap-5 flex-1">
             <select id="filterYear" class="border border-[#D9D9D9] rounded-lg px-3 py-2" onchange="handleTrendFilterChange()">

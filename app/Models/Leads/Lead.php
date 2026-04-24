@@ -5,6 +5,7 @@ namespace App\Models\Leads;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Masters\Branch;
+use App\Models\Masters\Agent;
 use App\Models\Leads\LeadSource;
 use App\Models\Leads\LeadSegment;
 use App\Models\Orders\Quotation;
@@ -17,6 +18,7 @@ class Lead extends Model
 
     protected $fillable = [
         'source_id',
+        'agent_id',
         'segment_id',
         'region_id',
         'branch_id',
@@ -63,6 +65,11 @@ class Lead extends Model
     public function source()
     {
         return $this->belongsTo(LeadSource::class, 'source_id');
+    }
+
+    public function agent()
+    {
+        return $this->belongsTo(Agent::class, 'agent_id');
     }
 
     public function segment()

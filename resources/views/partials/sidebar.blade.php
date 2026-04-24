@@ -141,6 +141,7 @@
         {{-- MASTERS MENU --}}
         @php
         $masterPermissions = [
+            'masters.agents',
             'masters.companies',
             'masters.provinces',
             'masters.branches',

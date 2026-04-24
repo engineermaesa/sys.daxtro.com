@@ -155,10 +155,6 @@ th {
     text-align: inherit;
     text-align: -webkit-match-parent;
 }
-label {
-    display: inline-block;
-    margin-bottom: .5rem;
-}
 button:focus:not(:focus-visible) {
     outline: 0;
 }

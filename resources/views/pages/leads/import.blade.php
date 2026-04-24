@@ -611,6 +611,21 @@
       bsCustomFileInput.init();
     }
 
+    const $importFileInput = $('#importFile');
+    const defaultImportFileLabel = $importFileInput.siblings('.custom-file-label').text().trim();
+
+    $importFileInput.on('change', function () {
+      const selectedFileNames = Array.from(this.files || [])
+        .map(function (file) {
+          return file.name;
+        })
+        .filter(Boolean);
+
+      $(this)
+        .siblings('.custom-file-label')
+        .text(selectedFileNames.length ? selectedFileNames.join(', ') : defaultImportFileLabel);
+    });
+
     $('#uploadForm').on('submit', function(){
       loading();
     });

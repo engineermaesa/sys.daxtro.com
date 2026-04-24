@@ -17,75 +17,116 @@ class TrashLeadController extends Controller
     public function index(Request $request)
     {
         $user  = auth()->user();
+        $roleCode = $user->role?->code;
+        $leadCounts = $this->buildTrashLeadCounts($request);
 
-        $leadIds = LeadClaim::select(DB::raw('MAX(id) as id'))
-            ->whereHas(
-                'lead',
-                fn($q) =>
-                $q->whereIn('status_id', [LeadStatus::TRASH_COLD, LeadStatus::TRASH_WARM, LeadStatus::TRASH_HOT])
-            )
-            ->when(
-                $user->role?->code === 'sales',
-                fn($q) =>
-                $q->whereHas('lead', function ($q) use ($user) {
-                    $q->whereNull('region_id')
-                        ->orWhereHas(
-                            'region',
-                            fn($r) =>
-                            $r->where('branch_id', $user->branch_id)
-                        );
-                })
-            )
-            ->groupBy('lead_id')
-            ->pluck('id');
-
-        $counts = LeadClaim::whereIn('id', $leadIds)
-            ->with('lead')
-            ->get()
-            ->groupBy(fn($claim) => $claim->lead->status_id)
-            ->map(fn($group) => $group->count());
-
-        $branches = Branch::all();
+        $branches = Branch::orderBy('name')->get();
         $salesFilters = User::query()
             ->select('id', 'name', 'branch_id')
             ->with('branch:id,name')
             ->whereHas('role', fn($q) => $q->where('code', 'sales'))
             ->when(
-                $user->role?->code === 'sales' && $user->branch_id,
+                in_array($roleCode, ['sales', 'branch_manager'], true) && $user->branch_id,
                 fn($q) => $q->where('branch_id', $user->branch_id)
             )
             ->orderBy('name')
             ->get();
 
-        $cold = $counts[LeadStatus::TRASH_COLD] ?? 0;
-        $warm = $counts[LeadStatus::TRASH_WARM] ?? 0;
-        // TRASH HOT
-        $hot = $counts[LeadStatus::TRASH_HOT] ?? 0;
-
-        $all = $cold + $warm + $hot;
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
-                'leadCounts' => [
-                    'cold' => $counts[LeadStatus::TRASH_COLD] ?? 0,
-                    'warm' => $counts[LeadStatus::TRASH_WARM] ?? 0,
-                    'hot' => $counts[LeadStatus::TRASH_HOT] ?? 0,
-                    'all'  => $all,
-                ],
+                'leadCounts' => $leadCounts,
                 'branches' => $branches->toArray(),
                 'salesFilters' => $salesFilters->toArray(),
             ], 200);
         }
 
         return view('pages.trash-leads.index', [
-            'leadCounts' => [
-                'cold' => $counts[LeadStatus::TRASH_COLD] ?? 0,
-                'warm' => $counts[LeadStatus::TRASH_WARM] ?? 0,
-                'hot' => $counts[LeadStatus::TRASH_HOT] ?? 0,
-                'all'  => $all,
-            ],
+            'leadCounts' => $leadCounts,
             'branches' => $branches,
             'salesFilters' => $salesFilters,
         ]);
+    }
+
+    private function buildTrashLeadCounts(Request $request): array
+    {
+        $cold = $this->buildTrashLeadCountQuery($request, [LeadStatus::TRASH_COLD])->count();
+        $warm = $this->buildTrashLeadCountQuery($request, [LeadStatus::TRASH_WARM])->count();
+        $hot = $this->buildTrashLeadCountQuery($request, [LeadStatus::TRASH_HOT])->count();
+        $all = $this->buildTrashLeadCountQuery($request, [
+            LeadStatus::TRASH_COLD,
+            LeadStatus::TRASH_WARM,
+            LeadStatus::TRASH_HOT,
+        ])->count();
+
+        return [
+            'all' => $all,
+            'cold' => $cold,
+            'warm' => $warm,
+            'hot' => $hot,
+        ];
+    }
+
+    private function buildTrashLeadCountQuery(Request $request, array $statusIds): Builder
+    {
+        $claims = LeadClaim::query()
+            ->whereHas('lead', fn($q) => $q->whereIn('status_id', $statusIds))
+            ->whereIn('id', function ($q) {
+                $q->select(DB::raw('MAX(id)'))
+                    ->from('lead_claims as lc2')
+                    ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
+                    ->groupBy('lead_id');
+            });
+
+        $user = $request->user() ?? auth()->user();
+        if ($user) {
+            $this->applyTrashLeadCountScope($claims, $user, $statusIds);
+        }
+
+        $this->applyTrashLeadFilters($claims, $request, $statusIds);
+
+        return $claims;
+    }
+
+    private function applyTrashLeadCountScope(Builder $claims, User $user, array $statusIds): void
+    {
+        $roleCode = $user->role?->code;
+        $isHotOnly = count($statusIds) === 1 && (int) reset($statusIds) === LeadStatus::TRASH_HOT;
+
+        if ($isHotOnly) {
+            if ($roleCode === 'sales') {
+                $claims->whereHas('lead', function ($q) use ($user) {
+                    $q->whereNull('region_id')
+                        ->orWhereHas(
+                            'region',
+                            fn($r) => $r->where('branch_id', $user->branch_id)
+                        );
+                });
+            }
+
+            return;
+        }
+
+        if ($roleCode === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->where(function ($subQuery) use ($user) {
+                    $subQuery->whereNull('region_id')
+                        ->orWhereHas(
+                            'region',
+                            fn($r) => $r->where('branch_id', $user->branch_id)
+                        );
+                })->where('first_sales_id', $user->id);
+            });
+        }
+
+        if ($roleCode === 'branch_manager') {
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($r) => $r->where('branch_id', $user->branch_id)
+                    );
+            });
+        }
     }
 
     public function coldList(Request $request)
@@ -99,7 +140,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales',
+                'lead.firstSales.branch',
+                'lead.region.branch',
                 'sales',
             ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_COLD))
@@ -116,9 +158,21 @@ class TrashLeadController extends Controller
                     ->orWhereHas(
                         'region',
                         fn($r) => $r->where('branch_id', $user->branch_id)
+                    )
+                    ->where('first_sales_id', $user->id);
+            });
+        }
+
+        if ($roleCode === 'branch_manager'){
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($r) => $r->where('branch_id', $user->branch_id)
                     );
             });
         }
+
 
         $this->applyTrashLeadFilters($claims, $request, [LeadStatus::TRASH_COLD]);
 
@@ -150,7 +204,7 @@ class TrashLeadController extends Controller
             $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
 
             if (
-                ($roleCode === 'sales') &&
+                in_array($roleCode, ['sales', 'branch_manager', 'sales_director', 'super_admin']) &&
                 ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
             ) {
                 $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
@@ -201,7 +255,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales',
+                'lead.firstSales.branch',
+                'lead.region.branch',
                 'sales',
             ])
             ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::TRASH_WARM))
@@ -213,6 +268,17 @@ class TrashLeadController extends Controller
             });
 
         if ($roleCode === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($r) => $r->where('branch_id', $user->branch_id)
+                    )
+                    ->where('first_sales_id', $user->id);
+            });
+        }
+
+        if ($roleCode === 'branch_manager'){
             $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -252,7 +318,7 @@ class TrashLeadController extends Controller
             $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
 
             if (
-                ($roleCode === 'sales') &&
+                in_array($roleCode, ['sales', 'branch_manager', 'sales_director', 'super_admin']) &&
                 ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
             ) {
                 $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
@@ -404,7 +470,8 @@ class TrashLeadController extends Controller
                 'lead.status', 
                 'lead.segment', 
                 'lead.source', 
-                'lead.firstSales',
+                'lead.firstSales.branch',
+                'lead.region.branch',
                 'sales',
             ])
             ->whereHas('lead', function ($q) {
@@ -424,6 +491,17 @@ class TrashLeadController extends Controller
         $roleCode = $user->role?->code;
 
         if ($roleCode === 'sales') {
+            $claims->whereHas('lead', function ($q) use ($user) {
+                $q->whereNull('region_id')
+                    ->orWhereHas(
+                        'region',
+                        fn($r) => $r->where('branch_id', $user->branch_id)
+                    )
+                    ->where('first_sales_id', $user->id);
+            });
+        }
+
+        if ($roleCode === 'branch_manager'){
             $claims->whereHas('lead', function ($q) use ($user) {
                 $q->whereNull('region_id')
                     ->orWhereHas(
@@ -467,12 +545,16 @@ class TrashLeadController extends Controller
             $allowedAssign = in_array($roleCode, ['branch_manager', 'super_admin', 'sales_director', 'finance_director', 'accountant_director']);
             
             if (
-                ($roleCode === 'sales') &&
+                in_array($roleCode, ['sales', 'branch_manager']) &&
                 ($row->lead->region?->branch_id !== null && $user->branch_id !== null && $row->lead->region->branch_id === $user->branch_id)
-            ) {
+            ){
                 $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
             }
             
+            if (in_array($roleCode, ['sales_director', 'super_admin'])){
+                $html .= '<button class="dropdown-item restore-lead flex items-center gap-2 text-[#1E1E1E]" data-url="' . e($restoreUrl) . '"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>';
+            }
+
             if ($allowedAssign) {
                 $html .= '<button class="dropdown-item assign-lead flex items-center gap-2 text-[#1E1E1E]" data-claim="' . $row->id . '" data-branch="' . ($row->lead->region->branch_id ?? '') . '"><i class="bi bi-person-plus"></i> Assign</button>';
             }
@@ -522,6 +604,22 @@ class TrashLeadController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->filled('branch')) {
+            $branchFilter = trim((string) $request->input('branch'));
+
+            if (ctype_digit($branchFilter)) {
+                $branchId = (int) $branchFilter;
+
+                $claims->where(function (Builder $query) use ($branchId) {
+                    $query->whereHas('lead', function (Builder $q) use ($branchId) {
+                        $q->where('branch_id', $branchId)
+                            ->orWhereHas('region', fn(Builder $subQuery) => $subQuery->where('branch_id', $branchId))
+                            ->orWhereHas('firstSales', fn(Builder $subQuery) => $subQuery->where('branch_id', $branchId));
+                    })->orWhereHas('sales', fn(Builder $q) => $q->where('branch_id', $branchId));
+                });
+            }
         }
 
         if ($request->filled('sales')) {
@@ -746,6 +844,7 @@ class TrashLeadController extends Controller
                     $claim->update([
                         'claimed_at'  => now(),
                         'released_at' => null,
+                        'trash_note' => null,
                     ]);
 
                     $claim->lead->update(['status_id' => $newStatus]);
@@ -787,6 +886,7 @@ class TrashLeadController extends Controller
             $claim->update([
                 'claimed_at' => now(),
                 'released_at' => null,
+                'trash_note' => null,
             ]);
 
             $claim->lead->update(['status_id' => $newStatus]);
@@ -831,6 +931,7 @@ class TrashLeadController extends Controller
                 'sales_id'   => $sales->id,
                 'claimed_at' => now(),
                 'released_at' => null,
+                'trash_note' => null,
             ]);
 
             $claim->lead->update(['status_id' => $newStatus]);
