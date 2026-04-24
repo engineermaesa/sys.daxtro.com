@@ -41,7 +41,7 @@ class LeadController extends Controller
 
     public function availableList(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
 
         $leads = Lead::with([
             'region',
@@ -233,9 +233,10 @@ class LeadController extends Controller
     public function save(Request $request, $id = null)
     {
         try {
-            $user    = auth()->user();
+            $user    = $request->user();
             $isSales = $user->role->code === 'sales';
-            $isSalesDirector = $user->role->code === 'sales_director';
+            // Allow both Sales Director and Super Admin to perform branch assignment
+            $isSalesDirector = in_array($user->role->code, ['sales_director', 'super_admin']);
             $isMyForm = $request->routeIs('leads.my.save');
 
             // 1. Build validation rules
@@ -530,6 +531,8 @@ class LeadController extends Controller
             $lead->region_id    = $rawRegion;
             $lead->branch_id    = $branchId;
             $lead->province     = $rawRegion ? $provinceName : null;
+            $assignedBranchSingle = $request->assignment_branch ?? null;
+
             if (! $id) {
                 // default status
                 $defaultStatus = $isMyForm ? LeadStatus::COLD : ($isSales ? LeadStatus::COLD : LeadStatus::PUBLISHED);
@@ -602,6 +605,13 @@ class LeadController extends Controller
 
             if (! $id && ($isSales || $isMyForm)) {
                 $lead->first_sales_id = $user->id;
+            }
+            // If updating existing lead and Sales Director assigned branch, apply branch only
+            // (do NOT change status or existing claims/owners)
+            if ($id && $isSalesDirector && $assignedBranchSingle) {
+                $lead->branch_id = $assignedBranchSingle;
+                $lead->region_id = null;
+                $lead->province = null;
             }
             // Sales Director should not be set as first_sales by assignment
             $lead->save();

@@ -331,8 +331,8 @@
                                         value="{{ old('other_industry', $form_data->other_industry) }}" />
                                 </div>
 
-                                {{-- ASSIGNMENT FOR SALES DIRECTOR --}}
-                                @if(auth()->user()?->role?->code === 'sales_director')
+                                {{-- ASSIGNMENT FOR SALES DIRECTOR / SUPER ADMIN --}}
+                                @if(in_array(auth()->user()?->role?->code, ['sales_director','super_admin']))
                                 <div class="w-full grid grid-cols-1 mt-3">
                                     <label class="text-[#1E1E1E]! mb-2! block!">Assign Branch</label>
                                     <select name="{{ $isCreate ? 'assignment_branch[]' : 'assignment_branch' }}"

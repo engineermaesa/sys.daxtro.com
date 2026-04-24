@@ -10,7 +10,7 @@ class LeadSegment extends Model
     use HasFactory;
 
     // Use the legacy reference table for customer types
-    protected $table = 'ref_customer_types';
+    protected $table = 'lead_segments';
 
     protected $fillable = ['name'];
 }
