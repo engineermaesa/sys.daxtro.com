@@ -582,6 +582,10 @@
                             return $p->paymentConfirmation !== null;
                         });
 
+                        // detect explicit rejections
+                        $rejectedByBM = $quotation->reviews->where('role', 'BM')->where('decision', 'reject')->isNotEmpty();
+                        $rejectedByFinance = $quotation->reviews->where('role', 'finance')->where('decision', 'reject')->isNotEmpty();
+
                         // Explicit editability rules - allow both sales and BM to edit before finance approval
                         $canEdit = false;
                         
@@ -595,6 +599,9 @@
                         }
                     @endphp
                     @if ($canEdit && isset($claim))
+                        <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Edit Quotation</a>
+                    @elseif(!$canEdit && isset($claim) && $userRole === 'sales' && ($rejectedByBM || $rejectedByFinance))
+                        {{-- Allow sales to re-edit quotation when it was rejected by BM or Finance --}}
                         <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Edit Quotation</a>
                     @endif
                 </div>

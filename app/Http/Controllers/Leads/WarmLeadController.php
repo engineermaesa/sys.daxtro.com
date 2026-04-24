@@ -194,6 +194,11 @@ class WarmLeadController extends Controller
                 $editableStatuses = ['draft', 'review', 'pending_finance'];
                 $isEditable = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
             }
+
+            // Allow sales to re-edit when quotation was rejected by BM/Finance
+            if ($quotation->status === 'rejected' && $userRole === 'sales') {
+                $isEditable = true;
+            }
         }
 
         $rejection = null;
@@ -264,6 +269,11 @@ class WarmLeadController extends Controller
                 }
             } else {
                 $canEdit = in_array($userRole, ['sales', 'branch_manager']);
+            }
+
+            // Allow sales to save edits when quotation was rejected
+            if ($quotation && $quotation->status === 'rejected' && $userRole === 'sales') {
+                $canEdit = true;
             }
 
             abort_unless($canEdit, 403);
@@ -376,15 +386,13 @@ class WarmLeadController extends Controller
                 ? $existingQuotation->reviews()->where('decision', 'approve')->exists()
                 : false;
 
-            if ($existingQuotation) {
+                if ($existingQuotation) {
                 // Clean up previous data
                 $existingQuotation->items()->delete();
                 $existingQuotation->paymentTerms()->delete();
 
-                // Reset approvals from Branch Manager and Sales Director if any
-                if ($hadApproval) {
-                    $existingQuotation->reviews()->delete();
-                }
+                // Clear previous reviews (approve/reject) so new review cycle can start
+                $existingQuotation->reviews()->delete();
 
                 $existingQuotation->update([
                     'status'      => 'review',
