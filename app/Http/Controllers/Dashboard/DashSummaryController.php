@@ -1011,14 +1011,14 @@ class DashSummaryController extends Controller
                 ];
             });
 
-        // 🔥 Hitung grand total
+        // ðŸ”¥ Hitung grand total
         $grandCold  = $rows->sum('cold');
         $grandWarm  = $rows->sum('warm');
         $grandHot   = $rows->sum('hot');
         $grandDeal  = $rows->sum('deal');
         $grandTotal = $grandCold + $grandWarm + $grandHot + $grandDeal;
 
-        // 🔥 Update persen_cum per source
+        // ðŸ”¥ Update persen_cum per source
         $rows = $rows->map(function ($row) use ($grandTotal) {
             $row['persen_cum'] = $grandTotal > 0
                 ? round(($row['total_source'] / $grandTotal) * 100, 1)
@@ -1026,7 +1026,7 @@ class DashSummaryController extends Controller
             return $row;
         });
 
-        // 🔥 Tambahkan row total
+        // ðŸ”¥ Tambahkan row total
         $rows->push([
             'source'       => 'Total',
             'total_source' => $grandTotal,
@@ -1101,14 +1101,14 @@ class DashSummaryController extends Controller
                 ];
             });
 
-        // 🔥 GRAND TOTAL
+        // ðŸ”¥ GRAND TOTAL
         $grandCold = $rows->sum('cold');
         $grandWarm = $rows->sum('warm');
         $grandHot  = $rows->sum('hot');
         $grandDeal = $rows->sum('deal');
         $grandTotal = $grandCold + $grandWarm + $grandHot + $grandDeal;
 
-        // 🔥 UPDATE persen_cum pakai GRAND TOTAL
+        // ðŸ”¥ UPDATE persen_cum pakai GRAND TOTAL
         $rows = $rows->map(function ($row) use ($grandTotal) {
 
             if ($row['segment'] !== 'Total') {
@@ -1818,10 +1818,14 @@ class DashSummaryController extends Controller
         $branchExpression = $this->regionalReachBranchExpression();
         $leadBaseQuery = $this->buildRegionalReachLeadBaseQuery($branchId, $salesId, $startDate, $endDate);
 
-        $topSummary = (clone $leadBaseQuery)
+        $topSummarySource = (clone $leadBaseQuery)
             ->whereRaw($provinceExpression . ' IS NOT NULL')
-            ->selectRaw($provinceExpression . ' as province, COUNT(*) as total_leads')
-            ->groupBy(DB::raw($provinceExpression))
+            ->selectRaw($provinceExpression . ' as province');
+        
+        $topSummary = DB::query()
+            ->fromSub($topSummarySource, 'province_leads')
+            ->selectRaw('province, COUNT(*) as total_leads')
+            ->groupBy('province')
             ->orderByDesc('total_leads')
             ->orderBy('province')
             ->limit(10)
@@ -2715,7 +2719,7 @@ class DashSummaryController extends Controller
 
         foreach ($sources as $source) {
 
-            // kalau filter month → hanya 1 bulan
+            // kalau filter month â†’ hanya 1 bulan
             if ($month) {
                 $monthlyData = [0];
 
