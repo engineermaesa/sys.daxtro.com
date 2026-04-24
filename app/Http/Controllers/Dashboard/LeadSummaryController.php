@@ -840,10 +840,14 @@ class LeadSummaryController extends Controller
         $branchExpression = $this->regionalReachBranchExpression();
         $leadBaseQuery = $this->buildRegionalReachLeadBaseQuery($branchId, $salesId, $startDate, $endDate);
 
-        $topSummary = (clone $leadBaseQuery)
+        $topSummarySource = (clone $leadBaseQuery)
             ->whereRaw($provinceExpression . ' IS NOT NULL')
-            ->selectRaw($provinceExpression . ' as province, COUNT(*) as total_leads')
-            ->groupBy(DB::raw($provinceExpression))
+            ->selectRaw($provinceExpression . ' as province');
+        
+        $topSummary = DB::query()
+            ->fromSub($topSummarySource, 'province_leads')
+            ->selectRaw('province, COUNT(*) as total_leads')
+            ->groupBy('province')
             ->orderByDesc('total_leads')
             ->orderBy('province')
             ->limit(10)

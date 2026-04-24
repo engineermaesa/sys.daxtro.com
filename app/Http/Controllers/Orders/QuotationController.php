@@ -16,7 +16,7 @@ use Carbon\Carbon;
 
 class QuotationController extends Controller
 {
-        public function download(Request $request, $id)
+    public function download(Request $request, $id)
     {
         // 1. Authorize
         $allowed = ['branch_manager','super_admin','sales', 'finance'];
@@ -97,8 +97,6 @@ class QuotationController extends Controller
             ->download($finalPath)
             ->deleteFileAfterSend(true);
     }
-
-
 
     public function downloadOld(Request $request, $id)
     {
