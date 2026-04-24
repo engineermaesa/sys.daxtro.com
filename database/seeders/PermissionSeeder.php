@@ -37,6 +37,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Roles', 'code' => 'users.roles', 'description' => 'Manage roles'],
             ['name' => 'Permissions Settings', 'code' => 'settings.permissions-settings', 'description' => 'Manage permissions settings'],
             ['name' => 'Settings', 'code' => 'settings.general-settings', 'description' => 'Manage general settings'],
+            ['name' => 'Quotation Approvals', 'code' => 'quotation.approvals', 'description' => 'Quotation Approvals'],
         ];
 
         foreach ($permissions as $perm) {

@@ -7,7 +7,11 @@ use Illuminate\Http\Request;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
 use App\Models\Orders\{Quotation, QuotationReview, Proforma, QuotationPaymentTerm, QuotationSignedDocument, QuotationLog};
 use App\Models\Attachment;
+use App\Models\Leads\LeadActivityList;
 use App\Models\Leads\LeadClaim;
+use App\Models\Leads\LeadSource;
+use App\Models\Leads\LeadStatus;
+use App\Services\AutoTrashService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +20,59 @@ use Carbon\Carbon;
 
 class QuotationController extends Controller
 {
+    public function index(Request $request)
+    {
+        AutoTrashService::triggerIfNeeded();
+
+        $user = $request->user();
+        $selfScopedRoles = ['sales', 'branch_manager', 'sales_director'];
+
+        $claims = LeadClaim::whereNull('released_at')
+            ->with('lead');
+
+        if (in_array($user->role?->code, $selfScopedRoles, true)) {
+            $claims->where('sales_id', $user->id);
+        }
+
+        $counts = $claims->get()
+            ->groupBy(fn($claim) => $claim->lead->status_id)
+            ->map->count();
+
+        $cold = $counts[LeadStatus::COLD] ?? 0;
+        $warm = $counts[LeadStatus::WARM] ?? 0;
+        $hot  = $counts[LeadStatus::HOT] ?? 0;
+        $deal = $counts[LeadStatus::DEAL] ?? 0;
+
+        $all = $cold + $warm + $hot + $deal;
+
+        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'leadCounts' => [
+                    'all'  => $all,
+                    'cold' => $counts[LeadStatus::COLD] ?? 0,
+                    'warm' => $counts[LeadStatus::WARM] ?? 0,
+                    'hot'  => $counts[LeadStatus::HOT] ?? 0,
+                    'deal' => $counts[LeadStatus::DEAL] ?? 0,
+                ],
+                'activities' => LeadActivityList::all(),
+            ]);
+        }
+
+        // Diakalin, ini index buat finance. Jadi ambil leads warm & hot & deal aja, end point API pake my leads di api.php. view nya pasti sama kayak my leads.
+
+        return view('pages.orders.quotation-index', [
+            'leadCounts' => [
+                'all'  => $all,
+                'cold' => $counts[LeadStatus::COLD] ?? 0,
+                'warm' => $counts[LeadStatus::WARM] ?? 0,
+                'hot'  => $counts[LeadStatus::HOT] ?? 0,
+                'deal' => $counts[LeadStatus::DEAL] ?? 0,
+            ],
+            'activities' => LeadActivityList::all(),
+            'leadSources' => LeadSource::orderBy('name')->get()
+        ]);
+           
+    }
     public function download(Request $request, $id)
     {
         // 1. Authorize

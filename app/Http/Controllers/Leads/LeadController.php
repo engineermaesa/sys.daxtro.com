@@ -1095,7 +1095,8 @@ class LeadController extends Controller
     private function resolveManageCountFilters(Request $request): array
     {
         $user = $request->user();
-        $restrictedRoles = ['branch_manager', 'finance', 'accountant', 'purchasing'];
+        // variabel restrictedRoles kalau mao ketatin ke role lainnya, tinggal tambahin aja
+        $restrictedRoles = ['branch_manager'];
 
         $branchId = $request->filled('branch_id') ? (int) $request->input('branch_id') : null;
         if (! $branchId && $user?->branch_id && in_array($user->role?->code, $restrictedRoles)) {

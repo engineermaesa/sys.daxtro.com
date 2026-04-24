@@ -235,10 +235,14 @@ Route::middleware('auth')->group(function () {
         'as' => 'quotations.',
         'namespace' => 'App\\Http\\Controllers\\Orders',
     ], function () {
+        Route::get('/', 'QuotationController@index')->name('index');
+
         Route::get('/{id}/download', 'QuotationController@download')->name('download');
         Route::get('/{id}/logs', 'QuotationController@logs')->name('logs');
-        Route::get('/{id}', 'QuotationController@show')->name('show');
         Route::get('/{id}/signed-documents', 'QuotationController@signedDocuments')->name('signed-documents');
+
+        Route::get('/{id}', 'QuotationController@show')->name('show');
+        
         Route::post('/{id}/approve', 'QuotationController@approve')->name('approve');
         Route::post('/{id}/reject', 'QuotationController@reject')->name('reject');
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
