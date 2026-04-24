@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Finance\FinanceRequestController;
 use App\Http\Controllers\Leads\SummaryController;
+use App\Http\Controllers\Masters\AgentController;
 use App\Http\Controllers\Purchasing\PurchaseController;
 
 // Temporary debug route to inspect session id and CSRF token
@@ -276,6 +277,10 @@ Route::middleware('auth')->group(function () {
         'as' => 'masters.',
         'namespace' => 'App\\Http\\Controllers\\Masters',
     ], function () {
+        Route::name('agents.')->prefix('agents')->group(function () {
+            Route::get('/', [AgentController::class, 'index'])->name('index');
+            Route::get('/form/{id?}', [AgentController::class, 'form'])->name('form');
+        });
         Route::name('banks.')->prefix('banks')->group(function () {
             Route::get('/', 'BankController@index')->name('index');
             Route::get('/form/{id?}', 'BankController@form')->name('form');

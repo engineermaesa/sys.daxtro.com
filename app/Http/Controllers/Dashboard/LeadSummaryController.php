@@ -118,9 +118,11 @@ class LeadSummaryController extends Controller
             });
 
             $approvedPayments = $confirmedProformas->count();
+            // && $approvedPayments >= $totalPayments (gunain ini kalau mau full payment)
+
 
             // Only count deals that have all proformas confirmed.
-            if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
+            if ($totalPayments > 0 ) {
                 $completedDeals++;
 
                 // Achievement amount khusus pembayaran yang confirmed di periode grid

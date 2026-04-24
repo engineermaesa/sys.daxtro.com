@@ -24,13 +24,40 @@
             back-url="{{ request()->routeIs('leads.my.form') ? route('leads.my') : route('leads.available') }}"
             require-confirmation="true" class="mt-3">
             @csrf
-            @php $isCreate = empty($form_data->id); @endphp
+            @php
+                $isCreate = empty($form_data->id);
+                $agentOptions = collect($agentOptions ?? []);
+                $selectedAgentInput = old('agent_id', $form_data->agent_id);
+                $selectedAgentId = is_array($selectedAgentInput) ? ($selectedAgentInput[0] ?? null) : $selectedAgentInput;
+                $agentSourceIds = $agentOptions->pluck('source_id')->filter()->map(fn ($id) => (int) $id)->all();
+            @endphp
             <div id="lead-entries">
                 <div class="lead-entry">
                     {{-- PRIMARY CONTACT --}}
                     <div class="bg-white rounded-lg">
-                        <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Primary Contact
-                        </h1>
+                        <div class="flex items-center justify-start gap-3 border-b border-b-[#D9D9D9] w-full">
+                            <h1 class="text-black uppercase p-3 font-semibold">
+                                Primary Contact
+                            </h1>
+                            <label class="normal-case flex items-center gap-1 text-[#1E1E1E] font-medium cursor-pointer">
+                                <input type="checkbox" class="use-agent-checkbox" {{ $selectedAgentId ? 'checked' : '' }}>
+                                <span>Agents</span>
+                            </label>
+                        </div>
+                        <div class="agent-select-wrapper {{ $selectedAgentId ? '' : 'hidden' }} px-3 pt-3">
+                            <div class="grid grid-cols-1 gap-1">
+                                <label class="text-[#1E1E1E]! mb-1!">Select Agent</label>
+                                <select name="{{ $isCreate ? 'agent_id[]' : 'agent_id' }}"
+                                    class="select2 agent-select px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!">
+                                    <option value="">Pilih Agent</option>
+                                    @foreach($agentOptions as $agentOption)
+                                        <option value="{{ $agentOption['id'] }}" {{ (string) $selectedAgentId === (string) $agentOption['id'] ? 'selected' : '' }}>
+                                            {{ $agentOption['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
                         <div class="p-3 grid grid-cols-5 gap-3 justify-between">
                             {{-- FOR MR/MRS --}}
                             <div>
@@ -282,7 +309,7 @@
                                         @endphp
 
                                         @foreach ($sources as $source)
-                                        @if ($isNew ? in_array($source->name, $filter) : true)
+                                        @if ($isNew ? in_array($source->name, $filter) || in_array((int) $source->id, $agentSourceIds) : true)
                                         <option value="{{ $source->id }}" {{ old('source_id', $form_data->source_id) ==
                                             $source->id ? 'selected' : '' }}>
                                             {{ $source->name }}
@@ -629,6 +656,71 @@
         });
     }
 
+    const leadAgentOptions = @json($agentOptions ?? []);
+
+    function leadField($entry, field) {
+        return $entry.find(`[name="${field}"], [name="${field}[]"]`).first();
+    }
+
+    function setFieldValue($field, value) {
+        if (!$field.length) return;
+
+        $field.val(value ?? '');
+    }
+
+    function setSelectValue($select, value) {
+        if (!$select.length) return;
+
+        $select.val(value == null ? '' : String(value)).trigger('change');
+    }
+
+    function applyAgentToEntry($entry, agent) {
+        setSelectValue(leadField($entry, 'title'), agent.title || 'Mr');
+        setFieldValue(leadField($entry, 'name'), agent.name);
+        setSelectValue(leadField($entry, 'jabatan_id'), agent.jabatan_id);
+        setFieldValue(leadField($entry, 'phone'), agent.phone);
+        setFieldValue(leadField($entry, 'email'), agent.email);
+
+        setFieldValue(leadField($entry, 'company'), agent.company);
+        setFieldValue(leadField($entry, 'company_address'), agent.company_address);
+        setSelectValue(leadField($entry, 'region_id'), agent.region_id);
+        setSelectValue(leadField($entry, 'province'), agent.province);
+        setFieldValue(leadField($entry, 'branch_id'), agent.branch_id);
+
+        setSelectValue(leadField($entry, 'source_id'), agent.source_id);
+        setSelectValue(leadField($entry, 'customer_type'), agent.customer_type);
+    }
+
+    function syncAgentPickerState($entry) {
+        const selectedAgent = leadField($entry, 'agent_id').val();
+
+        $entry.find('.use-agent-checkbox').prop('checked', !!selectedAgent);
+        $entry.find('.agent-select-wrapper').toggleClass('hidden', !selectedAgent);
+    }
+
+    $(document).on('change', '.use-agent-checkbox', function () {
+        const $entry = $(this).closest('.lead-entry');
+        const $agentSelect = $entry.find('.agent-select');
+
+        if (this.checked) {
+            $entry.find('.agent-select-wrapper').removeClass('hidden');
+            return;
+        }
+
+        $agentSelect.val('').trigger('change.select2');
+        $entry.find('.agent-select-wrapper').addClass('hidden');
+    });
+
+    $(document).on('change', '.agent-select', function () {
+        const agentId = $(this).val();
+
+        if (!agentId || !leadAgentOptions[agentId]) {
+            return;
+        }
+
+        applyAgentToEntry($(this).closest('.lead-entry'), leadAgentOptions[agentId]);
+    });
+
     function updateContactReasonLabel($select) {
         const $entry = $select.closest('.lead-entry');
         const $contactReasonLabel = $entry.find('.contact-reason-label');
@@ -714,6 +806,9 @@
     styleDisabledProvince($('#lead-entries').find('.province-select'));
     updateLeadLabels();
     updateLeadPicNames();
+    $('#lead-entries .lead-entry').each(function () {
+        syncAgentPickerState($(this));
+    });
 
     const regionProvinces = @json($regions->pluck('province.name','id'));
     $('#lead-entries .province-select').on('select2:opening', e => e.preventDefault());
@@ -879,6 +974,9 @@
         });
         /* ---- show remove button ---- */
         $clone.find('.remove-lead').removeClass('d-none');
+        $clone.find('.use-agent-checkbox').prop('checked', false);
+        $clone.find('.agent-select-wrapper').addClass('hidden');
+        $clone.find('.agent-select').val('');
 
         $clone.find('.pic-extensions').empty();
 

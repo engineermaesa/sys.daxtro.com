@@ -298,6 +298,7 @@
             {{-- PROFORMAS SECTION --}}
             @php
                 $isSales = auth()->user()->role?->code === 'sales';
+                $isBranchManager = auth()->user()->role?->code === 'branch_manager';
                 $orderId = $quotation->order->id ?? null;
             @endphp
             
@@ -381,7 +382,7 @@
 
                                                     @if ($pf->status === 'confirmed')
                                                         @php $fr = $pf->paymentConfirmation?->financeRequest; @endphp
-                                                        @if (!$pf->paymentConfirmation && $isSales)
+                                                        @if (!$pf->paymentConfirmation && ($isSales || $isBranchManager))
                                                             <a href="{{ route('payment-confirmation.terms.payment.confirm.form', [$quotation->lead_id, $pf->term_no ?? 'bf']) }}"
                                                                 class="flex items-center gap-2 text-white bg-[#115640] px-3 py-2 duration-300 border border-[#05261B] hover:bg-[#0D4433] hover:border hover:border-[#05261B] rounded-lg">
                                                                 <x-icon.dollar/> 

@@ -6,6 +6,8 @@ use App\Models\Masters\CustomerType;
 use App\Models\Orders\Quotation;
 use App\Models\Leads\{Lead, LeadStatus, LeadSource};
 use App\Models\Masters\Branch;
+use App\Models\Masters\Province;
+use App\Models\Masters\Region;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,6 +75,10 @@ class DashboardController extends Controller
         }
 
         $branches = Branch::all();
+        $provinces = Province::orderBy('name')->get(['id', 'name']);
+        $regions = Region::with('province:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'province_id', 'branch_id']);
         $leadSources = LeadSource::orderBy('name')->get();
 
         $segments = CustomerType::orderBy('name')->get();
@@ -87,6 +93,8 @@ class DashboardController extends Controller
             'showOrders'           => $showOrders,
             'quotationStatusStats' => $quotationStatusStats,
             'branches'             => $branches,
+            'provinces'            => $provinces,
+            'regions'              => $regions,
             'leadSources'          => $leadSources,
             'segments'             => $segments,
             'currentBranchId'      => $user->branch_id,

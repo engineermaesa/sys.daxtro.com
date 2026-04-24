@@ -1,5 +1,5 @@
 <h1 class="text-[#083224] font-semibold uppercase mt-5 text-lg">General Filters</h1>
-<div class="w-3/4 2xl:w-1/2 grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
+<div class="w-full 2xl:w-3/4 grid grid-cols-1 md:grid-cols-5 bg-white border border-[#D9D9D9] rounded-lg">
 
     {{-- BRANCH --}}
     <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer h-full px-2 text-[#1E1E1E] p-3">
@@ -53,6 +53,44 @@
         </div>
     </div>
 
+    {{-- COMPARE DATES --}}
+    <div class="border-r border-r-[#CFD5DC] cursor-pointer w-full relative grid grid-cols-1 items-center h-full">
+        {{-- TOGGLE --}}
+        <div id="openCompareDateDropdownGrid" class="flex justify-center items-center gap-2 px-2 py-3">
+            <p id="compareDateLabelGrid" class="font-medium text-black text-center">Compare Dates</p>
+            <i id="iconCompareDateGrid" class="fas fa-chevron-down transition-transform duration-300 text-black" style="font-size: 12px;"></i>
+        </div>
+
+        {{-- COMPARE DATE DROPDOWN --}}
+        <div id="compareDateDropdownGrid"
+            class="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl w-[720px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top overflow-visible">
+
+            <h3 class="font-semibold mb-3">Compare Dates</h3>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm font-semibold text-[#1E1E1E] mb-2">Base Date</p>
+                    <input type="text" id="compareStartDateGrid" class="shadow-none w-full" placeholder="Select base date">
+                </div>
+
+                <div>
+                    <p class="text-sm font-semibold text-[#1E1E1E] mb-2">Compare Date</p>
+                    <input type="text" id="compareEndDateGrid" class="shadow-none w-full" placeholder="Select compare date">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-3">
+                <button id="cancelCompareDateGrid" class="px-3 py-1 text-[#303030]">
+                    Cancel
+                </button>
+
+                <button id="applyCompareDateGrid" class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">
+                    Apply
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- RESET FILTERS --}}
     <div id="generalFilterReset" class="flex items-center justify-center gap-2 cursor-pointer h-full">
         <i id="resetQuery" class="fa fa-redo transition-transform duration-300 text-[#900B09] -scale-x-100   " style="font-size: 12px;"></i>
@@ -66,6 +104,11 @@
         end_date_grid: null
     };
 
+    const superAdminCompareDateFilter = {
+        compare_start_date: null,
+        compare_end_date: null
+    };
+
     function getSuperAdminGeneralFilter() {
         const branchId = document.getElementById('branchesQuery')?.value || '';
         const salesId = document.getElementById('salesQuery')?.value || '';
@@ -75,6 +118,8 @@
             sales_id: salesId || null,
             start_date_grid: superAdminGridDateFilter.start_date_grid,
             end_date_grid: superAdminGridDateFilter.end_date_grid,
+            compare_start_date: superAdminCompareDateFilter.compare_start_date,
+            compare_end_date: superAdminCompareDateFilter.compare_end_date,
         };
     }
 
@@ -82,6 +127,7 @@
         const withBranch = options.withBranch !== false;
         const withSales = options.withSales !== false;
         const withGridDate = options.withGridDate === true;
+        const withCompareDate = options.withCompareDate === true;
         const generalFilter = getSuperAdminGeneralFilter();
 
         if (withBranch && generalFilter.branch_id && !params.has('branch_id')) {
@@ -101,6 +147,17 @@
         ) {
             params.append('start_date_grid', generalFilter.start_date_grid);
             params.append('end_date_grid', generalFilter.end_date_grid);
+        }
+
+        if (
+            withCompareDate
+            && generalFilter.compare_start_date
+            && generalFilter.compare_end_date
+            && !params.has('compare_start_date')
+            && !params.has('compare_end_date')
+        ) {
+            params.append('compare_start_date', generalFilter.compare_start_date);
+            params.append('compare_end_date', generalFilter.compare_end_date);
         }
     }
 
@@ -146,7 +203,17 @@
         const dateOpenBtn = document.getElementById('openDateDropdownGrid');
         const dateCancelBtn = document.getElementById('cancelDateGrid');
         const dateApplyBtn = document.getElementById('applyDateGrid');
+        const compareDateLabel = document.getElementById('compareDateLabelGrid');
+        const compareDateDropdown = document.getElementById('compareDateDropdownGrid');
+        const compareDateIcon = document.getElementById('iconCompareDateGrid');
+        const compareDateOpenBtn = document.getElementById('openCompareDateDropdownGrid');
+        const compareStartInput = document.getElementById('compareStartDateGrid');
+        const compareEndInput = document.getElementById('compareEndDateGrid');
+        const compareDateCancelBtn = document.getElementById('cancelCompareDateGrid');
+        const compareDateApplyBtn = document.getElementById('applyCompareDateGrid');
         let gridDatePicker = null;
+        let compareStartPicker = null;
+        let compareEndPicker = null;
 
         if (!branchSelect || !salesSelect) {
             return;
@@ -174,6 +241,59 @@
             }
         }
 
+        function setCompareDateLabel() {
+            if (!compareDateLabel) {
+                return;
+            }
+
+            if (superAdminCompareDateFilter.compare_start_date && superAdminCompareDateFilter.compare_end_date) {
+                compareDateLabel.textContent = superAdminCompareDateFilter.compare_start_date + ' vs ' + superAdminCompareDateFilter.compare_end_date;
+                return;
+            }
+
+            compareDateLabel.textContent = 'Compare Dates';
+        }
+
+        function closeCompareDateDropdown() {
+            if (compareDateDropdown) {
+                compareDateDropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            }
+            if (compareDateIcon) {
+                compareDateIcon.classList.remove('rotate-180');
+            }
+        }
+
+        function notifyCompareDate(message) {
+            if (typeof notif === 'function') {
+                notif(message, 'error');
+                return;
+            }
+
+            alert(message);
+        }
+
+        function resetCompareDateFilter(shouldClearPicker = true) {
+            superAdminCompareDateFilter.compare_start_date = null;
+            superAdminCompareDateFilter.compare_end_date = null;
+
+            if (shouldClearPicker) {
+                if (compareStartPicker) {
+                    compareStartPicker.clear();
+                } else if (compareStartInput) {
+                    compareStartInput.value = '';
+                }
+
+                if (compareEndPicker) {
+                    compareEndPicker.clear();
+                    compareEndPicker.set('minDate', null);
+                } else if (compareEndInput) {
+                    compareEndInput.value = '';
+                }
+            }
+
+            setCompareDateLabel();
+        }
+
         function resetDateFilter(shouldClearPicker = true) {
             superAdminGridDateFilter.start_date_grid = null;
             superAdminGridDateFilter.end_date_grid = null;
@@ -195,6 +315,41 @@
             });
         }
 
+        if (compareStartInput && compareEndInput && typeof flatpickr !== 'undefined') {
+            compareEndPicker = flatpickr(compareEndInput, {
+                inline: true,
+                dateFormat: 'Y-m-d',
+                disableMobile: true,
+                onChange: function (selectedDates, dateStr) {
+                    superAdminCompareDateFilter.compare_end_date = dateStr || null;
+                }
+            });
+
+            compareStartPicker = flatpickr(compareStartInput, {
+                inline: true,
+                dateFormat: 'Y-m-d',
+                disableMobile: true,
+                onChange: function (selectedDates, dateStr) {
+                    superAdminCompareDateFilter.compare_start_date = dateStr || null;
+
+                    if (compareEndPicker) {
+                        compareEndPicker.set('minDate', dateStr || null);
+                    }
+
+                    if (
+                        dateStr
+                        && superAdminCompareDateFilter.compare_end_date
+                        && superAdminCompareDateFilter.compare_end_date < dateStr
+                    ) {
+                        superAdminCompareDateFilter.compare_end_date = null;
+                        if (compareEndPicker) {
+                            compareEndPicker.clear();
+                        }
+                    }
+                }
+            });
+        }
+
         if (dateOpenBtn && dateDropdown) {
             dateOpenBtn.addEventListener('click', function () {
                 const isClosed = dateDropdown.classList.contains('opacity-0');
@@ -204,6 +359,7 @@
                     if (dateIcon) {
                         dateIcon.classList.add('rotate-180');
                     }
+                    closeCompareDateDropdown();
                 } else {
                     closeDateDropdown();
                 }
@@ -231,17 +387,71 @@
             });
         }
 
+        if (compareDateOpenBtn && compareDateDropdown) {
+            compareDateOpenBtn.addEventListener('click', function () {
+                const isClosed = compareDateDropdown.classList.contains('opacity-0');
+
+                if (isClosed) {
+                    compareDateDropdown.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+                    if (compareDateIcon) {
+                        compareDateIcon.classList.add('rotate-180');
+                    }
+                    closeDateDropdown();
+                } else {
+                    closeCompareDateDropdown();
+                }
+            });
+        }
+
+        if (compareDateCancelBtn) {
+            compareDateCancelBtn.addEventListener('click', function () {
+                closeCompareDateDropdown();
+            });
+        }
+
+        if (compareDateApplyBtn) {
+            compareDateApplyBtn.addEventListener('click', function () {
+                const baseDate = superAdminCompareDateFilter.compare_start_date;
+                const compareDate = superAdminCompareDateFilter.compare_end_date;
+
+                if (!baseDate || !compareDate) {
+                    notifyCompareDate('Please select Base Date and Compare Date');
+                    return;
+                }
+
+                if (compareDate < baseDate) {
+                    notifyCompareDate('Compare Date cannot be earlier than Base Date');
+                    superAdminCompareDateFilter.compare_end_date = null;
+                    if (compareEndPicker) {
+                        compareEndPicker.clear();
+                    }
+                    setCompareDateLabel();
+                    return;
+                }
+
+                setCompareDateLabel();
+                closeCompareDateDropdown();
+                broadcastSuperAdminGeneralFilterChange();
+            });
+        }
+
         document.addEventListener('click', function (event) {
-            if (!dateDropdown || !dateOpenBtn) {
-                return;
+            if (dateDropdown && dateOpenBtn && !dateDropdown.contains(event.target) && !dateOpenBtn.contains(event.target)) {
+                closeDateDropdown();
             }
 
-            if (!dateDropdown.contains(event.target) && !dateOpenBtn.contains(event.target)) {
-                closeDateDropdown();
+            if (
+                compareDateDropdown
+                && compareDateOpenBtn
+                && !compareDateDropdown.contains(event.target)
+                && !compareDateOpenBtn.contains(event.target)
+            ) {
+                closeCompareDateDropdown();
             }
         });
 
         setDateLabel();
+        setCompareDateLabel();
         syncSalesOptionsWithBranch();
 
         branchSelect.addEventListener('change', function () {
@@ -259,7 +469,9 @@
                 salesSelect.value = '';
                 syncSalesOptionsWithBranch();
                 resetDateFilter(true);
+                resetCompareDateFilter(true);
                 closeDateDropdown();
+                closeCompareDateDropdown();
                 broadcastSuperAdminGeneralFilterChange();
             });
         }

@@ -20,6 +20,9 @@
     {{-- SUMMARY --}}
     {{-- @include('pages.dashboard.branch-manager.summary') --}}
 
+    {{-- AGENTS --}}
+    @include('pages.dashboard.branch-manager.agent')
+
 </section>
 
 <script>

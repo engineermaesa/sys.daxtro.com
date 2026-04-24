@@ -9,10 +9,11 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadActivityList, LeadClaim, LeadStatus, LeadStatusLog, LeadSource, LeadSegment};
 // LeadPicExtension
-use App\Models\Masters\{Branch, Region, Product, Province, CustomerType, Industry};
+use App\Models\Masters\{Agent, Branch, Region, Product, Province, CustomerType, Industry};
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class LeadController extends Controller
 {
@@ -187,6 +188,7 @@ class LeadController extends Controller
             ? Lead::with([
                 'status',
                 'source',
+                'agent',
                 'segment',
                 'region',
                 'product',
@@ -214,6 +216,8 @@ class LeadController extends Controller
         $provinces = Province::orderBy('name')->pluck('name');
         // branches list for Sales Director assignment (allow selecting any branch)
         $branches = Branch::orderBy('name')->get();
+        $agents = $this->leadFormAgents(auth()->user());
+        $agentOptions = $this->leadFormAgentOptions($agents);
 
         $meetings  = $id ? $form_data->meetings->sortByDesc('scheduled_start_at') : collect();
         $quotation = $id ? $form_data->quotation : null;
@@ -231,13 +235,14 @@ class LeadController extends Controller
                 'regions' => $regions,
                 'products' => $products,
                 'provinces' => $provinces,
+                'agents' => $agentOptions,
                 'meetings' => $meetings,
                 'quotation' => $quotation,
                 'order' => $order,
             ]);
         }
 
-        return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order', 'branches'));
+        return $this->render('pages.leads.form', compact('form_data', 'sources', 'segments', 'customerTypes', 'industries', 'jabatans', 'regions', 'products', 'provinces', 'meetings', 'quotation', 'order', 'branches', 'agents', 'agentOptions'));
     }
 
     public function save(Request $request, $id = null)
@@ -247,6 +252,13 @@ class LeadController extends Controller
             $isSales = $user->role->code === 'sales';
             $isSalesDirector = $user->role->code === 'sales_director';
             $isMyForm = $request->routeIs('leads.my.save');
+            $agentRule = [
+                'nullable',
+                Rule::exists('ref_agents', 'id')
+                    ->where('branch_id', $user->branch_id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at'),
+            ];
 
             // 1. Build validation rules
             $segmentRule = $isSales && !$id
@@ -254,6 +266,7 @@ class LeadController extends Controller
                 : 'nullable|integer|exists:lead_segments,id';
             $rules = [
                 'source_id'   => 'required',
+                'agent_id'    => $agentRule,
                 'segment_id'  => $segmentRule,
                 'province'    => "nullable",
                 'region_id'   => [
@@ -324,6 +337,7 @@ class LeadController extends Controller
             if (is_array($request->input('source_id'))) {
                 $rules = [
                     'source_id.*'  => 'required',
+                    'agent_id.*'   => $agentRule,
                     'segment_id.*' => $segmentRule,
                     'province.*'   => "nullable",
                     'region_id.*'  => [
@@ -390,13 +404,17 @@ class LeadController extends Controller
             if (! $id) {
                 if (is_array($request->input('phone'))) {
                     $phones = collect($request->input('phone', []))
-                        ->filter(fn($phone) => $phone !== null && $phone !== '')
+                        ->filter(function ($phone, $index) use ($request, $user) {
+                            return ! $this->selectedLeadAgent($request->input("agent_id.{$index}"), $user)
+                                && $phone !== null
+                                && $phone !== '';
+                        })
                         ->values();
 
                     if ($phones->isNotEmpty() && Lead::whereIn('phone', $phones->all())->exists()) {
                         throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
                     }
-                } elseif (Lead::where('phone', $request->phone)->exists()) {
+                } elseif (! $this->selectedLeadAgent($request->agent_id, $user) && Lead::where('phone', $request->phone)->exists()) {
                     throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
                 }
             }
@@ -483,6 +501,12 @@ class LeadController extends Controller
                     $lead->agent_title = $request->agent_title[$i] ?? null;
                     $lead->agent_name = $request->agent_name[$i] ?? null;
                     $lead->spk_canvassing = $request->spk_canvassing[$i] ?? null;
+
+                    if ($agent = $this->selectedLeadAgent($request->agent_id[$i] ?? null, $user)) {
+                        $this->applyAgentToLead($lead, $agent);
+                    } else {
+                        $lead->agent_id = null;
+                    }
 
                     // Jika segment_id belum diisi tapi Customer Type ada,
                     // coba mapping ke master lead_segments berdasarkan nama yang sama.
@@ -621,6 +645,12 @@ class LeadController extends Controller
             $lead->agent_name = $request->agent_name;
             $lead->spk_canvassing = $request->spk_canvassing;
 
+            if ($agent = $this->selectedLeadAgent($request->agent_id, $user)) {
+                $this->applyAgentToLead($lead, $agent);
+            } else {
+                $lead->agent_id = null;
+            }
+
             // Mapping otomatis segment berdasarkan Customer Type jika segment belum di-set.
             if (! $lead->segment_id && $lead->customer_type) {
                 $mappedSegmentId = DB::table('lead_segments')
@@ -694,6 +724,97 @@ class LeadController extends Controller
                 'message' => $message
             ], $statusCode);
         }
+    }
+
+    private function leadFormAgents($user)
+    {
+        if (! $user?->branch_id) {
+            return collect();
+        }
+
+        return Agent::with(['region.province:id,name', 'source:id,name', 'customerType:id,name', 'jabatan:id,name'])
+            ->where('branch_id', $user->branch_id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function leadFormAgentOptions($agents)
+    {
+        return $agents->mapWithKeys(function (Agent $agent) {
+            [$title, $name] = $this->splitAgentName($agent->name);
+            $location = trim(($agent->region?->name ?? '-') . ', ' . ($agent->province ?? '-'));
+
+            return [
+                $agent->id => [
+                    'id' => $agent->id,
+                    'title' => $title,
+                    'name' => $name,
+                    'display_name' => $agent->name,
+                    'phone' => $agent->phone,
+                    'email' => $agent->email,
+                    'jabatan_id' => $agent->jabatan_id,
+                    'company' => $agent->company_name,
+                    'company_address' => $agent->company_address,
+                    'source_id' => $agent->source_id,
+                    'customer_type' => $agent->customerType?->name,
+                    'region_id' => $agent->region_id,
+                    'region_name' => $agent->region?->name,
+                    'province' => $agent->province,
+                    'branch_id' => $agent->branch_id,
+                    'label' => implode(' | ', [
+                        $agent->name ?: '-',
+                        $agent->phone ?: '-',
+                        $agent->email ?: '-',
+                        $location,
+                    ]),
+                ],
+            ];
+        });
+    }
+
+    private function selectedLeadAgent($agentId, $user): ?Agent
+    {
+        if (empty($agentId) || ! $user?->branch_id) {
+            return null;
+        }
+
+        return Agent::with(['customerType:id,name'])
+            ->whereKey($agentId)
+            ->where('branch_id', $user->branch_id)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    private function applyAgentToLead(Lead $lead, Agent $agent): void
+    {
+        [$title, $name] = $this->splitAgentName($agent->name);
+
+        $lead->agent_id = $agent->id;
+        $lead->source_id = $agent->source_id;
+        $lead->region_id = $agent->region_id;
+        $lead->branch_id = $agent->branch_id;
+        $lead->province = $agent->province;
+        $lead->company = $agent->company_name;
+        $lead->company_address = $agent->company_address;
+        $lead->customer_type = $agent->customerType?->name;
+        $lead->name = trim($title . ' ' . $name);
+        $lead->phone = $agent->phone;
+        $lead->email = $agent->email;
+        $lead->jabatan_id = $agent->jabatan_id;
+    }
+
+    private function splitAgentName(?string $name): array
+    {
+        $name = trim((string) $name);
+
+        foreach (['Mrs', 'Mr'] as $title) {
+            if (str_starts_with($name, $title . ' ')) {
+                return [$title, trim(substr($name, strlen($title) + 1))];
+            }
+        }
+
+        return ['Mr', $name];
     }
 
     protected function evaluateLeadDataCompleteness($lead): array
@@ -2529,6 +2650,7 @@ class LeadController extends Controller
         }
 
         $paginated = $claims
+            ->orderByDesc('claimed_at')
             ->orderByDesc('id')
             ->paginate($perPage);
 

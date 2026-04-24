@@ -35,6 +35,8 @@
                     <p id="percentageAchievementRegion">0%</p>
                     <p class="text-[#1E1E1E] text-xs">Achievement</p>
                 </div>
+
+                <p id="compareProvinceCoverage" class="hidden"></p>
             </div>
         </div>
     
@@ -58,6 +60,8 @@
                     <p id="percentageAchievementCity">0%</p>
                     <p class="text-[#1E1E1E] text-xs">Achievement</p>
                 </div>
+
+                <p id="compareCityCoverage" class="hidden"></p>
             </div>
         </div>
     </div>
@@ -517,7 +521,8 @@
         if (typeof applySuperAdminGeneralFilterToParams === 'function') {
             applySuperAdminGeneralFilterToParams(params, {
                 withBranch: true,
-                withSales: true
+                withSales: true,
+                withCompareDate: true
             });
         }
 
@@ -530,6 +535,16 @@
 
             if (generalFilter.end_date_grid && !params.has('end_date')) {
                 params.append('end_date', generalFilter.end_date_grid);
+            }
+
+            if (
+                generalFilter.compare_start_date
+                && generalFilter.compare_end_date
+                && !params.has('compare_start_date')
+                && !params.has('compare_end_date')
+            ) {
+                params.append('compare_start_date', generalFilter.compare_start_date);
+                params.append('compare_end_date', generalFilter.compare_end_date);
             }
         }
 
@@ -688,6 +703,52 @@
         }
     }
 
+    function formatRegionalReachCompareDate(value) {
+        if (!value) {
+            return '';
+        }
+
+        const date = new Date(value + 'T00:00:00');
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short'
+        });
+    }
+
+    function formatRegionalReachCompareRange(compareData) {
+        return '['
+            + formatRegionalReachCompareDate(compareData.start_date)
+            + ' - '
+            + formatRegionalReachCompareDate(compareData.end_date)
+            + ']';
+    }
+
+    function renderRegionalReachCompareDelta(elementId, compareData, metric, suffix) {
+        const element = document.getElementById(elementId);
+        if (!element) {
+            return;
+        }
+
+        if (!compareData?.enabled || !metric || !compareData?.start_date || !compareData?.end_date) {
+            element.innerHTML = '';
+            element.className = 'hidden';
+            return;
+        }
+
+        const delta = Number(metric.delta || 0);
+        const sign = delta > 0 ? '+' : (delta < 0 ? '-' : '');
+        const toneClass = delta > 0
+            ? 'text-[#009951]'
+            : (delta < 0 ? 'text-[#900B09]' : 'text-[#757575]');
+
+        element.innerHTML = `<span class="font-bold">${sign}${Math.abs(delta).toLocaleString('id-ID')}</span> ${suffix} ${formatRegionalReachCompareRange(compareData)}`;
+        element.className = 'text-xs mt-2 leading-5 ' + toneClass;
+    }
+
     function renderRegionalReachOverview(result) {
         regionalReachTopSummary = Array.isArray(result?.top_10_provinces?.summary)
             ? result.top_10_provinces.summary
@@ -714,6 +775,20 @@
             'percentageAchievementCity',
             regionalReachCoverageSummary.reached_cities,
             regionalReachCoverageSummary.total_cities
+        );
+
+        const coverageCompare = regionalReachCoverageSummary?.compare || {};
+        renderRegionalReachCompareDelta(
+            'compareProvinceCoverage',
+            coverageCompare,
+            coverageCompare.reached_provinces,
+            'provinces'
+        );
+        renderRegionalReachCompareDelta(
+            'compareCityCoverage',
+            coverageCompare,
+            coverageCompare.reached_cities,
+            'cities'
         );
     }
 

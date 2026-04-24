@@ -31,6 +31,7 @@ class WarmLeadController extends Controller
         ]);
 
         $paginated = $claimsQuery
+            ->orderByDesc('lead_claims.claimed_at')
             ->orderByDesc('lead_claims.id')
             ->paginate($perPage);
 

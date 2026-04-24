@@ -23,6 +23,8 @@
                 <p id="percentageAchievement">0</p>
                 <p class="text-[#1E1E1E] text-xs">Achievement</p>
             </div>
+
+            <p id="compareAchievementSales" class="hidden"></p>
         </div>
 
     </div>
@@ -49,6 +51,8 @@
                 <p id="percentageAchievementLeads">0</p>
                 <p class="text-[#1E1E1E] text-xs">Achievement</p>
             </div>
+
+            <p id="compareAchievementLeads" class="hidden"></p>
         </div>
 
     </div>
@@ -75,6 +79,8 @@
                 <p id="percentageAchievementVisits">0</p>
                 <p class="text-[#1E1E1E] text-xs">Achievement</p>
             </div>
+
+            <p id="compareAchievementVisits" class="hidden"></p>
         </div>
 
     </div>
@@ -103,6 +109,8 @@
                 <p id="conversionRate">0</p>
                 <p id="conversionCaption" class="text-[#1E1E1E] text-xs">Conversion from Total Active Leads</p>
             </div>
+
+            <p id="compareClosedDeal" class="hidden"></p>
         </div>
 
     </div>
@@ -141,6 +149,8 @@
                     <p id="hotLeads">0 Hot</p>
                 </div>
             </div>
+
+            <p id="compareTotalActiveLeads" class="hidden"></p>
         </div>
 
     </div>
@@ -162,6 +172,8 @@
                 <p id="potentialTotalAmount">0</p>
                 <p id="potentialTotalOpportunity">0</p>
             </div>
+
+            <p id="comparePotentialDealing" class="hidden"></p>
         </div>
 
     </div>
@@ -171,22 +183,32 @@
     // LOAD GRID (PERSONAL-KPI)
     async function loadDashboardGrid() {
         try {
-            const params = new URLSearchParams();
             const generalFilter = typeof getSuperAdminGeneralFilter === 'function'
                 ? getSuperAdminGeneralFilter()
-                : { branch_id: null, sales_id: null };
+                : { sales_id: null };
+            const params = new URLSearchParams();
 
-            if (generalFilter.branch_id) {
-                params.append('branch_id', generalFilter.branch_id);
-            }
+            if (typeof applySuperAdminGeneralFilterToParams === 'function') {
+                applySuperAdminGeneralFilterToParams(params, {
+                    withBranch: false,
+                    withSales: true,
+                    withGridDate: true,
+                    withCompareDate: true
+                });
+            } else {
+                if (generalFilter.sales_id) {
+                    params.append('sales_id', generalFilter.sales_id);
+                }
 
-            if (generalFilter.sales_id) {
-                params.append('sales_id', generalFilter.sales_id);
-            }
+                if (generalFilter.start_date_grid && generalFilter.end_date_grid) {
+                    params.append('start_date_grid', generalFilter.start_date_grid);
+                    params.append('end_date_grid', generalFilter.end_date_grid);
+                }
 
-            if (generalFilter.start_date_grid && generalFilter.end_date_grid) {
-                params.append('start_date_grid', generalFilter.start_date_grid);
-                params.append('end_date_grid', generalFilter.end_date_grid);
+                if (generalFilter.compare_start_date && generalFilter.compare_end_date) {
+                    params.append('compare_start_date', generalFilter.compare_start_date);
+                    params.append('compare_end_date', generalFilter.compare_end_date);
+                }
             }
 
             const apiUrl = params.toString()
@@ -222,12 +244,83 @@
             function safePercent(actual, target) {
                 const a = toNum(actual);
                 const t = toNum(target);
-                if (t <= 0) return 0; // hindari Infinity / NaN
+                if (t <= 0) return 0;
                 return (a / t) * 100;
             }
 
+            function formatNumber(value) {
+                return Number(value || 0).toLocaleString('id-ID');
+            }
+
+            function formatCompareDateLabel(value) {
+                if (!value) {
+                    return '';
+                }
+
+                const date = new Date(value + 'T00:00:00');
+                if (Number.isNaN(date.getTime())) {
+                    return value;
+                }
+
+                return date.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short'
+                });
+            }
+
+            function formatCompareDateRangeLabel(compareData) {
+                return '['
+                    + formatCompareDateLabel(compareData.start_date)
+                    + ' - '
+                    + formatCompareDateLabel(compareData.end_date)
+                    + ']';
+            }
+
+            function formatComparePart(metric, formatter = formatNumber, suffix = '') {
+                if (!metric) {
+                    return null;
+                }
+
+                const delta = toNum(metric.delta);
+                const sign = delta > 0 ? '+' : (delta < 0 ? '-' : '');
+
+                return `<span class="font-bold">${sign}${formatter(Math.abs(delta))}</span>${suffix}`;
+            }
+
+            function renderCompareParts(elementId, compareData, parts) {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    return;
+                }
+
+                if (!compareData?.enabled || !compareData?.start_date || !compareData?.end_date) {
+                    element.innerHTML = '';
+                    element.className = 'hidden';
+                    return;
+                }
+
+                const formattedParts = parts
+                    .map(function (part) {
+                        return formatComparePart(part.metric, part.formatter, part.suffix || '');
+                    })
+                    .filter(Boolean);
+
+                if (!formattedParts.length) {
+                    element.innerHTML = '';
+                    element.className = 'hidden';
+                    return;
+                }
+
+                const firstDelta = toNum(parts[0]?.metric?.delta);
+                const toneClass = firstDelta > 0
+                    ? 'text-[#009951]'
+                    : (firstDelta < 0 ? 'text-[#900B09]' : 'text-[#757575]');
+
+                element.innerHTML = formattedParts.join(' | ') + ' ' + formatCompareDateRangeLabel(compareData);
+                element.className = 'text-xs mt-2 leading-5 break-words ' + toneClass;
+            }
+
             function getStatusByPercent(rawPercent) {
-                // pakai raw value untuk compare, bukan rounded
                 if (rawPercent >= 70) return { statusClass: "status-finish", colorClass: "text-[#009951]" };
                 if (rawPercent >= 35) return { statusClass: "status-waiting", colorClass: "text-[#E8B931]" };
                 return { statusClass: "status-expired", colorClass: "text-[#900B09]" };
@@ -245,7 +338,7 @@
                 $actualEl,
                 $percentEl,
                 formatter = (x) => x,
-                percentFromApi = null          // pakai ini kalau API sudah kirim percentage
+                percentFromApi = null
             }) {
                 const t = toNum(target);
                 const a = toNum(actual);
@@ -260,10 +353,8 @@
                 $actualEl.text(`${formatter(a)}/`).addClass(colorClass);
             }
 
-            // ===== Usage =====
             const at = data?.achievement_target ?? {};
 
-            // Sales (target_amount vs achievement_amount)
             renderKpiCard({
                 target: at.target_amount,
                 actual: at.achievement_amount,
@@ -274,7 +365,6 @@
                 formatter: formatRupiah
             });
 
-            // Leads
             renderKpiCard({
                 target: at.target_leads,
                 actual: at.leads_actual,
@@ -283,7 +373,6 @@
                 $percentEl: $("#percentageAchievementLeads")
             });
 
-            // Visits
             renderKpiCard({
                 target: at.target_visits,
                 actual: at.visits_actual,
@@ -292,7 +381,6 @@
                 $percentEl: $("#percentageAchievementVisits")
             });
 
-            // CLOSED DEAL (MTD) FETCH DATA CARDS
             $("#totalDeals").text(data.closed_deal.total_deals + ' Deal Leads').addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
 
             const totalAmountFormatted = formatRupiah(data.closed_deal.total_amount);
@@ -306,7 +394,6 @@
                 $("#conversionRate").text(data.closed_deal.conversion_rate + "%").addClass('font-semibold! status-expired text-xs lg:text-sm');
             }
 
-            // TOTAL ACTIVE LEADS FETCH DATA CARDS
             $("#totalLeads").text(data.active_leads.total).addClass('font-semibold text-[#1E1E1E] text-lg lg:text-2xl');
             $("#totalAvailable").text("Available Leads: " + data.active_leads.published).addClass('text-xs');
 
@@ -314,10 +401,37 @@
             $("#warmLeads").text(data.active_leads.warm + ' Warm').addClass('text-xs');
             $("#hotLeads").text((data.active_leads?.hot ?? 0) + " Hot").addClass('text-xs');
 
-            // POTENTIAL DEALING FETCH DATA CARDS
             const potentialAmountFormatted = formatRupiah(data.potential_dealing.total_amount);
             $("#potentialTotalAmount").text(potentialAmountFormatted).addClass('font-semibold text-lg lg:text-2xl text-[#1E1E1E]');
             $("#potentialTotalOpportunity").text(data.potential_dealing.total_opportunity + ' Active Opportunity').addClass('text-right text-xs');
+
+            const compareData = data?.compare || {};
+            const compareKpi = compareData?.general_kpi || {};
+
+            renderCompareParts('compareAchievementSales', compareData, [
+                { metric: compareKpi.achievement_amount, formatter: formatRupiah }
+            ]);
+            renderCompareParts('compareAchievementLeads', compareData, [
+                { metric: compareKpi.leads_actual, suffix: ' leads' }
+            ]);
+            renderCompareParts('compareAchievementVisits', compareData, [
+                { metric: compareKpi.visits_actual, suffix: ' visits' }
+            ]);
+            renderCompareParts('compareClosedDeal', compareData, [
+                { metric: compareKpi.closed_deal_total_deals, suffix: ' deals' },
+                { metric: compareKpi.closed_deal_total_amount, formatter: formatRupiah }
+            ]);
+            renderCompareParts('compareTotalActiveLeads', compareData, [
+                { metric: compareKpi.active_leads_total, suffix: ' total' },
+                { metric: compareKpi.active_leads_published, suffix: ' available' },
+                { metric: compareKpi.active_leads_cold, suffix: ' cold' },
+                { metric: compareKpi.active_leads_warm, suffix: ' warm' },
+                { metric: compareKpi.active_leads_hot, suffix: ' hot' }
+            ]);
+            renderCompareParts('comparePotentialDealing', compareData, [
+                { metric: compareKpi.potential_dealing_total_amount, formatter: formatRupiah },
+                { metric: compareKpi.potential_dealing_total_opportunity, suffix: ' opportunity' }
+            ]);
 
         } catch (error) {
             console.error("Error loading dashboard grid:", error);

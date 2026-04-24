@@ -20,6 +20,8 @@
     {{-- SUMMARY --}}
     {{-- @include('pages.dashboard.super-admin.summary') --}}
 
+    {{-- AGENTS --}}
+    @include('pages.dashboard.super-admin.agent')
 </section>
 
 <script>
