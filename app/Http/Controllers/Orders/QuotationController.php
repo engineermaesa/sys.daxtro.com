@@ -11,6 +11,8 @@ use App\Models\Leads\LeadActivityList;
 use App\Models\Leads\LeadClaim;
 use App\Models\Leads\LeadSource;
 use App\Models\Leads\LeadStatus;
+use App\Models\Masters\Branch;
+use App\Models\User;
 use App\Services\AutoTrashService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +61,11 @@ class QuotationController extends Controller
         }
 
         // Diakalin, ini index buat finance. Jadi ambil leads warm & hot & deal aja, end point API pake my leads di api.php. view nya pasti sama kayak my leads.
+        $branches = Branch::orderBy('name')->get(['id', 'name', 'code']);
+        $sales = User::query()
+            ->whereHas('role', fn($query) => $query->whereIn('code', ['sales', 'branch_manager']))
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id', 'role_id']);
 
         return view('pages.orders.quotation-index', [
             'leadCounts' => [
@@ -69,7 +76,9 @@ class QuotationController extends Controller
                 'deal' => $counts[LeadStatus::DEAL] ?? 0,
             ],
             'activities' => LeadActivityList::all(),
-            'leadSources' => LeadSource::orderBy('name')->get()
+            'leadSources' => LeadSource::orderBy('name')->get(),
+            'branches' => $branches,
+            'sales' => $sales,
         ]);
            
     }

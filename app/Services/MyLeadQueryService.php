@@ -58,33 +58,7 @@ class MyLeadQueryService
 
     public static function applyCommonFilters(Builder $query, Request $request): Builder
     {
-        if ($request->filled('search')) {
-            $search = trim((string) $request->input('search'));
-
-            $query->where(function ($nestedQuery) use ($search) {
-                $nestedQuery->whereHas('lead', function ($leadQuery) use ($search) {
-                    $leadQuery->where(function ($subQuery) use ($search) {
-                        $subQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%")
-                            ->orWhere('needs', 'like', "%{$search}%")
-                            ->orWhere('customer_type', 'like', "%{$search}%");
-                    });
-                })
-                ->orWhereHas('sales', function ($salesQuery) use ($search) {
-                    $salesQuery->where('name', 'like', "%{$search}%");
-                })
-                ->orWhereHas('lead.source', function ($sourceQuery) use ($search) {
-                    $sourceQuery->where('name', 'like', "%{$search}%");
-                })
-                ->orWhereHas('lead.region', function ($regionQuery) use ($search) {
-                    $regionQuery->where('name', 'like', "%{$search}%");
-                })
-                ->orWhereHas('lead.region.regional', function ($regionalQuery) use ($search) {
-                    $regionalQuery->where('name', 'like', "%{$search}%");
-                });
-            });
-        }
+        self::applySearchFilter($query, $request->input('search'));
 
         self::applyDateFilter(
             $query,
@@ -93,8 +67,43 @@ class MyLeadQueryService
         );
 
         self::applySourceFilter($query, $request->input('sources'));
+        self::applyBranchFilter($query, $request->input('branch_id'));
+        self::applySalesFilter($query, $request->input('sales_id'));
 
         return $query;
+    }
+
+    public static function applySearchFilter(Builder $query, ?string $search): Builder
+    {
+        $search = trim((string) $search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        return $query->where(function ($nestedQuery) use ($search) {
+            $nestedQuery->whereHas('lead', function ($leadQuery) use ($search) {
+                $leadQuery->where(function ($subQuery) use ($search) {
+                    $subQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('needs', 'like', "%{$search}%")
+                        ->orWhere('customer_type', 'like', "%{$search}%");
+                });
+            })
+            ->orWhereHas('sales', function ($salesQuery) use ($search) {
+                $salesQuery->where('name', 'like', "%{$search}%");
+            })
+            ->orWhereHas('lead.source', function ($sourceQuery) use ($search) {
+                $sourceQuery->where('name', 'like', "%{$search}%");
+            })
+            ->orWhereHas('lead.region', function ($regionQuery) use ($search) {
+                $regionQuery->where('name', 'like', "%{$search}%");
+            })
+            ->orWhereHas('lead.region.regional', function ($regionalQuery) use ($search) {
+                $regionalQuery->where('name', 'like', "%{$search}%");
+            });
+        });
     }
 
     public static function applyDateFilter(Builder $query, ?string $startDate, ?string $endDate): Builder
@@ -138,6 +147,26 @@ class MyLeadQueryService
 
             $leadQuery->whereIn('source_id', $sourceIds);
         });
+    }
+
+    public static function applyBranchFilter(Builder $query, string|int|null $branchId): Builder
+    {
+        if ($branchId === null || $branchId === '') {
+            return $query;
+        }
+
+        return $query->whereHas('sales', function ($salesQuery) use ($branchId) {
+            $salesQuery->where('branch_id', $branchId);
+        });
+    }
+
+    public static function applySalesFilter(Builder $query, string|int|null $salesId): Builder
+    {
+        if ($salesId === null || $salesId === '') {
+            return $query;
+        }
+
+        return $query->where('lead_claims.sales_id', $salesId);
     }
 
     public static function getLeadCounts(Request $request): array

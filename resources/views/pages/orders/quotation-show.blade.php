@@ -584,7 +584,7 @@
 
                         // detect explicit rejections
                         $rejectedByBM = $quotation->reviews->where('role', 'BM')->where('decision', 'reject')->isNotEmpty();
-                        $rejectedByFinance = $quotation->reviews->where('role', 'finance')->where('decision', 'reject')->isNotEmpty();
+                        $rejectedByFinance = $quotation->reviews->where('role', 'FIN')->where('decision', 'reject')->isNotEmpty();
 
                         // Explicit editability rules - allow both sales and BM to edit before finance approval
                         $canEdit = false;

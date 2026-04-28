@@ -38,9 +38,9 @@
 <div class="header">
     <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
     <div class="company-info">
-        <h4>PT. Daxtro Teknologi Indonesia</h4>
-        <p>Jl. Teknologi No. 88, Jakarta Selatan, Indonesia</p>
-        <p>Telp: (021) 123-45678 | Email: info@daxtro.co.id</p>
+        <h4>PT. Pandu Naradipta Danendra</h4>
+        <p>Komplek, Harmoni Plaza, Jl. Suryopranoto No.17 Blok A, RT.2/RW.8, Petojo Utara, Kecamatan Gambir, Kota Jakarta Pusat, Daerah Khusus Ibukota Jakarta 10130</p>
+        <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
     </div>
 </div>
 
@@ -98,10 +98,10 @@
 <div class="payment-instructions">
     <h4>Payment Instructions</h4>
     <p>Please make the transfer to the following account:</p>
-    <p><strong>Bank:</strong> BCA (Bank Central Asia)</p>
-    <p><strong>Account Number:</strong> 123-456-7890</p>
-    <p><strong>Account Name:</strong> PT. Daxtro Teknologi Indonesia</p>
-    <p><strong>Branch:</strong> Jakarta Selatan</p>
+    <p><strong>Bank:</strong> MANDIRI PT</p>
+    <p><strong>Account Number:</strong> 1210012339754</p>
+    <p><strong>Account Name:</strong> PT. Pandu Naradipta Danendra</p>
+    <p><strong>Branch:</strong> KCP Jakarta Duta Merlin</p>
 </div>
 
 <p style="margin-top: 30px;">Thank you for your business.</p>
