@@ -10,7 +10,7 @@ class UserRole extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'user_roles';
+    protected $table = 'user_roles';    
 
     protected $fillable = [
         'name',

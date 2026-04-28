@@ -607,7 +607,31 @@ class FinanceRequestController extends Controller
             $lead->update(['status_id' => LeadStatus::HOT]);
             LeadStatusLog::create(['lead_id' => $lead->id, 'status_id' => LeadStatus::HOT]);
         } elseif ($type === 'down_payment') {
-            $lead->update(['status_id' => LeadStatus::DEAL]);
+            // Ensure an order exists for this quotation before setting `deal_at`.
+            // createOrderFromQuotation is idempotent and will return early if an order already exists.
+            $quotation = $payment->proforma->quotation;
+            if ($quotation) {
+                $this->createOrderFromQuotation($quotation);
+                $quotation->refresh();
+                $hasOrder = (bool) ($quotation->order ?? null);
+            } else {
+                $hasOrder = false;
+            }
+
+            $data = ['status_id' => LeadStatus::DEAL];
+
+            // Only set `deal_at` when the proforma is not booking_fee, it's the first term,
+            // the payment is confirmed, and the quotation has an order.
+            if ((($payment->proforma->proforma_type ?? '') !== 'booking_fee')
+                && (($payment->proforma->term_no ?? null) === 1)
+                && $payment->confirmed_at
+                && $hasOrder) {
+                if (empty($lead->deal_at)) {
+                    $data['deal_at'] = $payment->confirmed_at;
+                }
+            }
+
+            $lead->update($data);
             LeadStatusLog::create(['lead_id' => $lead->id, 'status_id' => LeadStatus::DEAL]);
 
             // Saat status lead menjadi DEAL, delegasikan ke PurchaseController

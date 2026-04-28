@@ -16,3 +16,4 @@ class SummaryController extends Controller
         return response()->json(MyLeadQueryService::getSummary($request));
     }
 }
+

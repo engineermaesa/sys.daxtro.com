@@ -51,10 +51,12 @@ class Lead extends Model
         'tonase',
         'tonage_remark',
         'published_at',
+        'deal_at',
     ];
 
     protected $dates = [
         'published_at',
+        'deal_at',
     ];
 
     public function status()

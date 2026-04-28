@@ -113,60 +113,31 @@ class DashSummaryController extends Controller
             return $getMonthlyTarget($u->target_visit ?? $u->target_visits ?? null, 'visits', $monthKey);
         });
 
-        // Align with `/api/leads/my/deal/list`: deals are sourced from active LeadClaims with status DEAL.
-        $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', function ($q) {
-                $q->where('status_id', LeadStatus::DEAL);
+        // CLOSED DEAL (MTD): compute from `leads.deal_at` within the selected
+        // period. For Dash (superadmin) scope default to all branches unless
+        // explicit `branch_id` or `sales_id` is provided.
+        $dealLeadsQuery = Lead::query()
+            ->where('status_id', LeadStatus::DEAL)
+            ->whereBetween('deal_at', [$periodStart, $periodEnd])
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
             })
             ->when(!empty($salesId), function ($q) use ($salesId) {
-                $q->where('sales_id', $salesId);
-            })
-            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->whereHas('sales', function ($salesQ) use ($branchId) {
-                    $salesQ->where('branch_id', $branchId);
+                // limit to leads that have an active claim for the sales
+                $q->whereHas('claims', function ($cq) use ($salesId) {
+                    $cq->whereNull('released_at')->where('sales_id', $salesId);
                 });
             })
-            ->whereNull('released_at');
+            ->with('quotation');
 
-        // Force closed deal calculation to selected month/year window.
-        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
-            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        $dealLeads = $dealLeadsQuery->get();
+
+        $completedDeals = $dealLeads->count();
+        $monetaryActual = $dealLeads->sum(function ($lead) {
+            return (float) ($lead->quotation->grand_total ?? 0);
         });
-
-        $completedDeals = 0;
-        $monetaryActual = 0;
         $leadsActual = 0;
         $visitsActual = 0;
-
-        foreach ($claims->get() as $claim) {
-            $quotation = $claim->lead?->quotation;
-            if (! $quotation) {
-                continue;
-            }
-
-            $proformas = $quotation->proformas ?? collect();
-            $totalPayments = $proformas->count();
-
-            $confirmedProformas = $proformas->filter(function ($p) {
-                return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
-            });
-
-            $approvedPayments = $confirmedProformas->count();
-            // && $approvedPayments >= $totalPayments (gunain ini kalau mau full payment)
-            // Only count deals that have all proformas confirmed.
-            if ($totalPayments > 0 ) {
-                $completedDeals++;
-
-                // Achievement amount khusus pembayaran yang confirmed di periode grid
-                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInSelectedPeriod) {
-                    return $isInSelectedPeriod($p->paymentConfirmation->confirmed_at ?? null);
-                });
-
-                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
-                    return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
-                });
-            }
-        }
 
         $buildActualLeadQuery = function () use ($periodStart, $periodEnd, $branchId, $salesId) {
             return Lead::query()
@@ -512,54 +483,28 @@ class DashSummaryController extends Controller
             return $d->between($selectedPeriodStart, $selectedPeriodEnd);
         };
 
-        $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', function ($q) {
-                $q->where('status_id', LeadStatus::DEAL);
+        // CLOSED DEAL (compare snapshot): compute from `leads.deal_at` within
+        // the selected period for compare snapshots. Respect explicit
+        // `branchId` or `salesId` if provided; otherwise include all branches.
+        $dealLeadsQuery = Lead::query()
+            ->where('status_id', LeadStatus::DEAL)
+            ->whereBetween('deal_at', [$periodStart, $periodEnd])
+            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
             })
             ->when(!empty($salesId), function ($q) use ($salesId) {
-                $q->where('sales_id', $salesId);
-            })
-            ->when(!empty($branchId) && empty($salesId), function ($q) use ($branchId) {
-                $q->whereHas('sales', function ($salesQ) use ($branchId) {
-                    $salesQ->where('branch_id', $branchId);
+                $q->whereHas('claims', function ($cq) use ($salesId) {
+                    $cq->whereNull('released_at')->where('sales_id', $salesId);
                 });
             })
-            ->whereNull('released_at');
+            ->with('quotation');
 
-        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
-            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        $dealLeads = $dealLeadsQuery->get();
+
+        $closedDeals = $dealLeads->count();
+        $closedAmount = $dealLeads->sum(function ($lead) {
+            return (float) ($lead->quotation->grand_total ?? 0);
         });
-
-        $closedDeals = 0;
-        $closedAmount = 0;
-
-        foreach ($claims->get() as $claim) {
-            $quotation = $claim->lead?->quotation;
-            if (! $quotation) {
-                continue;
-            }
-
-            $proformas = $quotation->proformas ?? collect();
-            $totalPayments = $proformas->count();
-
-            $confirmedProformas = $proformas->filter(function ($p) {
-                return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
-            });
-
-            $approvedPayments = $confirmedProformas->count();
-
-            if ($totalPayments > 0 && $approvedPayments >= $totalPayments) {
-                $closedDeals++;
-
-                $periodConfirmed = $confirmedProformas->filter(function ($p) use ($isInSelectedPeriod) {
-                    return $isInSelectedPeriod($p->paymentConfirmation->confirmed_at ?? null);
-                });
-
-                $closedAmount += (float) $periodConfirmed->sum(function ($p) {
-                    return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
-                });
-            }
-        }
 
         $buildActualLeadQuery = function () use ($periodStart, $periodEnd, $branchId, $salesId) {
             return Lead::query()
