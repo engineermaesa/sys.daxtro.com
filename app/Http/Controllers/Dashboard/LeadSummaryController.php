@@ -79,62 +79,33 @@ class LeadSummaryController extends Controller
         $target_lead = $getMonthlyTarget($user->target_leads ?? null, 'leads', $monthKey);
         $target_visit = $getMonthlyTarget($user->target_visit ?? $user->target_visits ?? null, 'visits', $monthKey);
 
-        // Align with `/api/leads/my/deal/list`: deals are sourced from active LeadClaims with status DEAL.
-        $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::DEAL))
-            ->whereNull('released_at');
-
+        // CLOSED DEAL (MTD): compute from `leads.deal_at` within the selected
+        // period and scope to the logged-in sales user or branch manager.
         $roleCode = $user?->role?->code;
 
+        $dealLeadsQuery = Lead::query()
+            ->where('status_id', LeadStatus::DEAL)
+            ->whereBetween('deal_at', [$periodStart, $periodEnd]);
+
         if ($roleCode === 'sales') {
-            $claims->where('sales_id', $user?->id);
-        } elseif ($roleCode === 'branch_manager') {
-            $claims->whereHas('sales', function ($q) use ($user) {
-                $q->where('branch_id', $user?->branch_id);
+            // only include leads claimed by this sales (active claim)
+            $dealLeadsQuery->whereHas('claims', function ($q) use ($user) {
+                $q->whereNull('released_at')->where('sales_id', $user?->id);
             });
+        } elseif ($roleCode === 'branch_manager') {
+            $dealLeadsQuery->where('branch_id', $user?->branch_id);
         }
 
-        // Force closed deal calculation to selected month/year window.
-        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
-            $q->firstTermPaidBetween($periodStart, $periodEnd);
+        $dealLeads = $dealLeadsQuery->with('quotation')->get();
+
+        $closedDeals = $dealLeads->count();
+        $monetaryActual = $dealLeads->sum(function ($lead) {
+            return (float) ($lead->quotation->grand_total ?? 0);
         });
 
-        $completedDeals = 0;
-        $monetaryActual = 0;
+        // keep other metrics initialized for compatibility
         $leadsActual = 0;
         $visitsActual = 0;
-
-        foreach ($claims->get() as $claim) {
-            $quotation = $claim->lead?->quotation;
-            if (! $quotation) {
-                continue;
-            }
-
-            $proformas = $quotation->proformas ?? collect();
-            $totalPayments = $proformas->count();
-
-            $confirmedProformas = $proformas->filter(function ($p) {
-                return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
-            });
-
-            $approvedPayments = $confirmedProformas->count();
-            // && $approvedPayments >= $totalPayments (gunain ini kalau mau full payment)
-
-
-            // Only count deals that have all proformas confirmed.
-            if ($totalPayments > 0 ) {
-                $completedDeals++;
-
-                // Achievement amount khusus pembayaran yang confirmed di periode grid
-                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInSelectedPeriod) {
-                    return $isInSelectedPeriod($p->paymentConfirmation->confirmed_at ?? null);
-                });
-
-                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
-                    return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
-                });
-            }
-        }
 
         // Align with BM summary: count unique leads that were claimed in the
         // selected month, but scoped only to the logged-in sales user.
@@ -172,7 +143,7 @@ class LeadSummaryController extends Controller
             ? round(($monetaryActual / $target_amount) * 100, 2)
             : 0;
 
-        $closedDeals = $completedDeals;
+        // keep $closedDeals from leads.deal_at query above
         $closedAmount = round($monetaryActual, 2);
 
         // Potential dealing uses the same selected month/year window for consistent conversion rate denominator.

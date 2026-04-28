@@ -249,6 +249,50 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
+
+    // Quick preview routes for proformas while developing/templates editing
+    Route::get('proformas/{id}/preview', function ($id) {
+        $proforma = \App\Models\Orders\Proforma::with(['quotation.items', 'quotation.paymentTerms', 'quotation.lead', 'attachment'])->findOrFail($id);
+        $quotation = $proforma->quotation;
+        return view('pdfs.proforma', compact('proforma', 'quotation'));
+    })->middleware('auth')->name('proformas.preview');
+
+    Route::get('proformas/{id}/view', function ($id) {
+        $proforma = \App\Models\Orders\Proforma::with('attachment')->findOrFail($id);
+        if (! $proforma->attachment) {
+            abort(404, 'PDF not generated yet.');
+        }
+        $path = storage_path('app/public/' . $proforma->attachment->file_path);
+        return response()->file($path, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . ($proforma->proforma_no ?? 'proforma') . '.pdf"'
+        ]);
+    })->middleware('auth')->name('proformas.view');
+
+    // Temporary debug route: returns proforma + attachment metadata and file existence
+    Route::get('proformas/{id}/debug', function ($id) {
+        $proforma = \App\Models\Orders\Proforma::with(['attachment', 'quotation.items', 'quotation.lead'])->find($id);
+        if (! $proforma) {
+            return response()->json(['found' => false], 404);
+        }
+
+        $filePath = $proforma->attachment?->file_path ? storage_path('app/public/' . $proforma->attachment->file_path) : null;
+        $fileExists = $filePath ? file_exists($filePath) : false;
+
+        return response()->json([
+            'found' => true,
+            'id' => $proforma->id,
+            'proforma_no' => $proforma->proforma_no,
+            'attachment' => $proforma->attachment?->toArray(),
+            'file_path' => $filePath,
+            'file_exists' => $fileExists,
+            'quotation_id' => $proforma->quotation_id,
+        ]);
+    })->middleware('auth')->name('proformas.debug');
+
+    // ==============================
+
+    // =====================================
     // FINANCE REQUEST (API) ✔
     // =====================================
     

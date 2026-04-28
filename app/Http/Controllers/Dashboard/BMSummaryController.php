@@ -129,58 +129,38 @@ class BMSummaryController extends Controller
             return $getMonthlyTarget($u->target_visit ?? $u->target_visits ?? null, 'visits', $monthKey);
         });
 
-        $claims = LeadClaim::with(['lead.quotation.proformas.paymentConfirmation'])
-            ->whereHas('lead', function ($q) {
-                $q->where('status_id', LeadStatus::DEAL);
-            })
-            ->whereNull('released_at')
-            ->whereHas('sales', function ($q) use ($branchId, $salesId) {
-                $q->where('branch_id', $branchId);
-                if ($salesId) {
-                    $q->where('id', $salesId);
-                }
+        // CLOSED DEAL (MTD): compute from `leads.deal_at` within the selected
+        // period. For branch manager scope to branch, for sales scope to personal.
+        $roleCode = $user?->role?->code;
+
+        $dealLeadsQuery = Lead::query()
+            ->where('status_id', LeadStatus::DEAL)
+            ->whereBetween('deal_at', [$periodStart, $periodEnd]);
+
+        if ($roleCode === 'sales') {
+            // only include leads claimed by this sales (active claim)
+            $dealLeadsQuery->whereHas('claims', function ($q) use ($user) {
+                $q->whereNull('released_at')->where('sales_id', $user?->id);
             });
-
-        // Force closed deal calculation to selected month/year window.
-        $claims->whereHas('lead.quotation', function ($q) use ($periodStart, $periodEnd) {
-            $q->firstTermPaidBetween($periodStart, $periodEnd);
-        });
-
-        $completedDeals = 0;
-        $monetaryActual = 0;
-        $leadsActual = 0;
-        $visitsActual = 0;
-
-        foreach ($claims->get() as $claim) {
-            $quotation = $claim->lead?->quotation;
-            if (! $quotation) {
-                continue;
-            }
-
-            $proformas = $quotation->proformas ?? collect();
-            $totalPayments = $proformas->count();
-
-            $confirmedProformas = $proformas->filter(function ($p) {
-                return $p->paymentConfirmation && $p->paymentConfirmation->confirmed_at;
-            });
-
-            $approvedPayments = $confirmedProformas->count();
-            // && $approvedPayments >= $totalPayments (gunain ini kalau mau full payment)
-
-            // Only count deals that have all proformas confirmed.
-            if ($totalPayments > 0) {
-                $completedDeals++;
-
-                // Achievement amount khusus pembayaran yang confirmed di periode grid
-                $monthlyConfirmed = $confirmedProformas->filter(function ($p) use ($isInSelectedPeriod) {
-                    return $isInSelectedPeriod($p->paymentConfirmation->confirmed_at ?? null);
-                });
-
-                $monetaryActual += (float) $monthlyConfirmed->sum(function ($p) {
-                    return (float) ($p->paymentConfirmation->amount ?? $p->amount ?? 0);
+        } else {
+            // Branch-level view (BM and others): filter by branch
+            $dealLeadsQuery->where('branch_id', $branchId);
+            // if explicit sales filter applied, limit to that sales' claims
+            if (!empty($salesId)) {
+                $dealLeadsQuery->whereHas('claims', function ($q) use ($salesId) {
+                    $q->whereNull('released_at')->where('sales_id', $salesId);
                 });
             }
         }
+
+        $dealLeads = $dealLeadsQuery->with('quotation')->get();
+
+        $completedDeals = $dealLeads->count();
+        $monetaryActual = $dealLeads->sum(function ($lead) {
+            return (float) ($lead->quotation->grand_total ?? 0);
+        });
+        $leadsActual = 0;
+        $visitsActual = 0;
 
         $leadsQuery = Lead::query()
             ->where('branch_id', $branchId)

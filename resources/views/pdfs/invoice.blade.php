@@ -1,23 +1,74 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; margin: 0; padding: 20px; }
-        .header { display: flex; align-items: center; margin-bottom: 20px; }
-        .logo { width: 120px; }
-        .company-info { margin-left: 20px; }
-        .company-info h4 { margin: 0 0 5px 0; font-size: 16px; }
-        .company-info p { margin: 0; font-size: 12px; }
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+        }
 
-        h3.title { text-align: center; margin: 30px 0 10px; }
-        p { margin: 2px 0; }
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #000; padding: 6px; }
-        th { background: #eee; text-align: left; }
-        .no-border td { border: none; padding: 3px 6px; }
-        .right { text-align: right; }
+        .logo {
+            width: 120px;
+        }
+
+        /* .company-info {
+            margin-left: 20px;
+        } */
+
+        .company-info h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
+
+        .company-info p {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        h3.title {
+            text-align: center;
+            margin: 30px 0 10px;
+        }
+
+        p {
+            margin: 2px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #000;
+            padding: 6px;
+        }
+
+        th {
+            background: #eee;
+            text-align: left;
+        }
+
+        .no-border td {
+            border: none;
+            padding: 3px 6px;
+        }
+
+        .right {
+            text-align: right;
+        }
 
         .payment-instructions {
             margin-top: 40px;
@@ -31,76 +82,119 @@
             font-size: 14px;
             text-decoration: underline;
         }
+
+        .page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
     </style>
 </head>
+
 <body>
 
-<div class="header">
-    <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
-    <div class="company-info">
-        <h4>PT. Daxtro Teknologi Indonesia</h4>
-        <p>Jl. Teknologi No. 88, Jakarta Selatan, Indonesia</p>
-        <p>Telp: (021) 123-45678 | Email: info@daxtro.co.id</p>
+    <div class="header">
+        <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
+        <div class="company-info">
+            <h4>PT. PANDU NARADIPTA DANENDRA</h4>
+            <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Petojo Utara, Gambir, Jakarta Pusat</p>
+            <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
+        </div>
     </div>
-</div>
 
-<div style="display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 10px;">
-    <h3 style="margin: 0;">INVOICE</h3>
-    <div style="text-align: right; font-size: 12px;">
-        <div><strong>No:</strong> {{ $invoice->invoice_no }}</div>
-        <div><strong>Date:</strong> {{ $invoice->issued_at?->format('d/m/Y') }}</div>
+    <div style="display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 10px;">
+        <h3 style="margin: 0;">INVOICE</h3>
+        <div style="text-align: right; font-size: 12px;">
+            <div><strong>No:</strong> {{ $invoice->invoice_no }}</div>
+            <div><strong>Tanggal:</strong> {{ $invoice->issued_at?->format('d/m/Y') }}</div>
+        </div>
     </div>
-</div>
 
-<p><strong>Customer:</strong> {{ $quotation->lead->name ?? '-' }}</p>
+    <p><strong>Customer:</strong> {{ $quotation->lead->name ?? '-' }}</p>
 
-<table>
-    <thead>
-        <tr>
-            <th>Description</th>
-            <th class="right">Qty</th>
-            <th class="right">Unit Price</th>
-            <th class="right">Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($quotation->items as $item)
-        <tr>
-            <td>{{ $item->description }}</td>
-            <td class="right">{{ $item->qty }}</td>
-            <td class="right">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
-            <td class="right">{{ number_format($item->line_total, 0, ',', '.') }}</td>
-        </tr>
-        @endforeach
-        @php
+    <table>
+        <thead>
+            <tr>
+                <th>Deskripsi</th>
+                <th class="right">Qty</th>
+                <th class="right">Harga Unit</th>
+                <th class="right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($quotation->items as $item)
+            <tr>
+                <td>{{ $item->description }}</td>
+                <td class="right">{{ $item->qty }}</td>
+                <td class="right">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                <td class="right">{{ number_format($item->line_total, 0, ',', '.') }}</td>
+            </tr>
+            @endforeach
+            @php
             $label = 'Amount';
             if ($invoice->invoice_type === 'booking_fee') {
-                $label = 'Booking Fee';
+            $label = 'Booking Fee';
             } elseif ($invoice->invoice_type === 'down_payment' || $invoice->invoice_type === 'final') {
-                $term = $quotation->paymentTerms->firstWhere('term_no', $invoice->proforma->term_no);
-                $percentage = $term?->percentage;
-                $label = $invoice->invoice_type === 'down_payment'
-                    ? 'Down Payment'
-                    : 'Final Payment';
-                if ($percentage) {
-                    $label .= ' (' . rtrim(rtrim(number_format($percentage, 2, ',', '.'), '0'), ',') . '%)';
-                }
+            $term = $quotation->paymentTerms->firstWhere('term_no', $invoice->proforma->term_no);
+            $percentage = $term?->percentage;
+            $label = $invoice->invoice_type === 'down_payment'
+            ? 'Down Payment'
+            : 'Final Payment';
+            if ($percentage) {
+            $label .= ' (' . rtrim(rtrim(number_format($percentage, 2, ',', '.'), '0'), ',') . '%)';
             }
-        @endphp
-        <tr>
-            <td colspan="3" class="right"><strong>{{ $label }}</strong></td>
-            <td class="right"><strong>{{ number_format($invoice->amount, 0, ',', '.') }}</strong></td>
-        </tr>
-    </tbody>
-</table>
+            }
+            @endphp
+            <tr>
+                <td colspan="3" class="right"><strong>{{ $label }}</strong></td>
+                <td class="right"><strong>{{ number_format($invoice->amount, 0, ',', '.') }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
 
-<div class="payment-instructions">
-    <h4>Payment Instructions</h4>
-    <p>This invoice has been paid and confirmed. No further action is required.</p>
-    <p>If you have any questions, please contact our finance team at finance@daxtro.co.id</p>
-</div>
+    <div class="payment-instructions">
+        <h4>Instruksi Pembayaran</h4>
+        <p>Invoice ini telah dibayar dan dikonfirmasi. Tidak diperlukan tindakan lebih lanjut.</p>
+        <p>Jika Anda memiliki pertanyaan, silakan hubungi tim keuangan kami di finance@daxtro.com</p>
+    </div>
 
-<p style="margin-top: 30px;">Thank you for your business.</p>
+    <div class="payment-instructions page-break" style="margin-top:20px;">
+        <h4>SYARAT & KETENTUAN PEMBAYARAN (IMPORTANT NOTICE)</h4>
 
+        <p><strong>1. Sifat Pembayaran Uang Muka (DP):</strong></p>
+        <p>- Seluruh pembayaran Uang Muka (Down Payment) yang diterima oleh PT Pandu Mahardika Perdana (Daxtro) bersifat
+            <strong>Non-Refundable (Tidak Dapat Dikembalikan)</strong>.
+        </p>
+        <p>- Dana DP dianggap sebagai komitmen tanda jadi pengadaan dan akan langsung dialokasikan untuk biaya material,
+            alokasi slot produksi di pabrik, serta biaya administrasi ekspor-impor.</p>
+
+        <p style="margin-top:10px;"><strong>2. Pembatalan Sepihak:</strong></p>
+        <p>- Apabila Pembeli melakukan pembatalan pesanan secara sepihak setelah dana DP diterima dan/atau proses
+            produksi telah dimulai, maka Pembeli dianggap melepaskan hak atas dana DP tersebut kepada Penjual sebagai
+            kompensasi biaya produksi yang telah berjalan (Sesuai Pasal 1464 KUHPerdata).</p>
+
+        <p style="margin-top:10px;"><strong>3. Kepatuhan Termin Pembayaran:</strong></p>
+        <p>- Keterlambatan pembayaran pada setiap termin (termasuk termin pelunasan dokumen/pengiriman) akan berakibat
+            pada penangguhan pengiriman unit secara otomatis oleh sistem.</p>
+        <p>- Segala biaya tambahan yang timbul akibat keterlambatan pembayaran termin (seperti biaya sewa gudang/
+            warehouse fee di China atau biaya penumpukan/ demurrage di pelabuhan) menjadi tanggung jawab penuh Pembeli.
+        </p>
+
+        <p style="margin-top:10px;"><strong>4. Penyesuaian Kurs & Biaya Negara:</strong></p>
+        <p>- Harga yang disepakati dapat ditinjau kembali apabila terjadi fluktuasi kurs mata uang asing yang ekstrem
+            atau perubahan regulasi pajak negara (PPN/PPh Impor) sebelum barang dirilis dari wilayah pabean.</p>
+        <p>- Rilis dokumen kepemilikan barang (Bill of Lading) hanya akan dilakukan setelah kewajiban termin pembayaran
+            terkait dipenuhi secara utuh.</p>
+
+        <p style="margin-top:10px;"><strong>5. Penyelesaian Sengketa:</strong></p>
+        <p>- Segala bentuk perselisihan yang timbul dari kontrak ini adalah murni ranah Hukum Perdata.</p>
+        <p>- Pihak Penjual tidak melayani penagihan atau negosiasi melalui pihak ketiga yang tidak memiliki hubungan
+            hukum resmi dan sah dengan kontrak ini.</p>
+    </div>
+    <p style="margin-top: 30px;">Terima kasih atas kepercayaan Anda.</p>
 </body>
+
 </html>
