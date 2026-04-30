@@ -324,7 +324,7 @@
                                     <tr class="border-b border-b-[#D9D9D9]">
                                         <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Term</th>
                                         <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">No</th>
-                                        <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Issued</th>
+                                        <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Published</th>
                                         <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Amount</th>
                                         <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Status</th>
                                         <th class="p-2 lg:p-3 font-semibold text-[#1E1E1E]">Action</th>
@@ -335,7 +335,15 @@
                                         <tr class="border-t border-t-[#D9D9D9]">
                                             <td class="p-2 lg:p-3 text-[#1E1E1E] text-center">{{ $pf->term_no ?? 'Booking Fee' }}</td>
                                             <td class="p-2 lg:p-3 text-[#1E1E1E]">{{ $pf->proforma_no ?? '-' }}</td>
-                                            <td class="p-2 lg:p-3 text-[#1E1E1E]">{{ $pf->issued_at ? date('d M Y', strtotime($pf->issued_at)) : '-' }}</td>
+                                            <td class="p-2 lg:p-3 text-[#1E1E1E] flex items-center gap-2">
+                                                <span id="pf-issued-{{ $pf->id }}" class="inline-block">{{ $pf->issued_at ? date('d M Y', strtotime($pf->issued_at)) : '-' }}</span>
+                                                @if($isSales || $isBranchManager)
+                                                    <button type="button" class="text-[#115640] issued-edit-btn flex items-center justify-center p-1 rounded ml-1" data-pf-id="{{ $pf->id }}" data-current="{{ $pf->issued_at?->format('Y-m-d') }}" title="Edit published date">
+                                                        <x-icon.edit class="w-4 h-4 text-[#115640]" />
+                                                    </button>
+                                                    <input type="text" id="pf-issued-input-{{ $pf->id }}" class="hidden pf-issued-input" />
+                                                @endif
+                                            </td>
                                             <td class="p-2 lg:p-3 text-[#1E1E1E]">Rp{{ number_format($pf->amount, 0, ',', '.') }} </td>
                                             @if ($pf->paymentConfirmation)
                                                 <td class="p-2 lg:p-3">
@@ -377,8 +385,8 @@
                                             @endif
                                             </td>
                                             <td class="p-2 grid grid-cols-1  gap-2 lg:flex lg:items-center lg:gap-3 lg:p-3">
-                                                @if ($pf->attachment_id)
-                                                    <a href="{{ route('attachments.download', $pf->attachment_id) }}"
+                                                    @if ($pf->attachment_id)
+                                                    <a href="{{ route('proformas.download', $pf->id) }}"
                                                         class="flex items-center gap-2 text-[#1E1E1E] px-3 py-2 duration-300 border border-[#05261B] hover:bg-[#CFE7DE] hover:border hover:border-[#05261B] rounded-lg">
                                                         <x-icon.download/>
                                                         Proforma
@@ -701,6 +709,191 @@
                 dateFormat: "d/m/Y",   
                 defaultDate: "today",  
                 allowInput: false
+            });
+        });
+
+        // Inline proforma issued_at editor (uses flatpickr)
+        document.addEventListener('DOMContentLoaded', function () {
+            const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = tokenMeta ? tokenMeta.getAttribute('content') : '';
+
+            document.querySelectorAll('.issued-edit-btn').forEach(btn => {
+                const pfId = btn.dataset.pfId;
+                const input = document.getElementById('pf-issued-input-' + pfId);
+
+                let fpInstance = null;
+
+                btn.addEventListener('click', function () {
+                    if (!input) return;
+
+                    // we'll store pending date on the flatpickr instance (instance._pendingDate)
+
+                    if (!fpInstance) {
+                        fpInstance = flatpickr(input, {
+                            dateFormat: 'Y-m-d',
+                            defaultDate: btn.dataset.current || null,
+                            appendTo: document.body,
+                            closeOnSelect: false,
+                            onOpen: function(selectedDates, dateStr, instance) {
+                                try {
+                                    const btnRect = btn.getBoundingClientRect();
+                                    // reset pending date and sync input to current dataset value
+                                    instance._pendingDate = null;
+                                    try { instance.setDate(btn.dataset.current || null, false); } catch (e) {}
+                                    const cal = instance.calendarContainer;
+                                    // use fixed positioning so placement is relative to viewport
+                                    cal.style.position = 'fixed';
+                                    cal.style.zIndex = 9999;
+                                    cal.style.transform = 'none';
+                                    cal.style.right = 'auto';
+
+                                    // ensure footer exists
+                                    const ensureFooter = function() {
+                                        if (cal.querySelector('.fp-footer-actions')) return;
+                                        const footer = document.createElement('div');
+                                        footer.className = 'fp-footer-actions';
+                                        footer.style.display = 'flex';
+                                        footer.style.justifyContent = 'flex-end';
+                                        footer.style.gap = '8px';
+                                        footer.style.padding = '8px';
+                                        footer.style.borderTop = '1px solid #e5e7eb';
+                                        footer.style.background = '#fff';
+
+                                        const btnCancel = document.createElement('button');
+                                        btnCancel.type = 'button';
+                                        btnCancel.textContent = 'Cancel';
+                                        btnCancel.className = 'fp-btn-cancel';
+                                        btnCancel.style.padding = '6px 10px';
+                                        btnCancel.style.border = '1px solid #d1d5db';
+                                        btnCancel.style.borderRadius = '6px';
+                                        btnCancel.style.background = '#ffffff';
+                                        btnCancel.style.cursor = 'pointer';
+
+                                        const btnUpdate = document.createElement('button');
+                                        btnUpdate.type = 'button';
+                                        btnUpdate.textContent = 'Update';
+                                        btnUpdate.className = 'fp-btn-update';
+                                        btnUpdate.style.padding = '6px 10px';
+                                        btnUpdate.style.border = '1px solid #115640';
+                                        btnUpdate.style.borderRadius = '6px';
+                                        btnUpdate.style.background = '#115640';
+                                        btnUpdate.style.color = '#fff';
+                                        btnUpdate.style.cursor = 'pointer';
+
+                                        footer.appendChild(btnCancel);
+                                        footer.appendChild(btnUpdate);
+                                        cal.appendChild(footer);
+
+                                        // Cancel: revert date and close (read original from button dataset)
+                                        btnCancel.addEventListener('click', function() {
+                                            try {
+                                                const orig = btn.dataset.current || null;
+                                                if (orig) instance.setDate(orig, false);
+                                            } catch (e) {}
+                                            instance.close();
+                                        });
+
+                                        // Update: send fetch with pending date stored on instance or input value
+                                        btnUpdate.addEventListener('click', function() {
+                                            const dateStrToSend = instance._pendingDate || instance.input.value || null;
+                                            if (!dateStrToSend) {
+                                                alert('Pilih tanggal terlebih dahulu');
+                                                return;
+                                            }
+                                            fetch('/proformas/' + pfId + '/issued-at', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'X-CSRF-TOKEN': csrfToken,
+                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                },
+                                                body: JSON.stringify({ issued_at: dateStrToSend })
+                                                }).then(r => r.json()).then(data => {
+                                                    if (data && data.issued_at_display) {
+                                                        const span = document.getElementById('pf-issued-' + pfId);
+                                                        if (span) span.textContent = data.issued_at_display;
+                                                        btn.dataset.current = dateStrToSend;
+                                                    }
+                                                    instance.close();
+                                                    // give UI a moment then reload to reflect server state
+                                                    setTimeout(function() {
+                                                        if (typeof loading === 'function') loading();
+                                                        location.reload();
+                                                    }, 200);
+                                                }).catch(() => {
+                                                    alert('Gagal menyimpan tanggal. Coba lagi.');
+                                                });
+                                        });
+                                    };
+
+                                    // Defer placement so flatpickr finishes rendering its DOM
+                                    setTimeout(function() {
+                                        // ensure footer is present before measuring
+                                        ensureFooter();
+
+                                        // compute dimensions after render
+                                        const calWidth = cal.offsetWidth || 300;
+                                        const calHeight = cal.offsetHeight || 320;
+                                        const margin = 6;
+
+                                        // check available viewport space (viewport coords)
+                                        const spaceBelow = window.innerHeight - btnRect.bottom;
+                                        const spaceAbove = btnRect.top;
+
+                                        // decide whether to place below or above
+                                        let top;
+                                        if (spaceBelow >= calHeight + margin) {
+                                            // place below
+                                            top = btnRect.bottom + margin;
+                                        } else if (spaceAbove >= calHeight + margin) {
+                                            // place above
+                                            top = btnRect.top - calHeight - margin;
+                                        } else {
+                                            // not enough space either side: prefer below but clamp
+                                            top = Math.max(8, Math.min(btnRect.bottom + margin, window.innerHeight - calHeight - 8));
+                                        }
+
+                                        // center calendar under the button by default (viewport coords)
+                                        let left = btnRect.left + (btn.offsetWidth / 2) - (calWidth / 2);
+
+                                        // constrain within viewport with 8px padding
+                                        const minLeft = 8;
+                                        const maxLeft = window.innerWidth - calWidth - 8;
+                                        if (left < minLeft) left = minLeft;
+                                        if (left > maxLeft) left = maxLeft;
+
+                                        cal.style.left = left + 'px';
+                                        cal.style.top = top + 'px';
+                                        cal.style.transform = 'none';
+
+                                        // If calendar still larger than available vertical space, limit its maxHeight and enable scroll
+                                        const availableSpace = (top >= btnRect.bottom) ? (window.innerHeight - btnRect.bottom - margin) : btnRect.top - margin;
+                                        if (calHeight > availableSpace) {
+                                            cal.style.maxHeight = Math.max(60, (availableSpace - 12)) + 'px';
+                                            cal.style.overflow = 'auto';
+                                        } else {
+                                            cal.style.maxHeight = '';
+                                            cal.style.overflow = '';
+                                        }
+                                    }, 50);
+                                } catch (e) {
+                                    // fallback: do nothing
+                                }
+                            },
+                            onChange: function (selectedDates, dateStr) {
+                                // store pending date on the instance for Update button
+                                if (!dateStr) {
+                                    this._pendingDate = null;
+                                    return;
+                                }
+                                this._pendingDate = dateStr;
+                            }
+                        });
+                    }
+
+                    // open (always open existing instance)
+                    fpInstance.open();
+                });
             });
         });
 

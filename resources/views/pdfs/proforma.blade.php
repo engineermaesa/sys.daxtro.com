@@ -21,10 +21,6 @@
             width: 120px;
         }
 
-        /* .company-info {
-            margin-left: 20px;
-        } */
-
         .company-info h4 {
             margin: 0 0 5px 0;
             font-size: 16px;
@@ -33,11 +29,6 @@
         .company-info p {
             margin: 0;
             font-size: 12px;
-        }
-
-        h3.title {
-            text-align: center;
-            margin: 30px 0 10px;
         }
 
         p {
@@ -61,15 +52,41 @@
             text-align: left;
         }
 
-        .no-border td {
-            border: none;
-            padding: 3px 6px;
-        }
-
         .right {
             text-align: right;
         }
 
+        /* ================= META (FIX ALIGN RIGHT + SEJAJAR :) ================= */
+        .meta {
+            text-align: right;
+            font-size: 12px;
+        }
+
+        .meta-item {
+            margin-bottom: 4px;
+        }
+
+        .meta-item .label {
+            display: inline-block;
+            width: 90px;
+            /* kunci biar sejajar */
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .meta-item .colon {
+            display: inline-block;
+            width: 10px;
+            text-align: center;
+        }
+
+        .meta-item .value {
+            display: inline-block;
+            min-width: 120px;
+            text-align: left;
+        }
+
+        /* ================= PAYMENT ================= */
         .payment-instructions {
             margin-top: 40px;
             border: 1px solid #000;
@@ -83,48 +100,26 @@
             text-decoration: underline;
         }
 
-
-
-        .page-break {
-            page-break-before: always;
-            break-before: page;
-            page-break-inside: avoid;
+        .payment-item {
+            margin-bottom: 4px;
         }
 
-        /* Ensure the payment-instructions block forced to a single page
-           - reduce font-size, margins and paddings inside this page to help fit */
-        .payment-instructions.page-break {
-            page-break-before: always;
-            break-before: page;
-            page-break-inside: avoid;
-            break-inside: avoid-page;
-            font-size: 11px;
-            padding: 8px;
-            margin-top: 8px !important;
-            line-height: 1.2;
-        }
-
-        .payment-instructions.page-break h4 {
-            margin: 5px 0;
-            font-size: 13px;
-            text-decoration: none;
+        .payment-item .label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
             text-align: left;
         }
 
-        .payment-instructions.page-break p,
-        .payment-instructions.page-break td,
-        .payment-instructions.page-break th {
-            margin: 4px 0;
-            font-size: 11px;
+        .payment-item .colon {
+            display: inline-block;
+            width: 10px;
+            text-align: center;
         }
 
-        .payment-instructions.page-break table {
-            margin-top: 6px;
-        }
-
-        .payment-instructions.page-break .no-border td {
-            padding: 4px 6px;
-            font-size: 11px;
+        .payment-item .value {
+            display: inline-block;
+            text-align: left;
         }
     </style>
 </head>
@@ -141,23 +136,49 @@
 =======
     <div class="header">
         <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
-        <div class="company-info">
-            <h4>PT. PANDU NARADIPTA DANENDRA</h4> 
-            <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Petojo Utara, Gambir, Jakarta Pusat</p>
+        <div class="company-info"> <br>
+            <h4>PT. PANDU NARADIPTA DANENDRA</h4>
+            <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Jakarta Pusat</p>
             <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
         </div>
 >>>>>>> 403f5e52823f885c40ca9aa0686353ae63431fb5
     </div>
 
-    <div style="display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 10px;">
-        <h3 style="margin: 0;">PROFORMA INVOICE</h3>
-        <div style="text-align: right; font-size: 12px;">
-            <div><strong>No:</strong> {{ $proforma->proforma_no }}</div>
-            <div><strong>Tanggal:</strong> {{ $proforma->issued_at?->format('d/m/Y') }}</div>
-        </div>
-    </div>
+    <!-- HEADER TITLE + META -->
+    <div style="margin-top: 30px;">
 
-    <p><strong>Customer:</strong> {{ $quotation->lead->name ?? '-' }}</p>
+        <div style="float: left;">
+            <h3 style="margin: 0;">PROFORMA INVOICE</h3>
+        </div> <br>
+
+        <div class="meta" style="float: right;">
+            <div class="meta-item">
+                <span class="label">No</span>
+                <span class="colon">:</span>
+                <span class="value">{{ $proforma->proforma_no }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="label">Tanggal</span>
+                <span class="colon">:</span>
+                <span class="value">{{ $proforma->issued_at?->format('d/m/Y') }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="label">Jatuh Tempo</span>
+                <span class="colon">:</span>
+                <span class="value">
+                    @if($proforma->issued_at)
+                    {{ $proforma->issued_at->copy()->addDays(15)->format('d/m/Y') }}
+                    @else
+                    -
+                    @endif
+                </span>
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+
+    </div>
+    <p style="margin-top:10px;"><strong>Kepada:</strong> {{ $quotation->lead->name ?? '-' }}</p>
 
     <table>
         <thead>
@@ -177,51 +198,89 @@
                 <td class="right">{{ number_format($item->line_total, 0, ',', '.') }}</td>
             </tr>
             @endforeach
+
+            <tr>
+                <td colspan="3" class="right"><strong>Total Invoice</strong></td>
+                <td class="right">
+                    <strong>{{ number_format($quotation->items->sum('line_total'), 0, ',', '.') }}</strong>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="3" class="right"><strong>PPN (
+                        @if(isset($quotation->tax_pct))
+                        {{ rtrim(rtrim(number_format($quotation->tax_pct, 2, ',', '.'), '0'), ',') }}%
+                        @else
+                        0%
+                        @endif
+                        )</strong></td>
+                <td class="right">
+                    <strong>{{ number_format($quotation->tax_total ?? (($quotation->grand_total ??
+                        $quotation->items->sum('line_total')) * (($quotation->tax_pct ?? 0) / 100)), 0, ',', '.')
+                        }}</strong>
+                </td>
+            </tr>
             <tr>
                 <td colspan="3" class="right"><strong>Grand Total</strong></td>
-                <td class="right"><strong>{{ number_format($quotation->items->sum('line_total'), 0, ',', '.')
-                        }}</strong></td>
+                <td class="right">
+                    <strong>{{ number_format($quotation->grand_total ?? $quotation->items->sum('line_total'), 0, ',',
+                        '.') }}</strong>
+                </td>
             </tr>
+
             @php
             $label = 'Amount';
             if ($proforma->proforma_type === 'booking_fee') {
             $label = 'Booking Fee';
-            } elseif ($proforma->proforma_type === 'down_payment' || $proforma->proforma_type === 'term_payment') {
-            // find matching term percentage if exists
+            } elseif (in_array($proforma->proforma_type, ['down_payment', 'term_payment'], true)) {
             $term = $quotation->paymentTerms->firstWhere('term_no', $proforma->term_no);
             $percentage = $term?->percentage;
-            $label = $proforma->proforma_type === 'down_payment'
-            ? 'Down Payment'
-            : 'Term Payment';
+            $termDesc = $term?->description;
+
+            if ($termDesc) {
+            $label = 'Jumlah Tertagih / ' . $termDesc;
+            } else {
+            $label = $proforma->proforma_type === 'down_payment' ? 'Down Payment' : 'Term Payment';
+            }
+
             if ($percentage) {
             $label .= ' (' . rtrim(rtrim(number_format($percentage, 2, ',', '.'), '0'), ',') . '%)';
             }
             }
             @endphp
+
             <tr>
                 <td colspan="3" class="right"><strong>{{ $label }}</strong></td>
-                <td class="right"><strong>{{ number_format($proforma->amount, 0, ',', '.') }}</strong></td>
+                <td class="right">
+                    <strong>{{ number_format($proforma->amount, 0, ',', '.') }}</strong>
+                </td>
             </tr>
         </tbody>
     </table>
 
+    <!-- PAYMENT -->
     <div class="payment-instructions">
         <h4>Instruksi Pembayaran</h4>
         <p>Silakan melakukan transfer ke rekening berikut:</p>
-        <p><strong>Bank:</strong> MANDIRI PT</p>
-        <p><strong>Nomor Rekening:</strong> 1210012339754</p>
-        <p><strong>Nama:</strong> PT. Pandu Naradipta Danendra</p>
-        <p><strong>Cabang:</strong> KCP Jakarta Duta Merlin</p>
-    </div>
 
-    <div class="payment-instructions page-break">
-        <h4 style="text-align:left;">NOTE:</h4>
+        <div class="payment-item">
+            <div class="label">Bank</div>
+            <div class="colon">:</div>
+            <div class="value">MANDIRI PT</div>
+        </div>
 
-        <h4>Harga sudah termasuk:</h4>
-        <p>• PPN 11%</p>
-        <p>• Pengiriman dari Guangzhou, China ke Port Jakarta / Surabaya</p>
-        <p>• Garansi Komponen Mesin <b>12 bulan</b> sejak BAST ditandatangani (syarat & ketentuan klaim berlaku)</p>
+        <div class="payment-item">
+            <div class="label">Nomor Rekening</div>
+            <div class="colon">:</div>
+            <div class="value">1210012339754</div>
 
+        </div>
+        <div class="payment-item">
+            <div class="label">Nama Akun</div>
+            <div class="colon">:</div>
+            <div class="value">PT. Pandu Naradipta Danendra</div>
+        </div>
+        
         <h4 style="margin-top:15px;">Harga belum termasuk:</h4>
         <p>• Kebutuhan alat & bahan penunjang instalasi di lokasi (kabel power, tandon air, dll)</p>
         <p>• Biaya pengiriman dari Port Indonesia ke lokasi Customer</p>
@@ -231,7 +290,6 @@
         $total = $quotation->items->sum('line_total');
         @endphp
 
-<<<<<<< HEAD
 <div class="payment-instructions">
     <h4>Payment Instructions</h4>
     <p>Please make the transfer to the following account:</p>
@@ -240,55 +298,6 @@
     <p><strong>Account Name:</strong> PT. Pandu Naradipta Danendra</p>
     <p><strong>Branch:</strong> KCP Jakarta Duta Merlin</p>
 </div>
-=======
-        <h4 style="margin-top:15px;">Skema Pembayaran</h4>
-        <table>
-            <thead>
-                <tr>
-                    <th>Termin</th>
-                    <th class="right">Persentase</th>
-                    <th class="right">Nominal</th>
-                    <th>Waktu Pembayaran</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if($quotation->paymentTerms->isNotEmpty())
-                @foreach($quotation->paymentTerms as $pt)
-                @php
-                $perc = $pt->percentage ?? 0;
-                $percLabel = rtrim(rtrim(number_format($perc, 2, ',', '.'), '0'), ',');
-                $nominal = $total * ($perc / 100);
-                @endphp
-                <tr>
-                    <td>{{ 'Termin ' . $pt->term_no }}</td>
-                    <td class="right">{{ $percLabel }}%</td>
-                    <td class="right">Rp {{ number_format($nominal, 0, ',', '.') }}</td>
-                    <td>{{ $pt->description ?? '-' }}</td>
-                </tr>
-                @endforeach
-                @else
-                <tr>
-                    <td>Down Payment</td>
-                    <td class="right">50%</td>
-                    <td class="right">Rp {{ number_format($total * 0.5, 0, ',', '.') }}</td>
-                    <td>Sebagai tanda jadi / konfirmasi order</td>
-                </tr>
-                <tr>
-                    <td>Termin 2 - Pengiriman</td>
-                    <td class="right">40%</td>
-                    <td class="right">Rp {{ number_format($total * 0.4, 0, ',', '.') }}</td>
-                    <td>Sebelum mesin dikirim ke Indonesia</td>
-                </tr>
-                <tr>
-                    <td>Termin 3 - Pelunasan</td>
-                    <td class="right">10%</td>
-                    <td class="right">Rp {{ number_format($total * 0.1, 0, ',', '.') }}</td>
-                    <td>Setelah mesin sampai di Indonesia</td>
-                </tr>
-                @endif
-            </tbody>
-        </table>
->>>>>>> 403f5e52823f885c40ca9aa0686353ae63431fb5
 
         <p style="margin-top:10px;">
             <i>Rekening Pembayaran akan diinformasikan melalui Invoice/Surat Pengantar Tagihan resmi.
@@ -343,10 +352,17 @@
                 Segala perselisihan diselesaikan melalui jalur Hukum Perdata. Kami tidak melayani negosiasi melalui
                 pihak ketiga yang tidak memiliki hubungan hukum resmi dengan kontrak ini. </li>
         </ul>
+>>>>>>> 49c2ebad4b6e8c62c47542aa3016458e5205512f
 
+        <div class="payment-item">
+            <div class="label">Cabang</div>
+            <div class="colon">:</div>
+            <div class="value">KCP Jakarta Duta Merlin</div>
+        </div>
     </div>
 
     <p style="margin-top: 30px;">Terima kasih atas kepercayaan Anda.</p>
+
 </body>
 
 </html>

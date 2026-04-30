@@ -91,29 +91,80 @@
         tr {
             page-break-inside: avoid;
         }
+
+        /* ================= META (FIX ALIGN RIGHT + SEJAJAR :) ================= */
+        .meta {
+            text-align: right;
+            font-size: 12px;
+        }
+
+        .meta-item {
+            margin-bottom: 4px;
+        }
+
+        .meta-item .label {
+            display: inline-block;
+            width: 90px;
+            /* kunci biar sejajar */
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .meta-item .colon {
+            display: inline-block;
+            width: 10px;
+            text-align: center;
+        }
+
+        .meta-item .value {
+            display: inline-block;
+            min-width: 120px;
+            text-align: left;
+        }
     </style>
 </head>
 
 <body>
 
+
     <div class="header">
         <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
-        <div class="company-info">
+        <div class="company-info"> <br>
             <h4>PT. PANDU NARADIPTA DANENDRA</h4>
             <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Petojo Utara, Gambir, Jakarta Pusat</p>
             <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
         </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 10px;">
-        <h3 style="margin: 0;">INVOICE</h3>
-        <div style="text-align: right; font-size: 12px;">
-            <div><strong>No:</strong> {{ $invoice->invoice_no }}</div>
-            <div><strong>Tanggal:</strong> {{ $invoice->issued_at?->format('d/m/Y') }}</div>
+    <!-- HEADER TITLE + META -->
+    <div style="margin-top: 30px;">
+
+        <div style="float: left;">
+            <h3 style="margin: 0;">INVOICE</h3>
+        </div> <br>
+
+        <div class="meta" style="float: right;">
+            <div class="meta-item">
+                <span class="label">No</span>
+                <span class="colon">:</span>
+                <span class="value">{{ $invoice->invoice_no }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="label">Tanggal</span>
+                <span class="colon">:</span>
+                <span class="value">{{ $invoice->issued_at ?
+                    \Illuminate\Support\Carbon::parse($invoice->issued_at)->format('d/m/Y') : '-'
+                    }}</span>
+            </div>
         </div>
+
+        <div style="clear: both;"></div>
+
     </div>
 
-    <p><strong>Customer:</strong> {{ $quotation->lead->name ?? '-' }}</p>
+
+
+    <p><strong>Kepada:</strong> {{ $quotation->lead->name ?? '-' }}</p>
 
     <table>
         <thead>
@@ -137,12 +188,17 @@
             $label = 'Amount';
             if ($invoice->invoice_type === 'booking_fee') {
             $label = 'Booking Fee';
-            } elseif ($invoice->invoice_type === 'down_payment' || $invoice->invoice_type === 'final') {
+            } elseif (in_array($invoice->invoice_type, ['down_payment', 'final'], true)) {
             $term = $quotation->paymentTerms->firstWhere('term_no', $invoice->proforma->term_no);
             $percentage = $term?->percentage;
-            $label = $invoice->invoice_type === 'down_payment'
-            ? 'Down Payment'
-            : 'Final Payment';
+            $termDesc = $term?->description;
+
+            if ($termDesc) {
+            $label = 'Jumlah Terbayar / ' . $termDesc;
+            } else {
+            $label = $invoice->invoice_type === 'down_payment' ? 'Down Payment' : 'Final Payment';
+            }
+
             if ($percentage) {
             $label .= ' (' . rtrim(rtrim(number_format($percentage, 2, ',', '.'), '0'), ',') . '%)';
             }
@@ -151,6 +207,31 @@
             <tr>
                 <td colspan="3" class="right"><strong>{{ $label }}</strong></td>
                 <td class="right"><strong>{{ number_format($invoice->amount, 0, ',', '.') }}</strong></td>
+            </tr>
+
+            @php
+                $paidConfirmations = \App\Models\Orders\PaymentConfirmation::whereHas('proforma', function($q) use ($quotation) {
+                    $q->where('quotation_id', $quotation->id);
+                })->whereNotNull('confirmed_at')->sum('amount');
+
+                $invoicePayments = \App\Models\Orders\InvoicePayment::whereHas('invoice', function($q) use ($quotation) {
+                    $q->whereHas('proforma', function($q2) use ($quotation) {
+                        $q2->where('quotation_id', $quotation->id);
+                    });
+                })->sum('amount');
+
+                $paidTotal = ($paidConfirmations ?? 0) + ($invoicePayments ?? 0);
+                $grand = $quotation->grand_total ?? $quotation->items->sum('line_total');
+                $remaining = $grand - $paidTotal;
+                if ($remaining < 0) {
+                    $remaining = 0;
+                }
+            @endphp
+            <tr>
+                <td colspan="3" class="right"><strong>Sisa Tagihan</strong></td>
+                <td class="right">
+                    <strong>{{ number_format($remaining, 0, ',', '.') }}</strong>
+                </td>
             </tr>
         </tbody>
     </table>

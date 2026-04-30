@@ -20,7 +20,12 @@ class UserRoleController extends Controller
     {
         $query = UserRole::query();
 
-        if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
+        // Only return raw JSON for API consumers (requests under /api/*)
+        // that are NOT DataTables server-side requests. DataTables
+        // server-side requests include a `draw` parameter, so allow
+        // those to fall through to Yajra DataTables for proper response
+        // (including the 'actions' column).
+        if ($request->is('api/*') && !$request->has('draw')) {
             $roles = $query->get();
             return response()->json([
                 'status' => true,
