@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Attachment;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Orders\Proforma;
+use App\Models\Orders\Invoice;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class AttachmentController extends Controller
 {
@@ -43,7 +46,34 @@ class AttachmentController extends Controller
         // Remove duplicates
         $candidatePaths = array_values(array_unique($candidatePaths));
 
-        // Try each possible path
+        // If this is a proforma PDF, prefer rendering dynamically from the proforma
+        if ($attachment->type === 'proforma_pdf') {
+            $proforma = Proforma::where('attachment_id', $attachment->id)->first();
+            if ($proforma) {
+                $quotation = $proforma->quotation;
+                $pdf = Pdf::loadView('pdfs.proforma', compact('proforma', 'quotation'))
+                    ->setPaper('A4', 'portrait');
+
+                $fileName = ($proforma->proforma_no ?? 'proforma_' . $proforma->id) . '.pdf';
+                return $pdf->download($fileName);
+            }
+        }
+
+        // If this is an invoice PDF, prefer rendering dynamically from the invoice
+        if ($attachment->type === 'invoice_pdf') {
+            $invoice = Invoice::where('attachment_id', $attachment->id)->with(['proforma.quotation.items', 'proforma.quotation.paymentTerms', 'proforma.quotation.lead', 'proforma.attachment'])->first();
+            if ($invoice) {
+                $proforma = $invoice->proforma;
+                $quotation = $proforma->quotation;
+                $pdf = Pdf::loadView('pdfs.invoice', compact('invoice', 'proforma', 'quotation'))
+                    ->setPaper('A4', 'portrait');
+
+                $fileName = ($invoice->invoice_no ?? 'invoice_' . $invoice->id) . '.pdf';
+                return $pdf->download($fileName);
+            }
+        }
+
+        // Try each possible path for stored file
         foreach ($candidatePaths as $path) {
             if (is_file($path)) {
                 return response()->download($path, basename($path));

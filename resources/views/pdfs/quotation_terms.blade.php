@@ -84,7 +84,7 @@
 
     <div class="content">
       <div class="section-divider"></div>
-      <div class="section-title">TERM &amp; CONDITIONS</div>
+      <div class="section-title">Test &amp; CONDITIONS</div>
       <div class="section-divider"></div>
 
       <p><b>Price Includes:</b></p>

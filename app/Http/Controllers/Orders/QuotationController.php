@@ -15,6 +15,7 @@ use App\Services\AutoTrashService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+// duplicate imports removed
 use Illuminate\Support\Facades\File;
 use Carbon\Carbon;
 
@@ -493,6 +494,28 @@ class QuotationController extends Controller
     public function signedDocuments(Request $request, $id)
     {
         return redirect()->route('quotations.show', $id);
+    }
+
+    public function updateProformaIssuedAt(Request $request, $id)
+    {
+        $data = $request->validate([
+            'issued_at' => 'required|date_format:Y-m-d',
+        ]);
+
+        $proforma = Proforma::findOrFail($id);
+        $proforma->update(['issued_at' => $data['issued_at']]);
+
+        // Regenerate stored PDF for archival consistency
+        try {
+            $this->generateProformaPDF($proforma, $proforma->quotation, $request->user());
+        } catch (\Throwable $e) {
+            // ignore regeneration errors for now
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'issued_at_display' => $proforma->issued_at ? $proforma->issued_at->format('d M Y') : null,
+        ]);
     }
 
     public function logs($id)

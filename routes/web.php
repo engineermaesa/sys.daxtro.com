@@ -23,7 +23,7 @@ Route::get('contact-us', [\App\Http\Controllers\ContactUsController::class, 'cre
 Route::post('contact-us', [\App\Http\Controllers\ContactUsController::class, 'store'])->name('contact-us.store');
 
 Route::middleware('guest')->group(function () {
-    
+
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
@@ -92,10 +92,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/activity-logs', 'LeadActivityController@save')->name('leads.activity.save');
 
         Route::get('/manage', 'LeadController@manage')->name('leads.manage');
-        
+
         Route::match(['get', 'post'], '/manage/export', 'LeadController@manageExport')->name('leads.manage.export');
         Route::get('/manage/form/{id?}', 'LeadController@form')->name('leads.manage.form');
-        
+
         Route::delete('/manage/delete/{id}', 'LeadController@delete')->name('leads.manage.delete');
 
         Route::get('/import', 'ImportLeadController@index')->name('leads.import');
@@ -123,7 +123,7 @@ Route::middleware('auth')->group(function () {
 
             Route::prefix('warm')->name('leads.my.warm.')->group(function () {
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
-                
+
                 Route::get('quotation/{claim}', 'WarmLeadController@createQuotation')->name('quotation.create');
             });
         });
@@ -136,7 +136,7 @@ Route::middleware('auth')->group(function () {
     ], function () {
         Route::get('/', 'TrashLeadController@index')->name('index');
         Route::get('form/{id}', 'TrashLeadController@form')->name('form');
-        
+
         Route::post('restore/{claim}', 'TrashLeadController@restore')->name('restore');
         Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
     });
@@ -163,8 +163,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', 'OrderController@show')->name('show');
     });
 
-    
-    
+
+
 
     // =====================================
     // PURCHASING 
@@ -215,7 +215,7 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // PAYMENT CONFIRMATION CC ✔
     // =====================================
-    
+
     Route::group([
         'prefix' => 'payment-confirmation',
         'as' => 'payment-confirmation.',
@@ -229,7 +229,7 @@ Route::middleware('auth')->group(function () {
     // =====================================
     // QUOTATIONS 
     // =====================================
-    
+
     Route::group([
         'prefix' => 'quotations',
         'as' => 'quotations.',
@@ -242,31 +242,86 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/signed-documents', 'QuotationController@signedDocuments')->name('signed-documents');
 
         Route::get('/{id}', 'QuotationController@show')->name('show');
-        
+
         Route::post('/{id}/approve', 'QuotationController@approve')->name('approve');
         Route::post('/{id}/reject', 'QuotationController@reject')->name('reject');
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
     });
 
+    // Quick preview routes for quotations (render PDF and stream inline)
+    Route::get('quotations/{id}/preview', function ($id) {
+        $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        $user = $quotation->createdBy ?? auth()->user();
+
+        // Attempt to load current claim (used by the PDF body view)
+        $claim = \App\Models\Leads\LeadClaim::where('lead_id', $quotation->lead_id)
+            ->whereNull('released_at')
+            ->with('sales.role')
+            ->latest('claimed_at')
+            ->first();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = $quotation->quotation_no ? $quotation->quotation_no . '.pdf' : 'quotation_' . $quotation->id . '.pdf';
+        return $pdf->stream($fileName);
+    })->middleware('auth')->name('quotations.preview');
+
+    Route::get('quotations/{id}/view', function ($id) {
+        $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        $user = $quotation->createdBy ?? auth()->user();
+
+        $claim = \App\Models\Leads\LeadClaim::where('lead_id', $quotation->lead_id)
+            ->whereNull('released_at')
+            ->with('sales.role')
+            ->latest('claimed_at')
+            ->first();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = $quotation->quotation_no ? $quotation->quotation_no . '.pdf' : 'quotation_' . $quotation->id . '.pdf';
+        return $pdf->stream($fileName);
+    })->middleware('auth')->name('quotations.view');
+
     // =====================================
 
     // Quick preview routes for proformas while developing/templates editing
+    Route::get('proformas/{id}/download', function ($id) {
+        $proforma = \App\Models\Orders\Proforma::with(['quotation.items', 'quotation.paymentTerms', 'quotation.lead', 'attachment'])->findOrFail($id);
+        $quotation = $proforma->quotation;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.proforma', compact('proforma', 'quotation'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = ($proforma->proforma_no ?? 'proforma_' . $proforma->id) . '.pdf';
+        return $pdf->download($fileName);
+    })->middleware('auth')->name('proformas.download');
+
     Route::get('proformas/{id}/preview', function ($id) {
         $proforma = \App\Models\Orders\Proforma::with(['quotation.items', 'quotation.paymentTerms', 'quotation.lead', 'attachment'])->findOrFail($id);
         $quotation = $proforma->quotation;
-        return view('pdfs.proforma', compact('proforma', 'quotation'));
+
+        // Render PDF and stream inline so browser shows real PDF instead of HTML
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.proforma', compact('proforma', 'quotation'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = ($proforma->proforma_no ?? 'proforma_' . $proforma->id) . '.pdf';
+        return $pdf->stream($fileName);
     })->middleware('auth')->name('proformas.preview');
 
     Route::get('proformas/{id}/view', function ($id) {
-        $proforma = \App\Models\Orders\Proforma::with('attachment')->findOrFail($id);
-        if (! $proforma->attachment) {
-            abort(404, 'PDF not generated yet.');
-        }
-        $path = storage_path('app/public/' . $proforma->attachment->file_path);
-        return response()->file($path, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . ($proforma->proforma_no ?? 'proforma') . '.pdf"'
-        ]);
+        // Always render PDF dynamically so it reflects current `issued_at` and data
+        $proforma = \App\Models\Orders\Proforma::with(['quotation.items', 'quotation.paymentTerms', 'quotation.lead', 'attachment'])->findOrFail($id);
+        $quotation = $proforma->quotation;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.proforma', compact('proforma', 'quotation'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = ($proforma->proforma_no ?? 'proforma_' . $proforma->id) . '.pdf';
+        return $pdf->stream($fileName);
     })->middleware('auth')->name('proformas.view');
 
     // Temporary debug route: returns proforma + attachment metadata and file existence
@@ -290,12 +345,84 @@ Route::middleware('auth')->group(function () {
         ]);
     })->middleware('auth')->name('proformas.debug');
 
+    // Update issued_at for a proforma via AJAX
+    Route::post('proformas/{id}/issued-at', function ($id) {
+        $proforma = \App\Models\Orders\Proforma::find($id);
+        if (! $proforma) {
+            return response()->json(['error' => 'Proforma not found'], 404);
+        }
+
+        $data = request()->validate([
+            'issued_at' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $proforma->issued_at = $data['issued_at'] ?? null;
+        $proforma->save();
+
+        return response()->json([
+            'issued_at' => $proforma->issued_at,
+            'issued_at_display' => $proforma->issued_at ? date('d M Y', strtotime($proforma->issued_at)) : '-',
+        ]);
+    })->middleware('auth');
+
     // ==============================
+
+    // Quick preview routes for invoices (preview/view/debug)
+    Route::get('invoices/{id}/preview', function ($id) {
+        $invoice = \App\Models\Orders\Invoice::with(['proforma.quotation.items', 'proforma.quotation.paymentTerms', 'proforma.quotation.lead', 'proforma.attachment'])->findOrFail($id);
+        $proforma = $invoice->proforma;
+        $quotation = $proforma->quotation;
+
+        // Render PDF and stream inline
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.invoice', compact('invoice', 'proforma', 'quotation'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = ($invoice->invoice_no ?? 'invoice_' . $invoice->id) . '.pdf';
+        return $pdf->stream($fileName);
+    })->middleware('auth')->name('invoices.preview');
+
+    Route::get('invoices/{id}/view', function ($id) {
+        $invoice = \App\Models\Orders\Invoice::with(['proforma.quotation.items', 'proforma.quotation.paymentTerms', 'proforma.quotation.lead', 'proforma.attachment'])->findOrFail($id);
+        $proforma = $invoice->proforma;
+        $quotation = $proforma->quotation;
+
+        // Regenerate the invoice PDF dynamically to reflect latest payment state
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.invoice', compact('invoice', 'proforma', 'quotation'))
+            ->setPaper('A4', 'portrait');
+
+        $fileName = ($invoice->invoice_no ?? 'invoice_' . $invoice->id) . '.pdf';
+        return $pdf->stream($fileName);
+    })->middleware('auth')->name('invoices.view');
+
+    // Temporary debug route: returns invoice + attachment metadata and file existence
+    Route::get('invoices/{id}/debug', function ($id) {
+        $invoice = \App\Models\Orders\Invoice::with(['proforma.attachment', 'proforma.quotation.items', 'proforma.quotation.lead'])->find($id);
+        if (! $invoice) {
+            return response()->json(['found' => false], 404);
+        }
+
+        $attachment = $invoice->proforma?->attachment ?? ($invoice->attachment_id ? \App\Models\Attachment::find($invoice->attachment_id) : null);
+        $filePath = $attachment?->file_path ? storage_path('app/public/' . $attachment->file_path) : null;
+        $fileExists = $filePath ? file_exists($filePath) : false;
+
+        return response()->json([
+            'found' => true,
+            'id' => $invoice->id,
+            'invoice_no' => $invoice->invoice_no,
+            'attachment' => $attachment?->toArray(),
+            'file_path' => $filePath,
+            'file_exists' => $fileExists,
+            'proforma_id' => $invoice->proforma_id,
+        ]);
+    })->middleware('auth')->name('invoices.debug');
+
+    // ==============================
+
 
     // =====================================
     // FINANCE REQUEST (API) ✔
     // =====================================
-    
+
     Route::prefix('finance-requests')
         ->name('finance-requests.')
         ->group(function () {

@@ -36,7 +36,7 @@ $(function () {
     serverSide: true,
     ajax: {
       url: '{{ route("users.roles.list") }}',
-      type: 'POST',
+      type: 'GET',
       data: { _token: '{{ csrf_token() }}' }
     },
     columns: [
