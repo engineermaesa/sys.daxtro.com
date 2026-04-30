@@ -425,9 +425,9 @@
 
     {{-- TABLES CONTENTS --}}
     <div class="mt-4 rounded-lg border-[#D9D9D9]">
-        {{-- NAVIGATION TABLES --}}
+        {{-- FILTERING TABLES --}}
         <div
-            class="bg-white lg:grid lg:grid-cols-2 border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+            class="bg-white lg:grid lg:grid-cols-[6fr_1fr] border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
 
             {{-- FOR SMALL SCREEN SECTION --}}
             <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
@@ -455,7 +455,7 @@
             </div>
 
             {{-- SEARCH AND FILTERS --}}
-            <div class="lg:grid lg:grid-cols-2 gap-4 max-lg:hidden">
+            <div class="lg:grid lg:grid-cols-[1fr_5fr] gap-4 max-lg:hidden">
                 {{-- SEARCH TABLES --}}
                 <div class="border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden h-full">
                     <div class="px-2">
@@ -470,7 +470,7 @@
                 </div>
 
                 {{-- FILTERS MENUS --}}
-                <div class="grid grid-cols-3 items-center border border-gray-300 rounded-lg text-[#1E1E1E] max-lg:text-xs! h-full">
+                <div class="grid grid-cols-5 items-center border border-gray-300 rounded-lg text-[#1E1E1E] max-lg:text-xs! h-full">
 
                     {{-- SOURCES --}}
                     <div id="filterSources" class="flex items-center justify-center gap-2 border-r border-[#D9D9D9] cursor-pointer py-2 h-full px-2">
@@ -480,6 +480,40 @@
                         @foreach($leadSources as $source)
                             <option value="{{ $source->id }}">{{ $source->name }}</option>
                         @endforeach
+                        </select>
+                    </div>
+
+                    {{-- CUSTOMER TYPES --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-[#D9D9D9] cursor-pointer py-2 h-full px-2">
+                        <select id="filterCustomerTypes"
+                            class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">Customer Types</option>
+                            @foreach($customerTypes as $customerType)
+                                <option value="{{ $customerType->name }}">{{ $customerType->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- NEEDS --}}
+                    <div class="flex items-center justify-center gap-2 border-r border-[#D9D9D9] cursor-pointer py-2 h-full px-2">
+                        <select id="filterNeeds" name="filterNeeds"
+                            class="w-full font-semibold text-center focus:outline-none cursor-pointer">
+                            <option value="">All Needs</option>
+                            @php
+                            $needsOptions = [
+                            'Tube Ice',
+                            'Cube Ice',
+                            'Block Ice',
+                            'Flake ice',
+                            'Slurry Ice',
+                            'Flake Ice',
+                            'Cold Room',
+                            'Other ( Keperluan Kustom )',
+                            ];
+                            @endphp
+                            @foreach ($needsOptions as $need)
+                            <option value="{{ $need }}">{{ $need }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -524,52 +558,51 @@
                 </div>
             </div>
 
-            {{-- NAVIGATION STAGE AND ADD MANUAL LEADS --}}
-            <div class="lg:grid lg:grid-cols-[3fr_1fr] gap-4 max-lg:hidden">
-
-                {{-- NAVIGATION STAGE TABLES --}}
-                <div class="border border-[#D5D5D5] rounded-lg grid grid-cols-5 h-full">
-                    @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-                    {{-- NAVIGATION STATUS --}}
-                    <div data-status="{{ $tab }}"
-                        class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads-active flex items-center justify-center">
-                        <p class="text-[#083224]">
-                            {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                            <span id="nav-count-{{ $tab }}" class="{{ 
-                                            $tab === 'all' 
-                                                ? 'span-all' 
-                                                : ($tab === 'cold' 
-                                                    ? 'span-cold' 
-                                                    : ($tab === 'warm' 
-                                                        ? 'span-warm' 
-                                                        : ($tab == 'hot'
-                                                            ? 'span-hot'
-                                                            : 'span-deal'
-                                                            )
-                                                    )
-                                                )
-                                            }}">
-                                {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
-                            </span>
-                        </p>
-                    </div>
-                    @endforeach
-                </div>
-
-                {{-- ADD MANUAL LEADS --}}
-                <div class="bg-[#115640] rounded-lg hidden lg:flex! h-full">
-                    <a href="{{ route('leads.my.form') }}"
-                        class="w-full h-full flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
-                                fill="#E7F3EE" />
-                        </svg>
-                        <p class="text-white font-medium">Leads Manually</p>
-                    </a>
-                </div>
+            {{-- ADD MANUAL LEADS --}}
+            <div class="bg-[#115640] rounded-lg hidden lg:flex! h-full">
+                <a href="{{ route('leads.my.form') }}"
+                    class="w-full h-full flex justify-center items-center gap-1 p-2 xl:gap-3 xl:px-3 xl:py-2">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M6 8H1C0.716667 8 0.479167 7.90417 0.2875 7.7125C0.0958333 7.52083 0 7.28333 0 7C0 6.71667 0.0958333 6.47917 0.2875 6.2875C0.479167 6.09583 0.716667 6 1 6H6V1C6 0.716667 6.09583 0.479167 6.2875 0.2875C6.47917 0.0958333 6.71667 0 7 0C7.28333 0 7.52083 0.0958333 7.7125 0.2875C7.90417 0.479167 8 0.716667 8 1V6H13C13.2833 6 13.5208 6.09583 13.7125 6.2875C13.9042 6.47917 14 6.71667 14 7C14 7.28333 13.9042 7.52083 13.7125 7.7125C13.5208 7.90417 13.2833 8 13 8H8V13C8 13.2833 7.90417 13.5208 7.7125 13.7125C7.52083 13.9042 7.28333 14 7 14C6.71667 14 6.47917 13.9042 6.2875 13.7125C6.09583 13.5208 6 13.2833 6 13V8Z"
+                            fill="#E7F3EE" />
+                    </svg>
+                    <p class="text-white font-medium">Leads Manually</p>
+                </a>
             </div>
 
+        </div>
+
+        {{-- NAVIGATION STAGE --}}
+        <div class="bg-white grid grid-cols-1 gap-4 max-lg:hidden">
+            {{-- NAVIGATION STAGE TABLES --}}
+            <div class="border-b border-b-[#D9D9D9] grid grid-cols-5 h-full">
+                @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
+                {{-- NAVIGATION STATUS --}}
+                <div data-status="{{ $tab }}"
+                    class="text-center cursor-pointer py-2 h-full nav-leads-active flex items-center justify-center {{ !$loop->last ? 'border-r border-r-[#D9D9D9]' : '' }}">
+                    <p class="text-[#083224]">
+                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
+                        <span id="nav-count-{{ $tab }}" class="{{ 
+                                        $tab === 'all' 
+                                            ? 'span-all' 
+                                            : ($tab === 'cold' 
+                                                ? 'span-cold' 
+                                                : ($tab === 'warm' 
+                                                    ? 'span-warm' 
+                                                    : ($tab == 'hot'
+                                                        ? 'span-hot'
+                                                        : 'span-deal'
+                                                        )
+                                                )
+                                            )
+                                        }}">
+                            {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
+                        </span>
+                    </p>
+                </div>
+                @endforeach
+            </div>
         </div>
 
         {{-- CONTENTS TABLES --}}
@@ -824,6 +857,8 @@
     let searchState = '';
     let activeTabState = 'all';
     let sourceSelected = '';
+    let customerTypeSelected = '';
+    let needsSelected = '';
     let filterStartDate = '';
     let filterEndDate = '';
     let fp = null;
@@ -854,6 +889,12 @@
         }
         if (sourceSelected) {
             params.append('sources', sourceSelected);
+        }
+        if (customerTypeSelected) {
+            params.append('customer_type', customerTypeSelected);
+        }
+        if (needsSelected) {
+            params.append('needs', needsSelected);
         }
         if (filterStartDate) {
             params.append('start_date', filterStartDate);
@@ -968,6 +1009,32 @@
         });
     }
 
+    function initCustomerTypeFilter() {
+        const customerTypeSelect = document.getElementById('filterCustomerTypes');
+        if (!customerTypeSelect) return;
+
+        customerTypeSelected = customerTypeSelect.value || '';
+
+        customerTypeSelect.addEventListener('change', function () {
+            customerTypeSelected = this.value || '';
+            resetAllPages();
+            refreshActiveTabAndCounts();
+        });
+    }
+
+    function initNeedsFilter() {
+        const needsSelect = document.getElementById('filterNeeds');
+        if (!needsSelect) return;
+
+        needsSelected = needsSelect.value || '';
+
+        needsSelect.addEventListener('change', function () {
+            needsSelected = this.value || '';
+            resetAllPages();
+            refreshActiveTabAndCounts();
+        });
+    }
+
     function initFlatpickr() {
         const input = document.getElementById('source-date-range');
         if (input && typeof flatpickr !== 'undefined') {
@@ -1040,11 +1107,15 @@
         clearTimeout(searchTimeout);
         searchState = '';
         sourceSelected = '';
+        customerTypeSelected = '';
+        needsSelected = '';
         filterStartDate = '';
         filterEndDate = '';
 
         $('.searchInput').val('');
         $('#source-filter-new').val('');
+        $('#filterCustomerTypes').val('');
+        $('#filterNeeds').val('');
         $('#dateLabel').text('Date');
         $('#source-date-range').val('');
         $('#dateDropdown').addClass('opacity-0 scale-95 pointer-events-none');
@@ -1134,6 +1205,8 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         initSourceFilter();
+        initCustomerTypeFilter();
+        initNeedsFilter();
         initFlatpickr();
         filterDate();
         $('#resetFilter').on('click', resetFilter);
@@ -1193,9 +1266,9 @@
             // ===== NAV ACTIVE STYLE =====
             navTabs.forEach(tab => {
                 if (tab.getAttribute('data-status') === statusTarget) {
-                    tab.classList.add('border-b-2', 'border-b-[#115640]', 'text-white'); 
+                    tab.classList.add('text-white', 'bg-[#E7F3EE]'); 
                 } else {
-                    tab.classList.remove('border-b-2', 'border-b-[#115640]', 'text-white');
+                    tab.classList.remove('text-white', 'bg-[#E7F3EE]');
                 }
             });
 

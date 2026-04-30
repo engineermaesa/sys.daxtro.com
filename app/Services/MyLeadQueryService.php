@@ -67,6 +67,8 @@ class MyLeadQueryService
         );
 
         self::applySourceFilter($query, $request->input('sources'));
+        self::applyCustomerTypeFilter($query, $request->input('customer_type'));
+        self::applyNeedsFilter($query, $request->input('needs'));
         self::applyBranchFilter($query, $request->input('branch_id'));
         self::applySalesFilter($query, $request->input('sales_id'));
 
@@ -146,6 +148,32 @@ class MyLeadQueryService
             }
 
             $leadQuery->whereIn('source_id', $sourceIds);
+        });
+    }
+
+    public static function applyCustomerTypeFilter(Builder $query, ?string $customerType): Builder
+    {
+        $customerType = trim((string) $customerType);
+
+        if ($customerType === '') {
+            return $query;
+        }
+
+        return $query->whereHas('lead', function ($leadQuery) use ($customerType) {
+            $leadQuery->where('customer_type', $customerType);
+        });
+    }
+
+    public static function applyNeedsFilter(Builder $query, ?string $needs): Builder
+    {
+        $needs = trim((string) $needs);
+
+        if ($needs === '') {
+            return $query;
+        }
+
+        return $query->whereHas('lead', function ($leadQuery) use ($needs) {
+            $leadQuery->where('needs', $needs);
         });
     }
 

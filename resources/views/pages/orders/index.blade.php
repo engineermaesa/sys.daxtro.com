@@ -116,6 +116,10 @@
                                 <th class="p-1 lg:p-3">Sales</th>
                                 <th class="p-1 lg:p-3">Quotation No</th>
                                 <th class="p-1 lg:p-3">Total Billing</th>
+                                @if($tab !== 'completed')
+                                    <th class="p-1 lg:p-3">Paid Billing</th>
+                                    <th class="p-1 lg:p-3">Remaining Billing</th>
+                                @endif
                                 <th class="p-1 lg:p-3">Payment Progress</th>
                                 <th class="p-1 lg:p-3">Latest Payment Date</th>
                                 <th class="p-1 lg:p-3">Order Status</th>
@@ -244,6 +248,35 @@
         return 'Rp ' + number.toLocaleString('id-ID', { maximumFractionDigits: 0 });
     }
 
+    function hasRemainingBillingColumn(tab) {
+        return tab === 'all' || tab === 'pending';
+    }
+
+    function tableColspan(tab) {
+        return hasRemainingBillingColumn(tab) ? 12 : 10;
+    }
+
+    function formatPaidBilling(tab, paidAmount, totalBilling) {
+        const paid = Number(paidAmount || 0);
+        const total = Number(totalBilling || 0);
+
+        if (tab === 'all' && paid === total) {
+            return formatRupiah(paid);
+        }
+
+        return formatRupiah(paid);
+    }
+
+    function formatRemainingBilling(tab, value) {
+        const amount = Number(value || 0);
+
+        if (tab === 'all' && amount === 0) {
+            return '<span class="font-semibold text-[#115640]">Payment Completed</span>';
+        }
+
+        return '<span class="font-semibold text-[#900B09]">' + formatRupiah(amount) + '</span>';
+    }
+
     function buildFilterParams(tab) {
         const params = {
             search: $('.searchInput').first().val() || '',
@@ -280,12 +313,18 @@
         tbody.empty();
 
         if (!rows || rows.length === 0) {
-            tbody.html('<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>');
+            tbody.html('<tr><td colspan="' + tableColspan(tab) + '" class="text-center p-3 text-[#1E1E1E]">No data available</td></tr>');
             return;
         }
 
         rows.forEach(function (row) {
           const orderStatus = (row.order_status || '').toLowerCase();
+          const paidBillingCell = hasRemainingBillingColumn(tab)
+              ? `<td class="p-1 md:p-2 lg:p-3">${formatPaidBilling(tab, row.paid_amount, row.total_billing)}</td>`
+              : '';
+          const remainingBillingCell = hasRemainingBillingColumn(tab)
+              ? `<td class="p-1 md:p-2 lg:p-3">${formatRemainingBilling(tab, row.remaining_amount)}</td>`
+              : '';
 
           const orderStatusClass =
               orderStatus === 'publish'
@@ -302,6 +341,8 @@
                     <td class="p-1 md:p-2 lg:p-3">${row.sales || '-'}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.quotation_no || '-'}</td>
                     <td class="p-1 md:p-2 lg:p-3">${formatRupiah(row.total_billing)}</td>
+                    ${paidBillingCell}
+                    ${remainingBillingCell}
                     <td class="p-1 md:p-2 lg:p-3">${row.payment_progress || '-'}</td>
                     <td class="p-1 md:p-2 lg:p-3">${row.latest_payment_date || '-'}</td>
                     <td class="p-1 md:p-2 lg:p-3">
@@ -317,7 +358,7 @@
 
     function loadOrders(tab) {
         const tbody = $('#' + tab + 'BodyTable');
-        tbody.html('<tr><td colspan="10" class="text-center p-3 text-[#1E1E1E]">Loading data...</td></tr>');
+        tbody.html('<tr><td colspan="' + tableColspan(tab) + '" class="text-center p-3 text-[#1E1E1E]">Loading data...</td></tr>');
 
         $.ajax({
             url: ordersListUrl,
@@ -330,7 +371,7 @@
                 updatePagerUI(tab, result.total || 0);
             },
             error: function () {
-                tbody.html('<tr><td colspan="10" class="text-center p-3 text-red-500">Failed to load orders</td></tr>');
+                tbody.html('<tr><td colspan="' + tableColspan(tab) + '" class="text-center p-3 text-red-500">Failed to load orders</td></tr>');
             }
         });
     }
@@ -556,7 +597,7 @@
 @section('styles')
 <style>
     .orders-nav-tab.active-nav {
-        border-bottom: 4px solid #115640;
+        background-color: #E7F3EE;
     }
 
     .orders-table-container {

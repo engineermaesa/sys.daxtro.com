@@ -16,6 +16,8 @@ use App\Models\Leads\LeadStatus;
 use App\Models\Leads\LeadStatusLog;
 
 use App\Models\Attachment;
+use App\Models\Masters\Branch;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -26,132 +28,411 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 
 class FinanceRequestController extends Controller
 {
+    private const REQUEST_TYPES = [
+        'meeting-expense',
+        'payment-confirmation',
+        'expense-realization',
+    ];
+
     public function index(Request $request)
     {
         $this->pageTitle = 'Finance Requests';
-        $counts = [
-            'meeting-expense' => \App\Models\Orders\FinanceRequest::where('request_type', 'meeting-expense')->count(),
-            'payment-confirmation' => \App\Models\Orders\FinanceRequest::where('request_type', 'payment-confirmation')->count(),
-            'expense-realization' => Schema::hasTable('expense_realizations') ? \App\Models\Orders\ExpenseRealization::count() : 0,
-        ];
+        $counts = $this->getFinanceRequestCounts($request);
+
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
+        $sales = User::query()
+            ->with('role')
+            ->whereHas('role', fn ($query) => $query->whereIn('code', ['sales', 'branch_manager']))
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id', 'role_id']);
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json(['counts' => $counts, 'pageTitle' => $this->pageTitle]);
         }
 
-        return $this->render('pages.finance.requests.index', compact('counts'));
+        return $this->render('pages.finance.requests.index', compact('counts', 'branches', 'sales'));
     }
 
     public function list(Request $request)
     {
-        $type = $request->input('type');
+        $type = $this->normalizeFinanceRequestType($request->input('type'));
+        $query = $this->buildFinanceRequestQuery($type, $request);
 
-        if ($type === 'expense-realization') {
-            if (!Schema::hasTable('expense_realizations')) {
-                return DataTables::of(collect([]))->make(true);
+        if ($request->has('draw')) {
+            return $this->dataTablesResponse($query);
+        }
+
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
+        $page = max((int) $request->input('page', 1), 1);
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+        $rows = $paginator->getCollection()
+            ->map(fn (FinanceRequest $row) => $this->serializeFinanceRequestRow($row))
+            ->values();
+
+        return response()->json([
+            'data' => $rows,
+            'total' => $paginator->total(),
+            'per_page' => $paginator->perPage(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+        ]);
+    }
+
+    public function counts(Request $request)
+    {
+        return response()->json($this->getFinanceRequestCounts($request));
+    }
+
+    private function getFinanceRequestCounts(Request $request): array
+    {
+        $counts = [];
+
+        foreach (self::REQUEST_TYPES as $type) {
+            $counts[$type] = (clone $this->buildFinanceRequestQuery($type, $request))->count();
+        }
+
+        return $counts;
+    }
+
+    private function normalizeFinanceRequestType(?string $type): string
+    {
+        return in_array($type, self::REQUEST_TYPES, true) ? $type : 'meeting-expense';
+    }
+
+    private function buildFinanceRequestQuery(string $type, Request $request)
+    {
+        $query = FinanceRequest::query()
+            ->where('request_type', $type)
+            ->with(['requester.branch', 'approver'])
+            ->latest('id');
+
+        if ($type === 'meeting-expense') {
+            $query->with([
+                'meetingExpense.sales.branch',
+                'meetingExpense.meeting.lead.branch',
+                'meetingExpense.meeting.meetingType',
+            ]);
+        }
+
+        if ($type === 'payment-confirmation') {
+            $query->with([
+                'paymentConfirmation.proforma.quotation.lead.branch',
+                'paymentConfirmation.proforma.quotation.createdBy.branch',
+            ]);
+        }
+
+        if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+            $query->with([
+                'expenseRealization.sales.branch',
+                'expenseRealization.meetingExpense.meeting.lead.branch',
+                'expenseRealization.meetingExpense.meeting.meetingType',
+                'expenseRealization.meetingExpense.sales.branch',
+            ]);
+        }
+
+        $this->applyFinanceRequestFilters($query, $type, $request);
+
+        return $query;
+    }
+
+    private function applyFinanceRequestFilters($query, string $type, Request $request): void
+    {
+        $status = trim((string) $request->input('status', ''));
+        if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            $query->where('status', $status);
+        }
+
+        $branchId = $request->input('branch_id');
+        if ($branchId !== null && $branchId !== '') {
+            $query->where(function ($subQuery) use ($type, $branchId) {
+                $subQuery->whereHas('requester', fn ($userQuery) => $userQuery->where('branch_id', $branchId));
+
+                if ($type === 'meeting-expense') {
+                    $subQuery
+                        ->orWhereHas('meetingExpense.sales', fn ($salesQuery) => $salesQuery->where('branch_id', $branchId))
+                        ->orWhereHas('meetingExpense.meeting.lead', fn ($leadQuery) => $leadQuery->where('branch_id', $branchId));
+                }
+
+                if ($type === 'payment-confirmation') {
+                    $subQuery
+                        ->orWhereHas('paymentConfirmation.proforma.quotation.createdBy', fn ($salesQuery) => $salesQuery->where('branch_id', $branchId))
+                        ->orWhereHas('paymentConfirmation.proforma.quotation.lead', fn ($leadQuery) => $leadQuery->where('branch_id', $branchId));
+                }
+
+                if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+                    $subQuery
+                        ->orWhereHas('expenseRealization.sales', fn ($salesQuery) => $salesQuery->where('branch_id', $branchId))
+                        ->orWhereHas('expenseRealization.meetingExpense.sales', fn ($salesQuery) => $salesQuery->where('branch_id', $branchId))
+                        ->orWhereHas('expenseRealization.meetingExpense.meeting.lead', fn ($leadQuery) => $leadQuery->where('branch_id', $branchId));
+                }
+            });
+        }
+
+        $salesId = $request->input('sales_id');
+        if ($salesId !== null && $salesId !== '') {
+            $query->where(function ($subQuery) use ($type, $salesId) {
+                $subQuery->where('requester_id', $salesId);
+
+                if ($type === 'meeting-expense') {
+                    $subQuery->orWhereHas('meetingExpense', fn ($expenseQuery) => $expenseQuery->where('sales_id', $salesId));
+                }
+
+                if ($type === 'payment-confirmation') {
+                    $subQuery->orWhereHas('paymentConfirmation.proforma.quotation', fn ($quotationQuery) => $quotationQuery->where('created_by', $salesId));
+                }
+
+                if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+                    $subQuery->orWhereHas('expenseRealization', fn ($realizationQuery) => $realizationQuery->where('sales_id', $salesId));
+                }
+            });
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        if ($search !== '') {
+            $query->where(function ($subQuery) use ($type, $search) {
+                $like = '%' . $search . '%';
+
+                if (ctype_digit($search)) {
+                    $subQuery
+                        ->where('id', (int) $search)
+                        ->orWhere('reference_id', (int) $search);
+                }
+
+                $subQuery
+                    ->orWhere('status', 'like', $like)
+                    ->orWhereHas('requester', fn ($userQuery) => $userQuery->where('name', 'like', $like))
+                    ->orWhereHas('requester.branch', fn ($branchQuery) => $branchQuery->where('name', 'like', $like));
+
+                if ($type === 'meeting-expense') {
+                    $subQuery
+                        ->orWhereHas('meetingExpense.sales', fn ($salesQuery) => $salesQuery->where('name', 'like', $like))
+                        ->orWhereHas('meetingExpense.meeting.lead', function ($leadQuery) use ($like) {
+                            $leadQuery->where('name', 'like', $like)
+                                ->orWhere('company', 'like', $like)
+                                ->orWhere('phone', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        })
+                        ->orWhereHas('meetingExpense.meeting', function ($meetingQuery) use ($like) {
+                            $meetingQuery->where('city', 'like', $like)
+                                ->orWhere('address', 'like', $like);
+                        });
+                }
+
+                if ($type === 'payment-confirmation') {
+                    $subQuery
+                        ->orWhereHas('paymentConfirmation', function ($paymentQuery) use ($like) {
+                            $paymentQuery->where('payer_name', 'like', $like)
+                                ->orWhere('payer_bank', 'like', $like)
+                                ->orWhere('payer_account_number', 'like', $like);
+                        })
+                        ->orWhereHas('paymentConfirmation.proforma', fn ($proformaQuery) => $proformaQuery->where('proforma_no', 'like', $like))
+                        ->orWhereHas('paymentConfirmation.proforma.quotation.createdBy', fn ($salesQuery) => $salesQuery->where('name', 'like', $like))
+                        ->orWhereHas('paymentConfirmation.proforma.quotation.lead', function ($leadQuery) use ($like) {
+                            $leadQuery->where('name', 'like', $like)
+                                ->orWhere('company', 'like', $like)
+                                ->orWhere('phone', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        });
+                }
+
+                if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+                    $subQuery
+                        ->orWhereHas('expenseRealization.sales', fn ($salesQuery) => $salesQuery->where('name', 'like', $like))
+                        ->orWhereHas('expenseRealization.meetingExpense.meeting.lead', function ($leadQuery) use ($like) {
+                            $leadQuery->where('name', 'like', $like)
+                                ->orWhere('company', 'like', $like)
+                                ->orWhere('phone', 'like', $like)
+                                ->orWhere('email', 'like', $like);
+                        })
+                        ->orWhereHas('expenseRealization.meetingExpense.meeting', function ($meetingQuery) use ($like) {
+                            $meetingQuery->where('city', 'like', $like)
+                                ->orWhere('address', 'like', $like);
+                        });
+                }
+            });
+        }
+
+        $this->applyFinanceRequestDateFilter($query, $type, $request);
+    }
+
+    private function applyFinanceRequestDateFilter($query, string $type, Request $request): void
+    {
+        $start = $request->input('date_start');
+        $end = $request->input('date_end');
+
+        if (!$start || !$end) {
+            return;
+        }
+
+        try {
+            $startAt = Carbon::parse($start)->startOfDay();
+            $endAt = Carbon::parse($end)->endOfDay();
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        $mode = $request->input('date_mode', 'requested_at');
+
+        if ($mode === 'decided_at') {
+            $query->whereBetween('decided_at', [$startAt, $endAt]);
+            return;
+        }
+
+        if ($mode === 'meeting_date') {
+            if ($type === 'meeting-expense') {
+                $query->whereHas('meetingExpense.meeting', fn ($meetingQuery) => $meetingQuery->whereBetween('scheduled_start_at', [$startAt, $endAt]));
+                return;
             }
 
-            $query = \App\Models\Orders\ExpenseRealization::with([
-                'sales',
-                'meetingExpense.meeting',
-                'meetingExpense.sales',
-                'meetingExpense.meeting.lead',
-                'meetingExpense.financeRequest.approver'
-            ]);
+            if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+                $query->whereHas('expenseRealization.meetingExpense.meeting', fn ($meetingQuery) => $meetingQuery->whereBetween('scheduled_start_at', [$startAt, $endAt]));
+                return;
+            }
 
-            return DataTables::of($query)
-                ->addColumn('status_badge', function ($row) {
-                    $colors = [
-                        'pending' => 'warning',
-                        'submitted' => 'info',
-                        'approved' => 'success',
-                        'rejected' => 'danger'
-                    ];
-                    $statusLabels = [
-                        'pending' => 'Pending',
-                        'submitted' => 'Waiting Finance',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected'
-                    ];
-                    $color = $colors[$row->status] ?? 'secondary';
-                    $label = $statusLabels[$row->status] ?? ucfirst($row->status);
-                    return '<span class="badge bg-' . $color . '">' . $label . '</span>';
-                })
-                ->addColumn('requester_name', fn($row) => $row->sales->name ?? '-')
-                ->addColumn('approver_name', function ($row) {
-                    // Get approver from the meeting expense's finance request
-                    return $row->meetingExpense?->financeRequest?->approver?->name ?? '-';
-                })
-                ->addColumn('amount', function ($row) {
-                    return 'Rp ' . number_format($row->realized_amount, 0, ',', '.');
-                })
-                ->addColumn('lead_name', function ($row) {
-                    return $row->meetingExpense?->meeting?->lead?->name ?? '-';
-                })
-                ->addColumn('meeting_date', function ($row) {
-                    return $row->meetingExpense?->meeting?->scheduled_start_at ?? null;
-                })
-                ->addColumn('created_at', function ($row) {
-                    return $row->created_at;
-                })
-                ->addColumn('decided_at', function ($row) {
-                    return $row->meetingExpense?->financeRequest?->decided_at ?? null;
-                })
-                ->addColumn('actions', function ($row) use ($type) {
-                    if ($type === 'expense-realization') {
-                        return '<a href="' . route('expense-realizations.index', $row->id) . '" class="btn btn-sm btn-primary">View Details</a>';
-                    } else {
-                        return '<a href="' . route('finance-requests.form', $row->id) . '" class="btn btn-sm btn-primary">Review</a>';
-                    }
-                })
-                ->rawColumns(['actions', 'status_badge'])
-                ->make(true);
+            if ($type === 'payment-confirmation') {
+                $query->whereHas('paymentConfirmation', fn ($paymentQuery) => $paymentQuery->whereBetween('paid_at', [$startAt, $endAt]));
+                return;
+            }
         }
 
-        $query = FinanceRequest::with('requester');
-        if ($request->filled('type')) {
-            $query->where('request_type', $request->input('type'));
-        }
+        $query->whereBetween('created_at', [$startAt, $endAt]);
+    }
 
-        return DataTables::of($query)
-            ->addColumn('request_type_badge', function ($row) {
-                $colors = [
-                    'proforma'             => 'primary',
-                    'invoice'              => 'success',
-                    'payment-confirmation' => 'warning',
-                    'meeting-expense'      => 'info',
-                ];
-                $color = $colors[$row->request_type] ?? 'secondary';
-                $label = ucwords(str_replace('-', ' ', $row->request_type));
-
-                return '<span class="badge bg-' . $color . '">' . $label . '</span>';
-            })
-            ->addColumn('status_badge', function ($row) {
-                $color = $row->status === 'approved' ? 'success' : ($row->status === 'rejected' ? 'danger' : 'warning');
-                $label = ucwords(str_replace('-', ' ', $row->status));
-                return '<span class="badge bg-' . $color . '">' . $label . '</span>';
-            })
-            ->addColumn('requester_name', fn($row) => $row->requester->name ?? '-')
-            ->addColumn('approver_name', fn($row) => $row->approver->name ?? '-') // Add approver name
-            ->addColumn('amount', function ($row) {
-                return $this->getFinanceRequestAmount($row);
-            })
-            ->addColumn('lead_name', function ($row) {
-                return $this->getLeadName($row);
-            })
-            ->addColumn('meeting_date', function ($row) {
-                return $this->getMeetingDate($row);
-            })
-            ->addColumn('actions', function ($row) {
-                $url = route('finance-requests.form', $row->id);
-                return '<a href="' . $url . '" class="btn btn-sm btn-primary">View Detail</a>';
-            })
-            ->rawColumns(['actions', 'request_type_badge', 'status_badge'])
+    private function dataTablesResponse($query)
+    {
+        return DataTables::eloquent($query)
+            ->addColumn('status_badge', fn (FinanceRequest $row) => $this->statusBadge($row->status))
+            ->addColumn('requester_name', fn (FinanceRequest $row) => $this->serializeFinanceRequestRow($row)['sales_name'])
+            ->addColumn('approver_name', fn (FinanceRequest $row) => $row->approver->name ?? '-')
+            ->addColumn('amount', fn (FinanceRequest $row) => $this->serializeFinanceRequestRow($row)['amount'])
+            ->addColumn('lead_name', fn (FinanceRequest $row) => $this->serializeFinanceRequestRow($row)['lead_name'])
+            ->addColumn('meeting_date', fn (FinanceRequest $row) => $this->serializeFinanceRequestRow($row)['meeting_date'])
+            ->addColumn('created_at', fn (FinanceRequest $row) => $row->created_at)
+            ->addColumn('decided_at', fn (FinanceRequest $row) => $row->decided_at)
+            ->addColumn('actions', fn (FinanceRequest $row) => $this->financeRequestAction($row))
+            ->rawColumns(['actions', 'status_badge'])
             ->make(true);
+    }
+
+    private function serializeFinanceRequestRow(FinanceRequest $row): array
+    {
+        $type = $row->request_type;
+        $branchName = $row->requester?->branch?->name ?? '-';
+        $salesName = $row->requester?->name ?? '-';
+        $leadName = '-';
+        $meetingDate = null;
+        $location = '-';
+        $paymentDate = null;
+        $reference = '-';
+        $amount = null;
+        $originalAmount = null;
+        $realizedAmount = null;
+
+        if ($type === 'meeting-expense') {
+            $expense = $row->meetingExpense;
+            $meeting = $expense?->meeting;
+            $lead = $meeting?->lead;
+            $branchName = $expense?->sales?->branch?->name ?? $lead?->branch?->name ?? $branchName;
+            $salesName = $expense?->sales?->name ?? $salesName;
+            $leadName = $lead?->name ?? '-';
+            $meetingDate = $meeting?->scheduled_start_at;
+            $location = $meeting?->city ?: ($meeting?->address ?: '-');
+            $amount = $expense?->amount;
+            $reference = $meeting?->meetingType?->name ?? 'Meeting Expense';
+        }
+
+        if ($type === 'payment-confirmation') {
+            $payment = $row->paymentConfirmation;
+            $proforma = $payment?->proforma;
+            $quotation = $proforma?->quotation;
+            $lead = $quotation?->lead;
+            $sales = $quotation?->createdBy;
+            $branchName = $sales?->branch?->name ?? $lead?->branch?->name ?? $branchName;
+            $salesName = $sales?->name ?? $salesName;
+            $leadName = $lead?->name ?? '-';
+            $paymentDate = $payment?->paid_at;
+            $location = $payment?->payer_bank ?: '-';
+            $amount = $payment?->amount;
+            $reference = $proforma?->proforma_no ?? 'Payment Confirmation';
+        }
+
+        if ($type === 'expense-realization' && Schema::hasTable('expense_realizations')) {
+            $realization = $row->expenseRealization;
+            $meetingExpense = $realization?->meetingExpense;
+            $meeting = $meetingExpense?->meeting;
+            $lead = $meeting?->lead;
+            $branchName = $realization?->sales?->branch?->name
+                ?? $meetingExpense?->sales?->branch?->name
+                ?? $lead?->branch?->name
+                ?? $branchName;
+            $salesName = $realization?->sales?->name ?? $meetingExpense?->sales?->name ?? $salesName;
+            $leadName = $lead?->name ?? '-';
+            $meetingDate = $meeting?->scheduled_start_at;
+            $location = $meeting?->city ?: ($meeting?->address ?: '-');
+            $originalAmount = $meetingExpense?->amount;
+            $realizedAmount = $realization?->realized_amount;
+            $amount = $realizedAmount;
+            $reference = 'Expense Realization';
+        }
+
+        return [
+            'id' => $row->id,
+            'type' => $type,
+            'branch_name' => $branchName ?: '-',
+            'sales_name' => $salesName ?: '-',
+            'requester_name' => $salesName ?: '-',
+            'lead_name' => $leadName ?: '-',
+            'meeting_date' => $meetingDate,
+            'payment_date' => $paymentDate,
+            'location' => $location ?: '-',
+            'reference' => $reference ?: '-',
+            'requested_at' => $row->created_at,
+            'created_at' => $row->created_at,
+            'decided_at' => $row->decided_at,
+            'amount' => $this->formatRupiah($amount),
+            'original_amount' => $originalAmount !== null ? $this->formatRupiah($originalAmount) : '-',
+            'realized_amount' => $realizedAmount !== null ? $this->formatRupiah($realizedAmount) : '-',
+            'status' => $row->status,
+            'status_badge' => $this->statusBadge($row->status),
+            'actions' => $this->financeRequestAction($row),
+        ];
+    }
+
+    private function formatRupiah($amount): string
+    {
+        if ($amount === null || $amount === '') {
+            return '-';
+        }
+
+        return 'Rp ' . number_format((float) $amount, 0, ',', '.');
+    }
+
+    private function statusBadge(?string $status): string
+    {
+        $status = $status ?: 'pending';
+        $colors = [
+            'pending' => 'bg-[#FFF4D8] text-[#976A00]',
+            'approved' => 'bg-[#E7F3EE] text-[#115640]',
+            'rejected' => 'bg-[#FDECEC] text-[#900B09]',
+        ];
+        $class = $colors[$status] ?? 'bg-gray-100 text-gray-700';
+        $label = ucwords(str_replace('-', ' ', $status));
+
+        return '<span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold ' . $class . '">' . e($label) . '</span>';
+    }
+
+    private function financeRequestAction(FinanceRequest $row): string
+    {
+        $url = url('/finance-requests/' . $row->id);
+
+        return '<a href="' . e($url) . '" class="inline-flex items-center justify-center rounded-md bg-[#115640] px-3 py-1.5 text-xs font-semibold text-white">View Detail</a>';
     }
 
     private function getFinanceRequestAmount($financeRequest)
@@ -228,28 +509,96 @@ class FinanceRequestController extends Controller
         $termNo = null;
         $meetingExpense = null;
         $proforma = null;
+        $paymentConfirmation = null;
+        $quotation = null;
+        $invoice = null;
 
         if ($financeRequest->request_type === 'payment-confirmation') {
-            $paymentConfirmation = \App\Models\Orders\PaymentConfirmation::with('proforma.quotation.order.orderItems', 'proforma.quotation.order.paymentTerms', 'proforma.quotation.order.lead', 'attachment')
-                ->find($financeRequest->reference_id);
+            $paymentConfirmation = PaymentConfirmation::with([
+                'attachment',
+                'proforma.attachment',
+                'proforma.invoice',
+                'proforma.paymentConfirmation.attachment',
+                'proforma.quotation.items',
+                'proforma.quotation.paymentTerms',
+                'proforma.quotation.proformas.paymentConfirmation.attachment',
+                'proforma.quotation.proformas.invoice',
+                'proforma.quotation.order.orderItems',
+                'proforma.quotation.order.paymentTerms',
+                'proforma.quotation.order.lead',
+            ])->find($financeRequest->reference_id);
 
             $proforma = $paymentConfirmation?->proforma;
-            $order = $proforma?->quotation?->order;
-        } else if ($financeRequest->request_type === 'proforma' || $financeRequest->request_type === 'payment-confirmation') {
-            $proforma = Proforma::with('quotation.order.orderItems', 'quotation.order.paymentTerms', 'quotation.order.lead', 'paymentConfirmation.attachment')->find($financeRequest->reference_id);
-            $order = $proforma?->quotation?->order;
+            $quotation = $proforma?->quotation;
+            $order = $quotation?->order;
+            $invoice = $proforma?->invoice;
+        } else if ($financeRequest->request_type === 'proforma') {
+            $proforma = Proforma::with([
+                'attachment',
+                'invoice',
+                'paymentConfirmation.attachment',
+                'quotation.items',
+                'quotation.paymentTerms',
+                'quotation.proformas.paymentConfirmation.attachment',
+                'quotation.proformas.invoice',
+                'quotation.order.orderItems',
+                'quotation.order.paymentTerms',
+                'quotation.order.lead',
+            ])->find($financeRequest->reference_id);
+
+            $paymentConfirmation = $proforma?->paymentConfirmation;
+            $quotation = $proforma?->quotation;
+            $order = $quotation?->order;
+            $invoice = $proforma?->invoice;
         } elseif ($financeRequest->request_type === 'invoice') {
-            [$orderId, $termNo] = explode('-', $financeRequest->reference_id);
-            $order = Order::with('orderItems', 'paymentTerms', 'lead')->find($orderId);
+            $referenceParts = explode('-', (string) $financeRequest->reference_id, 2);
+            $orderId = $referenceParts[0] ?? null;
+            $termNo = $referenceParts[1] ?? null;
+
+            if ($orderId) {
+                $order = Order::with(['orderItems', 'paymentTerms', 'lead'])->find($orderId);
+
+                if ($order) {
+                    $quotation = Quotation::with([
+                        'items',
+                        'paymentTerms',
+                        'proformas.paymentConfirmation.attachment',
+                        'proformas.invoice',
+                        'order.orderItems',
+                        'order.paymentTerms',
+                        'order.lead',
+                    ])->where('lead_id', $order->lead_id)->first();
+
+                    if ($quotation) {
+                        $proforma = $quotation->proformas
+                            ->firstWhere('term_no', is_numeric($termNo) ? (int) $termNo : $termNo);
+                    }
+                    $paymentConfirmation = $proforma?->paymentConfirmation;
+                    $invoice = $proforma?->invoice;
+                }
+            }
         } elseif ($financeRequest->request_type === 'meeting-expense') {
-            $meetingExpense = MeetingExpense::with(['details.expenseType', 'meeting.lead'])->find($financeRequest->reference_id);
+            $meetingExpense = MeetingExpense::with([
+                'details.expenseType',
+                'meeting.lead',
+                'sales',
+            ])->find($financeRequest->reference_id);
         }
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json(compact('financeRequest', 'order', 'termNo', 'meetingExpense', 'proforma'));
         }
 
-        return $this->render('pages.finance.requests.form', compact('financeRequest', 'order', 'termNo', 'meetingExpense', 'proforma'));
+        return $this->render('pages.finance.requests.form', compact(
+            'financeRequest',
+            'order',
+            'termNo',
+            'meetingExpense',
+            'proforma',
+            'paymentConfirmation',
+            'quotation',
+            'invoice'
+        ));
     }
 
 
@@ -337,7 +686,11 @@ class FinanceRequestController extends Controller
                 'notes' => $data['notes'] ?? 'Created from finance approval',
             ]);
 
-            if (!empty($data['realization_expenses']) && method_exists($realization, 'details')) {
+            if (
+                !empty($data['realization_expenses']) &&
+                Schema::hasTable('expense_realization_details') &&
+                method_exists($realization, 'details')
+            ) {
                 foreach ($data['realization_expenses'] as $exp) {
                     $realization->details()->create([
                         'expense_type_id' => $exp['expense_type_id'] ?? null,

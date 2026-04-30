@@ -275,7 +275,8 @@ Route::group([
     'middleware' => ['api'],
 ], function () {
     Route::get('/', 'FinanceRequestController@index')->name('index');
-    Route::post('/list', 'FinanceRequestController@list')->name('list');
+    Route::get('/list', 'FinanceRequestController@list')->name('list');
+    Route::get('/counts', 'FinanceRequestController@counts')->name('counts');
     Route::post('/{id}/approve', 'FinanceRequestController@approve')->name('approve');
     Route::post('/{id}/reject', 'FinanceRequestController@reject')->name('reject');
     Route::get('/{id}', 'FinanceRequestController@form')->name('form');

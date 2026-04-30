@@ -40,9 +40,18 @@ class FinanceRequest extends Model
         return $this->belongsTo(\App\Models\User::class, 'approver_id');
     }
 
+    public function meetingExpense()
+    {
+        return $this->belongsTo(MeetingExpense::class, 'reference_id');
+    }
+
+    public function paymentConfirmation()
+    {
+        return $this->belongsTo(PaymentConfirmation::class, 'reference_id');
+    }
+
     public function expenseRealization()
     {
-        return $this->belongsTo(ExpenseRealization::class, 'reference_id')
-                    ->where('request_type', 'expense-realization');
+        return $this->belongsTo(ExpenseRealization::class, 'reference_id');
     }
 }
