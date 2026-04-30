@@ -22,6 +22,7 @@ class WarmLeadController extends Controller
         $perPage  = $request->get('per_page', 10);
 
         $claimsQuery = MyLeadQueryService::baseClaimsQuery($request, LeadStatus::WARM, [
+            'lead.branch',
             'lead.quotation',
             'lead.segment',
             'lead.source',
@@ -178,7 +179,7 @@ class WarmLeadController extends Controller
 
         if ($quotation) {
             $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
             $allApproved = $bmApproved && $financeApproved; // Both must approve
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {

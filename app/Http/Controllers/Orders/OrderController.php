@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Attachment;
 use App\Models\Leads\LeadActivityLog;
 use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
 
 class OrderController extends Controller
 {
@@ -44,122 +43,29 @@ class OrderController extends Controller
 
     public function list(Request $request)
     {
-        $query = Order::with([
-            'lead.source',
-            'lead.segment',
-            'lead.region',
-            'lead.quotation.proformas.invoice.payments',
-            'lead.quotation.proformas.paymentConfirmation',
-            'paymentTerms',
-            'progressLogs.user',
-        ])
-            ->select('orders.*')
-            ->join('leads', 'orders.lead_id', '=', 'leads.id')
-            ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
-            ->leftJoin('ref_branches', 'ref_regions.branch_id', '=', 'ref_branches.id')
-            ->leftJoin('quotations', 'quotations.lead_id', '=', 'leads.id');
+        $query = $this->ordersIndexQuery($request);
 
-        if ($request->filled('segment_id')) {
-            $query->whereHas('lead', fn($q) => $q->where('segment_id', $request->segment_id));
+        if ($request->filled('payment_status')) {
+            $this->applyPaymentStatusFilter($query, $request->input('payment_status'));
         }
 
-        if ($request->filled('source_id')) {
-            $query->whereHas('lead', fn($q) => $q->where('source_id', $request->source_id));
-        }
+        $perPage = max(1, (int) $request->input('per_page', 10));
+        $orders = $query
+            ->with($this->ordersIndexRelations())
+            ->orderByDesc('orders.created_at')
+            ->paginate($perPage);
 
-        if ($request->filled('region_id')) {
-            $query->where('leads.region_id', $request->region_id);
-        }
+        $data = collect($orders->items())
+            ->map(fn (Order $order) => $this->formatOrderIndexRow($order))
+            ->values();
 
-        if ($request->filled('branch_id')) {
-            $query->where('ref_branches.id', $request->branch_id);
-        }
-
-        if ($request->filled('start_date')) {
-            $query->whereDate('created_at', '>=', $request->start_date);
-        }
-
-        if ($request->filled('end_date')) {
-            $query->whereDate('created_at', '<=', $request->end_date);
-        }
-
-        if ($request->filled('min_total')) {
-            $query->where('orders.total_billing', '>=', (float)$request->input('min_total'));
-        }
-
-        if ($request->filled('max_total')) {
-            $query->where('orders.total_billing', '<=', (float)$request->input('max_total'));
-        }
-
-        $paidSub = "(select coalesce(sum(pc.amount),0) from proformas p left join payment_confirmations pc on pc.proforma_id = p.id and pc.confirmed_at is not null where p.quotation_id = quotations.id)";
-
-        if ($request->payment_status === 'pending') {
-            $query->whereRaw("$paidSub < orders.total_billing");
-        } elseif ($request->payment_status === 'complete') {
-            $query->whereRaw("$paidSub >= orders.total_billing");
-        }
-
-        return DataTables::of($query)
-            ->addColumn('customer_name', fn($row) => $row->lead->name ?? '')
-            ->addColumn('source_name', fn($row) => $row->lead->source->name ?? '')
-            ->addColumn('segment_name', fn($row) => $row->lead->segment->name ?? '')
-            ->addColumn('region_name', fn($row) => $row->lead->region->name ?? '')
-            ->addColumn('quotation_no', function ($row) {
-                $quotation = Quotation::where('lead_id', $row->lead_id)->first();
-                return $quotation->quotation_no ?? '-';
-            })
-            ->addColumn('completion', function ($row) {
-                $proformas = optional($row->lead->quotation)->proformas ?? collect();
-                $paidCount = $proformas
-                    ->filter(fn($p) => $p->proforma_type !== 'booking_fee'
-                        && $p->paymentConfirmation
-                        && $p->paymentConfirmation->confirmed_at)
-                    ->count();
-                $termTotal = $row->paymentTerms->count();
-                if ($termTotal === 0) {
-                    return '0/0';
-                }
-                return sprintf('%d/%d', min($termTotal, $paidCount), $termTotal);
-            })
-            ->addColumn('status', function ($row) {
-                $stepLabels = [
-                    1 => 'Order Publish',
-                    2 => 'On Production',
-                    3 => 'Running Test',
-                    4 => 'Delivery to Indonesia',
-                    5 => 'Legal Confirmation',
-                    6 => 'Delivery to Customer Location',
-                    7 => 'Installation',
-                    8 => 'BAST',
-                ];
-
-                $latest = $row->progressLogs->first();
-                if (!$latest) {
-                    return '<span class="badge bg-secondary">-</span>';
-                }
-
-                $label = $stepLabels[$latest->progress_step] ?? $latest->progress_step;
-
-                return '<span class="badge bg-primary">' . $label . '</span>';
-            })
-            ->addColumn('actions', function ($row) {
-                $detail = route('orders.show', $row->id);
-                $btnId  = 'orderActionsDropdown' . $row->id;
-
-                $html  = '<div class="dropdown">';
-                $html .= '  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="' . $btnId . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                $html .= '    <i class="bi bi-three-dots-vertical"></i> Actions';
-                $html .= '  </button>';
-                $html .= '  <div class="dropdown-menu dropdown-menu-right" aria-labelledby="' . $btnId . '">';
-                $html .= '    <a class="dropdown-item" href="' . e($detail) . '"><i class="bi bi-eye mr-2"></i> View Detail</a>';
-                $html .= '    <button type="button" class="dropdown-item btn-progress-log" data-order="' . $row->id . '"><i class="bi bi-clock-history mr-2"></i> Progress Logs</button>';
-                $html .= '  </div>';
-                $html .= '</div>';
-
-                return $html;
-            })
-            ->rawColumns(['actions', 'status'])
-            ->make(true);
+        return response()->json([
+            'data' => $data,
+            'total' => $orders->total(),
+            'current_page' => $orders->currentPage(),
+            'last_page' => $orders->lastPage(),
+            'per_page' => $orders->perPage(),
+        ]);
     }
 
     public function show(Request $request, $id)
@@ -218,7 +124,7 @@ class OrderController extends Controller
             $terms[] = $termData;
         }
 
-        return $this->respondWith($request, 'pages.orders.show', compact('order', 'quotation', 'terms'));
+        return $this->respondWith($request, 'pages.orders.show', compact('order', 'quotation', 'terms', 'id'));
     }
 
     public function requestProforma(Request $request, $orderId, $term)
@@ -459,48 +365,224 @@ class OrderController extends Controller
 
     private function calculateCounts(array $filters): array
     {
-        $query = Order::join('leads', 'orders.lead_id', '=', 'leads.id')
-            ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
-            ->leftJoin('ref_branches', 'ref_regions.branch_id', '=', 'ref_branches.id')
-            ->leftJoin('quotations', 'quotations.lead_id', '=', 'leads.id');
+        $request = new Request($filters);
+        $base = $this->ordersIndexQuery($request);
 
-        if (!empty($filters['segment_id'])) {
-            $query->where('leads.segment_id', $filters['segment_id']);
-        }
-        if (!empty($filters['source_id'])) {
-            $query->where('leads.source_id', $filters['source_id']);
-        }
-        if (!empty($filters['region_id'])) {
-            $query->where('leads.region_id', $filters['region_id']);
-        }
-        if (!empty($filters['branch_id'])) {
-            $query->where('ref_branches.id', $filters['branch_id']);
-        }
-        if (!empty($filters['start_date'])) {
-            $query->whereDate('orders.created_at', '>=', $filters['start_date']);
-        }
-        if (!empty($filters['end_date'])) {
-            $query->whereDate('orders.created_at', '<=', $filters['end_date']);
-        }
-        if (!empty($filters['min_total'])) {
-            $query->where('orders.total_billing', '>=', (float)$filters['min_total']);
-        }
-        if (!empty($filters['max_total'])) {
-            $query->where('orders.total_billing', '<=', (float)$filters['max_total']);
-        }
+        $allQuery = clone $base;
+        $pendingQuery = clone $base;
+        $completeQuery = clone $base;
 
-        $base = clone $query;
+        $this->applyPaymentStatusFilter($pendingQuery, 'pending');
+        $this->applyPaymentStatusFilter($completeQuery, 'complete');
 
-        $paidSub = "(select coalesce(sum(pc.amount),0) from proformas p left join payment_confirmations pc on pc.proforma_id = p.id and pc.confirmed_at is not null where p.quotation_id = quotations.id)";
-
-        $all = $base->count();
-        $pending = (clone $query)->whereRaw("$paidSub < orders.total_billing")->count();
-        $complete = (clone $query)->whereRaw("$paidSub >= orders.total_billing")->count();
+        $all = $allQuery->count('orders.id');
+        $pending = $pendingQuery->count('orders.id');
+        $complete = $completeQuery->count('orders.id');
 
         return [
             'all' => $all,
             'pending' => $pending,
             'complete' => $complete,
+            'completed' => $complete,
+            'cards' => [
+                'all' => $this->orderMetricsForQuery(clone $base),
+                'pending' => $this->orderMetricsForQuery($pendingQuery),
+                'completed' => $this->orderMetricsForQuery($completeQuery),
+            ],
+        ];
+    }
+
+    private function ordersIndexRelations(): array
+    {
+        return [
+            'lead.source',
+            'lead.region.branch',
+            'lead.branch',
+            'lead.firstSales',
+            'lead.quotation.createdBy',
+            'lead.quotation.proformas.paymentConfirmation',
+            'paymentTerms',
+            'progressLogs.user',
+        ];
+    }
+
+    private function ordersIndexQuery(Request $request)
+    {
+        $query = Order::query()
+            ->select('orders.*')
+            ->join('leads', 'orders.lead_id', '=', 'leads.id')
+            ->leftJoin('ref_regions', 'leads.region_id', '=', 'ref_regions.id')
+            ->leftJoin('ref_branches', 'leads.branch_id', '=', 'ref_branches.id')
+            ->leftJoin('ref_branches as region_branches', 'ref_regions.branch_id', '=', 'region_branches.id')
+            ->leftJoin('quotations', 'quotations.lead_id', '=', 'leads.id')
+            ->leftJoin('users as quotation_creators', 'quotation_creators.id', '=', 'quotations.created_by');
+
+        if ($request->filled('segment_id')) {
+            $query->where('leads.segment_id', $request->input('segment_id'));
+        }
+
+        if ($request->filled('source_id')) {
+            $query->where('leads.source_id', $request->input('source_id'));
+        }
+
+        if ($request->filled('region_id')) {
+            $query->where('leads.region_id', $request->input('region_id'));
+        }
+
+        if ($request->filled('branch_id')) {
+            $query->where(function ($branchQuery) use ($request) {
+                $branchQuery->where('ref_branches.id', $request->input('branch_id'))
+                    ->orWhere('region_branches.id', $request->input('branch_id'));
+            });
+        }
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('orders.created_at', '>=', $request->input('start_date'));
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('orders.created_at', '<=', $request->input('end_date'));
+        }
+
+        if ($request->filled('min_total')) {
+            $query->where('orders.total_billing', '>=', (float) $request->input('min_total'));
+        }
+
+        if ($request->filled('max_total')) {
+            $query->where('orders.total_billing', '<=', (float) $request->input('max_total'));
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('orders.order_no', 'like', '%' . $search . '%')
+                    ->orWhere('orders.order_status', 'like', '%' . $search . '%')
+                    ->orWhere('leads.name', 'like', '%' . $search . '%')
+                    ->orWhere('leads.company', 'like', '%' . $search . '%')
+                    ->orWhere('leads.phone', 'like', '%' . $search . '%')
+                    ->orWhere('leads.email', 'like', '%' . $search . '%')
+                    ->orWhere('quotations.quotation_no', 'like', '%' . $search . '%')
+                    ->orWhere('ref_branches.name', 'like', '%' . $search . '%')
+                    ->orWhere('region_branches.name', 'like', '%' . $search . '%')
+                    ->orWhere('ref_regions.name', 'like', '%' . $search . '%')
+                    ->orWhere('quotation_creators.name', 'like', '%' . $search . '%');
+            });
+        }
+
+        return $query;
+    }
+
+    private function applyPaymentStatusFilter($query, ?string $status): void
+    {
+        $paidSub = $this->paidAmountSubquery();
+
+        if ($status === 'pending') {
+            $query->whereRaw("$paidSub < orders.total_billing");
+        } elseif (in_array($status, ['complete', 'completed'], true)) {
+            $query->whereRaw("$paidSub >= orders.total_billing");
+        }
+    }
+
+    private function paidAmountSubquery(): string
+    {
+        return "(
+            select coalesce(sum(pc.amount), 0)
+            from payment_confirmations pc
+            inner join proformas p on p.id = pc.proforma_id
+            inner join quotations q on q.id = p.quotation_id
+            where q.lead_id = orders.lead_id
+                and pc.confirmed_at is not null
+        )";
+    }
+
+    private function orderMetricsForQuery($query): array
+    {
+        $orderIds = $query->pluck('orders.id')->unique()->values();
+
+        if ($orderIds->isEmpty()) {
+            return [
+                'total_orders' => 0,
+                'total_billing' => 0,
+                'paid_amount' => 0,
+                'remaining_amount' => 0,
+                'latest_payment_date' => null,
+            ];
+        }
+
+        $totalBilling = (float) Order::whereIn('id', $orderIds)->sum('total_billing');
+
+        $paymentQuery = PaymentConfirmation::query()
+            ->join('proformas', 'proformas.id', '=', 'payment_confirmations.proforma_id')
+            ->join('quotations', 'quotations.id', '=', 'proformas.quotation_id')
+            ->join('orders', 'orders.lead_id', '=', 'quotations.lead_id')
+            ->whereIn('orders.id', $orderIds)
+            ->whereNotNull('payment_confirmations.confirmed_at');
+
+        $paidAmount = (float) (clone $paymentQuery)->sum('payment_confirmations.amount');
+        $latestPaymentDate = (clone $paymentQuery)->max('payment_confirmations.paid_at');
+
+        return [
+            'total_orders' => $orderIds->count(),
+            'total_billing' => $totalBilling,
+            'paid_amount' => $paidAmount,
+            'remaining_amount' => max($totalBilling - $paidAmount, 0),
+            'latest_payment_date' => $latestPaymentDate
+                ? \Carbon\Carbon::parse($latestPaymentDate)->format('Y-m-d')
+                : null,
+        ];
+    }
+
+    private function formatOrderIndexRow(Order $order): array
+    {
+        $quotation = $order->lead?->quotation;
+        $proformas = $quotation?->proformas ?? collect();
+        $confirmedPayments = $proformas
+            ->map(fn ($proforma) => $proforma->paymentConfirmation)
+            ->filter(fn ($payment) => $payment && $payment->confirmed_at);
+
+        $termTotal = $order->paymentTerms->count();
+        $paidTerms = $proformas
+            ->filter(fn ($proforma) => $proforma->proforma_type !== 'booking_fee'
+                && $proforma->paymentConfirmation
+                && $proforma->paymentConfirmation->confirmed_at)
+            ->count();
+
+        $paidAmount = (float) $confirmedPayments->sum('amount');
+        $branch = $order->lead?->branch?->name
+            ??$order->lead?->region?->branch?->name
+            ?? '-';
+        $sales = $quotation?->createdBy?->name
+            ?? $order->lead?->firstSales?->name
+            ?? '-';
+        $latestPayment = $confirmedPayments
+            ->sortByDesc(fn ($payment) => $payment->paid_at)
+            ->first();
+
+        $detail = url('/orders/' . $order->id);
+
+        $actions = '<div class="dropdown">';
+        $actions .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+        $actions .= '<i class="bi bi-three-dots"></i>';
+        $actions .= '</button>';
+        $actions .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+        $actions .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($detail) . '"><i class="bi bi-eye"></i> View Detail</a>';
+        $actions .= '<button type="button" class="dropdown-item btn-progress-log cursor-pointer flex! items-center! gap-2! text-[#1E1E1E]!" data-order="' . e($order->id) . '"><i class="bi bi-clock-history"></i> Progress Logs</button>';
+        $actions .= '</div></div>';
+        return [
+            'id' => $order->id,
+            'order_no' => $order->order_no,
+            'customer' => $order->lead?->name ?? '-',
+            'branch' => $branch,
+            'sales' => $sales,
+            'quotation_no' => $quotation?->quotation_no ?? '-',
+            'total_billing' => (float) $order->total_billing,
+            'paid_amount' => $paidAmount,
+            'remaining_amount' => max(((float) $order->total_billing) - $paidAmount, 0),
+            'payment_progress' => $termTotal > 0 ? min($termTotal, $paidTerms) . '/' . $termTotal . ' paid' : '0/0 paid',
+            'latest_payment_date' => $latestPayment?->paid_at?->format('Y-m-d') ?? '-',
+            'order_status' => ucwords(str_replace('_', ' ', $order->order_status ?? '-')),
+            'actions' => $actions,
         ];
     }
 

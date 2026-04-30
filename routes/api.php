@@ -252,8 +252,8 @@ Route::group([
     'middleware' => ['api'],
 ], function () {
     Route::get('/', 'OrderController@index')->name('index');
-    Route::post('/list', 'OrderController@list')->name('list');
-    Route::post('/counts', 'OrderController@counts')->name('counts');
+    Route::get('/list', 'OrderController@list')->name('list');
+    Route::get('/counts', 'OrderController@counts')->name('counts');
     Route::get('/export', 'OrderController@export')->name('export');
     Route::get('/{id}', 'OrderController@show')->name('show');
     Route::get('/{id}/progress', 'OrderProgressController@form')->name('progress.form');
