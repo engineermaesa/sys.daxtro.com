@@ -23,7 +23,19 @@ class AccountController extends Controller
         $query = Account::with(['company', 'bank']);
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $accounts = $query->get();
+            $accounts = $query->get()->map(function (Account $account) {
+                return [
+                    'id' => $account->id,
+                    'company_name' => $account->company->name ?? '-',
+                    'bank_name' => $account->bank->name ?? '-',
+                    'account_number' => $account->account_number,
+                    'holder_name' => $account->holder_name,
+                    'created_at' => $account->created_at,
+                    'updated_at' => $account->updated_at,
+                    'actions' => $this->buildAccountActions($account),
+                ];
+            });
+
             return response()->json([
                 'status' => true,
                 'data' => $accounts,
@@ -34,16 +46,32 @@ class AccountController extends Controller
             ->addColumn('company_name', fn($row) => $row->company->name ?? '')
             ->addColumn('bank_name', fn($row) => $row->bank->name ?? '')
             ->addColumn('actions', function ($row) {
-                $edit = route('masters.accounts.form', $row->id);
-                $del  = route('masters.accounts.delete', $row->id);
-
-                return '
-                    <a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="'.$del.'" data-id="'.$row->id.'" data-table="accountsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
-                ';
+                return $this->buildAccountActions($row);
             })
             ->rawColumns(['actions'])
             ->make(true);
+    }
+
+    private function buildAccountActions(Account $account): string
+    {
+        $editUrl = route('masters.accounts.form', $account->id);
+        $deleteUrl = route('masters.accounts.delete', $account->id);
+
+        $html  = '<div class="dropdown">';
+        $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+        $html .= '<i class="bi bi-three-dots"></i>';
+        $html .= '</button>';
+        $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+        $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">';
+        $html .= '<i class="bi bi-pencil"></i> Edit';
+        $html .= '</a>';
+        $html .= '<button type="button" class="dropdown-item delete-account-data cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-id="' . e($account->id) . '" data-url="' . e($deleteUrl) . '">';
+        $html .= '<i class="bi bi-trash"></i> Delete';
+        $html .= '</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
     }
 
     public function form(Request $request, $id = null)

@@ -22,7 +22,16 @@ class BankController extends Controller
         $query = Bank::query();
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
-            $banks = $query->get();
+            $banks = $query->get()->map(function (Bank $bank) {
+                return [
+                    'id' => $bank->id,
+                    'name' => $bank->name,
+                    'created_at' => $bank->created_at,
+                    'updated_at' => $bank->updated_at,
+                    'actions' => $this->buildBankActions($bank),
+                ];
+            });
+
             return response()->json([
                 'status' => true,
                 'data' => $banks,
@@ -31,16 +40,32 @@ class BankController extends Controller
 
         return DataTables::of($query)
             ->addColumn('actions', function ($row) {
-                $edit = route('masters.banks.form', $row->id);
-                $del  = route('masters.banks.delete', $row->id);
-                
-                return '
-                    <a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="'.$del.'" data-id="'.$row->id.'" data-table="banksTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
-                ';
+                return $this->buildBankActions($row);
             })
             ->rawColumns(['actions'])
             ->make(true);
+    }
+
+    private function buildBankActions(Bank $bank): string
+    {
+        $editUrl = route('masters.banks.form', $bank->id);
+        $deleteUrl = route('masters.banks.delete', $bank->id);
+
+        $html  = '<div class="dropdown">';
+        $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+        $html .= '<i class="bi bi-three-dots"></i>';
+        $html .= '</button>';
+        $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+        $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">';
+        $html .= '<i class="bi bi-pencil"></i> Edit';
+        $html .= '</a>';
+        $html .= '<button type="button" class="dropdown-item delete-bank-data cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-id="' . e($bank->id) . '" data-url="' . e($deleteUrl) . '">';
+        $html .= '<i class="bi bi-trash"></i> Delete';
+        $html .= '</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
     }
 
     public function form($id = null)

@@ -126,22 +126,12 @@
 
 <body>
 
-<<<<<<< HEAD
 <div class="header">
     <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
     <div class="company-info">
         <h4>PT. Pandu Naradipta Danendra</h4>
         <p>Komplek, Harmoni Plaza, Jl. Suryopranoto No.17 Blok A, RT.2/RW.8, Petojo Utara, Kecamatan Gambir, Kota Jakarta Pusat, Daerah Khusus Ibukota Jakarta 10130</p>
         <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
-=======
-    <div class="header">
-        <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
-        <div class="company-info"> <br>
-            <h4>PT. PANDU NARADIPTA DANENDRA</h4>
-            <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Jakarta Pusat</p>
-            <p>Telp: (021) 22066090 | Email: info@daxtro.com</p>
-        </div>
->>>>>>> 403f5e52823f885c40ca9aa0686353ae63431fb5
     </div>
 
     <!-- HEADER TITLE + META -->
@@ -352,7 +342,6 @@
                 Segala perselisihan diselesaikan melalui jalur Hukum Perdata. Kami tidak melayani negosiasi melalui
                 pihak ketiga yang tidak memiliki hubungan hukum resmi dengan kontrak ini. </li>
         </ul>
->>>>>>> 49c2ebad4b6e8c62c47542aa3016458e5205512f
 
         <div class="payment-item">
             <div class="label">Cabang</div>

@@ -41,7 +41,7 @@
     }
 
     .nav-leads.active-nav {
-        border-bottom-color: #115640;
+        background-color: #E7F3EE;
     }
 
     .nav-leads.active-nav p {
@@ -71,7 +71,7 @@
         <div class="mt-4 rounded-lg">
             {{-- NAVIGATION TABLES --}}
             <div
-                class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
+                class="bg-white lg:flex justify-between items-center border-b border-[#D9D9D9] p-3 gap-3 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
 
                 {{-- SEARCH TABLES --}}
                 <div class="xl:w-[10%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
@@ -89,7 +89,7 @@
                 {{-- NAVIGATION STATUS TABLES --}}
                 <div class="xl:w-[80%]! gap-3 flex items-center">
                     {{-- FILTER BRANCH AGENTS DATE --}}
-                    <div class="w-3/4 grid grid-cols-5 bg-white border border-[#D9D9D9] rounded-lg">
+                    <div class="w-full grid grid-cols-5 bg-white border border-[#D9D9D9] rounded-lg">
 
                         {{-- BRANCH --}}
                         <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer h-full px-2 text-[#1E1E1E]">
@@ -161,26 +161,6 @@
                             <p class="font-medium text-[#900B09]">Reset Filter</p>
                         </div>
                     </div>
-                    <div class="w-1/4 border border-[#D5D5D5] rounded-lg py-1 grid grid-cols-3">
-                        @foreach (['all', 'active', 'inactive'] as $tab)
-                        {{-- NAVIGATION STATUS --}}
-                        <div data-tab="{{ $tab }}"
-                            class="text-center cursor-pointer py-2 h-full w-full border-r border-r-[#D5D5D5] nav-leads">
-                            <p class="text-[#083224]">
-                                {{ $loop->first ? 'All Status' : ucfirst($tab) }}
-                                <span data-manage-tab-count="{{ $tab }}" class="{{ 
-                                                    $tab === 'all' 
-                                                        ? 'span-all' 
-                                                        : ($tab === 'active' 
-                                                            ? 'span-deal' 
-                                                            : 'span-warm'
-                                                        )
-                                                    }}">
-                                </span>
-                            </p>
-                        </div>
-                        @endforeach
-                    </div>
                 </div>
 
                 {{-- ADD AGENTS --}}
@@ -195,6 +175,27 @@
                         <p class="text-white font-medium">Add Agents</p>
                     </a>
                 </div>
+            </div>
+
+            <div class="w-full border-b border-b-[#D9D9D9] bg-white rounded-lg grid grid-cols-3">
+                @foreach (['all', 'active', 'inactive'] as $tab)
+                {{-- NAVIGATION STATUS --}}
+                <div data-tab="{{ $tab }}"
+                    class="text-center cursor-pointer py-2 h-full w-full border-r border-r-[#D5D5D5] nav-leads">
+                    <p class="text-[#083224]">
+                        {{ $loop->first ? 'All Status' : ucfirst($tab) }}
+                        <span data-manage-tab-count="{{ $tab }}" class="{{ 
+                            $tab === 'all' 
+                                ? 'span-all' 
+                                : ($tab === 'active' 
+                                    ? 'span-deal' 
+                                    : 'span-warm'
+                                )
+                            }}">
+                        </span>
+                    </p>
+                </div>
+                @endforeach
             </div>
 
             {{-- CONTENTS TABLE --}}
@@ -215,7 +216,7 @@
                                     <th class="p-1 lg:p-3">Company Address</th>
                                     <th class="p-1 lg:p-3">Source</th>
                                     <th class="p-1 lg:p-3">Created At</th>
-
+    
                                     @if ($tab === 'all')
                                     <th class="p-1 lg:p-3">Status</th>
                                     @endif
@@ -226,7 +227,7 @@
                             <tbody id="{{ $tab }}BodyTable"></tbody>
                         </table>
                     </div>
-
+    
                     {{-- NAVIGATION ROWS --}}
                     <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
                         <div class="flex items-center gap-3">
@@ -240,7 +241,7 @@
                                 <option value="100">100</option>
                             </select>
                         </div>
-
+    
                         <div class="flex items-center gap-2">
                             <div id="{{ $tab }}Showing" class="font-semibold">Showing 0-0 of 0</div>
                             <div>

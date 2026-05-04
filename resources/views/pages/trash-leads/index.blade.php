@@ -27,21 +27,21 @@
     {{-- NAVIGATION TABLES --}}
     <div class="bg-white lg:grid-cols-[1fr_5fr] justify-between items-center border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
         {{-- SEARCH TABLES --}}
-        <div class="w-full border border-[#D5D5D5] rounded-lg flex items-center p-2">
+        <div class="w-full border border-[#D5D5D5] rounded-lg flex items-center">
             <div class="px-2">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786"/>
                 </svg>
             </div>
-            <input id="searchInput" type="text" placeholder="Search" class="w-full px-3 py-1 border-none focus:outline-[#115640] "/>
+            <input id="searchInput" type="text" placeholder="Search" class="w-full p-3 border-none focus:outline-[#115640] "/>
         </div>
-        {{-- FILTERING TRASH LEADS AND NAVIGATION STATUS TABLES --}}
-        <div class="grid grid-cols-[2fr_1fr] gap-4">
+        {{-- FILTERING TRASH LEADS --}}
+        <div class="grid grid-cols-1 gap-4">
           {{-- FILTERING TRASH LEADS --}}
           <div 
             class="w-full border border-[#D5D5D5] rounded-lg grid {{ $filterGridClass }}">
             @if($canFilterBranches)
-              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-2 h-full text-[#1E1E1E]">
+              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-3 h-full text-[#1E1E1E]">
                 <select id="filterBranches" class="w-full text-sm font-semibold text-center focus:outline-none cursor-pointer">
                   <option value="">All Branches</option>
                     @foreach($branches as $branch)
@@ -53,7 +53,7 @@
               </div>
             @endif
             @if($canFilterSales)
-              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-2 h-full text-[#1E1E1E]">
+              <div class="flex items-center justify-center gap-2 border-b lg:border-b-0 lg:border-r border-[#CFD5DC] px-2 py-3 h-full text-[#1E1E1E]">
               <select id="filterSales" class="w-full text-sm font-semibold text-center focus:outline-none cursor-pointer">
                 <option value="">All Sales</option>
                 @foreach($salesFilters as $salesFilter)
@@ -109,35 +109,35 @@
               <p class="font-medium text-[#900B09]">Reset Filter</p>
             </div>
           </div>
-
-          {{-- NAVIGATION STATUS TABLES --}}
-          <div class="w-full border border-[#D5D5D5] rounded-lg grid grid-cols-3">
-              @foreach (['all', 'cold', 'warm'] as $tab) {{-- Kalau mau nambah hot tambahin 'hot' di foreach dan tambahin 'span-hot' setelah ':' --}}
-                  {{-- NAVIGATION STATUS --}}
-                    <div class="text-center cursor-pointer h-full border-r border-r-[#D5D5D5] py-3 nav-leads-active" data-status="{{ $tab }}">
-                      <p class="text-[#083224]">
-                          {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                          <span 
-                              id="nav-count-{{ $tab }}"
-                              class="{{ 
-                                  $tab === 'all' 
-                                      ? 'span-all' 
-                                      : ($tab === 'cold' 
-                                          ? 'span-cold' 
-                                          : ($tab === 'warm' 
-                                              ? 'span-warm' 
-                                              : ''
-                                          )
-                                      )
-                                  }}">
-                              {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
-                          </span>
-                      </p>
-                  </div>
-              @endforeach
-          </div>
         </div>
-    </div>
+      </div>
+
+      {{-- NAVIGATION STATUS TABLES --}}
+      <div class="w-full border-b border-b-[#D9D9D9] grid grid-cols-3">
+          @foreach (['all', 'cold', 'warm'] as $tab) {{-- Kalau mau nambah hot tambahin 'hot' di foreach dan tambahin 'span-hot' setelah ':' --}}
+              {{-- NAVIGATION STATUS --}}
+                <div class="text-center cursor-pointer h-full {{$loop->last ? '' : 'border-r border-r-[#D5D5D5]'}} py-3 nav-leads-active" data-status="{{ $tab }}">
+                  <p class="text-[#083224]">
+                      {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
+                      <span 
+                          id="nav-count-{{ $tab }}"
+                          class="{{ 
+                              $tab === 'all' 
+                                  ? 'span-all' 
+                                  : ($tab === 'cold' 
+                                      ? 'span-cold' 
+                                      : ($tab === 'warm' 
+                                          ? 'span-warm' 
+                                          : ''
+                                      )
+                                  )
+                              }}">
+                          {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
+                      </span>
+                  </p>
+              </div>
+          @endforeach
+      </div>
 
     <div id="bulkRestoreBar" class="hidden items-center justify-between gap-3 px-3 py-2 border-b border-[#D9D9D9] bg-white">
       <p class="text-[#115640] font-semibold"><span id="bulkRestoreCount">0</span> lead selected</p>
@@ -583,10 +583,10 @@
       }
 
       $('.nav-leads-active')
-        .removeClass('active-nav border-b-2 border-b-[#115640] text-white');
+        .removeClass('active-nav bg-[#E7F3EE] text-white');
 
       $('.nav-leads-active[data-status="'+status+'"]')
-        .addClass('active-nav border-b-2 border-b-[#115640] text-white');
+        .addClass('active-nav bg-[#E7F3EE] text-white');
     }
 
     // init: show all

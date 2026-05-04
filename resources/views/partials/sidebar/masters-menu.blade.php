@@ -104,14 +104,32 @@
             </a>
             @endif
 
-            {{-- @if(auth()->check() && auth()->user()->hasPermission('masters.banks'))
-            <a class="collapse-item {{ request()->routeIs('masters.banks*') ? 'active' : '' }}"
-                href="{{ route('masters.banks.index') }}">Banks</a>
+            @if(auth()->check() && auth()->user()->hasPermission('masters.banks'))
+                <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters.banks*') ? 'active' : '' }}"
+                    href="{{ route('masters.banks.index') }}">
+                    <span
+                        class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/banks*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+
+                    </span>
+                    <span
+                        class="{{ request()->is('masters/expense-types*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                        Bank
+                    </span>
+                </a>
             @endif
             @if(auth()->check() && auth()->user()->hasPermission('masters.accounts'))
-            <a class="collapse-item {{ request()->routeIs('masters.accounts*') ? 'active' : '' }}"
-                href="{{ route('masters.accounts.index') }}">Accounts</a>
-            @endif --}}
+                <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters.accounts*') ? 'active' : '' }}"
+                    href="{{ route('masters.accounts.index') }}">
+                    <span
+                        class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/accounts*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+
+                    </span>
+                    <span
+                        class="{{ request()->is('masters/expense-types*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                        Accounts
+                    </span>
+                </a>
+            @endif
 
             {{-- Masters Expense Types --}}
             @if(auth()->check() && auth()->user()->hasPermission('masters.expense-types'))
@@ -193,6 +211,8 @@
 @php
 $isMastersActive =
 request()->is('masters/agents*') ||
+request()->is('masters/banks*') ||
+request()->is('masters/accounts*') ||
 request()->is('masters/companies*') ||
 request()->is('masters/provinces*') ||
 request()->is('masters/branches*') ||

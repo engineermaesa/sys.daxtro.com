@@ -31,16 +31,10 @@
         <x-orders.summary-card id="summary-completed-latest-payment-date" label="Latest Completed Payment" tone="yellow" value="-" />
     </div>
 
-    <div class="mt-4 rounded-lg border-[#D9D9D9]">
-        <div class="bg-white lg:grid lg:grid-cols-[3fr_1fr] border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
-            <div class="sm:grid sm:grid-cols-2 sm:grid-cols-[3fr_1fr] gap-4 lg:hidden">
-                <div class="border border-gray-300 rounded-lg flex items-center p-2">
-                    <i class="fas fa-search text-[#6B7786] px-2"></i>
-                    <input type="text" placeholder="Search" class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640]" />
-                </div>
-            </div>
+    <div class="mt-4 rounded-lg border border-[#D9D9D9]">
+        <div class="bg-white lg:grid lg:grid-cols-1 border-b border-[#D9D9D9] p-3 gap-4 rounded-tr-lg rounded-tl-lg sm:gap-3 grid grid-cols-1">
 
-            <div class="lg:grid lg:grid-cols-[1fr_3fr] gap-4 max-lg:hidden">
+            <div class="lg:grid lg:grid-cols-[1fr_5fr] gap-4 max-lg:hidden">
                 <div class="border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden h-full">
                     <i class="fas fa-search text-[#6B7786] px-2"></i>
                     <input type="text" placeholder="Search" class="searchInput w-full px-3 py-1 border-none focus:outline-[#115640]" />
@@ -90,17 +84,18 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 max-lg:hidden">
-                <div class="border border-[#D5D5D5] rounded-lg grid grid-cols-3 h-full">
-                    @foreach (['all' => 'All', 'pending' => 'Pending', 'completed' => 'Completed'] as $tab => $label)
-                        <div data-status="{{ $tab }}" class="orders-nav-tab text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] flex items-center justify-center {{ $loop->first ? 'active-nav' : '' }}">
-                            <p class="text-[#083224]">
-                                {{ $label }}
-                                <span id="nav-count-{{ $tab }}">({{ $tab === 'completed' ? ($counts['complete'] ?? 0) : ($counts[$tab] ?? 0) }})</span>
-                            </p>
-                        </div>
-                    @endforeach
-                </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 max-lg:hidden">
+            <div class="bg-white border-b border-b-[#D9D9D9] grid grid-cols-3 h-full">
+                @foreach (['all' => 'All', 'pending' => 'Pending', 'completed' => 'Completed'] as $tab => $label)
+                    <div data-status="{{ $tab }}" class="orders-nav-tab text-center cursor-pointer font-bold py-2 h-full {{ $loop->last ? '' : 'border-r border-r-[#D9D9D9] ' }}flex items-center justify-center {{ $loop->first ? 'active-nav' : '' }}">
+                        <p class="text-[#1E1E1E]">
+                            {{ $label }}
+                            <span id="nav-count-{{ $tab }}">({{ $tab === 'completed' ? ($counts['complete'] ?? 0) : ($counts[$tab] ?? 0) }})</span>
+                        </p>
+                    </div>
+                @endforeach
             </div>
         </div>
 
@@ -130,7 +125,7 @@
                     </table>
                 </div>
 
-                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! bg-transparent">
+                <div class="flex justify-between items-center px-3 py-2 text-[#1E1E1E]! rounded-b-lg bg-white border-t border-t-[#D9D9D9]">
                     <div class="flex items-center gap-3">
                         <p class="font-semibold">Show Rows</p>
                         <select id="{{ $tab }}PageSizeSelect" class="w-auto bg-white font-semibold p-2 rounded-md" onchange="changePageSize('{{ $tab }}', this.value)">

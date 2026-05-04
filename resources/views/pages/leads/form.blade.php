@@ -14,7 +14,7 @@
         <div class="flex items-center mt-2 gap-3">
             <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">My Leads</a>
             <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
-            <a href="/" class="text-[#083224] underline">
+            <a href="{{ route('leads.form', $form_data->id) }}" class="text-[#083224] underline">
                 {{ old('name', $form_data->name) ? 'View Leads' : 'Create Leads' }}
             </a>
         </div>
@@ -34,7 +34,7 @@
             <div id="lead-entries">
                 <div class="lead-entry">
                     {{-- PRIMARY CONTACT --}}
-                    <div class="bg-white rounded-lg">
+                    <div class="bg-white rounded-lg border border-[#D9D9D9]">
                         <div class="flex items-center justify-start gap-3 border-b border-b-[#D9D9D9] w-full">
                             <h1 class="text-black uppercase p-3 font-semibold">
                                 Primary Contact
@@ -197,7 +197,7 @@
                     {{-- COMPANY DETAILS AND LEAD CLASSIFICATION --}}
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
                         {{-- COMPANY DETAILS --}}
-                        <div class="bg-white rounded-lg">
+                        <div class="bg-white rounded-lg border border-[#D9D9D9]">
                             <h1 class="uppercase font-semibold p-3 border-b border-b-[#D9D9D9] text-[#1E1E1E]!">Company
                                 Details</h1>
                             <div class="p-3">
@@ -271,7 +271,7 @@
                         </div>
 
                         {{-- LEAD CLASSIFICATION --}}
-                        <div class="bg-white rounded-lg">
+                        <div class="bg-white rounded-lg border border-[#D9D9D9]">
                             <h1 class="uppercase font-semibold p-3 border-b border-b-[#D9D9D9] text-[#1E1E1E]!">Leads
                                 Classification</h1>
                             <div class="p-3">
@@ -304,6 +304,7 @@
                                         'Youtube',
                                         'Google Search',
                                         'Telemarketing',
+                                        'Expo FBI & IISM 2026',
                                         ];
                                         $isNew = empty($form_data->source_id);
                                         @endphp
@@ -378,7 +379,7 @@
 
                     {{-- REQUIREMENT & CONTEXT --}}
                     <div class="grid grid-cols-1 mt-3">
-                        <div class="bg-white rounded-lg">
+                        <div class="bg-white rounded-lg border border-[#D9D9D9]">
                             <h1 class="uppercase font-semibold p-3 border-b border-b-[#D9D9D9] text-[#1E1E1E]!">
                                 Requirement & Context
                             </h1>
@@ -563,10 +564,10 @@
     {{-- MEETING VIEWS --}}
     @if (!empty($form_data->id))
     @foreach ($meetings as $meeting)
-    <div id="meeting-view" class="my-4">
+    <div id="meeting-view" class="my-4 mx-4">
         <div class="meeting-tabs">
             {{-- PRIMARY CONTACT --}}
-            <div class="bg-white rounded-lg">
+            <div class="bg-white rounded-lg border border-[#D9D9D9]">
                 <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Meeting</h1>
                 <table class="w-full">
                     <tr class="border-b border-b-[#D9D9D9]">
@@ -606,7 +607,7 @@
                         <td class="text-[#1E1E1E]">{{ $meeting->summary ?? '-' }}</td>
                     </tr>
                     @if ($meeting->attachment)
-                    <tr class="border-b border-b-[#D9D9D9]">
+                    <tr class="border-t border-t-[#D9D9D9]">
                         <th class="p-3 text-[#1E1E1E] font-semibold">Attachment</th>
                         <td class="text-[#1E1E1E]">
                             <a href="{{ route('attachments.download', $meeting->attachment_id) }}"
