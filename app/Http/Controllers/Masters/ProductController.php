@@ -357,17 +357,19 @@ class ProductController extends Controller
         try {
             foreach ($rows as $r) {
                 $cells = $r['cells'] ?? [];
-                // map by header
+                // map by header and normalize header keys (remove trailing '*' and uppercase)
                 $data = [];
                 foreach ($headers as $i => $h) {
                     $key = trim($h);
+                    // normalize: remove trailing asterisk and surrounding whitespace, uppercase
+                    $norm = strtoupper(preg_replace('/\s*\*$/', '', $key));
                     $value = $cells[$i] ?? null;
-                    $data[$key] = $value;
+                    $data[$norm] = $value;
                 }
 
                 // find product type by name (allow name or id)
                 $typeId = null;
-                $pt = $data['PRODUCT_TYPE'] ?? $data['PRODUCT_TYPE *'] ?? null;
+                $pt = $data['PRODUCT_TYPE'] ?? null;
                 if ($pt !== null) {
                     // try by id first
                     if (is_numeric($pt)) {
