@@ -161,6 +161,22 @@
             @endif
 
             {{-- Maters Product Categories --}}
+            {{-- Masters Product Types --}}
+            @if((auth()->check() && auth()->user()->hasPermission('masters.product-types')) || Route::has('masters.product-types.index'))
+            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/product-types*')}}"
+                href="{{ Route::has('masters.product-types.index') ? route('masters.product-types.index') : '#' }}">
+                <span
+                    class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/product-types*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+
+                </span>
+                <span
+                    class="{{ request()->is('masters/product-types*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                    Products types
+                </span>
+            </a>
+            @endif
+
+            {{-- Maters Product Categories --}}
             @if(auth()->check() && auth()->user()->hasPermission('masters.product-categories'))
             <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/product-categories*')}}"
                 href="{{ route('masters.product-categories.index') }}">
@@ -185,7 +201,7 @@
                 </span>
                 <span
                     class="{{ request()->is('masters/parts*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
-                    Product Types
+                    Product Parts
                 </span>
             </a>
             @endif
@@ -220,7 +236,9 @@ request()->is('masters/regions*') ||
 request()->is('masters/expense-types*') ||
 request()->is('masters/customer-types*') ||
 request()->is('masters/product-categories*') ||
+request()->is('masters/product-categories*') ||
 request()->is('masters/product-types*') ||
+request()->is('masters/parts*') ||
 request()->is('masters/products*');
 @endphp
 

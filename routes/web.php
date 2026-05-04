@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Finance\FinanceRequestController;
 use App\Http\Controllers\Leads\SummaryController;
 use App\Http\Controllers\Masters\AgentController;
+use App\Http\Controllers\Masters\ProductTypeController;
 use App\Http\Controllers\Purchasing\PurchaseController;
 
 // Temporary debug route to inspect session id and CSRF token
@@ -471,10 +472,22 @@ Route::middleware('auth')->group(function () {
             Route::get('/form/{id?}', 'ProductCategoryController@form')->name('form');
         });
 
+        Route::name('product-types.')->prefix('product-types')->group(function () {
+            Route::get('/', [ProductTypeController::class, 'index'])->name('index');
+            Route::get('/list', [ProductTypeController::class, 'list'])->name('list');
+            Route::get('/form/{id?}', [ProductTypeController::class, 'form'])->name('form');
+            Route::post('/save/{id?}', [ProductTypeController::class, 'save'])->name('save');
+            Route::delete('/delete/{id}', [ProductTypeController::class, 'delete'])->name('delete');
+        });
+
         Route::name('products.')->prefix('products')->group(function () {
             Route::get('/', 'ProductController@index')->name('index');
-
             Route::post('/list', 'ProductController@list')->name('list');
+            Route::get('/import', 'ProductController@import')->name('import');
+            Route::get('/import/template', 'ProductController@importTemplate')->name('import.template');
+            // Mirror API import endpoints so URLs don't include /api (kept for compatibility with import.leads pattern)
+            Route::post('/import/preview', 'ProductController@importPreview')->name('import.preview');
+            Route::post('/import/submit', 'ProductController@importStore')->name('import.store');
 
             Route::get('/form/{id?}', 'ProductController@form')->name('form');
             Route::post('/save/{id?}', 'ProductController@save')->name('save');

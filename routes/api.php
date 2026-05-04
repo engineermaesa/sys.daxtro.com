@@ -33,6 +33,7 @@ use App\Http\Controllers\Masters\ProductCategoryController;
 use App\Http\Controllers\Masters\ProductController;
 use App\Http\Controllers\Masters\ProvinceController;
 use App\Http\Controllers\Masters\RegionController;
+use App\Http\Controllers\Masters\ProductTypeController;
 use App\Http\Controllers\Users\AdminController;
 use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
@@ -341,12 +342,24 @@ Route::group([
         Route::delete('/delete/{id}', [ProductCategoryController::class, 'delete'])->name('delete');
     });
 
+    // PRODUCT TYPES (API)
+    Route::prefix('product-types')->name('product-types.')->group(function () {
+        Route::get('/list', [ProductTypeController::class, 'list'])->name('list');
+        Route::get('/form/{id?}', [ProductTypeController::class, 'form'])->name('form');
+        Route::post('/save/{id?}', [ProductTypeController::class, 'save'])->name('save');
+        Route::delete('/delete/{id}', [ProductTypeController::class, 'delete'])->name('delete');
+    });
+
     // PRODUCTS (API)
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('/list', [ProductController::class, 'list'])->name('list');
         Route::get('/form/{id?}', [ProductController::class, 'form'])->name('form');
         Route::post('/save/{id?}', [ProductController::class, 'save'])->name('save');
         Route::delete('/delete/{id}', [ProductController::class, 'delete'])->name('delete');
+        Route::get('/import', [ProductController::class, 'importForm'])->name('import.form');
+        // Import endpoints (preview & submit) available via API
+        Route::post('/import/preview', [ProductController::class, 'importPreview'])->name('import.preview');
+        Route::post('/import/submit', [ProductController::class, 'importStore'])->name('import.store');
     });
 
     // PARTS (API)

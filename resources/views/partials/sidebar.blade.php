@@ -169,6 +169,7 @@
             'masters.banks',
             'masters.accounts',
             'masters.product-categories',
+            'masters.product-types',
             'masters.products',
             'masters.parts',
             'masters.expense-types',

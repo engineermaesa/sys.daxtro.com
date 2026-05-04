@@ -15,6 +15,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Banks', 'code' => 'masters.banks', 'description' => 'Manage banks'],
             ['name' => 'Accounts', 'code' => 'masters.accounts', 'description' => 'Manage accounts'],
             ['name' => 'Product Categories', 'code' => 'masters.product-categories', 'description' => 'Manage product categories'],
+            ['name' => 'Product Types', 'code' => 'masters.product-types', 'description' => 'Manage product types'],
             ['name' => 'Products', 'code' => 'masters.products', 'description' => 'Manage products'],
             ['name' => 'Parts', 'code' => 'masters.parts', 'description' => 'Manage parts'],
             ['name' => 'Companies', 'code' => 'masters.companies', 'description' => 'Manage companies'],
