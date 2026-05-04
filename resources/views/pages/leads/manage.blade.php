@@ -440,7 +440,7 @@
             </div>
 
             {{-- SEARCH TABLES --}}
-            <div class="xl:w-[10%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
+            <div class="xl:w-[15%]! border border-gray-300 rounded-lg lg:flex! items-center p-2 hidden">
                 <div class="px-2">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path
@@ -452,9 +452,9 @@
                     class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
             </div>
             {{-- NAVIGATION STATUS TABLES --}}
-            <div class="xl:w-[80%]! gap-3 flex items-center">
+            <div class="xl:w-[70%]! gap-3 flex items-center">
                 {{-- FILTER BRANCH SALES DATE --}}
-                <div class="w-1/2 grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
+                <div class="w-full grid grid-cols-4 bg-white border border-[#D9D9D9] rounded-lg">
 
                     {{-- BRANCH --}}
                     <div class="flex items-center justify-center gap-2 border-r border-r-[#CFD5DC] cursor-pointer h-full px-2 text-[#1E1E1E] p-3">
@@ -519,42 +519,44 @@
                         <p class="font-medium text-[#900B09]">Reset Filter</p>
                     </div>
                 </div>
-                <div class="w-1/2 border border-[#D5D5D5] rounded-lg grid grid-cols-5">
-                    @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
-                    {{-- NAVIGATION STATUS --}}
-                    <div data-tab="{{ $tab }}"
-                        class="text-center cursor-pointer py-2 h-full border-r border-r-[#D5D5D5] nav-leads">
-                        <p class="text-[#083224]">
-                            {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
-                            <span data-manage-tab-count="{{ $tab }}" class="{{ 
-                                                $tab === 'all' 
-                                                    ? 'span-all' 
-                                                    : ($tab === 'cold' 
-                                                        ? 'span-cold' 
-                                                        : ($tab === 'warm' 
-                                                            ? 'span-warm' 
-                                                            : ($tab == 'hot'
-                                                                ? 'span-hot'
-                                                                : 'span-deal'
-                                                                )
-                                                        )
-                                                    )
-                                                }}">
-                                {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
-                            </span>
-                        </p>
-                    </div>
-                    @endforeach
-                </div>
             </div>
 
             {{-- EXPORT EXCELS LEADS --}}
-            <button id="manageExportTriggerDesktop" type="button" data-export-trigger="largeScreen" class="xl:w-[10%]! cursor-pointer bg-[#115640] rounded-lg hidden lg:inline!">
+            <button id="manageExportTriggerDesktop" type="button" data-export-trigger="largeScreen" class="xl:w-[15%]! cursor-pointer bg-[#115640] rounded-lg hidden lg:inline!">
                 <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
                     <x-icon.download />
                     <span data-export-label>Export Excel</span>
                 </div>
             </button>
+        </div>
+
+        {{-- NAVIGATION STAGE --}}
+        <div class="w-full bg-white border-b border-b-[#D9D9D9] grid grid-cols-5">
+            @foreach (['all', 'cold', 'warm', 'hot', 'deal'] as $tab)
+                {{-- NAVIGATION STATUS --}}
+                <div data-tab="{{ $tab }}"
+                    class="text-center cursor-pointer py-2 h-full {{ !$loop->last ? 'border-r border-r-[#D9D9D9]' : '' }} nav-leads">
+                    <p class="text-[#083224]">
+                        {{ $loop->first ? 'All Stage' : ucfirst($tab) }}
+                        <span data-manage-tab-count="{{ $tab }}" class="{{ 
+                                            $tab === 'all' 
+                                                ? 'span-all' 
+                                                : ($tab === 'cold' 
+                                                    ? 'span-cold' 
+                                                    : ($tab === 'warm' 
+                                                        ? 'span-warm' 
+                                                        : ($tab == 'hot'
+                                                            ? 'span-hot'
+                                                            : 'span-deal'
+                                                            )
+                                                    )
+                                                )
+                                            }}">
+                            {{ $loop->first ? '(' . $leadCounts['all'] . ')' : $leadCounts[$tab] }}
+                        </span>
+                    </p>
+                </div>
+            @endforeach
         </div>
 
         <form id="manageExportForm" action="{{ route('leads.manage.export') }}" method="POST" class="hidden">
@@ -2007,7 +2009,7 @@
     }
 
     .nav-leads.active-nav {
-        border-bottom: 4px solid #115640;
+        background-color: #E7F3EE;
         color: white;
     }
 

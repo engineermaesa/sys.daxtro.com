@@ -974,7 +974,8 @@ class LeadController extends Controller
                 'deal' => $counts[LeadStatus::DEAL] ?? 0,
             ],
             'activities' => LeadActivityList::all(),
-            'leadSources' => LeadSource::orderBy('name')->get()
+            'leadSources' => LeadSource::orderBy('name')->get(),
+            'customerTypes' => CustomerType::orderBy('name')->get(),
         ]);
     }
 
@@ -2657,6 +2658,18 @@ class LeadController extends Controller
                 } else {
                     $q->where('source_id', $source);
                 }
+            });
+        }
+
+        if ($request->filled('customer_type')) {
+            $claims->whereHas('lead', function ($q) use ($request) {
+                $q->where('customer_type', $request->input('customer_type'));
+            });
+        }
+
+        if ($request->filled('needs')) {
+            $claims->whereHas('lead', function ($q) use ($request) {
+                $q->where('needs', $request->input('needs'));
             });
         }
 

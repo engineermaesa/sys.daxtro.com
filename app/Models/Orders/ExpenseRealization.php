@@ -12,7 +12,7 @@ class ExpenseRealization extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'meeting_expenses';
+    protected $table = 'expense_realizations';
 
     const STATUS_PENDING = 'pending';
     const STATUS_SUBMITTED = 'submitted';

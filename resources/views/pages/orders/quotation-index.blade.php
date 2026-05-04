@@ -14,7 +14,7 @@
             <p class="mt-1 text-[#115640] lg:text-lg text-sm">Quotation Approvals</p>
         </div>
 
-        {{-- WARM CARDS COUNTS --}}
+        {{-- All CARDS COUNTS --}}
         <div id="forWarmCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
             {{-- LEADS WARM COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
@@ -97,7 +97,7 @@
             </div>
         </div>
 
-        {{-- HOT CARDS COUNTS --}}
+        {{-- PENDING CARDS COUNTS --}}
         <div id="forHotCardsCounts" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
             {{-- LEADS HOT COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
@@ -173,7 +173,7 @@
             </div>
         </div>
 
-        {{-- DEAL CARDS COUNTS --}}
+        {{-- COMPLETED CARDS COUNTS --}}
         <div id="forDealCardsCounts" class="hidden grid grid-cols-1 gap-3 mt-4">
             {{-- LEADS DEAL COUNTS CARDS --}}
             <div class="flex justify-between items-start bg-white p-4 rounded-xl border border-[#D9D9D9] animate__animated animate__fadeInUp"
