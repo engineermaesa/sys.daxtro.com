@@ -384,8 +384,17 @@ class QuotationController extends Controller
 
         // Create payment term proformas
         foreach ($quotation->paymentTerms as $term) {
-            $amount = $quotation->grand_total * ($term->percentage / 100);
+            $base = $quotation->grand_total;
+            $amount = $base * ($term->percentage / 100);
             $type   = $term->term_no == 1 ? 'down_payment' : 'term_payment';
+
+            // Subtract booking fee from term 1 so proforma reflects remaining amount
+            if ($term->term_no == 1 && ! empty($quotation->booking_fee)) {
+                $amount = $amount - $quotation->booking_fee;
+                if ($amount < 0) {
+                    $amount = 0;
+                }
+            }
 
             $proforma = $quotation->proformas()->firstOrCreate(
                 ['term_no' => $term->term_no],

@@ -136,7 +136,16 @@ class OrderController extends Controller
 
         $amount = 0;
         if ($pct = $order->paymentTerms->firstWhere('term_no', $term)) {
-            $amount = $order->total_billing * ($pct->percentage / 100);
+            $base = $quotation->grand_total ?? $order->total_billing;
+            $amount = $base * ($pct->percentage / 100);
+
+            // If there's a booking fee on the quotation, subtract it from term 1's amount
+            if ($term == 1 && ! empty($quotation->booking_fee)) {
+                $amount = $amount - $quotation->booking_fee;
+                if ($amount < 0) {
+                    $amount = 0;
+                }
+            }
         }
 
         $proforma = $quotation->proformas()->firstOrCreate(
