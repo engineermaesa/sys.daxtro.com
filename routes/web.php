@@ -482,7 +482,6 @@ Route::middleware('auth')->group(function () {
 
         Route::name('products.')->prefix('products')->group(function () {
             Route::get('/', 'ProductController@index')->name('index');
-            Route::post('/list', 'ProductController@list')->name('list');
             Route::get('/import', 'ProductController@import')->name('import');
             Route::get('/import/template', 'ProductController@importTemplate')->name('import.template');
             // Mirror API import endpoints so URLs don't include /api (kept for compatibility with import.leads pattern)

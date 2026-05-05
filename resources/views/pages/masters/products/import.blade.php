@@ -34,15 +34,17 @@ $referenceGuides = [
 @endphp
 <section class="min-h-screen sm:text-xs! lg:text-sm!">
 	<div class="pt-4">
-		<div class="flex items-center gap-2">
-			<svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path
-					d="M2 16.85C2.9 15.9667 3.94583 15.2708 5.1375 14.7625C6.32917 14.2542 7.61667 14 9 14C10.3833 14 11.6708 14.2542 12.8625 14.7625C14.0542 15.2708 15.1 15.9667 16 16.85V4H2V16.85ZM9 12C8.03333 12 7.20833 11.6583 6.525 10.975C5.84167 10.2917 5.5 9.46667 5.5 8.5C5.5 7.53333 5.84167 6.70833 6.525 6.025C7.20833 5.34167 8.03333 5 9 5C9.96667 5 10.7917 5.34167 11.475 6.025C12.1583 6.70833 12.5 7.53333 12.5 8.5C12.5 9.46667 12.1583 10.2917 11.475 10.975C10.7917 11.6583 9.96667 12 9 12ZM2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V4C0 3.45 0.195833 2.97917 0.5875 2.5875C0.979167 2.19583 1.45 2 2 2H3V1C3 0.716667 3.09583 0.479167 3.2875 0.2875C3.47917 0.0958333 3.71667 0 4 0C4.28333 0 4.52083 0.0958333 4.7125 0.2875C4.90417 0.479167 5 0.716667 5 1V2H13V1C13 0.716667 13.0958 0.479167 13.2875 0.2875C13.4792 0.0958333 13.7167 0 14 0C14.2833 0 14.5208 0.0958333 14.7125 0.2875C14.9042 0.479167 15 0.716667 15 1V2H16C16.55 2 17.0208 2.19583 17.4125 2.5875C17.8042 2.97917 18 3.45 18 4V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2Z"
-					fill="#115641" />
-			</svg>
-			<h1 class="text-[#115641] font-semibold lg:text-2xl text-lg">Products</h1>
+		<div class="flex items-center gap-3 text-[#115640]">
+			<x-icon.package/>
+			<h1 class="font-semibold text-2xl">Products</h1>
 		</div>
-		<p class="mt-1 text-[#115641] lg:text-lg text-sm">Import Products</p>
+		<div class="flex items-center mt-2 gap-3">
+			<a href="javascript:history.back()" class="text-[#757575] hover:no-underline">All Products</a>
+			<i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
+			<a href="{{ route('masters.products.import') }}" class="text-[#083224] underline">
+				Import Products
+			</a>
+		</div>
 	</div>
 
 	<div class="mt-4 w-full bg-white border border-[#D9D9D9] rounded-lg">
@@ -153,7 +155,7 @@ $referenceGuides = [
 	</div>
 
 	@isset($rows)
-	<div class="mt-4 w-full bg-white border border-[#D9D9D9] rounded-lg">
+	<div class="my-4 w-full bg-white border border-[#D9D9D9] rounded-lg">
 		@php
 		$storeAction = Route::has('masters.products.import.store') ? route('masters.products.import.store') : '#';
 		@endphp
@@ -230,7 +232,7 @@ $referenceGuides = [
 						</thead>
 						<tbody id="{{ $tab }}Body" class="text-[#1E1E1E]">
 							@foreach(($tabConfig['rows'] ?? []) as $row)
-							<tr class="{{ trim(($row['row_class'] ?? '') . ' border-b border-b-[#D9D9D9]') }}"
+							<tr class="{{ trim(($row['row_class'] ?? '') . ' border-t border-t-[#D9D9D9]') }}"
 								data-preview-index="{{ $loop->index + 1 }}">
 								<td class="p-2 lg:p-3 text-center preview-no col-no">{{ $loop->index + 1 }}</td>
 								@foreach(($row['cells'] ?? []) as $ci => $cell)
@@ -250,7 +252,7 @@ $referenceGuides = [
 									@if($isProductType)
 									<select
 										name="rows[{{ $row['preview_index'] ?? $loop->parent->index }}][cells][{{ $ci }}]"
-										class="w-full border border-[#D9D9D9] rounded px-1 py-1 bg-white text-sm">
+										class="w-full border border-[#D9D9D9] rounded p-3 bg-white text-sm">
 										<option value="">-- Select type --</option>
 										@foreach($allTypes as $t)
 										@php $selected = ($cellStr === (string)$t->name) || ($cellStr === (string)$t->id); @endphp
@@ -261,7 +263,7 @@ $referenceGuides = [
 									<input type="text"
 										name="rows[{{ $row['preview_index'] ?? $loop->parent->index }}][cells][{{ $ci }}]"
 										value="{{ $cellValue }}"
-										class="w-full bg-transparent border border-transparent focus:border-[#D9D9D9] rounded px-1 py-1 text-sm" />
+										class="w-full bg-transparent border border-[#D9D9D9] p-3 focus:border-[#D9D9D9] rounded text-sm" />
 									@endif
 								</td>
 								@endforeach

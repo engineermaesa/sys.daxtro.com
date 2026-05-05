@@ -29,8 +29,22 @@ class ProductController extends Controller
     {
         $query = Product::with(['categories', 'type']);
 
-        if (($request->is('api/*') || $request->wantsJson()) && !$request->has('draw')) {
-            $products = $query->get();
+        if (($request->is('api/*') || $request->wantsJson() || $request->ajax()) && !$request->has('draw')) {
+            $products = $query->get()->map(function (Product $product) {
+                return [
+                    'id' => $product->id,
+                    'product_type_name' => $product->type->name ?? '-',
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'corporate_price' => $product->corporate_price,
+                    'government_price' => $product->government_price,
+                    'personal_price' => $product->personal_price,
+                    'fob_price' => $product->fob_price,
+                    'bdi_price' => $product->bdi_price,
+                    'actions' => $this->buildProductActions($product),
+                ];
+            });
+
             return response()->json([
                 'status' => true,
                 'data' => $products,
@@ -45,16 +59,32 @@ class ProductController extends Controller
                 return $row->categories->pluck('name')->implode(', ');
             })
             ->addColumn('actions', function ($row) {
-                $edit = route('masters.products.form', $row->id);
-                $del  = route('masters.products.delete', $row->id);
-
-                return '
-                    <a href="' . $edit . '" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>
-                    <a href="' . $del . '" data-id="' . $row->id . '" data-table="productsTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>
-                ';
+                return $this->buildProductActions($row);
             })
             ->rawColumns(['actions'])
             ->make(true);
+    }
+
+    private function buildProductActions(Product $product): string
+    {
+        $editUrl = route('masters.products.form', $product->id);
+        $deleteUrl = route('masters.products.delete', $product->id);
+
+        $html  = '<div class="dropdown">';
+        $html .= '<button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! text-[#1E1E1E]! hover:text-white! dropdown-toggle" type="button" data-toggle="dropdown">';
+        $html .= '<i class="bi bi-three-dots"></i>';
+        $html .= '</button>';
+        $html .= '<div class="dropdown-menu dropdown-menu-right rounded-lg!">';
+        $html .= '<a class="dropdown-item flex! items-center! gap-2! text-[#1E1E1E]!" href="' . e($editUrl) . '">';
+        $html .= '<i class="bi bi-pencil"></i> Edit';
+        $html .= '</a>';
+        $html .= '<button type="button" class="dropdown-item delete-product-data cursor-pointer flex! items-center! gap-2! text-[#900B09]!" data-id="' . e($product->id) . '" data-url="' . e($deleteUrl) . '">';
+        $html .= '<i class="bi bi-trash"></i> Delete';
+        $html .= '</button>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return $html;
     }
 
     public function form(Request $request, $id = null)

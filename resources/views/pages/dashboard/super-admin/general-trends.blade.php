@@ -8,49 +8,49 @@
             </select>
         
             <select id="filterMonth" class="border border-[#D9D9D9] rounded-lg px-3 py-2" onchange="handleTrendFilterChange()">
-                <option value="">Pilih Month</option>
-                <option value="1">Januari</option>
-                <option value="2">Februari</option>
-                <option value="3">Maret</option>
+                <option value="">All Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
                 <option value="4">April</option>
-                <option value="5">Mei</option>
-                <option value="6">Juni</option>
-                <option value="7">Juli</option>
-                <option value="8">Agustus</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
                 <option value="9">September</option>
-                <option value="10">Oktober</option>
+                <option value="10">October</option>
                 <option value="11">November</option>
                 <option value="12">Desember</option>
             </select>
         
             <select id="filterMonthFrom" class="border border-[#D9D9D9] rounded-lg px-3 py-2" onchange="handleTrendFilterChange()">
                 <option value="">Month From</option>
-                <option value="1">Januari</option>
-                <option value="2">Februari</option>
-                <option value="3">Maret</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
                 <option value="4">April</option>
-                <option value="5">Mei</option>
-                <option value="6">Juni</option>
-                <option value="7">Juli</option>
-                <option value="8">Agustus</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
                 <option value="9">September</option>
-                <option value="10">Oktober</option>
+                <option value="10">October</option>
                 <option value="11">November</option>
                 <option value="12">Desember</option>
             </select>
         
             <select id="filterMonthTo" class="border border-[#D9D9D9] rounded-lg px-3 py-2" onchange="handleTrendFilterChange()">
                 <option value="">Month To</option>
-                <option value="1">Januari</option>
-                <option value="2">Februari</option>
-                <option value="3">Maret</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
                 <option value="4">April</option>
-                <option value="5">Mei</option>
-                <option value="6">Juni</option>
-                <option value="7">Juli</option>
-                <option value="8">Agustus</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
                 <option value="9">September</option>
-                <option value="10">Oktober</option>
+                <option value="10">October</option>
                 <option value="11">November</option>
                 <option value="12">Desember</option>
             </select>
