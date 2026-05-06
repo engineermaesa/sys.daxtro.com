@@ -782,8 +782,8 @@ class LeadSummaryController extends Controller
         }
 
         $validated = $request->validate([
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d',
             'top_province' => 'nullable|string',
             'top_region' => 'nullable|string',
             'top_search' => 'nullable|string',
@@ -804,8 +804,28 @@ class LeadSummaryController extends Controller
 
         $branchId = $user->branch_id;
         $salesId = $user->id;
-        $startDate = $validated['start_date'] ?? null;
-        $endDate = $validated['end_date'] ?? null;
+        $nowJakarta = Carbon::now('Asia/Jakarta');
+        $selectedPeriodStart = (clone $nowJakarta)->startOfMonth();
+        $selectedPeriodEnd = (clone $nowJakarta)->endOfMonth();
+
+        if (!empty($validated['start_date']) && !empty($validated['end_date'])) {
+            try {
+                $selectedPeriodStart = Carbon::createFromFormat('Y-m-d', (string) $validated['start_date'], 'Asia/Jakarta')->startOfDay();
+                $selectedPeriodEnd = Carbon::createFromFormat('Y-m-d', (string) $validated['end_date'], 'Asia/Jakarta')->endOfDay();
+
+                if ($selectedPeriodStart->gt($selectedPeriodEnd)) {
+                    [$selectedPeriodStart, $selectedPeriodEnd] = [$selectedPeriodEnd, $selectedPeriodStart];
+                    $selectedPeriodStart = $selectedPeriodStart->startOfDay();
+                    $selectedPeriodEnd = $selectedPeriodEnd->endOfDay();
+                }
+            } catch (\Throwable $e) {
+                $selectedPeriodStart = (clone $nowJakarta)->startOfMonth();
+                $selectedPeriodEnd = (clone $nowJakarta)->endOfMonth();
+            }
+        }
+
+        $startDate = $selectedPeriodStart->toDateTimeString();
+        $endDate = $selectedPeriodEnd->toDateTimeString();
 
         $provinceExpression = $this->regionalReachProvinceExpression();
         $branchExpression = $this->regionalReachBranchExpression();
@@ -1182,13 +1202,13 @@ class LeadSummaryController extends Controller
 
         if (!empty($startDate) && !empty($endDate)) {
             $query->whereBetween('lead_claims.claimed_at', [
-                Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
-                Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
+                Carbon::parse($startDate, 'Asia/Jakarta')->startOfDay()->toDateTimeString(),
+                Carbon::parse($endDate, 'Asia/Jakarta')->endOfDay()->toDateTimeString(),
             ]);
         } elseif (!empty($startDate)) {
-            $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
+            $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate, 'Asia/Jakarta')->startOfDay()->toDateTimeString());
         } elseif (!empty($endDate)) {
-            $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
+            $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate, 'Asia/Jakarta')->endOfDay()->toDateTimeString());
         }
 
         return $query;
