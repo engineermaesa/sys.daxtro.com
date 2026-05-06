@@ -1732,8 +1732,8 @@ class DashSummaryController extends Controller
             'branch_id' => 'nullable|integer|exists:ref_branches,id',
             'sales_id' => 'nullable|integer|exists:users,id',
             'user_id' => 'nullable|integer|exists:users,id',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d',
             'compare_start_date' => 'nullable|date_format:Y-m-d',
             'compare_end_date' => 'nullable|date_format:Y-m-d|after_or_equal:compare_start_date',
             'top_province' => 'nullable|string',
@@ -1756,8 +1756,23 @@ class DashSummaryController extends Controller
 
         $branchId = $validated['branch_id'] ?? null;
         $salesId = $validated['sales_id'] ?? ($validated['user_id'] ?? null);
-        $startDate = $validated['start_date'] ?? null;
-        $endDate = $validated['end_date'] ?? null;
+        $nowJakarta = Carbon::now('Asia/Jakarta');
+        $selectedPeriodStart = (clone $nowJakarta)->startOfMonth();
+        $selectedPeriodEnd = (clone $nowJakarta)->endOfMonth();
+
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $selectedPeriodStart = Carbon::createFromFormat('Y-m-d', (string) $validated['start_date'], 'Asia/Jakarta')->startOfDay();
+            $selectedPeriodEnd = Carbon::createFromFormat('Y-m-d', (string) $validated['end_date'], 'Asia/Jakarta')->endOfDay();
+
+            if ($selectedPeriodStart->gt($selectedPeriodEnd)) {
+                [$selectedPeriodStart, $selectedPeriodEnd] = [$selectedPeriodEnd, $selectedPeriodStart];
+                $selectedPeriodStart = $selectedPeriodStart->startOfDay();
+                $selectedPeriodEnd = $selectedPeriodEnd->endOfDay();
+            }
+        }
+
+        $startDate = $selectedPeriodStart->toDateTimeString();
+        $endDate = $selectedPeriodEnd->toDateTimeString();
 
         $provinceExpression = $this->regionalReachProvinceExpression();
         $branchExpression = $this->regionalReachBranchExpression();
@@ -2163,13 +2178,13 @@ class DashSummaryController extends Controller
 
         if (!empty($startDate) && !empty($endDate)) {
             $query->whereBetween('lead_claims.claimed_at', [
-                Carbon::parse($startDate)->startOfDay()->toDateTimeString(),
-                Carbon::parse($endDate)->endOfDay()->toDateTimeString(),
+                Carbon::parse($startDate, 'Asia/Jakarta')->startOfDay()->toDateTimeString(),
+                Carbon::parse($endDate, 'Asia/Jakarta')->endOfDay()->toDateTimeString(),
             ]);
         } elseif (!empty($startDate)) {
-            $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate)->startOfDay()->toDateTimeString());
+            $query->where('lead_claims.claimed_at', '>=', Carbon::parse($startDate, 'Asia/Jakarta')->startOfDay()->toDateTimeString());
         } elseif (!empty($endDate)) {
-            $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate)->endOfDay()->toDateTimeString());
+            $query->where('lead_claims.claimed_at', '<=', Carbon::parse($endDate, 'Asia/Jakarta')->endOfDay()->toDateTimeString());
         }
 
         return $query;
