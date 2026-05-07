@@ -150,7 +150,7 @@ class HotLeadController extends Controller
     protected function hotActions($row)
     {
         $quotation = $row->lead->quotation;
-        $viewUrl   = route('leads.manage.form', $row->lead->id);
+        $viewUrl   = route('leads.my.hot.manage', $row->lead->id);
         $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
 

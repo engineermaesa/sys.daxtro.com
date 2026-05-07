@@ -19,14 +19,17 @@
                 @endif
             </div>
             <div class="flex items-center mt-2 gap-3">
-                @if (in_array(auth()->user()->role?->code, ['sales', 'branch_manager', 'sales_director', 'super_admin']))
+                @if (in_array(auth()->user()->role?->code, ['sales']))
                     <a href="{{ route('leads.my') }}" class="text-[#757575] hover:no-underline">My Leads</a>
+                    <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
+                @elseif (in_array(auth()->user()->role?->code, ['branch_manager', 'sales_director', 'super_admin']))
+                    <a href="{{ route('leads.manage') }}" class="text-[#757575] hover:no-underline">All Leads</a>
                     <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 @else
                     <a href="{{ route('quotations.index') }}" class="text-[#757575] hover:no-underline">Quotation Approvals</a>
                     <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 @endif
-                <a href="/" class="text-[#083224] underline">
+                <a href="{{ route('quotations.show', $quotation->id) }}" class="text-[#083224] underline">
                     View Quotation
                 </a>
             </div>

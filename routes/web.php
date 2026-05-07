@@ -127,6 +127,14 @@ Route::middleware('auth')->group(function () {
 
                 Route::get('quotation/{claim}', 'WarmLeadController@createQuotation')->name('quotation.create');
             });
+
+            Route::prefix('hot')->name('leads.my.hot.')->group(function () {
+                Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
+            });
+
+            Route::prefix('deal')->name('leads.my.deal.')->group(function () {
+                Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
+            });
         });
     });
 

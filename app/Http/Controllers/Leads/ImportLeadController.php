@@ -921,11 +921,18 @@ class ImportLeadController extends Controller
                         break;
                 }
 
+                // Fetch sales first so branch_id can be auto-filled on the lead
+                $sales = null;
+                if ($base['nip_sales']) {
+                    $sales = User::where('nip', $base['nip_sales'])->first();
+                }
+
                 $lead = Lead::create([
                     'source_id'       => $base['source_id'],
                     'segment_id'      => $base['segment_id'],
                     'industry_id'     => $base['industry_id'] ?? null,
                     'region_id'       => $base['region_id'],   // may be null = “all regions”
+                    'branch_id'       => $sales?->branch_id,
                     'status_id'       => $status,
                     'company'         => $base['company_name'] ?? null,
                     'company_address' => $base['company_address'] ?? null,
@@ -939,16 +946,12 @@ class ImportLeadController extends Controller
                 ]);
 
                 // Only create a claim when nip_sales is *not* null
-                $sales = null;
-                if ($base['nip_sales']) {
-                    $sales = User::where('nip', $base['nip_sales'])->first();
-                    if ($sales) {
-                        LeadClaim::create([
-                            'lead_id'    => $lead->id,
-                            'sales_id'   => $sales->id,
-                            'claimed_at' => now(),
-                        ]);
-                    }
+                if ($sales) {
+                    LeadClaim::create([
+                        'lead_id'    => $lead->id,
+                        'sales_id'   => $sales->id,
+                        'claimed_at' => now(),
+                    ]);
                 }
 
                 // Jika status WARM dan ada data meeting/expense, anggap sudah di-approve (backdate)

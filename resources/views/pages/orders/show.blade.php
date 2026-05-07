@@ -10,7 +10,7 @@
           <h1 class="text-[#115640] font-semibold text-2xl">Orders</h1>
       </div>
       <div class="flex items-center mt-2 gap-3">
-          <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">Orders</a>
+          <a href="{{ route('orders.index') }}" class="text-[#757575] hover:no-underline">Orders</a>
           <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
           <a href="{{ route('orders.show', $id) }}" class="text-[#083224] underline">
               View Orders

@@ -42,7 +42,7 @@ class PaymentConfirmationController extends Controller
                 ->with('error', 'Selected payment term does not match the proforma type. Please verify the selected term.');
         }
 
-        return $this->render('pages.orders.payment-confirmation-form', compact('leadId', 'term', 'proforma'));
+        return $this->render('pages.orders.payment-confirmation-form', compact('leadId', 'term', 'proforma', 'quotation'));
     }
 
     public function confirmPayment(Request $request, $leadId, $term)

@@ -12,7 +12,15 @@
             <h1 class="text-[#115640] font-semibold text-2xl">Leads</h1>
         </div>
         <div class="flex items-center mt-2 gap-3">
-            <a href="javascript:history.back()" class="text-[#757575] hover:no-underline">My Leads</a>
+            @if(request()->segment(2) === 'available' )
+                <a href="{{ route('leads.available') }}" class="text-[#757575] hover:no-underline">Available Leads</a>
+            @endif
+            @if(request()->segment(2) === 'manage' )
+                <a href="{{ route('leads.manage') }}" class="text-[#757575] hover:no-underline">All Leads</a>
+            @endif
+            @if(request()->segment(2) === 'my' )
+                <a href="{{ route('leads.my') }}" class="text-[#757575] hover:no-underline">My Leads</a>
+            @endif
             <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
             <a href="{{ route('leads.form', $form_data->id) }}" class="text-[#083224] underline">
                 {{ old('name', $form_data->name) ? 'View Leads' : 'Create Leads' }}
