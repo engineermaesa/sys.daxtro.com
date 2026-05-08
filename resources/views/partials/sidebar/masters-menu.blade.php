@@ -74,6 +74,21 @@
             </a>
             @endif
 
+            {{-- Masters Regions --}}
+            @if(auth()->check() && auth()->user()->hasPermission('masters.regions'))
+            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/regions*') }}"
+                href="{{ route('masters.regions.index') }}">
+                <span
+                    class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/regions*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+
+                </span>
+                <span
+                    class="{{ request()->is('masters/regions*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                    City
+                </span>
+            </a>
+            @endif
+
             {{-- MASTERS BRANCHES --}}
             @if(auth()->check() && auth()->user()->hasPermission('masters.branches'))
             <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/branches*')}}"
@@ -85,21 +100,6 @@
                 <span
                     class="{{ request()->is('masters/branches*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
                     Branches
-                </span>
-            </a>
-            @endif
-
-            {{-- Masters Regions --}}
-            @if(auth()->check() && auth()->user()->hasPermission('masters.regions'))
-            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/regions*') }}"
-                href="{{ route('masters.regions.index') }}">
-                <span
-                    class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/regions*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
-
-                </span>
-                <span
-                    class="{{ request()->is('masters/regions*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
-                    Regions
                 </span>
             </a>
             @endif
