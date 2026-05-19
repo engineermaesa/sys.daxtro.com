@@ -17,7 +17,7 @@ Schedule::command('quotations:expire')->everyMinute();
 //     $cmd->ask("Are you sure you want to migrate?", "Yes");
 
 //     $cmd->comment(
-//         <<<'TXT'
+//         <<<'TXT
 //                                                               .~))>>
 //                                                              .~)>>
 //                                                            .~))))>>>
