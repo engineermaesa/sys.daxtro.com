@@ -52,6 +52,39 @@
         </li>
         @endif
 
+        {{-- NOTIFICATION BELL — untuk branch_manager dan sales --}}
+        @if(auth()->check() && (hasRole(auth()->user(), 'branch_manager') || hasRole(auth()->user(), 'sales')))
+        <li id="notif-container" class="rounded-lg p-3 cursor-pointer mt-3">
+            <button id="notif-bell" type="button"
+                class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start w-full bg-transparent border-0 p-0 cursor-pointer">
+                <div class="relative flex items-center justify-center w-5 h-5">
+                    <i class="fas fa-bell text-xl text-[#1E1E1E]"></i>
+                    <span id="notif-badge"
+                        class="hidden absolute -top-1.5 -right-2 bg-red-500 text-white rounded-full text-[10px] min-w-[17px] h-[17px] leading-[17px] text-center px-0.5 font-semibold">
+                        0
+                    </span>
+                </div>
+                <span class="sidebar-label text-[#1E1E1E] font-semibold sm:hidden lg:inline">Notification</span>
+            </button>
+        </li>
+
+        {{-- Notification Dropdown --}}
+        <div id="notif-dropdown"
+            class="hidden fixed w-[340px] max-h-[420px] overflow-y-auto bg-white rounded-xl shadow-2xl border border-gray-200"
+            style="z-index: 999999 !important;">
+            <div class="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-200 sticky top-0 bg-white" style="z-index: 999999 !important;">
+                <span class="font-semibold text-sm text-gray-900">Notification</span>
+                <button id="notif-read-all"
+                    class="text-xs text-blue-500 bg-transparent border-0 cursor-pointer p-0 font-medium hover:text-blue-700">
+                    Mark Read All
+                </button>
+            </div>
+            <ul id="notif-list" class="list-none m-0 p-0">
+                <li class="px-3.5 py-3 text-sm text-gray-400 text-center">Memuat...</li>
+            </ul>
+        </div>
+        @endif
+
         {{-- LEADS MENU --}}
         @php
         $showLeads = auth()->check() && (

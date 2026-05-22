@@ -102,11 +102,15 @@ class ContactUsController extends Controller
                 throw new \Exception('Nomor Telepon Tersebut Sudah Ada Di Leads');
             }
 
+            $user = auth()->user();
+            $branchId = ($user && $user->role?->code === 'branch_manager') ? $user->branch_id : null;
+
             // Create the lead directly in database
             $lead = Lead::create([
                 'source_id' => $request->source_id,
                 'segment_id' => $request->segment_id,
                 'region_id' => $regionId,
+                'branch_id' => $branchId,
                 'status_id' => LeadStatus::PUBLISHED,
                 'name' => trim($request->title . ' ' . $request->name),
                 'phone' => $request->phone,

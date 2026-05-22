@@ -14,6 +14,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+// Notification
+use App\Notifications\Leads\LeadCreatedNotification;
+use App\Notifications\Leads\LeadTrashedNotification;
 
 class LeadController extends Controller
 {
@@ -560,6 +563,16 @@ class LeadController extends Controller
                         $user
                     );
 
+                    if ($lead->branch_id) {
+                        $this->notifyBranchManagers(
+                            $lead,
+                            new LeadCreatedNotification(
+                                lead: $lead,
+                                sales: $user
+                            )
+                        );
+                    }
+
                     $ids[] = $lead->id;
                 }
                 Log::info('Request data:', $request->all());
@@ -684,6 +697,16 @@ class LeadController extends Controller
                     'sales_id'   => $user->id,
                     'claimed_at' => now(),
                 ]);
+            }
+
+            if (! $id && $lead->branch_id) {
+                $this->notifyBranchManagers(
+                    $lead,
+                    new LeadCreatedNotification(
+                        lead: $lead,
+                        sales: $user
+                    )
+                );
             }
 
             $lead->picExtensions()->delete();
@@ -923,6 +946,16 @@ class LeadController extends Controller
             'lead_id'   => $lead->id,
             'status_id' => LeadStatus::TRASH_COLD,
         ]);
+
+        $this->notifyBranchManagers(
+            $lead,
+            new LeadTrashedNotification(
+                lead: $lead,
+                sales: request()->user(),
+                trashNote: 'Dipindahkan ke trash oleh sales',
+                isAutoTrash: false
+            )
+        );
 
         return $this->setJsonResponse('Lead moved to trash');
     }
@@ -2985,5 +3018,16 @@ class LeadController extends Controller
         $html .= '</div>';
 
         return $html;
+    }
+
+    private function notifyBranchManagers(Lead $lead, \Illuminate\Notifications\Notification $notification): void
+    {
+        if (!$lead->branch_id) return;
+
+        User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+            ->where('branch_id', $lead->branch_id)
+            ->whereNotNull('branch_id')
+            ->get()
+            ->each->notify($notification);
     }
 }

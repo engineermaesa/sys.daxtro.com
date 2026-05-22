@@ -3,7 +3,18 @@
     "allow": [
       "Bash(rtk ls *)",
       "Bash(rtk read *)",
-      "Bash(rtk grep *)"
+      "Bash(rtk grep *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\laragon\\\\www\\\\sys-daxtro-com-main\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(rtk git *)",
+      "Bash(grep -E \"\\\\.php$\")",
+      "Bash(awk '/public function store\\\\\\(/,/^    public function [a-zA-Z_]+\\\\\\(/ {if \\(/^    public function [a-zA-Z_]+\\\\\\(/ && !/public function store\\\\\\(/\\) exit; print NR\": \"$0}' app/Http/Controllers/Leads/LeadController.php)",
+      "Bash(grep \"php$\")",
+      "Bash(rtk find *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(rtk gh *)",
+      "Bash(rtk php *)",
+      "Bash(rtk npm *)"
     ]
   }
 }

@@ -927,11 +927,11 @@ class ImportLeadController extends Controller
                     $sales = User::where('nip', $base['nip_sales'])->first();
                 }
 
-                $lead = Lead::create([
+                $lead = Lead::withoutObservers(fn () => Lead::create([
                     'source_id'       => $base['source_id'],
                     'segment_id'      => $base['segment_id'],
                     'industry_id'     => $base['industry_id'] ?? null,
-                    'region_id'       => $base['region_id'],   // may be null = “all regions”
+                    'region_id'       => $base['region_id'],
                     'branch_id'       => $sales?->branch_id,
                     'status_id'       => $status,
                     'company'         => $base['company_name'] ?? null,
@@ -943,7 +943,7 @@ class ImportLeadController extends Controller
                     'needs'           => $base['lead_needs'],
                     'interest_level'  => $status === LeadStatus::WARM ? 4 : null,
                     'published_at'    => $base['published_at'] ?? now(),
-                ]);
+                ]));
 
                 // Only create a claim when nip_sales is *not* null
                 if ($sales) {

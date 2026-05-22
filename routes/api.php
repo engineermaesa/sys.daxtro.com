@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Dashboard\DashSummaryController;
 use App\Http\Controllers\Dashboard\LeadSummaryController;
 use App\Http\Controllers\Dashboard\BMSummaryController;
+use App\Http\Controllers\NotificationController;
 
 // LEADS (API)
 use App\Http\Controllers\Leads\LeadActivityController;
@@ -40,6 +41,16 @@ use App\Http\Controllers\Users\UserRoleController;
 
 // Purchasing
 use App\Http\Controllers\Purchasing\PurchaseController;
+
+// =====================================
+// NOTIFICATIONS (API)
+// =====================================
+Route::middleware(['api', 'web', 'auth'])->prefix('notifications')->name('notifications.')->group(function () {
+    Route::get('/', [NotificationController::class, 'index'])->name('index');
+    Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('unread-count');
+    Route::post('/{id}/read', [NotificationController::class, 'markRead'])->name('read');
+    Route::post('/read-all', [NotificationController::class, 'markAllRead'])->name('read-all');
+});
 
 Route::post('leads/register', [LeadRegisterController::class, 'store'])->name('api.leads.register');
 Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('api.leads.sources');

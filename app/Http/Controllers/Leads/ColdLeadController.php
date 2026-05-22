@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Leads\{Lead, LeadClaim, LeadMeeting, LeadStatus, LeadStatusLog, LeadSource, LeadSegment};
 use App\Models\Masters\{Branch, Region, ExpenseType, Product};
+use App\Models\User;
+use App\Notifications\Leads\LeadTrashedNotification;
 use Illuminate\Support\Facades\DB;
 
 class ColdLeadController extends Controller
@@ -267,6 +269,19 @@ class ColdLeadController extends Controller
                 'status_id' => LeadStatus::TRASH_COLD,
             ]);
         });
+
+        $lead = $claim->lead;
+        if ($lead->branch_id) {
+            User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                ->where('branch_id', $lead->branch_id)
+                ->get()
+                ->each->notify(new LeadTrashedNotification(
+                    lead: $lead,
+                    sales: request()->user(),
+                    trashNote: request('note'),
+                    isAutoTrash: false
+                ));
+        }
 
         return $this->setJsonResponse('Lead moved to trash');
     }
