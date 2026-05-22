@@ -69,7 +69,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_WARM]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Warm lead expired after 14 days'
+                    'trash_note' => 'Auto trashed - Warm lead expired after 30 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,
@@ -92,7 +92,7 @@ class AutoTrashService
                 $lead->update(['status_id' => LeadStatus::TRASH_HOT]);
                 $claim->update([
                     'released_at' => now(),
-                    'trash_note' => 'Auto trashed - Hot lead expired after 14 days'
+                    'trash_note' => 'Auto trashed - Hot lead expired after 30 days'
                 ]);
                 LeadStatusLog::create([
                     'lead_id' => $lead->id,
