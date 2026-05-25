@@ -54,7 +54,7 @@
 
         {{-- NOTIFICATION BELL — untuk branch_manager, sales, dan finance --}}
         @if(auth()->check() && (hasRole(auth()->user(), 'branch_manager') || hasRole(auth()->user(), 'sales') || hasRole(auth()->user(), 'finance')))
-        <li id="notif-container" class="rounded-lg p-3 cursor-pointer mt-3">
+        <li id="notif-container" class="rounded-lg p-3 cursor-pointer">
             <button id="notif-bell" type="button"
                 class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start w-full bg-transparent border-0 p-0 cursor-pointer">
                 <div class="relative flex items-center justify-center w-5 h-5">

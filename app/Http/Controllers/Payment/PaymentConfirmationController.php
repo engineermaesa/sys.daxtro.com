@@ -10,6 +10,8 @@ use App\Models\Orders\FinanceRequest;
 use App\Models\Orders\PaymentConfirmation;
 use App\Models\Orders\PaymentLog;
 use App\Models\Attachment;
+use App\Models\User;
+use App\Notifications\Orders\PaymentConfirmationSubmittedNotification;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -147,6 +149,17 @@ class PaymentConfirmationController extends Controller
                 'logged_at'    => now(),
             ]);
         }
+
+        // Notify semua finance & finance_director bahwa ada payment confirmation (baru/diperbarui)
+        $proformaLoaded = $proforma->load('quotation.lead');
+        User::query()
+            ->whereHas('role', fn($q) => $q->whereIn('code', ['finance', 'finance_director']))
+            ->get()
+            ->each->notify(new PaymentConfirmationSubmittedNotification(
+                $payment,
+                $proformaLoaded,
+                $request->user()
+            ));
 
         return redirect()
             ->route('quotations.show', $quotation->id)

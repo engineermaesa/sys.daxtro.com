@@ -226,7 +226,7 @@
                         return;
                     }
                     list.innerHTML = data.map(function(n) {
-                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quotation Perlu Review', quotation_pending_finance: 'Quotation Menunggu Approval Finance', quotation_reviewed: 'Update Quotation', finance_request_reviewed: 'Finance Request ' + (n.data && n.data.decision === 'approved' ? 'Disetujui' : 'Ditolak') };
+                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quoatation Need To Review', quotation_pending_finance: 'Quotation Waiting For Approvals', quotation_reviewed: 'Update Quotation', finance_request_reviewed: 'Finance Request ' + (n.data && n.data.decision === 'approved' ? 'Approved' : 'Rejected'), payment_confirmation_submitted: 'Confirm Payment Need To Review' };
                         var title = titles[n.data.type] || 'Notification';
                         var detail = n.data.lead_name || n.data.request_type || '';
                         var isUnread = !n.read_at;
@@ -236,7 +236,7 @@
 
                         var href = n.data.type === 'lead_available'
                             ? _availableLeadsUrl
-                            : (n.data.type === 'quotation_submitted' || n.data.type === 'quotation_pending_finance' || n.data.type === 'quotation_reviewed' || n.data.type === 'finance_request_reviewed') && n.data.url
+                            : (n.data.type === 'quotation_submitted' || n.data.type === 'quotation_pending_finance' || n.data.type === 'quotation_reviewed' || n.data.type === 'finance_request_reviewed' || n.data.type === 'payment_confirmation_submitted') && n.data.url
                                 ? n.data.url
                                 : (n.data.type === 'lead_created' || n.data.type === 'lead_activity' || n.data.type === 'lead_expiring')
                                     ? _leadFormBase + '/' + n.data.lead_id
@@ -397,24 +397,41 @@
                     var msg = 'Quotation baru dari ' + (data.sales_name || '') + ' menunggu review';
                     if (typeof notyf !== 'undefined') notyf.success(msg);
                     _notifBadge();
-                    _notifPrepend(data, 'Quotation Perlu Review');
+                    _notifPrepend(data, 'Quotation Need To Review');
                 })
                 .listen('.quotation.pending-finance', function(data) {
                     _playNotifSound();
                     var msg = 'Quotation ' + (data.quotation_no || '') + ' telah diapprove BM dan menunggu approval Finance';
                     if (typeof notyf !== 'undefined') notyf.success(msg);
                     _notifBadge();
-                    _notifPrepend(data, 'Quotation Menunggu Approval Finance');
+                    _notifPrepend(data, 'Quotation Waiting For Approval From Finance');
                 })
                 .listen('.quotation.reviewed', function(data) {
                     _playNotifSound();
-                    var label = data.decision === 'approve' ? 'disetujui' : 'ditolak';
+                    var label = data.decision === 'approve' ? 'approved' : 'rejected';
                     var msg = 'Quotation ' + (data.quotation_no || '') + ' ' + label + ' oleh ' + (data.reviewer_role || '');
                     if (typeof notyf !== 'undefined') {
                         data.decision === 'approve' ? notyf.success(msg) : notyf.error(msg);
                     }
                     _notifBadge();
                     _notifPrepend(data, 'Update Quotation');
+                })
+                .listen('.payment.confirmation.submitted', function(data) {
+                    _playNotifSound();
+                    var msg = 'Confirm payment from ' + (data.submitter_name || '') + ' waiting to review';
+                    if (typeof notyf !== 'undefined') notyf.success(msg);
+                    _notifBadge();
+                    _notifPrepend(data, 'Confirm Payment Need To Review');
+                })
+                .listen('.finance-request.reviewed', function(data) {
+                    _playNotifSound();
+                    var label = data.decision === 'approved' ? 'Approved' : 'Rejected';
+                    var msg = 'Finance Request ' + label;
+                    if (typeof notyf !== 'undefined') {
+                        data.decision === 'approved' ? notyf.success(msg) : notyf.error(msg);
+                    }
+                    _notifBadge();
+                    _notifPrepend(data, 'Finance Request ' + label);
                 });
         });
     })();
