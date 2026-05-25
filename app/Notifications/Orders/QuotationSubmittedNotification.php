@@ -32,7 +32,7 @@ class QuotationSubmittedNotification extends Notification implements ShouldBroad
             'company'      => $this->quotation->lead?->company,
             'sales_name'   => $this->sales->name,
             'branch_id'    => $this->quotation->lead?->branch_id,
-            'url'          => route('quotations.view', $this->quotation->id),
+            'url'          => route('quotations.show', $this->quotation->id),
         ];
     }
 

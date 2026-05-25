@@ -14,7 +14,9 @@
       "Bash(grep -v \"^$\")",
       "Bash(rtk gh *)",
       "Bash(rtk php *)",
-      "Bash(rtk npm *)"
+      "Bash(rtk npm *)",
+      "WebFetch(domain:github.com)",
+      "Bash(php artisan *)"
     ]
   }
 }

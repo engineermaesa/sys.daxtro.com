@@ -13,6 +13,7 @@ use App\Models\Leads\LeadSource;
 use App\Models\Leads\LeadStatus;
 use App\Models\Masters\Branch;
 use App\Models\User;
+use App\Notifications\Orders\QuotationPendingFinanceNotification;
 use App\Services\AutoTrashService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -367,6 +368,23 @@ class QuotationController extends Controller
                     $quotation->fresh()->load('lead'), 'approve', $reviewerRole, $request->input('notes')
                 )
             );
+        }
+
+        if ($userRole === 'branch_manager' && $salesUser) {
+            $quotationForFinance = $quotation->fresh()->load('lead');
+
+            // Kirim ke semua finance & finance_director — finance adalah role company-wide,
+            // tidak di-filter per branch karena finance user bisa di-assign ke branch berbeda
+            // dari branch lead/sales (terbukti menyebabkan 0 notifikasi terkirim).
+            User::query()
+                ->whereHas('role', fn($query) => $query->whereIn('code', ['finance', 'finance_director']))
+                ->get()
+                ->each->notify(new QuotationPendingFinanceNotification(
+                    $quotationForFinance,
+                    $salesUser,
+                    $request->user(),
+                    $request->input('notes')
+                ));
         }
 
         return back()->with('status', 'Quotation approved');

@@ -34,7 +34,7 @@ class QuotationReviewedNotification extends Notification implements ShouldBroadc
             'decision'      => $this->decision,
             'reviewer_role' => $this->reviewerRole,
             'notes'         => $this->notes,
-            'url'           => route('quotations.view', $this->quotation->id),
+            'url'           => route('quotations.show', $this->quotation->id),
         ];
     }
 

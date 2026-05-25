@@ -18,6 +18,7 @@ use App\Models\Leads\LeadStatusLog;
 use App\Models\Attachment;
 use App\Models\Masters\Branch;
 use App\Models\User;
+use App\Notifications\Orders\FinanceRequestReviewedNotification;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -635,6 +636,11 @@ class FinanceRequestController extends Controller
             }
 
             DB::commit();
+
+            $financeRequest->requester?->notify(
+                new FinanceRequestReviewedNotification($financeRequest, 'approved', $request->input('notes'))
+            );
+
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json(['success' => true, 'message' => 'Request approved successfully.']);
             }
@@ -1083,6 +1089,10 @@ class FinanceRequestController extends Controller
             'decided_at' => now(),
             'notes' => $request->input('notes'),
         ]);
+
+        $financeRequest->requester?->notify(
+            new FinanceRequestReviewedNotification($financeRequest, 'rejected', $request->input('notes'))
+        );
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json(['success' => true, 'message' => 'Request rejected']);

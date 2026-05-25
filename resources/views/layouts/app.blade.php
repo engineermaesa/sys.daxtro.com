@@ -172,7 +172,7 @@
     </script>
     @yield('scripts')
 
-    @if(auth()->check() && (hasRole(auth()->user(), 'branch_manager') || hasRole(auth()->user(), 'sales')))
+    @if(auth()->check() && (hasRole(auth()->user(), 'branch_manager') || hasRole(auth()->user(), 'sales') || hasRole(auth()->user(), 'finance')))
     <script>
     (function () {
         var userId = {{ auth()->id() }};
@@ -226,9 +226,9 @@
                         return;
                     }
                     list.innerHTML = data.map(function(n) {
-                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quotation Perlu Review', quotation_reviewed: 'Update Quotation' };
+                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quotation Perlu Review', quotation_pending_finance: 'Quotation Menunggu Approval Finance', quotation_reviewed: 'Update Quotation', finance_request_reviewed: 'Finance Request ' + (n.data && n.data.decision === 'approved' ? 'Disetujui' : 'Ditolak') };
                         var title = titles[n.data.type] || 'Notification';
-                        var detail = n.data.lead_name || '';
+                        var detail = n.data.lead_name || n.data.request_type || '';
                         var isUnread = !n.read_at;
                         var date = new Date(n.created_at);
                         var formatted = date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -236,7 +236,7 @@
 
                         var href = n.data.type === 'lead_available'
                             ? _availableLeadsUrl
-                            : (n.data.type === 'quotation_submitted' || n.data.type === 'quotation_reviewed') && n.data.url
+                            : (n.data.type === 'quotation_submitted' || n.data.type === 'quotation_pending_finance' || n.data.type === 'quotation_reviewed' || n.data.type === 'finance_request_reviewed') && n.data.url
                                 ? n.data.url
                                 : (n.data.type === 'lead_created' || n.data.type === 'lead_activity' || n.data.type === 'lead_expiring')
                                     ? _leadFormBase + '/' + n.data.lead_id
@@ -250,6 +250,7 @@
                             + '<div style="font-weight:600;">' + title + '</div>'
                             + '<div style="color:#555;">Lead name: ' + detail + '</div>'
                             + (n.data.sales_name ? '<div style="color:#888;font-size:11px;">By: ' + n.data.sales_name + '</div>' : '')
+                            + (n.data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + n.data.branch_manager_name + '</div>' : '')
                             + '<div style="color:#aaa;font-size:11px;margin-top:2px;">' + formatted + '</div>'
                             + '</a>'
                             + '</li>';
@@ -267,6 +268,7 @@
                 + '<div style="color:#555;">' + (data.company || data.lead_name || '') + '</div>'
                 + (data.region_name ? '<div style="color:#888;font-size:11px;">Region: ' + data.region_name + '</div>' : '')
                 + (data.sales_name ? '<div style="color:#888;font-size:11px;">Oleh: ' + data.sales_name + '</div>' : '')
+                + (data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + data.branch_manager_name + '</div>' : '')
                 + '<div style="color:#aaa;font-size:11px;margin-top:2px;">Baru saja</div>';
             var loadingLi = list.querySelector('li:first-child');
             if (loadingLi && loadingLi.classList.contains('text-muted') && loadingLi.textContent.includes('Memuat')) {
@@ -396,6 +398,13 @@
                     if (typeof notyf !== 'undefined') notyf.success(msg);
                     _notifBadge();
                     _notifPrepend(data, 'Quotation Perlu Review');
+                })
+                .listen('.quotation.pending-finance', function(data) {
+                    _playNotifSound();
+                    var msg = 'Quotation ' + (data.quotation_no || '') + ' telah diapprove BM dan menunggu approval Finance';
+                    if (typeof notyf !== 'undefined') notyf.success(msg);
+                    _notifBadge();
+                    _notifPrepend(data, 'Quotation Menunggu Approval Finance');
                 })
                 .listen('.quotation.reviewed', function(data) {
                     _playNotifSound();
