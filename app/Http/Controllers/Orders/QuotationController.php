@@ -358,6 +358,17 @@ class QuotationController extends Controller
             }
         });
 
+        // Notify sales about the approval decision
+        $salesUser = \App\Models\User::find($quotation->created_by);
+        if ($salesUser) {
+            $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
+            $salesUser->notify(
+                new \App\Notifications\Orders\QuotationReviewedNotification(
+                    $quotation->fresh()->load('lead'), 'approve', $reviewerRole, $request->input('notes')
+                )
+            );
+        }
+
         return back()->with('status', 'Quotation approved');
     }
 
@@ -439,15 +450,15 @@ class QuotationController extends Controller
     public function reject(Request $request, $id)
     {
         $quotation = Quotation::findOrFail($id);
+        $userRole = $request->user()->role?->code;
 
-        DB::transaction(function () use ($quotation, $request) {
+        DB::transaction(function () use ($quotation, $request, $userRole) {
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
                 'finance' => 'FIN',
             ];
-            
-            $userRole = $request->user()->role?->code;
+
             $role = $roleMapping[$userRole] ?? $userRole;
 
             $quotation->update(['status' => 'rejected']);
@@ -469,6 +480,17 @@ class QuotationController extends Controller
                 'logged_at'    => now(),
             ]);
         });
+
+        // Notify sales about the rejection decision
+        $salesUser = \App\Models\User::find($quotation->created_by);
+        if ($salesUser) {
+            $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
+            $salesUser->notify(
+                new \App\Notifications\Orders\QuotationReviewedNotification(
+                    $quotation->fresh()->load('lead'), 'reject', $reviewerRole, $request->input('notes')
+                )
+            );
+        }
 
         return back()->with('status', 'Quotation rejected');
     }

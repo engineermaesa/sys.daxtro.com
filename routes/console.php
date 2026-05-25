@@ -8,6 +8,7 @@ Schedule::command('meetings:expire')->everyMinute();
 Schedule::command('leads:trash-warm')->everyMinute();
 Schedule::command('leads:trash-unscheduled')->everyMinute();
 Schedule::command('quotations:expire')->everyMinute();
+Schedule::command('leads:notify-expiring')->dailyAt('08:00')->timezone('Asia/Jakarta')->withoutOverlapping();
 
 // Alert migrate
 // Artisan::command('migrate:fresh', function () {

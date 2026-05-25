@@ -226,7 +226,7 @@
                         return;
                     }
                     list.innerHTML = data.map(function(n) {
-                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead' };
+                        var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quotation Perlu Review', quotation_reviewed: 'Update Quotation' };
                         var title = titles[n.data.type] || 'Notification';
                         var detail = n.data.lead_name || '';
                         var isUnread = !n.read_at;
@@ -236,9 +236,11 @@
 
                         var href = n.data.type === 'lead_available'
                             ? _availableLeadsUrl
-                            : (n.data.type === 'lead_created' || n.data.type === 'lead_activity')
-                                ? _leadFormBase + '/' + n.data.lead_id
-                                : _trashFormBase + '/' + n.data.lead_id;
+                            : (n.data.type === 'quotation_submitted' || n.data.type === 'quotation_reviewed') && n.data.url
+                                ? n.data.url
+                                : (n.data.type === 'lead_created' || n.data.type === 'lead_activity' || n.data.type === 'lead_expiring')
+                                    ? _leadFormBase + '/' + n.data.lead_id
+                                    : _trashFormBase + '/' + n.data.lead_id;
 
                         return '<li style="padding:0; font-size:13px; border-bottom:1px solid #f1f1f1;'
                             + (isUnread ? 'background:#eff6ff;' : '')
@@ -380,6 +382,30 @@
                     if (typeof notyf !== 'undefined') notyf.success('Lead baru tersedia: ' + (data.lead_name || ''));
                     _notifBadge();
                     _notifPrepend(data, 'Available Lead');
+                })
+                .listen('.lead.expiring', function(data) {
+                    _playNotifSound();
+                    var msg = 'Lead will be trashed in ' + (data.days_remaining || 3) + ' days: ' + (data.lead_name || '');
+                    if (typeof notyf !== 'undefined') notyf.error(msg);
+                    _notifBadge();
+                    _notifPrepend(data, 'Warning: Lead will be trashed');
+                })
+                .listen('.quotation.submitted', function(data) {
+                    _playNotifSound();
+                    var msg = 'Quotation baru dari ' + (data.sales_name || '') + ' menunggu review';
+                    if (typeof notyf !== 'undefined') notyf.success(msg);
+                    _notifBadge();
+                    _notifPrepend(data, 'Quotation Perlu Review');
+                })
+                .listen('.quotation.reviewed', function(data) {
+                    _playNotifSound();
+                    var label = data.decision === 'approve' ? 'disetujui' : 'ditolak';
+                    var msg = 'Quotation ' + (data.quotation_no || '') + ' ' + label + ' oleh ' + (data.reviewer_role || '');
+                    if (typeof notyf !== 'undefined') {
+                        data.decision === 'approve' ? notyf.success(msg) : notyf.error(msg);
+                    }
+                    _notifBadge();
+                    _notifPrepend(data, 'Update Quotation');
                 });
         });
     })();

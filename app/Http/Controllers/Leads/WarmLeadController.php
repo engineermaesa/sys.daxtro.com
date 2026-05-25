@@ -489,6 +489,14 @@ class WarmLeadController extends Controller
 
             DB::commit();
 
+            // Notify all BMs in this branch that a quotation is waiting for review
+            $sales = $request->user();
+            \App\Models\User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                ->where('branch_id', $quotation->lead->branch_id)
+                ->each(fn($bm) => $bm->notify(
+                    new \App\Notifications\Orders\QuotationSubmittedNotification($quotation->load('lead'), $sales)
+                ));
+
             return $this->setJsonResponse('Quotation saved successfully', [
                 'redirect_url' => route('leads.my')
             ]);
