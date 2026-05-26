@@ -370,6 +370,21 @@ class QuotationController extends Controller
             );
         }
 
+        // Jika Finance yang approve, notify juga semua BM di branch agar tahu keputusan akhir
+        if (in_array($userRole, ['finance', 'finance_director'])) {
+            $branchId = $quotation->lead?->branch_id;
+            if ($branchId) {
+                User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                    ->where('branch_id', $branchId)
+                    ->get()
+                    ->each->notify(
+                        new \App\Notifications\Orders\QuotationReviewedNotification(
+                            $quotation->fresh()->load('lead'), 'approve', 'FIN', $request->input('notes')
+                        )
+                    );
+            }
+        }
+
         if ($userRole === 'branch_manager' && $salesUser) {
             $quotationForFinance = $quotation->fresh()->load('lead');
 
@@ -508,6 +523,21 @@ class QuotationController extends Controller
                     $quotation->fresh()->load('lead'), 'reject', $reviewerRole, $request->input('notes')
                 )
             );
+        }
+
+        // Jika Finance yang reject, notify juga semua BM di branch agar tahu keputusan akhir
+        if (in_array($userRole, ['finance', 'finance_director'])) {
+            $branchId = $quotation->lead?->branch_id;
+            if ($branchId) {
+                User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                    ->where('branch_id', $branchId)
+                    ->get()
+                    ->each->notify(
+                        new \App\Notifications\Orders\QuotationReviewedNotification(
+                            $quotation->fresh()->load('lead'), 'reject', 'FIN', $request->input('notes')
+                        )
+                    );
+            }
         }
 
         return back()->with('status', 'Quotation rejected');

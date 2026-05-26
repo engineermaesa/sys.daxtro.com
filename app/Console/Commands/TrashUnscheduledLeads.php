@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use App\Models\Leads\{LeadClaim, LeadMeeting, LeadStatus, LeadStatusLog};
+use App\Notifications\Leads\LeadAutoTrashedNotification;
 
 class TrashUnscheduledLeads extends Command
 {
@@ -40,6 +41,14 @@ class TrashUnscheduledLeads extends Command
                                 'lead_id'   => $lead->id,
                                 'status_id' => LeadStatus::TRASH_COLD,
                             ]);
+
+                            // Notify Sales bahwa lead-nya di-auto-trash
+                            $claim->load('sales');
+                            $claim->sales?->notify(new LeadAutoTrashedNotification(
+                                $lead,
+                                'Lead otomatis dipindahkan ke trash karena tidak ada meeting terjadwal setelah 30 hari',
+                                'Cold'
+                            ));
 
                             $count++;
                         });

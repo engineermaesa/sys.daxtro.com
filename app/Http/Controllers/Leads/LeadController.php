@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 // Notification
+use App\Notifications\Leads\LeadClaimedNotification;
 use App\Notifications\Leads\LeadCreatedNotification;
 use App\Notifications\Leads\LeadTrashedNotification;
 
@@ -933,6 +934,14 @@ class LeadController extends Controller
             'lead_id'   => $lead->id,
             'status_id' => LeadStatus::COLD,
         ]);
+
+        // Notify semua BM di branch bahwa ada Sales yang klaim lead ini
+        if ($lead->branch_id && $user) {
+            $this->notifyBranchManagers(
+                $lead,
+                new LeadClaimedNotification($lead, $user)
+            );
+        }
 
         return $this->setJsonResponse('Lead claimed successfully');
     }

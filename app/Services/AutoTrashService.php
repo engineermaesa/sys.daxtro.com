@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog};
+use App\Notifications\Leads\LeadAutoTrashedNotification;
 use Illuminate\Support\Facades\DB;
 
 class AutoTrashService
@@ -12,7 +13,7 @@ class AutoTrashService
         try {
             DB::beginTransaction();
 
-            $expiredColdClaims = LeadClaim::with('lead')
+            $expiredColdClaims = LeadClaim::with(['lead', 'sales'])
                 ->whereHas('lead', function ($q) {
                     // Hanya auto-trash lead COLD yang masih RAW LEAD:
                     // - status COLD
@@ -47,9 +48,14 @@ class AutoTrashService
                     'lead_id' => $lead->id,
                     'status_id' => LeadStatus::TRASH_COLD,
                 ]);
+                $claim->sales?->notify(new LeadAutoTrashedNotification(
+                    $lead,
+                    'Lead otomatis dipindahkan ke trash karena tidak ada aktivitas selama 30 hari',
+                    'Cold'
+                ));
             }
 
-            $expiredWarmClaims = LeadClaim::with('lead')
+            $expiredWarmClaims = LeadClaim::with(['lead', 'sales'])
                 ->whereHas('lead', function ($q) {
                     // Hanya auto-trash lead WARM yang statusnya "No Quotation"
                     // (belum pernah punya quotation sama sekali)
@@ -75,9 +81,14 @@ class AutoTrashService
                     'lead_id' => $lead->id,
                     'status_id' => LeadStatus::TRASH_WARM,
                 ]);
+                $claim->sales?->notify(new LeadAutoTrashedNotification(
+                    $lead,
+                    'Lead otomatis dipindahkan ke trash karena tidak ada quotation selama 30 hari',
+                    'Warm'
+                ));
             }
 
-            $expiredHotClaims = LeadClaim::with('lead')
+            $expiredHotClaims = LeadClaim::with(['lead', 'sales'])
                 ->whereHas('lead', fn($q) => $q->where('status_id', LeadStatus::HOT))
                 ->whereNull('released_at')
                 ->where('claimed_at', '<', now()->subDays(30))
@@ -98,6 +109,11 @@ class AutoTrashService
                     'lead_id' => $lead->id,
                     'status_id' => LeadStatus::TRASH_HOT,
                 ]);
+                $claim->sales?->notify(new LeadAutoTrashedNotification(
+                    $lead,
+                    'Lead otomatis dipindahkan ke trash karena tidak ada progress selama 30 hari',
+                    'Hot'
+                ));
             }
 
             DB::commit();

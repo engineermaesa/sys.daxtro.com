@@ -3,7 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Leads\{Lead, LeadStatus, LeadStatusLog};
+use App\Models\Leads\{Lead, LeadClaim, LeadStatus, LeadStatusLog};
+use App\Notifications\Leads\LeadAutoTrashedNotification;
 
 class TrashWarmLeads extends Command
 {
@@ -24,6 +25,13 @@ class TrashWarmLeads extends Command
             // chunk for memory‐safety in case you have lots of leads
             ->chunkById(100, function($leads) use (&$count) {
                 foreach ($leads as $lead) {
+                    // Cari active claim sebelum status diubah, untuk notifikasi
+                    $activeClaim = $lead->claims()
+                        ->whereNull('released_at')
+                        ->whereNull('trash_note')
+                        ->with('sales')
+                        ->first();
+
                     $firstClaim = $lead->claims()->orderBy('claimed_at')->first();
                     if (! $lead->first_sales_id && $firstClaim) {
                         $lead->first_sales_id = $firstClaim->sales_id;
@@ -35,6 +43,12 @@ class TrashWarmLeads extends Command
                         'lead_id'   => $lead->id,
                         'status_id' => LeadStatus::TRASH_WARM,
                     ]);
+
+                    $activeClaim?->sales?->notify(new LeadAutoTrashedNotification(
+                        $lead,
+                        'Lead otomatis dipindahkan ke trash karena tidak ada perubahan status selama 14 hari',
+                        'Warm'
+                    ));
 
                     $count++;
                 }
