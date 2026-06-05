@@ -811,8 +811,8 @@ Proprietary software. All rights reserved.
 ### Internship Contributors
 
 **Batch 9**
-- [Busan24](#) — [@budysantoso](https://instagram.com/budysantoso)
-- [stronovski](#) — [@httpsashha](https://instagram.com/httpsashha)
+- [Busan24](https://github.com/busan24) — [@budysantoso](https://instagram.com/budysantoso1)
+- [stronovski]([#](https://github.com/stronovski)) — [@httpsashha](https://instagram.com/httpsashha)
 
 **Batch 10**
 - [Rizky Apryadi](#) — [@rizkyapryadi](https://instagram.com/rizkyapryadi)
