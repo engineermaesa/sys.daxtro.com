@@ -16,7 +16,11 @@
       "Bash(rtk php *)",
       "Bash(rtk npm *)",
       "WebFetch(domain:github.com)",
-      "Bash(php artisan *)"
+      "Bash(php artisan *)",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs grep -l \"Mailable\\\\|Mail::\")",
+      "Bash(sed 's/.*CREATE TABLE `\\\\\\([^`]*\\\\\\)`.*/\\\\1/')"
     ]
   }
 }

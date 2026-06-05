@@ -9,11 +9,11 @@ use App\Notifications\Leads\LeadAutoTrashedNotification;
 class TrashWarmLeads extends Command
 {
     protected $signature   = 'leads:trash-warm';
-    protected $description = 'Move warm leads to TRASH_WARM after 14 days without status change';
+    protected $description = 'Move warm leads to TRASH_WARM after 30 days without status change';
 
     public function handle()
     {
-        $threshold = now()->subDays(14);
+        $threshold = now()->subDays(30);
         $count     = 0;
 
         Lead::where('status_id', LeadStatus::WARM)
@@ -46,7 +46,7 @@ class TrashWarmLeads extends Command
 
                     $activeClaim?->sales?->notify(new LeadAutoTrashedNotification(
                         $lead,
-                        'Lead otomatis dipindahkan ke trash karena tidak ada perubahan status selama 14 hari',
+                        'Lead otomatis dipindahkan ke trash karena tidak ada perubahan status selama 30 hari',
                         'Warm'
                     ));
 
