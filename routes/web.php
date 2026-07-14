@@ -194,6 +194,20 @@ Route::middleware('auth')->group(function () {
     });
 
     // =====================================
+    // AFTER SALES
+    // =====================================
+
+    Route::group([
+        'prefix' => 'after-sales',
+        'as' => 'after-sales.',
+        'namespace' => 'App\\Http\\Controllers\\AfterSales',
+    ], function () {
+        Route::get('customers', 'CustomerController@list')->name('customers.list');
+        Route::get('customers/{customer}', 'CustomerController@show')->name('customers.show');
+        Route::post('customers/{customer}/cad', 'CustomerController@uploadCad')->name('customers.cad.upload');
+    });
+
+    // =====================================
     // EXPENSE REALIZATIONS (Arahnya Kemana X)
     // =====================================
 

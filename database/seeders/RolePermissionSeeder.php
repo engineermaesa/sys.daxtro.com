@@ -56,6 +56,10 @@ class RolePermissionSeeder extends Seeder
                 $permissions['dashboard'] ?? null,
                 $permissions['orders'] ?? null,
             ],
+            'after_sales' => [
+                $permissions['dashboard'] ?? null,
+                $permissions['customers.view'] ?? null,
+            ],
             'sales' => [
                 $permissions['dashboard'] ?? null,
                 $permissions['leads.available'] ?? null,
