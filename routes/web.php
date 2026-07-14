@@ -137,6 +137,7 @@ Route::middleware('auth')->group(function () {
 
                 Route::get('customer/{claim}', 'CustomerController@show')->name('customer.show');
                 Route::post('customer/{claim}', 'CustomerController@store')->name('customer.store');
+                Route::get('technical-form/{claim}', 'DealLeadController@technicalForm')->name('technical.form');
             });
         });
     });
