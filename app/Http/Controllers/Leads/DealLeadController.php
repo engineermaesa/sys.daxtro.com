@@ -168,8 +168,17 @@ class DealLeadController extends Controller
         return $html;
     }
 
-    public function technicalForm(LeadClaim $claim) {
+    public function technicalForm(Request $request, LeadClaim $claim) {
+        abort_unless(is_null($claim->released_at) && is_null($claim->trash_note), 403);
+
         $claim->load(['lead.segment', 'lead.source', 'lead.industry', 'lead.customer', 'lead.product.type']);
+
+        abort_unless($claim->lead && $claim->lead->status_id == LeadStatus::DEAL, 403, 'Lead is not in DEAL status.');
+
+        $userRole = $request->user()->role?->code;
+        if ($userRole === 'sales') {
+            abort_unless($claim->sales_id === $request->user()->id, 403);
+        }
 
         return view('pages.dashboard.sales.technical-form', [
             'claim'        => $claim,
