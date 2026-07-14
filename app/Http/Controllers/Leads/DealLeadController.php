@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leads;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus};
+use App\Models\Masters\ProductType;
 use App\Services\MyLeadQueryService;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -138,6 +139,10 @@ class DealLeadController extends Controller
             . '
             '.view('components.icon.detail')->render().'
             View Lead</a>';
+        $technicalFormUrl = route('leads.my.deal.technical.form', $row->id);
+        $html .= '    <a class="dropdown-item flex! items-center! gap-2!" href="' . e($technicalFormUrl) . '">'
+           . '    <i class="bi bi-clipboard-check mr-2"></i>
+           Add Technical Form</a>';
         $activityUrl = route('leads.activity.logs', $row->lead->id);
         $html .= '    <button type="button" class="dropdown-item btn-activity-log flex! items-center! gap-2!" data-url="' . e($activityUrl) . '">
         '.view('components.icon.log')->render().'
@@ -161,5 +166,15 @@ class DealLeadController extends Controller
         $html .= '</div>';
 
         return $html;
+    }
+
+    public function technicalForm(LeadClaim $claim) {
+        $claim->load(['lead.segment', 'lead.source', 'lead.industry', 'lead.customer', 'lead.product.type']);
+
+        return view('pages.dashboard.sales.technical-form', [
+            'claim'        => $claim,
+            'lead'         => $claim->lead,
+            'productTypes' => ProductType::orderBy('name')->get(),
+        ]);
     }
 }
