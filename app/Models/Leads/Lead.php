@@ -99,6 +99,11 @@ class Lead extends Model
         return $this->hasOne(Quotation::class, 'lead_id');
     }
 
+    public function customer()
+    {
+        return $this->hasOne(Customer::class, 'leads_id');
+    }
+
 
     public function region()
     {

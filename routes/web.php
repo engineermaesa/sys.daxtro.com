@@ -134,6 +134,9 @@ Route::middleware('auth')->group(function () {
 
             Route::prefix('deal')->name('leads.my.deal.')->group(function () {
                 Route::get('manage/form/{id?}', 'LeadController@form')->name('manage');
+
+                Route::get('customer/{claim}', 'CustomerController@show')->name('customer.show');
+                Route::post('customer/{claim}', 'CustomerController@store')->name('customer.store');
             });
         });
     });
