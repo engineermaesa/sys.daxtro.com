@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Dashboard\DashSummaryController;
 use App\Http\Controllers\Dashboard\LeadSummaryController;
 use App\Http\Controllers\Dashboard\BMSummaryController;
+use App\Http\Controllers\Dashboard\AfterSalesSummaryController;
 use App\Http\Controllers\NotificationController;
 
 // LEADS (API)
@@ -93,6 +94,13 @@ Route::group([
     Route::get('/dashboard/bm/agent-summary', [BMSummaryController::class, 'AgentSummary']);
     Route::get('/dashboard/bm/leads-performance', [BMSummaryController::class, 'LeadsPerformance']);
     Route::get('/dashboard/bm/lead-volume', [BMSummaryController::class, 'leadVolume']);
+});
+
+// DASHBOARD (After Sales)
+Route::group([
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+    Route::get('/dashboard/after-sales/grid', [AfterSalesSummaryController::class, 'grid']);
 });
 
 
