@@ -101,6 +101,8 @@ Route::group([
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('/dashboard/after-sales/grid', [AfterSalesSummaryController::class, 'grid']);
+    Route::get('/dashboard/after-sales/provinces', [AfterSalesSummaryController::class, 'provinces']);
+    Route::get('/dashboard/after-sales/province-distribution', [AfterSalesSummaryController::class, 'provinceDistribution']);
 });
 
 
