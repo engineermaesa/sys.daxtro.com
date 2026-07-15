@@ -2697,6 +2697,8 @@
     @include('pages.dashboard.branch-manager.index')
 @elseif(auth()->user()->role?->code === 'sales')
     @include('pages.dashboard.sales.index')
+@elseif(auth()->user()->role?->code === 'after_sales')
+    @include('pages.dashboard.after-sales.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}

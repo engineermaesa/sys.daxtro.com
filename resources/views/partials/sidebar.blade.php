@@ -172,6 +172,23 @@
         </li>
         @endif
 
+        {{-- CUSTOMER MENU (AFTER SALES) --}}
+        @if(auth()->check() && auth()->user()->hasPermission('customer'))
+        <li
+            class="{{ request()->routeIs('after-sales.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('after-sales.customers.index') }}">
+                <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H11.175C11.4417 0 11.6958 0.0500001 11.9375 0.15C12.1792 0.25 12.3917 0.391667 12.575 0.575L17.425 5.425C17.6083 5.60833 17.75 5.82083 17.85 6.0625C17.95 6.30417 18 6.55833 18 6.825V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2ZM11 6V2H2V18H16V7H12C11.7167 7 11.4792 6.90417 11.2875 6.7125C11.0958 6.52083 11 6.28333 11 6ZM5 15H13C13.2833 15 13.5208 14.9042 13.7125 14.7125C13.9042 14.5208 14 14.2833 14 14C14 13.7167 13.9042 13.4792 13.7125 13.2875C13.5208 13.0958 13.2833 13 13 13H5C4.71667 13 4.47917 13.0958 4.2875 13.2875C4.09583 13.4792 4 13.7167 4 14C4 14.2833 4.09583 14.5208 4.2875 14.7125C4.47917 14.9042 4.71667 15 5 15ZM5 11H13C13.2833 11 13.5208 10.9042 13.7125 10.7125C13.9042 10.5208 14 10.2833 14 10C14 9.71667 13.9042 9.47917 13.7125 9.2875C13.5208 9.09583 13.2833 9 13 9H5C4.71667 9 4.47917 9.09583 4.2875 9.2875C4.09583 9.47917 4 9.71667 4 10C4 10.2833 4.09583 10.5208 4.2875 10.7125C4.47917 10.9042 4.71667 11 5 11Z"
+                        fill="{{ request()->routeIs('after-sales.customers.*') ? '#115640' : '#1E1E1E' }}" />
+                </svg>
+                <span
+                    class="sidebar-label {{ request()->routeIs('after-sales.customer.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Customer</span>
+            </a>
+        </li>
+        @endif
+
         {{-- INCENTIVES MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('incentives.view'))
         <li

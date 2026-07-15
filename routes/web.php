@@ -203,7 +203,8 @@ Route::middleware('auth')->group(function () {
         'as' => 'after-sales.',
         'namespace' => 'App\\Http\\Controllers\\AfterSales',
     ], function () {
-        Route::get('customers', 'CustomerController@list')->name('customers.list');
+        Route::get('customers', 'CustomerController@index')->name('customers.index');
+        Route::get('customers/data', 'CustomerController@list')->name('customers.list');
         Route::get('customers/{customer}', 'CustomerController@show')->name('customers.show');
         Route::post('customers/{customer}/cad', 'CustomerController@uploadCad')->name('customers.cad.upload');
     });

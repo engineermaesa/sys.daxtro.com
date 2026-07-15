@@ -65,7 +65,7 @@
                             placeholder="https://maps.google.com/..."
                             class="flex-1 px-3! py-2! border! border-[#D9D9D9]! rounded-lg! text-[#1E1E1E]! focus:outline-none!">
                         <button type="button" id="btn-select-location"
-                            class="bg-[#115640] text-white! px-4 rounded-lg flex items-center gap-2 whitespace-nowrap hover:bg-[#0d4633] transition-colors">
+                            class="bg-[#115640] text-white px-4 rounded-lg flex items-center gap-2 whitespace-nowrap hover:bg-[#0d4633] transition-colors">
                             <i class="bi bi-geo-alt-fill"></i>
                             Select
                         </button>
@@ -149,7 +149,7 @@
                     Batal
                 </a>
                 <button type="submit"
-                    class="bg-[#115640] text-white! px-5 py-2 rounded-lg flex items-center gap-2 hover:bg-[#0d4633] transition-colors">
+                    class="bg-[#115640] text-white px-5 py-2 rounded-lg flex items-center gap-2 hover:bg-[#0d4633] transition-colors">
                     Simpan &amp; Lanjutkan
                     <i class="bi bi-arrow-right"></i>
                 </button>
