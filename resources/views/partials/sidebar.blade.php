@@ -173,7 +173,7 @@
         @endif
 
         {{-- CUSTOMER MENU (AFTER SALES) --}}
-        @if(auth()->check() && auth()->user()->hasPermission('customer'))
+        @if(auth()->check() && auth()->user()->hasPermission('customers.view'))
         <li
             class="{{ request()->routeIs('after-sales.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"

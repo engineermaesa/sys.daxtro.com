@@ -153,7 +153,7 @@ class CustomerController extends Controller
 
     protected function authorizeAccess(Request $request): void
     {
-        abort_unless($request->user()?->hasPermission('customer'), 403);
+        abort_unless($request->user()?->hasPermission('customers.view'), 403);
     }
 
     protected function actionsHtml(Customer $customer): string

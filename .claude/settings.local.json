@@ -26,7 +26,8 @@
       "Bash(php -r \"json_decode\\(file_get_contents\\('docs/postman/Customer-Technical-Spec.postman_collection.json'\\), true\\); echo json_last_error\\(\\) === JSON_ERROR_NONE ? 'valid JSON' : 'INVALID: ' . json_last_error_msg\\(\\);\")",
       "Bash(curl -sI \"http://sys.daxtro.com.test/storage/cad/id3E1fuLsOX5Y1L9oOPW1rOWm4PCydbKYwKMld9k.dwg\")",
       "Bash(php -l app/Http/Controllers/Dashboard/AfterSalesSummaryController.php)",
-      "Bash(php -l routes/api.php)"
+      "Bash(php -l routes/api.php)",
+      "Bash(php *)"
     ]
   }
 }
