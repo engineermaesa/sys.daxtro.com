@@ -181,7 +181,15 @@ Incentive balance and log view for eligible users.
 
     For a full local dataset (products, meeting types, etc.), uncomment the relevant seeders in `DatabaseSeeder.php` and run `php artisan db:seed`.
 
-7. **Start all services**
+7. **Generate API docs (optional, dev only)**
+
+    ```bash
+    php artisan scribe:generate
+    ```
+
+    Required once after cloning (and again any time routes/validation change) before `/api-docs` will work — the generated OpenAPI spec (`storage/app/private/scribe/`) and Scribe's intermediate files (`.scribe/`) are gitignored, since `knuckleswtf/scribe` is a `require-dev` package and isn't installed in production. See [API Documentation (Swagger)](#api-documentation-swagger) below.
+
+8. **Start all services**
 
     ```bash
     composer run dev
@@ -189,7 +197,7 @@ Incentive balance and log view for eligible users.
 
     This starts the Laravel server, queue listener, log tail (Pail), and Vite dev server concurrently.
 
-8. **Production build**
+9. **Production build**
 
     ```bash
     npm run build
@@ -197,7 +205,7 @@ Incentive balance and log view for eligible users.
     php artisan route:cache
     ```
 
-9. **Scheduler** — add to crontab on the server:
+10. **Scheduler** — add to crontab on the server:
     ```
     * * * * * php /path/to/project/artisan schedule:run >> /dev/null 2>&1
     ```
@@ -621,6 +629,59 @@ Set `LEAD_REGISTER_API_TOKEN` in `.env`. The token must be passed as a Bearer to
 
 ---
 
+## API Documentation (Swagger)
+
+API docs are generated with [Scribe](https://scribe.knuckles.wtf/) and served through a custom Swagger UI page.
+
+- **Swagger UI:** `{APP_URL}/api-docs`
+- **Raw OpenAPI spec:** `{APP_URL}/docs.openapi`
+- **Config:** `config/scribe.php`
+
+### Generating / regenerating docs
+
+Run this any time a route is added, removed, or its validation rules change:
+
+```bash
+php artisan scribe:generate
+```
+
+### Which routes get documented
+
+- Routes under `routes/api.php` matching prefix `api/*` are picked up **automatically** (see `routes.match.prefixes` in `config/scribe.php`).
+- Routes outside that prefix (e.g. `routes/web.php` routes) are **not** included by default. To document one, add its route name to `routes.include` in `config/scribe.php`:
+
+    ```php
+    'include' => [
+        'after-sales.customers.list',
+        'after-sales.customers.show',
+        'after-sales.customers.cad.upload',
+    ],
+    ```
+
+    then run `php artisan scribe:generate` again.
+
+- No annotations (`@bodyParam`, `@group`, etc.) are required — Scribe extracts parameters automatically from `$request->validate()` / `Validator::make()` calls already in the controller. Annotations are only needed for nicer summaries/descriptions.
+
+### Testing endpoints via Swagger UI ("Try it out")
+
+Auth on this app is **session-cookie based** (not JWT/Bearer), so:
+
+1. Make sure `APP_URL` in `.env` matches the domain/scheme you actually use to log in (e.g. `https://sys.daxtro.com.test`), then run `php artisan config:clear && php artisan scribe:generate` so the Swagger **Servers** dropdown matches.
+2. Log in to the app in the same browser, same domain, same scheme (http vs https matters — a cookie set as `Secure` over https won't be sent over http).
+3. Open `/api-docs` in a new tab of the same browser, click **Try it out** → **Execute**. The session cookie is sent automatically for GET requests.
+4. POST/PUT/PATCH/DELETE endpoints also require CSRF (`X-CSRF-TOKEN` header) since they run through the `web` middleware — grab the token from `document.querySelector('meta[name="csrf-token"]').content` on any authenticated page and add it as a header manually.
+
+### Testing endpoints via Postman
+
+Since auth is session-based, Postman needs the `laravel_session` cookie manually attached for the exact domain being called:
+
+1. Log in via browser, copy the `laravel_session` cookie value from DevTools → Application → Cookies.
+2. In Postman, open **Cookies** → add domain (must match the request host exactly, e.g. `sys.daxtro.com.test`) → **Add Cookie** with name `laravel_session` and the copied value.
+3. Call the endpoint — the cookie is sent automatically for that domain going forward.
+4. For state-changing endpoints, also add header `X-CSRF-TOKEN` (from the `XSRF-TOKEN` cookie or the page's csrf meta tag).
+
+---
+
 ## Scheduled Commands
 
 | Command                   | Class                   | Schedule        | Purpose                                       |
@@ -699,6 +760,12 @@ Never use bare `now()` or `Carbon::now()` without the timezone argument.
 
 - Verify `APP_URL` in `.env` matches the domain being used
 - Clear session: `php artisan cache:clear` and clear browser cookies
+
+### Swagger "Try it out" returns 401 Unauthenticated / Failed to fetch
+
+- Confirm the Swagger **Servers** dropdown URL matches the domain/scheme (http vs https) you're actually logged in with — a session cookie set as `Secure` over https is never sent over plain http, even on the same host.
+- Fix `APP_URL` in `.env` to the correct domain/scheme, then `php artisan config:clear && php artisan scribe:generate`.
+- Make sure you're logged into the app in the same browser tab group before opening `/api-docs`.
 
 ### Assets not loading / Vite errors
 

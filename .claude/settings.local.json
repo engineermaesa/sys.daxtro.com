@@ -27,7 +27,22 @@
       "Bash(curl -sI \"http://sys.daxtro.com.test/storage/cad/id3E1fuLsOX5Y1L9oOPW1rOWm4PCydbKYwKMld9k.dwg\")",
       "Bash(php -l app/Http/Controllers/Dashboard/AfterSalesSummaryController.php)",
       "Bash(php -l routes/api.php)",
-      "Bash(php *)"
+      "Bash(php *)",
+      "Bash(rtk curl *)",
+      "Bash(rm -f cookies.txt)",
+      "Bash(curl -s -c cookies.txt -b cookies.txt http://sys.daxtro.com.test/login -o login.html)",
+      "Bash(npm view *)",
+      "Bash(grep -E \"\\\\.css$|\\\\.js$|index.html\")",
+      "Bash(mkdir -p public/vendor/swagger-ui)",
+      "Bash(cp node_modules/swagger-ui-dist/swagger-ui-bundle.js public/vendor/swagger-ui/)",
+      "Bash(cp node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js public/vendor/swagger-ui/)",
+      "Bash(cp node_modules/swagger-ui-dist/swagger-ui.css public/vendor/swagger-ui/)",
+      "Bash(cp node_modules/swagger-ui-dist/favicon-32x32.png public/vendor/swagger-ui/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status api-docs: %{http_code}\\\\n\" http://sys.daxtro.com.test/api-docs)",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status swagger-ui.css: %{http_code}\\\\n\" http://sys.daxtro.com.test/vendor/swagger-ui/swagger-ui.css)",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status swagger-ui-bundle.js: %{http_code}\\\\n\" http://sys.daxtro.com.test/vendor/swagger-ui/swagger-ui-bundle.js)",
+      "Bash(curl -s -c cookies.txt -b cookies.txt -w \"\\\\nHTTP Status: %{http_code}\\\\n\" -H \"Accept: application/json\" http://sys.daxtro.com.test/api/dashboard/grid)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
