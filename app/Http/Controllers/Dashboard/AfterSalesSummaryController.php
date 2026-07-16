@@ -82,9 +82,9 @@ class AfterSalesSummaryController extends Controller
             $periodEnd = $now->copy()->endOfMonth();
         }
 
-        $query = Customer::query()
-            ->join('leads', 'customers.leads_id', '=', 'leads.id')
+        $query = Lead::query()
             ->join('ref_regions', 'ref_regions.id', '=', 'leads.region_id')
+            ->where('leads.status_id', LeadStatus::DEAL)
             ->whereBetween('leads.deal_at', [$periodStart, $periodEnd]);
 
         if (! empty($validated['province_id'])) {

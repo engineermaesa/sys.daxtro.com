@@ -46,7 +46,7 @@
                 <tbody id="customer-table-body" class="text-center"></tbody>
             </table>
         </div>
-
+        
         {{-- PAGINATION --}}
         <div class="flex items-center justify-between mt-4">
             <div id="customer-showing" class="text-[#757575]">Showing 0 to 0 entries</div>
