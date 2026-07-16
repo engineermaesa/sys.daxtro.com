@@ -23,6 +23,8 @@ use App\Http\Controllers\Purchasing\PurchaseController;
 Route::get('contact-us', [\App\Http\Controllers\ContactUsController::class, 'create'])->name('contact-us');
 Route::post('contact-us', [\App\Http\Controllers\ContactUsController::class, 'store'])->name('contact-us.store');
 
+Route::get('api-docs', fn () => view('swagger-ui'))->name('api-docs');
+
 Route::middleware('guest')->group(function () {
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');

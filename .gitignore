@@ -25,3 +25,8 @@ npm-debug.log
 Thumbs.db
 yarn-error.log
 execute.sql
+
+# Scribe generated output (not used — custom Swagger UI is served instead)
+/.scribe
+/public/vendor/scribe
+/resources/views/scribe
