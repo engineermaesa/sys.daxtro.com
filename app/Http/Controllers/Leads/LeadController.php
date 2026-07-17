@@ -1401,7 +1401,7 @@ class LeadController extends Controller
         $filters = $this->resolveManageCountFilters($request);
         $stage = $request->filled('stage') ? strtolower($request->stage) : null;
         $activeClaims = $this->buildManageActiveClaimsQuery($filters, [
-            'sales',
+            'sales.branch',
             'lead.branch',
             'lead.firstSales',
             'lead.region.branch',
@@ -1528,8 +1528,8 @@ class LeadController extends Controller
             return [
                 'id' => $lead->id,
                 'lead_name' => $lead->name ?? '-',
-                'branch_id' => $lead->branch?->id,
-                'branch_name' => $lead->branch?->name ?? '-',
+                'branch_id' => $claim?->sales?->branch?->id ?? $lead->branch?->id,
+                'branch_name' => $claim?->sales?->branch?->name ?? $lead->branch?->name ?? '-',
                 'sales_name' => $salesName,
                 'phone' => $lead->phone,
                 'claimed_at' => $claim?->claimed_at
@@ -1790,7 +1790,7 @@ class LeadController extends Controller
             'status',
             'firstSales',
             'product',
-            'claims.sales',
+            'claims.sales.branch',
             'activityLogs.activity',
             'quotation',
             'quotation.createdBy',
@@ -1805,6 +1805,10 @@ class LeadController extends Controller
         // =========================
 
         $branchId = $request->filled('branch_id') ? $request->branch_id : null;
+
+        if (! $branchId && $request->user()->branch_id && $request->user()->role?->code === 'branch_manager') {
+            $branchId = $request->user()->branch_id;
+        }
 
         if ($request->filled('stage')) {
             $stage = strtolower($request->stage);
@@ -1840,27 +1844,24 @@ class LeadController extends Controller
             ]);
         }
 
-        if (! $branchId && $request->user()->branch_id && in_array($request->user()->role?->code, ['branch_manager', 'finance', 'accountant', 'purchasing'])) {
-            $branchId = $request->user()->branch_id;
-        }
+        if (! $exportSelectedOnly) {
+            $leads->whereHas('claims', function ($q) use ($branchId, $request) {
+                $q->whereNull('released_at')->whereNull('trash_note');
 
-        if ($branchId) {
-            $leads->where(function ($q) use ($branchId) {
-                $q->whereHas('region.branch', function ($subq) use ($branchId) {
-                    $subq->where('id', $branchId);
-                })->orWhere('branch_id', $branchId);
+                if ($branchId) {
+                    $q->whereHas('sales', function ($subq) use ($branchId) {
+                        $subq->where('branch_id', $branchId);
+                    });
+                }
+
+                if ($request->filled('sales_id')) {
+                    $q->where('sales_id', $request->sales_id);
+                }
             });
         }
 
         if ($request->filled('region_id')) {
             $leads->where('region_id', $request->region_id);
-        }
-
-        if ($request->filled('sales_id')) {
-            $leads->whereHas('claims', function ($q) use ($request) {
-                $q->where('sales_id', $request->sales_id)
-                    ->whereNull('released_at');
-            });
         }
 
         if ($request->filled('status_id')) {
@@ -1927,45 +1928,7 @@ class LeadController extends Controller
         if ($exportSelectedOnly) {
             $leads->whereIn('id', $selectedLeadIds);
         } else {
-            if ($request->filled('branch_id')) {
-                $branchId = $request->branch_id;
-
-                $leads->where(function ($q) use ($branchId) {
-                    $q->whereHas('region.branch', function ($subq) use ($branchId) {
-                        $subq->where('id', $branchId);
-                    })->orWhere('branch_id', $branchId);
-                });
-            }
-
-            if ($request->filled('region_id')) {
-                $leads->where('region_id', $request->region_id);
-            }
-
-            if ($request->filled('sales_id')) {
-                $leads->whereHas('claims', function ($q) use ($request) {
-                    $q->where('sales_id', $request->sales_id)
-                        ->whereNull('released_at');
-                });
-            }
-
             $this->applyManageClaimedAtDateFilter($leads, $request);
-
-            if ($request->filled('search')) {
-                $search = $request->search;
-
-                $leads->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('needs', 'like', "%{$search}%")
-                        ->orWhere('customer_type', 'like', "%{$search}%")
-                        ->orWhereHas('region', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('region.regional', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('source', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('claims.sales', fn($sq) => $sq->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('quotation', fn($sq) => $sq->where('quotation_no', 'like', "%{$search}%"))
-                        ->orWhereHas('quotation.proformas.invoice', fn($sq) => $sq->where('invoice_no', 'like', "%{$search}%"));
-                });
-            }
         }
 
         $stageColumns = [
@@ -2096,7 +2059,7 @@ class LeadController extends Controller
 
             $record = [
                 'lead_name' => $lead->name ?? '-',
-                'branch_name' => $lead->region?->branch?->name ?? $lead->branch?->name ?? '-',
+                'branch_name' => $claim?->sales?->branch?->name ?? $lead->branch?->name ?? '-',
                 'sales_name' => $claim?->sales?->name ?? '-',
                 'phone' => $lead->phone ?? '-',
                 'source_name' => $lead->source?->name ?? '-',

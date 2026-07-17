@@ -27,7 +27,13 @@
       "Bash(curl -sI \"http://sys.daxtro.com.test/storage/cad/id3E1fuLsOX5Y1L9oOPW1rOWm4PCydbKYwKMld9k.dwg\")",
       "Bash(php -l app/Http/Controllers/Dashboard/AfterSalesSummaryController.php)",
       "Bash(php -l routes/api.php)",
-      "Bash(php *)"
+      "Bash(php *)",
+      "Bash(grep -n \"INSERT INTO \\\\`ref_branches\\\\`\" -A 20 local_daxx.sql)",
+      "Bash(awk '/CREATE TABLE `ref_regions`/,/^-- --------/' local_daxx.sql)",
+      "Bash(awk -F', ' '{print $4}')",
+      "Bash(rm test_export_filter.php /tmp/read_xlsx.php)",
+      "Bash(rm \"[Stage - All Stage] - [Exported At - 20260717_084405].xlsx\")",
+      "Bash(awk '/CREATE TABLE `users`/,/^-- --------/' local_daxx.sql)"
     ]
   }
 }
