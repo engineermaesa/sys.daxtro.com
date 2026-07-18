@@ -33,7 +33,19 @@
       "Bash(awk -F', ' '{print $4}')",
       "Bash(rm test_export_filter.php /tmp/read_xlsx.php)",
       "Bash(rm \"[Stage - All Stage] - [Exported At - 20260717_084405].xlsx\")",
-      "Bash(awk '/CREATE TABLE `users`/,/^-- --------/' local_daxx.sql)"
+      "Bash(awk '/CREATE TABLE `users`/,/^-- --------/' local_daxx.sql)",
+      "Bash(grep -n \"CREATE TABLE \\\\`users\\\\`\" -A 10 daxtccqs_sys_new.sql)",
+      "Bash(grep -n \"CREATE TABLE \\\\`leads\\\\`\" -A 10 daxtccqs_sys_new.sql)",
+      "Bash(git check-ignore *)",
+      "Bash(git rev-list *)",
+      "Bash(mysql --version)",
+      "Bash(\"C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe\" -uroot -p1234 -e \"SELECT VERSION\\(\\);\")",
+      "Bash(C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe -uroot -p1234 -e 'DROP DATABASE IF EXISTS staging_audit; CREATE DATABASE staging_audit;')",
+      "Bash(C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe -uroot -p1234 staging_audit)",
+      "Bash($MYSQL *)",
+      "Bash(C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe -uroot -p1234 -e 'DROP DATABASE IF EXISTS staging_audit;')",
+      "Bash(git show *)",
+      "Read(//tmp/**)"
     ]
   }
 }

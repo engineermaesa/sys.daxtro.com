@@ -59,6 +59,10 @@ class Lead extends Model
         'deal_at',
     ];
 
+    protected $casts = [
+        'status_id' => 'integer',
+    ];
+
     public function status()
     {
         return $this->belongsTo(LeadStatus::class, 'status_id');
