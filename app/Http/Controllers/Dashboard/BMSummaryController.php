@@ -162,42 +162,14 @@ class BMSummaryController extends Controller
         $leadsActual = 0;
         $visitsActual = 0;
 
-        $leadsQuery = Lead::query()
-            ->where('branch_id', $branchId)
-            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId, $branchId) {
+        $leadsActual = $this->buildActualLeadsQuery((int) $branchId, $salesId, $periodStart, $periodEnd)
+            ->distinct('id')
+            ->count('id');
 
-                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
-                    ->whereHas('user', function ($uq) use ($branchId) {
-                        $uq->where('role_id', 2);
-                        $uq->where('branch_id', $branchId);
-                    });
-
-                // jika filter sales dipilih
-                if (!empty($salesId)) {
-                    $cq->where('sales_id', $salesId);
-                }
-            });
-        $leadsActual = $leadsQuery->distinct('id')->count('id');
-
-
-        $visitsQuery = Lead::query()
-            ->where('branch_id', $branchId)
+        $visitsActual = $this->buildActualLeadsQuery((int) $branchId, $salesId, $periodStart, $periodEnd)
             ->where('source_id', 9)
-            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId, $branchId) {
-
-                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
-                    ->whereHas('user', function ($uq) use ($branchId) {
-                        $uq->where('role_id', 2)
-                            ->where('branch_id', $branchId);
-                    });
-
-                // jika filter sales dipilih
-                if (!empty($salesId)) {
-                    $cq->where('sales_id', $salesId);
-                }
-            });
-
-        $visitsActual = $visitsQuery->distinct('id')->count('id');
+            ->distinct('id')
+            ->count('id');
 
         $monetaryActual = round($monetaryActual, 2);
         $achievementPercentage = $targetAmount > 0
@@ -1441,6 +1413,34 @@ class BMSummaryController extends Controller
         ];
     }
 
+    /**
+     * Leads claimed within the period, using the same rules as the
+     * `active_leads` card: active claim only (not released / not trashed)
+     * and the lead is not in a trash status.
+     */
+    private function buildActualLeadsQuery(int $branchId, ?int $salesId, string $periodStart, string $periodEnd)
+    {
+        return Lead::query()
+            ->where('branch_id', $branchId)
+            ->whereIn('status_id', [LeadStatus::COLD, LeadStatus::WARM, LeadStatus::HOT, LeadStatus::DEAL])
+            ->whereHas('claims', function ($cq) use ($periodStart, $periodEnd, $salesId, $branchId) {
+                $cq->whereBetween('claimed_at', [$periodStart, $periodEnd])
+                    ->whereNull('released_at')
+                    ->whereNull('trash_note')
+                    ->whereHas('user', function ($uq) use ($branchId) {
+                        $uq->where('branch_id', $branchId)
+                            ->whereHas('role', function ($rq) {
+                                $rq->where('code', 'sales');
+                            });
+                    });
+
+                // jika filter sales dipilih
+                if (!empty($salesId)) {
+                    $cq->where('sales_id', $salesId);
+                }
+            });
+    }
+
     private function calculateBranchManagerGridCompareSnapshot(string $date, int $branchId, ?int $salesId): array
     {
         $periodEnd = Carbon::createFromFormat('Y-m-d', $date, 'Asia/Jakarta')->endOfDay();
@@ -2392,6 +2392,7 @@ class BMSummaryController extends Controller
                     ->whereNull('lc2.deleted_at')
                     ->whereColumn('lc2.lead_id', 'lead_claims.lead_id')
                     ->groupBy('lc2.lead_id');
+
             })
             ->leftJoin('lead_sources', 'lead_sources.id', '=', 'leads.source_id')
             ->leftJoin('lead_segments', 'lead_segments.id', '=', 'leads.segment_id')
