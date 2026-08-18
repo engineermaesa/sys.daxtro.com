@@ -40,6 +40,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Settings', 'code' => 'settings.general-settings', 'description' => 'Manage general settings'],
             ['name' => 'Quotation Approvals', 'code' => 'quotation.approvals', 'description' => 'Quotation Approvals'],
             ['name' => 'Customers', 'code' => 'customers.view', 'description' => 'View customer technical specification data'],
+            ['name' => 'Satisfaction Survey', 'code' => 'satisfaction-survey.view', 'description' => 'View technician satisfaction survey responses'],
         ];
 
         foreach ($permissions as $perm) {

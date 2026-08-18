@@ -36,4 +36,9 @@ return [
     ],
     
     'lead_register_api_token' => env('LEAD_REGISTER_API_TOKEN'),
+
+    'google_sheets' => [
+        'service_account_path' => env('GOOGLE_SHEETS_SERVICE_ACCOUNT_PATH') ?: storage_path('app/google/service-account.json'),
+        'spreadsheet_id' => env('GOOGLE_SHEETS_SATISFACTION_SURVEY_ID'),
+    ],
 ];

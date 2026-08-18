@@ -209,6 +209,10 @@ Route::middleware('auth')->group(function () {
         Route::post('customers/{customer}/cad', 'CustomerController@uploadCad')->name('customers.cad.upload');
     });
 
+    // SATISFACTION SURVEY
+    Route::get('satisfaction-survey', [\App\Http\Controllers\SatisfactionSurveyController::class, 'index'])
+        ->name('satisfaction-survey.index');
+
     // =====================================
     // EXPENSE REALIZATIONS (Arahnya Kemana X)
     // =====================================

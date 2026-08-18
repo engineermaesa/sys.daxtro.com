@@ -189,6 +189,23 @@
         </li>
         @endif
 
+        {{-- SATISFACTION SURVEY MENU --}}
+        @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
+        <li
+            class="{{ request()->routeIs('satisfaction-survey.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('satisfaction-survey.index') }}">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M10 0C4.477 0 0 4.477 0 10C0 15.523 4.477 20 10 20C15.523 20 20 15.523 20 10C20 4.477 15.523 0 10 0ZM10 18C5.589 18 2 14.411 2 10C2 5.589 5.589 2 10 2C14.411 2 18 5.589 18 10C18 14.411 14.411 18 10 18ZM6.5 8C7.328 8 8 7.328 8 6.5C8 5.672 7.328 5 6.5 5C5.672 5 5 5.672 5 6.5C5 7.328 5.672 8 6.5 8ZM13.5 8C14.328 8 15 7.328 15 6.5C15 5.672 14.328 5 13.5 5C12.672 5 12 5.672 12 6.5C12 7.328 12.672 8 13.5 8ZM10 16C12.5 16 14.585 14.362 15.315 12.088C15.416 11.772 15.156 11.5 14.824 11.5H5.176C4.844 11.5 4.584 11.772 4.685 12.088C5.415 14.362 7.5 16 10 16Z"
+                        fill="{{ request()->routeIs('satisfaction-survey.*') ? '#115640' : '#1E1E1E' }}" />
+                </svg>
+                <span
+                    class="sidebar-label {{ request()->routeIs('satisfaction-survey.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Satisfaction Survey</span>
+            </a>
+        </li>
+        @endif
+
         {{-- INCENTIVES MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('incentives.view'))
         <li

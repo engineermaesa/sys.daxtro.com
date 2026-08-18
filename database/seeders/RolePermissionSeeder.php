@@ -23,6 +23,7 @@ class RolePermissionSeeder extends Seeder
             $permissions['users.roles'] ?? null,
             $permissions['settings.permissions-settings'] ?? null,
             $permissions['settings.general-settings'] ?? null,
+            $permissions['satisfaction-survey.view'] ?? null,
         ];
 
         $map = [
@@ -40,6 +41,7 @@ class RolePermissionSeeder extends Seeder
                 $permissions['leads.manage'] ?? null,
                 $permissions['orders'] ?? null,
                 $permissions['users.manage'] ?? null,
+                $permissions['satisfaction-survey.view'] ?? null,
             ],
             'finance' => [
                 $permissions['dashboard'] ?? null,
@@ -59,6 +61,7 @@ class RolePermissionSeeder extends Seeder
             'after_sales' => [
                 $permissions['dashboard'] ?? null,
                 $permissions['customers.view'] ?? null,
+                $permissions['satisfaction-survey.view'] ?? null,
             ],
             'sales' => [
                 $permissions['dashboard'] ?? null,
