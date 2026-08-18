@@ -116,7 +116,6 @@
                 <div class="relative shrink-0" id="serviceDateFilter">
                     <button type="button" id="openServiceDate"
                         class="flex items-center gap-2 border border-[#D9D9D9] rounded-lg px-3 py-2 w-full lg:w-auto cursor-pointer">
-                        <i class="fa-regular fa-calendar text-[#757575]"></i>
                         <span id="serviceDateLabel" class="text-[#1E1E1E] whitespace-nowrap">
                             @if (request('from_date') && request('to_date'))
                                 {{ request('from_date') }} &rarr; {{ request('to_date') }}
