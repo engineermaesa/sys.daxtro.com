@@ -12,6 +12,7 @@ class QuotationLog extends Model
 
     protected $fillable = [
         'quotation_id',
+        'temp_quotation_id',
         'action',
         'user_id',
         'logged_at',
@@ -26,6 +27,11 @@ class QuotationLog extends Model
     public function quotation()
     {
         return $this->belongsTo(Quotation::class, 'quotation_id');
+    }
+
+    public function tempQuotation()
+    {
+        return $this->belongsTo(TempQuotation::class, 'temp_quotation_id');
     }
 
     public function user()

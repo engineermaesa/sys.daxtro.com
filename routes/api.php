@@ -223,6 +223,7 @@ Route::group([
             Route::get('manage/form/{id?}', [LeadController::class, 'form'])->name('manage');
             Route::get('quotation/{claim}', [WarmLeadController::class, 'createQuotation'])->name('quotation.create');
             Route::post('quotation/{claim}', [WarmLeadController::class, 'storeQuotation'])->name('quotation.store');
+            Route::post('quotation/{claim}/final-submit', [WarmLeadController::class, 'finalSubmitQuotation'])->name('quotation.final-submit');
             Route::post('trash/{claim}', [WarmLeadController::class, 'trash'])->name('trash');
         });
 

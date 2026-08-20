@@ -31,8 +31,19 @@
                         $disabled = $isEditable ? '' : 'disabled';
                         $defaultSegment = strtolower($defaultSegment ?? '');
                         $segmentOptions = $segments ?? collect();
+                        $isDraftMode = $isDraftMode ?? false;
+                        $draft = $draft ?? null;
+                        // Prefill source: the active draft while in draft mode,
+                        // otherwise the official quotation (unchanged behavior).
+                        $formSource = $isDraftMode ? $draft : $quotation;
                     @endphp
 
+                    @if ($isDraftMode)
+                        <div class="alert alert-info">
+                            This is a <strong>draft</strong>. It has not been submitted for BM approval yet — you can
+                            keep saving changes freely. Click <strong>Final Submit</strong> when you're ready.
+                        </div>
+                    @endif
                     @if (!$isEditable && $quotation)
                         <div class="alert alert-warning">
                             This quotation is already <strong>{{ ucfirst($quotation->status) }}</strong> and cannot be
@@ -44,6 +55,9 @@
                             Quotation rejected by <b>{{ $rejection->reviewer->name ?? $rejection->role }}</b> on
                             {{ $rejection->decided_at ? \Carbon\Carbon::parse($rejection->decided_at)->format('d M Y') : '' }}
                             <strong>Notes:</strong> {{ $rejection->notes }}
+                            @if ($isDraftMode)
+                                <br><strong>You're now revising a new draft based on this quotation.</strong>
+                            @endif
                         </div>
                     @elseif($quotation && isset($approval))
                         <div class="alert alert-success">
@@ -85,8 +99,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @if ($quotation)
-                                        @foreach ($quotation->items as $item)
+                                    @if ($formSource && $formSource->items->isNotEmpty())
+                                        @foreach ($formSource->items as $item)
                                             <tr data-item-id="{{ $item->id }}" class="border-b border-b-[#D9D9D9]">
                                                 <td class="p-2 lg:p-3">
                                                     <select name="product_id[]" class="w-full item-product select2" {{ $disabled }} required>
@@ -195,7 +209,7 @@
                                                         class="p-2 border border-[#D9D9D9] rounded-lg focus:outline-none form-select-sm mt-2 merge-dropdown d-none block {{ $item->is_visible_pdf ? 'd-none' : '' }}"
                                                         {{ $disabled }}>
                                                         <option value="">Select visible item...</option>
-                                                        @foreach ($quotation->items->where('is_visible_pdf', true) as $visibleItem)
+                                                        @foreach ($formSource->items->where('is_visible_pdf', true) as $visibleItem)
                                                             <option value="{{ $loop->index }}"
                                                                 {{ $item->merge_into_item_id == $visibleItem->id ? 'selected' : '' }}>
                                                                 {{ $visibleItem->description }}
@@ -333,7 +347,7 @@
                                 <span class="text-[#EC221F]">*</span>
                             </p>
                             <input type="number" step="0.01" name="tax_pct" id="tax_pct" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg"
-                                value="{{ old('tax_pct', $quotation->tax_pct ?? 11) }}" {{ $disabled }} required>
+                                value="{{ old('tax_pct', $formSource->tax_pct ?? 11) }}" {{ $disabled }} required>
                         </div>
 
                         <div class="p-2 lg:px-3 lg:py-2 text-[#1E1E1E]">
@@ -341,37 +355,37 @@
                                 Total Discount
                             </p>
                             <input type="text" id="total_discount_display" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-[#F5F5F5]"
-                                value="{{ 'Rp' . number_format(($quotation && $quotation->total_discount) ? $quotation->total_discount : 0, 0, ',', '.') }}" readonly>
+                                value="{{ 'Rp' . number_format(($formSource && $formSource->total_discount) ? $formSource->total_discount : 0, 0, ',', '.') }}" readonly>
                             <input type="hidden" name="total_discount" id="total_discount"
-                                value="{{ optional($quotation)->total_discount ?? 0 }}">
+                                value="{{ optional($formSource)->total_discount ?? 0 }}">
                         </div>
                         <div class="p-2 lg:px-3 lg:py-2 text-[#1E1E1E]">
                             <p class="mb-1 font-medium">
                                 Subtotal
                             </p>
                             <input type="text" id="subtotal_display" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-[#F5F5F5]"
-                                value="{{ 'Rp' . number_format($quotation->subtotal ?? 0, 0, ',', '.') }}" readonly>
+                                value="{{ 'Rp' . number_format($formSource->subtotal ?? 0, 0, ',', '.') }}" readonly>
                             <input type="hidden" name="subtotal" id="subtotal"
-                                value="{{ $quotation->subtotal ?? 0 }}">
+                                value="{{ $formSource->subtotal ?? 0 }}">
                         </div>
                         <div class="p-2 lg:px-3 lg:py-2 text-[#1E1E1E]">
                             <p class="mb-1 font-medium">
                                 Tax Amount
                             </p>
                             <input type="text" id="tax_total_display" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-[#F5F5F5]"
-                                value="{{ 'Rp' . number_format($quotation->tax_total ?? 0, 0, ',', '.') }}" readonly>
+                                value="{{ 'Rp' . number_format($formSource->tax_total ?? 0, 0, ',', '.') }}" readonly>
                             <input type="hidden" name="tax_total" id="tax_total"
-                                value="{{ $quotation->tax_total ?? 0 }}">
+                                value="{{ $formSource->tax_total ?? 0 }}">
                         </div>
                         <div class="p-2 lg:px-3 lg:py-2 text-[#1E1E1E]">
                             <p class="mb-1 font-medium">
                                 Grand Total
                             </p>
                             <input type="text" id="grand_total_display" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-[#F5F5F5]"
-                                value="{{ 'Rp' . number_format($quotation->grand_total ?? 0, 0, ',', '.') }}"
+                                value="{{ 'Rp' . number_format($formSource->grand_total ?? 0, 0, ',', '.') }}"
                                 readonly>
                             <input type="hidden" name="grand_total" id="grand_total"
-                                value="{{ $quotation->grand_total ?? 0 }}">
+                                value="{{ $formSource->grand_total ?? 0 }}">
                         </div>
 
                         {{-- PAYMENT TYPE --}}
@@ -383,7 +397,7 @@
                             @php
                                 $paymentType = old(
                                     'payment_type',
-                                    $quotation?->booking_fee ? 'booking_fee' : 'down_payment',
+                                    $formSource?->booking_fee ? 'booking_fee' : 'down_payment',
                                 );
                             @endphp
                             <select name="payment_type" id="payment_type" class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg"
@@ -400,7 +414,7 @@
                                 Booking Fee
                             </p>
                             <input type="text" name="booking_fee" id="booking_fee"
-                                class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-white number-input" value="{{ number_format(old('booking_fee', $quotation->booking_fee ?? 0), 0, ',', '.') }}"
+                                class="w-full p-2 lg:px-3 lg:py-2 border border-[#D9D9D9] rounded-lg bg-white number-input" value="{{ number_format(old('booking_fee', $formSource->booking_fee ?? 0), 0, ',', '.') }}"
                                 {{ $disabled }}>
                         </div>
                     </div>
@@ -463,11 +477,11 @@
                                     </thead>
                                     <tbody id="terms-table-container">
                                         @php
-                                            $terms = $quotation
-                                                ? $quotation->paymentTerms->pluck('percentage')
+                                            $terms = ($formSource && $formSource->paymentTerms->isNotEmpty())
+                                                ? $formSource->paymentTerms->pluck('percentage')
                                                 : collect([null]);
                                         @endphp
-                                        @if ($quotation)
+                                        @if ($formSource && $formSource->paymentTerms->isNotEmpty())
                                             @foreach ($terms as $i => $term)
                                                 <tr class="term-row border-b border-b-[#D9D9D9]">
                                                     <td class="flex items-center p-2 lg:p-3">
@@ -488,7 +502,7 @@
                                                             name="term_description[]"
                                                             class="p-2 border border-[#D9D9D9] w-full rounded-lg item-price"
                                                             placeholder="Type Description Here... (Opsional)"
-                                                            value="{{ old("term_description.$i", $quotation->paymentTerms[$i]->description ?? '') }}"
+                                                            value="{{ old("term_description.$i", $formSource->paymentTerms[$i]->description ?? '') }}"
                                                             {{ $disabled }}
                                                         >
                                                     </td>
@@ -523,7 +537,7 @@
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-5 pb-5">
-                    @if (!$quotation)
+                    @if (!$quotation && !$draft)
                     <a href="{{ route('leads.my') }}" class="cursor-pointer px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Cancel</a>
                     @endif
                     @if ($quotation)
@@ -533,7 +547,14 @@
                         </a>
                     @endif
                     @if ($isEditable)
-                        <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save</button>
+                        @if ($isDraftMode)
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Draft</button>
+                        @else
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save</button>
+                        @endif
+                        @if ($isDraftMode)
+                            <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Final Submit</button>
+                        @endif
                     @endif
                 </div>
             </form>
@@ -732,7 +753,7 @@
 
                 $(function() {
                     // Check if this is a new quotation (not editing existing) and payment type is down_payment
-                    const isNewQuotation = {{ $quotation ? 'false' : 'true' }};
+                    const isNewQuotation = {{ $formSource ? 'false' : 'true' }};
                     const paymentType = $('#payment_type').val();
                     
                     if (isNewQuotation && paymentType === 'down_payment' && $('#terms-table-container tr.term-row').length <= 1) {
@@ -964,6 +985,70 @@
                 }
                 $('#payment_type').on('change', toggleBookingFee);
                 toggleBookingFee();
+
+                // — Final Submit: save the current draft state first (so any
+                // unsaved edits on screen aren't lost), then create the
+                // official quotation. Deliberately not reusing the global
+                // #form submit handler in main.js (which reads a single
+                // form.action) since this needs two sequential requests.
+                $(document).on('click', '#final-submit-btn', function() {
+                    const $btn = $(this);
+                    const finalSubmitUrl = $btn.data('url');
+
+                    Swal.fire({
+                        title: 'Final Submit this quotation?',
+                        text: "Once submitted, this quotation cannot be edited anymore and will be sent for BM approval. This action cannot be undone.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, final submit',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#115640',
+                        cancelButtonColor: '#aaa'
+                    }).then((result) => {
+                        if (!result.isConfirmed) return;
+
+                        const $form = $('#form');
+                        $form.find('.number-input').each(function () {
+                            $(this).val(parseNumber($(this).val()));
+                        });
+                        const formData = new FormData($form[0]);
+
+                        $btn.prop('disabled', true).text('Submitting...');
+                        loading();
+
+                        $.ajax({
+                            url: $form.attr('action'),
+                            method: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            dataType: 'json',
+                        }).done(function () {
+                            return $.ajax({
+                                url: finalSubmitUrl,
+                                method: 'POST',
+                                dataType: 'json',
+                                headers: { 'X-CSRF-TOKEN': $form.find('input[name=_token]').val() },
+                            });
+                        }).done(function (response) {
+                            notif('Quotation submitted successfully!');
+                            const redirectUrl = response && response.data && response.data.redirect_url
+                                ? response.data.redirect_url
+                                : (response && response.redirect_url ? response.redirect_url : null);
+                            setTimeout(() => {
+                                window.location.href = redirectUrl || '{{ route('leads.my') }}';
+                            }, 500);
+                        }).fail(function (xhr) {
+                            let errorMessage = 'Failed to submit quotation. Please try again.';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            notif(errorMessage, 'error');
+                            $btn.prop('disabled', false).text('Final Submit');
+                            loadingComplete();
+                        });
+                    });
+                });
 
                 // — Initial total calculation
                 calcTotal();

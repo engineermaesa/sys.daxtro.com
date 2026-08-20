@@ -103,6 +103,11 @@ class Lead extends Model
         return $this->hasOne(Quotation::class, 'lead_id');
     }
 
+    public function tempQuotation()
+    {
+        return $this->hasOne(\App\Models\Orders\TempQuotation::class, 'lead_id')->where('status', 'draft');
+    }
+
     public function customer()
     {
         return $this->hasOne(Customer::class, 'leads_id');

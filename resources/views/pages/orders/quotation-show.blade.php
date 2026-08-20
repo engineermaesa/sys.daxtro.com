@@ -621,12 +621,9 @@
                             $canEdit = true;
                         }
                     @endphp
-                    @if ($canEdit && isset($claim))
-                        <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Edit Quotation</a>
-                    @elseif(!$canEdit && isset($claim) && $userRole === 'sales' && ($rejectedByBM || $rejectedByFinance))
-                        {{-- Allow sales to re-edit quotation when it was rejected by BM or Finance --}}
-                        <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Edit Quotation</a>
-                    @endif
+                    {{-- "Edit Quotation" link hidden: editing now flows through the
+                    draft (temp_quotations) system on the Warm Lead page instead
+                    of jumping straight back into this route from here. --}}
                 </div>
             </div>
 
