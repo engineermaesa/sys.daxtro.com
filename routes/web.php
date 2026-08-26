@@ -232,7 +232,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/submit', 'ExpenseRealizationController@submit')->name('submit');
     });
 
-    Route::get('/debug/expense-realizations', function () {
+Route::get('/debug/expense-realizations', function () {
         $count = \App\Models\Orders\ExpenseRealization::count();
         $meetingExpenseCount = \App\Models\Orders\MeetingExpense::where('status', 'approved')->count();
         $data = \App\Models\Orders\ExpenseRealization::with(['sales', 'meetingExpense.meeting.lead'])->get();

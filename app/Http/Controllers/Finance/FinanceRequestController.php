@@ -982,7 +982,7 @@ class FinanceRequestController extends Controller
             // Only set `deal_at` when the proforma is not booking_fee, it's the first term,
             // the payment is confirmed, and the quotation has an order.
             if ((($payment->proforma->proforma_type ?? '') !== 'booking_fee')
-                && (($payment->proforma->term_no ?? null) === 1)
+                && ((int) ($payment->proforma->term_no ?? 0) === 1)
                 && $payment->confirmed_at
                 && $hasOrder) {
                 if (empty($lead->deal_at)) {
