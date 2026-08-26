@@ -26,3 +26,4 @@ Thumbs.db
 yarn-error.log
 execute.sql
 /storage/app/google
+.gstack/

@@ -37,6 +37,10 @@
     
     <!-- Fixed Header Styling -->
     <style>
+        body {
+            background-color: #F5F5F5;
+        }
+
         .topbar {
             transition: left 0.3s ease;
         }
@@ -46,19 +50,43 @@
             border: none;
         }
 
-        @media (max-width: 640px) {
+        #sidebarWrapper {
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1050;
+            height: 100vh;
+            transform: translateX(-100%);
+        }
+
+        #sidebarWrapper.mobile-open {
+            transform: translateX(0);
+        }
+
+        #mainWrapper {
+            margin-left: 0;
+            transition: margin-left 0.3s ease-in-out;
+        }
+
+        @media (min-width: 640px) {
             #sidebarWrapper {
-                position: fixed;
-                left: 0;
-                top: 0;
-                z-index: 1050;
-                height: 100vh;
-                transform: translateX(-100%);
+                transform: none;
             }
 
-            #sidebarWrapper.mobile-open {
-                transform: translateX(0);
+            #mainWrapper {
+                margin-left: 88px;
             }
+        }
+
+        @media (min-width: 1024px) {
+            #mainWrapper {
+                margin-left: 280px;
+            }
+        }
+
+        #sidebarWrapper.sidebar-collapsed ~ #mainWrapper,
+        html.sidebar-precollapsed #mainWrapper {
+            margin-left: 88px !important;
         }
 
         html.sidebar-precollapsed #sidebarWrapper {
@@ -95,7 +123,7 @@
 <body id="page-top">
 	<div id="loader" class="loader hidden"></div>
 
-    <div id="appLayout" class="flex min-h-screen bg-[#F5F5F5]">
+    <div id="appLayout" class="flex">
         <aside
             id="sidebarWrapper"
             class="shrink-0 transition-all duration-300 ease-in-out">
@@ -105,8 +133,8 @@
         <main
             id="mainWrapper"
             class="flex-1 min-w-0 transition-all duration-300 ease-in-out">
-            <div id="content" class="flex-1 min-h-screen">
-                <div class="bg-[#F5F5F5] px-6 min-h-full">
+            <div id="content">
+                <div class="bg-[#F5F5F5] px-6">
                     @yield('content')
                 </div>
             </div>

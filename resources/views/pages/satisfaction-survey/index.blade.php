@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="min-h-screen text-xs! lg:text-sm! text-[#1E1E1E]">
+<section class="text-xs! lg:text-sm! text-[#1E1E1E]">
     <div class="pt-4">
         <h1 class="font-bold text-xl lg:text-2xl text-[#1E1E1E]">Satisfaction Survey</h1>
         <p class="text-[#757575] mt-1">Customer satisfaction tracking for after-sales service quality.</p>
@@ -255,7 +255,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td class="p-6 text-center text-[#757575]" colspan="11">No survey responses found.</td>
+                            <td class="p-10 text-center text-[#757575]" colspan="11">No survey responses found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -263,7 +263,7 @@
         </div>
 
         {{-- PAGINATION --}}
-        <div class="flex justify-between items-center px-4 py-3 text-[#1E1E1E]">
+        <div class="flex justify-between items-center px-4 py-3 text-[#1E1E1E] border-t border-[#D9D9D9]">
             <p class="text-[#757575]">
                 Showing {{ $responses->firstItem() ?? 0 }} to {{ $responses->lastItem() ?? 0 }} of {{ $responses->total() }} entries
             </p>
