@@ -294,36 +294,31 @@
                                         $filter = [
                                         'Ads Google',
                                         'Website',
-                                        'Meta',
+                                        'Meta Ads',
                                         'Linked In',
-                                        'Tik Tok',
+                                        'Tik Tok Marketing',
                                         'Friends Recommendation',
                                         'Canvas',
                                         'Visit',
                                         'Expo RHVAC Jakarta 2025',
                                         'Association',
+                                        'Data Survey',
                                         'Business Association',
                                         'Repeat Order',
                                         'Sales Independen',
                                         'Aftersales',
-                                        'Office Walk In',
-                                        'Media with QR/Referral',
-                                        'Agent / Reseller',
-                                        'Youtube',
-                                        'Google Search',
-                                        'Telemarketing',
                                         'Expo FBI & IISM 2026',
                                         ];
                                         $isNew = empty($form_data->source_id);
                                         @endphp
 
                                         @foreach ($sources as $source)
-                                        @if ($isNew ? in_array($source->name, $filter) || in_array((int) $source->id, $agentSourceIds) : true)
-                                        <option value="{{ $source->id }}" {{ old('source_id', $form_data->source_id) ==
-                                            $source->id ? 'selected' : '' }}>
-                                            {{ $source->name }}
-                                        </option>
-                                        @endif
+                                            @if ($isNew ? in_array($source->name, $filter) || in_array((int) $source->id, $agentSourceIds) : true)
+                                                <option value="{{ $source->id }}" {{ old('source_id', $form_data->source_id) ==
+                                                    $source->id ? 'selected' : '' }}>
+                                                    {{ $source->name }}
+                                                </option>
+                                            @endif
                                         @endforeach
                                     </select>
                                 </div>

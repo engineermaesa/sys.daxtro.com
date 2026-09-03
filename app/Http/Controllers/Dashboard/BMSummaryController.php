@@ -186,35 +186,31 @@ class BMSummaryController extends Controller
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
 
-        $latestQuotationSubquery = DB::table('quotations')
-            ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
-            ->where('status', 'published')
-            ->whereNull('deleted_at')
-            ->where(function ($query) use ($start, $end) {
-                $query->whereBetween('created_at', [$start, $end])
-                    ->orWhere(function ($q) use ($start, $end) {
-                        $q->where('created_at', '<=', $end)
-                            ->whereRaw('DATE_ADD(created_at, INTERVAL 30 DAY) >= ?', [$start]);
-                    });
-            })
-            ->groupBy('lead_id');
+        $latestQuotationSubquery = DB::table('quotation_reviews')
+            ->join('quotations', 'quotations.id', '=', 'quotation_reviews.quotation_id')
+            ->select('quotations.lead_id', DB::raw('MAX(quotation_reviews.decided_at) as latest_decided_at'))
+            ->where('quotation_reviews.role', 'BM')
+            ->where('quotation_reviews.decision', 'approve')
+            ->whereNull('quotation_reviews.deleted_at')
+            ->whereNull('quotations.deleted_at')
+            ->whereBetween('quotation_reviews.decided_at', [$start, $end])
+            ->groupBy('quotations.lead_id');
 
         $potentialLeads = Lead::query()
-            ->join('quotations', function ($join) use ($start, $end) {
+            ->join('quotations', function ($join) {
                 $join->on('quotations.lead_id', '=', 'leads.id')
-                    ->where('quotations.status', 'published')
-                    ->whereNull('quotations.deleted_at')
-                    ->where(function ($query) use ($start, $end) {
-                        $query->whereBetween('quotations.created_at', [$start, $end])
-                            ->orWhere(function ($q) use ($start, $end) {
-                                $q->where('quotations.created_at', '<=', $end)
-                                    ->whereRaw('DATE_ADD(quotations.created_at, INTERVAL 30 DAY) >= ?', [$start]);
-                            });
-                    });
+                    ->whereNull('quotations.deleted_at');
+            })
+            ->join('quotation_reviews', function ($join) use ($start, $end) {
+                $join->on('quotation_reviews.quotation_id', '=', 'quotations.id')
+                    ->where('quotation_reviews.role', 'BM')
+                    ->where('quotation_reviews.decision', 'approve')
+                    ->whereNull('quotation_reviews.deleted_at')
+                    ->whereBetween('quotation_reviews.decided_at', [$start, $end]);
             })
             ->joinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
-                    ->on('quotations.created_at', '=', 'latest_quo.latest_date');
+                    ->on('quotation_reviews.decided_at', '=', 'latest_quo.latest_decided_at');
             })
             ->leftJoin('lead_claims', function ($join) {
                 $join->on('lead_claims.lead_id', '=', 'leads.id')
@@ -1548,35 +1544,31 @@ class BMSummaryController extends Controller
         $warmStatusId = LeadStatus::WARM;
         $hotStatusId = LeadStatus::HOT;
 
-        $latestQuotationSubquery = DB::table('quotations')
-            ->select('lead_id', DB::raw('MAX(created_at) as latest_date'))
-            ->where('status', 'published')
-            ->whereNull('deleted_at')
-            ->where(function ($query) use ($periodStart, $periodEnd) {
-                $query->whereBetween('created_at', [$periodStart, $periodEnd])
-                    ->orWhere(function ($q) use ($periodStart, $periodEnd) {
-                        $q->where('created_at', '<=', $periodEnd)
-                            ->whereRaw('DATE_ADD(created_at, INTERVAL 30 DAY) >= ?', [$periodStart]);
-                    });
-            })
-            ->groupBy('lead_id');
+        $latestQuotationSubquery = DB::table('quotation_reviews')
+            ->join('quotations', 'quotations.id', '=', 'quotation_reviews.quotation_id')
+            ->select('quotations.lead_id', DB::raw('MAX(quotation_reviews.decided_at) as latest_decided_at'))
+            ->where('quotation_reviews.role', 'BM')
+            ->where('quotation_reviews.decision', 'approve')
+            ->whereNull('quotation_reviews.deleted_at')
+            ->whereNull('quotations.deleted_at')
+            ->whereBetween('quotation_reviews.decided_at', [$periodStart, $periodEnd])
+            ->groupBy('quotations.lead_id');
 
         $potentialLeads = Lead::query()
-            ->join('quotations', function ($join) use ($periodStart, $periodEnd) {
+            ->join('quotations', function ($join) {
                 $join->on('quotations.lead_id', '=', 'leads.id')
-                    ->where('quotations.status', 'published')
-                    ->whereNull('quotations.deleted_at')
-                    ->where(function ($query) use ($periodStart, $periodEnd) {
-                        $query->whereBetween('quotations.created_at', [$periodStart, $periodEnd])
-                            ->orWhere(function ($q) use ($periodStart, $periodEnd) {
-                                $q->where('quotations.created_at', '<=', $periodEnd)
-                                    ->whereRaw('DATE_ADD(quotations.created_at, INTERVAL 30 DAY) >= ?', [$periodStart]);
-                            });
-                    });
+                    ->whereNull('quotations.deleted_at');
+            })
+            ->join('quotation_reviews', function ($join) use ($periodStart, $periodEnd) {
+                $join->on('quotation_reviews.quotation_id', '=', 'quotations.id')
+                    ->where('quotation_reviews.role', 'BM')
+                    ->where('quotation_reviews.decision', 'approve')
+                    ->whereNull('quotation_reviews.deleted_at')
+                    ->whereBetween('quotation_reviews.decided_at', [$periodStart, $periodEnd]);
             })
             ->joinSub($latestQuotationSubquery, 'latest_quo', function ($join) {
                 $join->on('quotations.lead_id', '=', 'latest_quo.lead_id')
-                    ->on('quotations.created_at', '=', 'latest_quo.latest_date');
+                    ->on('quotation_reviews.decided_at', '=', 'latest_quo.latest_decided_at');
             })
             ->leftJoin('lead_claims', function ($join) {
                 $join->on('lead_claims.lead_id', '=', 'leads.id')

@@ -209,7 +209,7 @@ class LeadController extends Controller
             : new Lead();
 
 
-        $sources  = LeadSource::all();
+        $sources  = LeadSource::orderBy('name')->get();
         $segments = LeadSegment::all();
         $customerTypes = CustomerType::all();
         $industries = Industry::all();
