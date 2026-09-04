@@ -620,6 +620,7 @@ Route::get('/debug/expense-realizations', function () {
 
         Route::name('tickets.')->prefix('tickets')->group(function () {
             Route::get('/', [DatsTicketController::class, 'page'])->name('index');
+            Route::get('/create', [DatsTicketController::class, 'createPage'])->name('create');
             Route::get('/{ticket}', [DatsTicketController::class, 'showPage'])->name('show');
         });
     });

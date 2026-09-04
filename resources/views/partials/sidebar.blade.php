@@ -189,6 +189,45 @@
         </li>
         @endif
 
+        {{-- TICKETING MENU --}}
+        @if(auth()->check() && auth()->user()->hasPermission('aftersales.tickets.manage'))
+        <li id="listTicketing" class="rounded-lg mt-2">
+            <button id="ticketingToggle"  class="cursor-pointer w-full text-left rounded-lg px-3 py-2 grid place-items-center lg:flex lg:items-center lg:justify-between">
+                <div class="lg:flex! lg:items-center! lg:justify-start! lg:gap-3!">
+                    <svg id="ticketingIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M3 8C3 6.89543 3.89543 6 5 6H19C20.1046 6 21 6.89543 21 8V10C19.8954 10 19 10.8954 19 12C19 13.1046 19.8954 14 21 14V16C21 17.1046 20.1046 18 19 18H5C3.89543 18 3 17.1046 3 16V14C4.10457 14 5 13.1046 5 12C5 10.8954 4.10457 10 3 10V8Z"
+                            stroke="#1E1E1E" stroke-width="1.6" stroke-linejoin="round" />
+                        <path d="M10 6.5V17.5" stroke="#1E1E1E" stroke-width="1.6" stroke-dasharray="2 2" />
+                    </svg>
+
+                    <span id="ticketingSpan" class="sidebar-label text-[#1E1E1E] font-semibold sm:hidden lg:inline">
+                        Ticketing
+                    </span>
+                </div>
+                <i id="chevronTiketingMenu" class="sidebar-chevron sm:hidden! lg:inline-block! fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+            </button>
+            <div id="ticketingMenu" class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0">
+                <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
+                    {{-- ALL TICKET --}}
+                    <a class="flex items-center sm:gap-2 lg:gap-3"
+                        href="{{ route('aftersales.pages.tickets.index') }}">
+                        <span
+                            class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->routeIs('aftersales.pages.tickets.*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                        </span>
+                        <span
+                            class="sidebar-label {{ request()->routeIs('aftersales.pages.tickets.*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                            All Ticket
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </li>
+        @endif
+        @php
+            $isTicketingActive = request()->is('aftersales/tickets*');
+        @endphp
+
         {{-- SATISFACTION SURVEY MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
         <li
@@ -463,6 +502,47 @@
         const userDropdown = document.getElementById('userDropdown');
         const userMeta = document.getElementById('userMeta');
         const chevronUserInfo = document.getElementById('chevronUserInfo');
+        const ticketingToggle = document.getElementById('ticketingToggle');
+        const ticketingMenu = document.getElementById('ticketingMenu');
+        const ticketingIcon = document.getElementById('ticketingIcon');
+        const ticketingSpan = document.getElementById('ticketingSpan');
+        const chevronTicketingMenu = document.getElementById('chevronTicketingMenu');
+
+        const isActive = @json($isTicketingActive);
+        function openTicketing() {
+            ticketingMenu.classList.remove('max-h-0');
+            ticketingMenu.classList.add('max-h-[500px]');
+            ticketingToggle.classList.add('bg-[#CFE7DE]');
+            ticketingSpan.classList.add('text-[#115640]');
+            ticketingIcon.querySelectorAll('path').forEach(p => p.setAttribute('stroke', '#115640'));
+            chevronTicketingMenu.classList.remove('text-black');
+            chevronTicketingMenu.classList.add('rotate-90', 'text-[#115640]');
+        }
+
+        function closeTicketing() {
+            ticketingMenu.classList.add('max-h-0');
+            ticketingMenu.classList.remove('max-h-[500px]');
+            ticketingToggle.classList.remove('bg-[#CFE7DE]');
+            ticketingSpan.classList.remove('text-[#115640]');
+            ticketingIcon.querySelectorAll('path').forEach(p => p.setAttribute('stroke', '#1E1E1E'));
+            chevronTicketingMenu.classList.remove('rotate-90', 'text-[#115640]');
+            chevronTicketingMenu.classList.add('text-black');
+        }
+
+        if (isActive) {
+            openTicketing();
+        }
+
+        ticketingToggle.addEventListener('click', () => {
+            const sidebarWrapper = document.getElementById('sidebarWrapper');
+            if (sidebarWrapper && sidebarWrapper.classList.contains('sidebar-collapsed')) return;
+
+            if (ticketingMenu.classList.contains('max-h-0')) {
+                openTicketing();
+            } else {
+                closeTicketing();
+            }
+        });
 
         if (!sidebarWrapper || !toggleSidepanel || !headerSidebar) return;
 

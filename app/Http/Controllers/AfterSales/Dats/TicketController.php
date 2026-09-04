@@ -32,6 +32,15 @@ class TicketController extends Controller
         return $this->render('pages.aftersales.tickets.index');
     }
 
+    public function createPage(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $this->pageTitle = 'Tambah Ticket';
+
+        return $this->render('pages.aftersales.tickets.create');
+    }
+
     public function showPage(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
