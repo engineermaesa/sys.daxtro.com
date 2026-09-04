@@ -10,6 +10,10 @@ use App\Http\Controllers\Leads\SummaryController;
 use App\Http\Controllers\Masters\AgentController;
 use App\Http\Controllers\Masters\ProductTypeController;
 use App\Http\Controllers\Purchasing\PurchaseController;
+use App\Http\Controllers\AfterSales\Dats\ServiceCustomerController as DatsServiceCustomerController;
+use App\Http\Controllers\AfterSales\Dats\TechnicianController as DatsTechnicianController;
+use App\Http\Controllers\AfterSales\Dats\SparepartController as DatsSparepartController;
+use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketController;
 
 // Temporary debug route to inspect session id and CSRF token
 // Route::get('/debug/csrf', function () {
@@ -591,5 +595,32 @@ Route::get('/debug/expense-realizations', function () {
     ], function () {
         Route::get('permissions', 'PermissionSettingController@index')->name('permissions-settings.index');
         Route::get('permissions/form/{roleId}', 'PermissionSettingController@form')->name('permissions-settings.form');
+    });
+
+    // =====================================
+    // AFTERSALES DATS
+    // =====================================
+    // Named "aftersales.pages.*" (not "aftersales.*") to avoid colliding with
+    // the JSON route names of the same shape registered in routes/api.php.
+    Route::group([
+        'prefix' => 'aftersales',
+        'as' => 'aftersales.pages.',
+    ], function () {
+        Route::name('customers.')->prefix('customers')->group(function () {
+            Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
+        });
+
+        Route::name('technicians.')->prefix('technicians')->group(function () {
+            Route::get('/', [DatsTechnicianController::class, 'page'])->name('index');
+        });
+
+        Route::name('spareparts.')->prefix('spareparts')->group(function () {
+            Route::get('/', [DatsSparepartController::class, 'page'])->name('index');
+        });
+
+        Route::name('tickets.')->prefix('tickets')->group(function () {
+            Route::get('/', [DatsTicketController::class, 'page'])->name('index');
+            Route::get('/{ticket}', [DatsTicketController::class, 'showPage'])->name('show');
+        });
     });
 });

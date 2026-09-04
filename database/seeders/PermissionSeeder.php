@@ -41,6 +41,19 @@ class PermissionSeeder extends Seeder
             ['name' => 'Quotation Approvals', 'code' => 'quotation.approvals', 'description' => 'Quotation Approvals'],
             ['name' => 'Customers', 'code' => 'customers.view', 'description' => 'View customer technical specification data'],
             ['name' => 'Satisfaction Survey', 'code' => 'satisfaction-survey.view', 'description' => 'View technician satisfaction survey responses'],
+
+            // DATS (Aftersales Ticketing System)
+            ['name' => 'Manage Tickets', 'code' => 'aftersales.tickets.manage', 'description' => 'Create and manage aftersales tickets'],
+            ['name' => 'Assign Technician', 'code' => 'aftersales.tickets.assign', 'description' => 'Assign technician to a ticket'],
+            ['name' => 'Close Tickets', 'code' => 'aftersales.tickets.close', 'description' => 'Close aftersales tickets'],
+            ['name' => 'Submit Documentation', 'code' => 'aftersales.documentation.submit', 'description' => 'Submit ticket repair documentation'],
+            ['name' => 'Submit Satisfaction', 'code' => 'aftersales.satisfaction.submit', 'description' => 'Submit ticket customer satisfaction assessment'],
+            ['name' => 'Issue Work Orders', 'code' => 'aftersales.work-orders.issue', 'description' => 'Issue and print ticket work orders'],
+            ['name' => 'Manage Service Customers', 'code' => 'masters.service-customers', 'description' => 'Manage aftersales service customers and units'],
+            ['name' => 'Manage Technicians', 'code' => 'masters.technicians', 'description' => 'Manage aftersales technician masters'],
+            ['name' => 'Manage Spareparts', 'code' => 'masters.spareparts', 'description' => 'Manage aftersales sparepart master'],
+            ['name' => 'Manage Stock Movements', 'code' => 'aftersales.stock.manage', 'description' => 'Manage sparepart stock movements'],
+            ['name' => 'View Technician KPI', 'code' => 'aftersales.kpi.view', 'description' => 'View technician KPI dashboard'],
         ];
 
         foreach ($permissions as $perm) {

@@ -43,6 +43,12 @@ use App\Http\Controllers\Users\UserRoleController;
 // Purchasing
 use App\Http\Controllers\Purchasing\PurchaseController;
 
+// AFTERSALES DATS (API)
+use App\Http\Controllers\AfterSales\Dats\ServiceCustomerController;
+use App\Http\Controllers\AfterSales\Dats\TechnicianController as DatsTechnicianController;
+use App\Http\Controllers\AfterSales\Dats\SparepartController;
+use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketController;
+
 // =====================================
 // NOTIFICATIONS (API)
 // =====================================
@@ -439,6 +445,67 @@ Route::group([
         Route::get('/form/{id?}', [CustomerTypeController::class, 'form'])->name('form');
         Route::post('/save/{id?}', [CustomerTypeController::class, 'save'])->name('save');
         Route::delete('/delete/{id}', [CustomerTypeController::class, 'delete'])->name('delete');
+    });
+});
+
+// =====================================
+// AFTERSALES DATS (API)
+// =====================================
+Route::group([
+    'prefix' => 'aftersales',
+    'as' => 'aftersales.',
+    'middleware' => ['api', 'web', 'auth'],
+], function () {
+
+    // SERVICE CUSTOMERS + PRODUCT UNITS (API)
+    Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/', [ServiceCustomerController::class, 'index'])->name('index');
+        Route::post('/', [ServiceCustomerController::class, 'store'])->name('store');
+        Route::get('/{customer}', [ServiceCustomerController::class, 'show'])->name('show');
+        Route::put('/{customer}', [ServiceCustomerController::class, 'update'])->name('update');
+        Route::delete('/{customer}', [ServiceCustomerController::class, 'destroy'])->name('destroy');
+        Route::post('/{customer}/products', [ServiceCustomerController::class, 'storeProduct'])->name('products.store');
+        Route::put('/products/{product}', [ServiceCustomerController::class, 'updateProduct'])->name('products.update');
+        Route::delete('/products/{product}', [ServiceCustomerController::class, 'destroyProduct'])->name('products.destroy');
+    });
+
+    // TECHNICIANS (API)
+    Route::prefix('technicians')->name('technicians.')->group(function () {
+        Route::get('/', [DatsTechnicianController::class, 'index'])->name('index');
+        Route::post('/', [DatsTechnicianController::class, 'store'])->name('store');
+        Route::get('/{technician}', [DatsTechnicianController::class, 'show'])->name('show');
+        Route::put('/{technician}', [DatsTechnicianController::class, 'update'])->name('update');
+        Route::delete('/{technician}', [DatsTechnicianController::class, 'destroy'])->name('destroy');
+        Route::get('/{technician}/kpi', [DatsTechnicianController::class, 'kpi'])->name('kpi');
+    });
+
+    // SPAREPARTS + STOCK MOVEMENTS (API)
+    Route::prefix('spareparts')->name('spareparts.')->group(function () {
+        Route::get('/', [SparepartController::class, 'index'])->name('index');
+        Route::post('/', [SparepartController::class, 'store'])->name('store');
+        Route::get('/{sparepart}', [SparepartController::class, 'show'])->name('show');
+        Route::put('/{sparepart}', [SparepartController::class, 'update'])->name('update');
+        Route::delete('/{sparepart}', [SparepartController::class, 'destroy'])->name('destroy');
+        Route::get('/{sparepart}/stock-movements', [SparepartController::class, 'stockMovements'])->name('stock-movements.index');
+        Route::post('/{sparepart}/stock-movements', [SparepartController::class, 'storeStockMovement'])->name('stock-movements.store');
+    });
+
+    // TICKETS (API)
+    Route::prefix('tickets')->name('tickets.')->group(function () {
+        Route::get('/', [DatsTicketController::class, 'index'])->name('index');
+        Route::post('/', [DatsTicketController::class, 'store'])->name('store');
+        Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
+        Route::post('/{ticket}/assign', [DatsTicketController::class, 'assign'])->name('assign');
+        Route::post('/{ticket}/on-site', [DatsTicketController::class, 'onSite'])->name('on-site');
+        Route::post('/{ticket}/repair', [DatsTicketController::class, 'repair'])->name('repair');
+        Route::post('/{ticket}/waiting-sparepart', [DatsTicketController::class, 'waitingSparepart'])->name('waiting-sparepart');
+        Route::post('/{ticket}/documentation', [DatsTicketController::class, 'storeDocumentation'])->name('documentation.store');
+        Route::post('/{ticket}/satisfaction', [DatsTicketController::class, 'storeSatisfaction'])->name('satisfaction.store');
+        Route::post('/{ticket}/close', [DatsTicketController::class, 'close'])->name('close');
+        Route::post('/{ticket}/visits', [DatsTicketController::class, 'storeVisit'])->name('visits.store');
+        Route::put('/{ticket}/visits/{visit}', [DatsTicketController::class, 'updateVisit'])->name('visits.update');
+        Route::post('/{ticket}/work-orders', [DatsTicketController::class, 'issueWorkOrder'])->name('work-orders.store');
+        Route::post('/{ticket}/work-orders/{workOrder}/sign', [DatsTicketController::class, 'signWorkOrder'])->name('work-orders.sign');
     });
 });
 

@@ -213,6 +213,11 @@ class User extends Authenticatable
         return $this->permissions()->where('code', $code)->exists();
     }
 
+    public function technicianProfile()
+    {
+        return $this->hasOne(\App\Models\Aftersales\TechnicianProfile::class, 'user_id');
+    }
+
     // public function documents()
     // {
     //     return $this->hasMany(Document::class, 'user_id');
