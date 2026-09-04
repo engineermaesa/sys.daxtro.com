@@ -34,13 +34,12 @@
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-center uppercase text-xs">No.</th>
-                        <th class="p-3 text-center uppercase text-xs">Customer Name</th>
-                        <th class="p-3 text-center uppercase text-xs">Telephone</th>
-                        <th class="p-3 text-center uppercase text-xs">Machine Type</th>
-                        <th class="p-3 text-center uppercase text-xs">Power (W)</th>
-                        <th class="p-3 text-center uppercase text-xs">Room Area (m2)</th>
-                        <th class="p-3 text-center uppercase text-xs">Road Width (M)</th>
-                        <th class="p-3 text-center uppercase text-xs">Actions</th>
+                        <th class="p-3 text-center uppercase text-xs">Nama Customer</th>
+                        <th class="p-3 text-center uppercase text-xs">Perusahaan</th>
+                        <th class="p-3 text-center uppercase text-xs">No. Telpon</th>
+                        <th class="p-3 text-center uppercase text-xs">Kota</th>
+                        <th class="p-3 text-center uppercase text-xs">Provinsi</th>
+                        <th class="p-3 text-center uppercase text-xs">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="customer-table-body" class="text-center"></tbody>
@@ -100,6 +99,40 @@
         </div>
     </div>
 </div>
+
+{{-- CUSTOMER MACHINE MODAL --}}
+<div class="modal fade" id="customerMachineModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content rounded-2xl! overflow-hidden border-0!">
+            <div class="modal-header border-0! items-center px-6! pt-6! pb-4!">
+                <div>
+                    <h5 id="customerMachineModalLabel" class="modal-title text-[#115640] text-xl font-bold mb-0">Data Mesin</h5>
+                    <p id="customerMachineModalSubtitle" class="text-[#757575] text-sm mb-0"></p>
+                </div>
+                <button type="button" class="close cursor-pointer opacity-100! text-[#1E1E1E]! bg-white border border-[#D9D9D9] rounded-lg w-9 h-9 flex items-center justify-center" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true" class="text-xl font-light leading-none">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body px-6! pb-6! pt-0! overflow-x-auto">
+                <table class="w-full">
+                    <thead class="text-[#1E1E1E]">
+                        <tr class="border-b border-b-[#D9D9D9]">
+                            <th class="p-3 text-left uppercase text-xs">Serial Number</th>
+                            <th class="p-3 text-left uppercase text-xs">Model</th>
+                            <th class="p-3 text-left uppercase text-xs">Masa Garansi</th>
+                            <th class="p-3 text-left uppercase text-xs">Mulai Garansi</th>
+                            <th class="p-3 text-left uppercase text-xs">Akhir Garansi</th>
+                            <th class="p-3 text-left uppercase text-xs">Status Garansi</th>
+                            <th class="p-3 text-left uppercase text-xs">Kontrak PM</th>
+                            <th class="p-3 text-left uppercase text-xs">Frekuensi PM</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customer-machine-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -155,7 +188,16 @@
                 <td class="p-3">${row.power_watts ? escapeHtml(row.power_watts) + 'W' : '-'}</td>
                 <td class="p-3">${row.room_area_m2 ? escapeHtml(row.room_area_m2) + ' m2' : '-'}</td>
                 <td class="p-3">${row.road_width_m ? escapeHtml(row.road_width_m) + ' m' : '-'}</td>
-                <td class="p-3 text-center">${row.actions || ''}</td>
+                <td class="p-3 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button type="button" class="btn-customer-machines flex items-center gap-1 border border-[#D5D5D5] rounded-md px-2 py-1 bg-white hover:bg-[#115640] hover:text-white transition-all cursor-pointer"
+                            data-name="${escapeHtml(row.customer_name)}"
+                            data-city="${escapeHtml(row.city ?? '')}">
+                            <i class="bi bi-box-seam"></i> Mesin
+                        </button>
+                        ${row.actions || ''}
+                    </div>
+                </td>
             </tr>
         `).join('');
 
@@ -262,6 +304,56 @@
         });
     }
 
+    // TODO: replace with real API when backend machine data is ready
+    const dummyMachinesByCustomer = {
+        'Global Dynamics Inc.': [
+            { serial_number: 'SN-CRX-001', model: 'CryoGenic-X1', warranty_period: '2 Tahun', warranty_start: '2022-03-01', warranty_end: '2024-03-01', warranty_active: false, pm_contract_status: 'active', pm_frequency: '3 Bulan' },
+            { serial_number: 'SN-CRX-002', model: 'CryoGenic-X1 Pro', warranty_period: '2 Tahun', warranty_start: '2023-06-15', warranty_end: '2025-06-15', warranty_active: true, pm_contract_status: 'active', pm_frequency: '6 Bulan' },
+            { serial_number: 'SN-HYD-011', model: 'HydroCool S3', warranty_period: '1 Tahun', warranty_start: '2023-01-10', warranty_end: '2024-01-10', warranty_active: false, pm_contract_status: 'none', pm_frequency: null },
+        ],
+    };
+
+    function getDummyMachines(customerName) {
+        return dummyMachinesByCustomer[customerName] || [];
+    }
+
+    function machineBadge(active, activeLabel, inactiveLabel) {
+        return active
+            ? `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#E6F4EF] text-[#115640]">${activeLabel}</span>`
+            : `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FBEAEA] text-[#900B09]">${inactiveLabel}</span>`;
+    }
+
+    function pmContractBadge(status) {
+        if (status === 'active') {
+            return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FFF3CD] text-[#8A6D00]">Aktif</span>`;
+        }
+        return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#F0F0F0] text-[#757575]">Tidak Ada</span>`;
+    }
+
+    function renderMachineRows(rows) {
+        const $body = $('#customer-machine-table-body');
+
+        if (!rows || rows.length === 0) {
+            $body.html('<tr><td colspan="8" class="text-center p-4 text-[#757575]">Belum ada data mesin</td></tr>');
+            return;
+        }
+
+        const html = rows.map(row => `
+            <tr class="border-t border-t-[#D9D9D9]">
+                <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.serial_number)}</td>
+                <td class="p-3">${escapeHtml(row.model)}</td>
+                <td class="p-3">${escapeHtml(row.warranty_period)}</td>
+                <td class="p-3">${escapeHtml(row.warranty_start)}</td>
+                <td class="p-3">${escapeHtml(row.warranty_end)}</td>
+                <td class="p-3">${machineBadge(row.warranty_active, 'Aktif', 'Kadaluarsa')}</td>
+                <td class="p-3">${pmContractBadge(row.pm_contract_status)}</td>
+                <td class="p-3">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
+            </tr>
+        `).join('');
+
+        $body.html(html);
+    }
+
     function renderCadList(files) {
         const $list = $('#customer-cad-list');
 
@@ -364,6 +456,16 @@
             if (!page || page < 1 || page > customerState.lastPage) return;
             customerState.page = page;
             loadCustomers();
+        });
+
+        $(document).on('click', '.btn-customer-machines', function () {
+            const name = $(this).data('name');
+            const city = $(this).data('city');
+
+            $('#customerMachineModalLabel').text(`Data Mesin — ${name}`);
+            $('#customerMachineModalSubtitle').text(city || '');
+            renderMachineRows(getDummyMachines(name));
+            $('#customerMachineModal').modal('show');
         });
 
         $(document).on('click', '.btn-customer-detail', function (e) {
