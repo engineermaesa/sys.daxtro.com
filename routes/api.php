@@ -461,6 +461,8 @@ Route::group([
     Route::prefix('customers')->name('customers.')->group(function () {
         Route::get('/', [ServiceCustomerController::class, 'index'])->name('index');
         Route::post('/', [ServiceCustomerController::class, 'store'])->name('store');
+        Route::get('/provinces', [ServiceCustomerController::class, 'provinces'])->name('provinces');
+        Route::get('/regions', [ServiceCustomerController::class, 'regions'])->name('regions');
         Route::get('/{customer}', [ServiceCustomerController::class, 'show'])->name('show');
         Route::put('/{customer}', [ServiceCustomerController::class, 'update'])->name('update');
         Route::delete('/{customer}', [ServiceCustomerController::class, 'destroy'])->name('destroy');

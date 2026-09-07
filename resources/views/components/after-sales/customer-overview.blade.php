@@ -5,7 +5,7 @@
             <p class="text-[#757575] text-sm">Showing active industrial installations and specifications.</p>
         </div>
 
-        <a href="{{ route('after-sales.customers.index') }}"
+        <a href="{{ route('aftersales.pages.customers.index') }}"
             class="text-[#115640] font-medium text-sm hover:opacity-70 flex items-center gap-1 whitespace-nowrap">
             View All Projects
             <i class="bi bi-chevron-right"></i>

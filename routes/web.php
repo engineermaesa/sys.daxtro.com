@@ -198,20 +198,6 @@ Route::middleware('auth')->group(function () {
         Route::get('update/{id}', [PurchaseController::class, 'update'])->name('update');
     });
 
-    // =====================================
-    // AFTER SALES
-    // =====================================
-
-    Route::group([
-        'prefix' => 'after-sales',
-        'as' => 'after-sales.',
-        'namespace' => 'App\\Http\\Controllers\\AfterSales',
-    ], function () {
-        Route::get('customers', 'CustomerController@index')->name('customers.index');
-        Route::get('customers/data', 'CustomerController@list')->name('customers.list');
-        Route::get('customers/{customer}', 'CustomerController@show')->name('customers.show');
-        Route::post('customers/{customer}/cad', 'CustomerController@uploadCad')->name('customers.cad.upload');
-    });
 
     // SATISFACTION SURVEY
     Route::get('satisfaction-survey', [\App\Http\Controllers\SatisfactionSurveyController::class, 'index'])
@@ -608,6 +594,10 @@ Route::get('/debug/expense-realizations', function () {
     ], function () {
         Route::name('customers.')->prefix('customers')->group(function () {
             Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
+            Route::get('/create', [DatsServiceCustomerController::class, 'createPage'])->name('create');
+            Route::get('/{customer}/edit', [DatsServiceCustomerController::class, 'createPage'])->name('edit');
+            Route::get('/{customer}/machines', [DatsServiceCustomerController::class, 'machinesPage'])->name('machines');
+            Route::get('/{customer}/machines/create', [DatsServiceCustomerController::class, 'createMachinePage'])->name('machines.create');
         });
 
         Route::name('technicians.')->prefix('technicians')->group(function () {
