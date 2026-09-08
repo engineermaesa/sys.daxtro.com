@@ -228,6 +228,21 @@
             $isTicketingActive = request()->is('aftersales/tickets*');
         @endphp
 
+        {{-- TECHNICIAN --}}
+        @if(auth()->check() && auth()->user()->hasPermission('masters.technicians'))
+        <li
+            class="{{ request()->routeIs('aftersales.pages.technicians.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('aftersales.pages.technicians.index') }}">
+                <i class="bi bi-wrench-adjustable text-[20px] {{ request()->routeIs('aftersales.pages.technicians.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }}"></i>
+                <span
+                    class="sidebar-label {{ request()->routeIs('aftersales.pages.technicians.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Technician</span>
+            </a>
+        </li>
+        @endif
+
+        {{-- SPAREPART --}}
+
         {{-- SATISFACTION SURVEY MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
         <li

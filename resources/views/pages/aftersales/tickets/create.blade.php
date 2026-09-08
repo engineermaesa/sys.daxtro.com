@@ -49,7 +49,7 @@
 
                     <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">Nama Customer<span class="text-red-600">*</span></label>
-                        <select id="field-customer" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
+                        <select id="field-customer" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
                             <option value="">Pilih customer</option>
                             {{-- TODO: fetch GET /api/aftersales/customers lalu isi <option value="{id}" data-*="...">{name}</option> --}}
                         </select>
@@ -81,7 +81,7 @@
 
                     <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">Nama Mesin<span class="text-red-600">*</span></label>
-                        <select id="field-machine" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required disabled>
+                        <select id="field-machine" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required disabled>
                             <option value="">Pilih customer dulu</option>
                             {{-- TODO: setelah customer dipilih, fetch GET /api/aftersales/customers/{id} lalu isi <option value="{product.id}">{machine_name}</option> --}}
                         </select>
@@ -116,8 +116,12 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1">Nomor Tiket (Auto)</label>
-                        <input type="text" readonly value="Akan digenerate otomatis saat disimpan"
+                        <label class="flex items-center gap-1 text-sm font-medium mb-1">
+                            Nomor Tiket
+                            <i class="bi bi-info-circle text-[#757575] cursor-pointer" data-toggle="tooltip" data-placement="top"
+                                title="Nomor tiket akan digenerate otomatis saat disimpan"></i>
+                        </label>
+                        <input type="text" disabled value="Akan digenerate otomatis saat disimpan"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F0FAF5] text-[#115640] font-semibold focus:outline-none!">
                     </div>
                     <div>
@@ -154,9 +158,8 @@
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Teknisi Assigned<span class="text-red-600">*</span></label>
-                        <select id="field-technician" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
+                        <select id="field-technician" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
                             <option value="">Pilih Teknisi</option>
-                            {{-- TODO: fetch GET /api/aftersales/technicians lalu isi <option value="{technician.user.id}">{technician.user.name}</option> --}}
                         </select>
                     </div>
                     <div>
@@ -166,14 +169,8 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Target SLA</label>
-                        <div class="flex gap-2">
-                            <input type="number" id="field-sla-value" min="1" value="3"
-                                class="w-1/2 border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-                            <select id="field-sla-unit" class="w-1/2 border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-                                <option value="day" selected>Hari</option>
-                                <option value="hour">Jam</option>
-                            </select>
-                        </div>
+                        <input type="date" id="field-sla-due-date"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Supervisor Approval</label>
@@ -266,7 +263,7 @@
                     <i class="bi bi-arrow-left"></i> Kembali
                 </button>
                 <button type="button" id="btn-wizard-next"
-                    class="bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633] transition-colors cursor-pointer">
+                    class="ml-auto bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633] transition-colors cursor-pointer">
                     Lanjut <i class="bi bi-arrow-right"></i>
                 </button>
             </div>
@@ -280,6 +277,7 @@
     const TOTAL_STEPS = 5;
     let currentStep = 1;
     let sparepartRowCount = 0;
+    let sparepartsCache = [];
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -288,6 +286,12 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    function sparepartOptionsHtml() {
+        return sparepartsCache.map(sp =>
+            `<option value="${sp.id}" data-code="${escapeHtml(sp.part_number || '')}">${escapeHtml(sp.name)}</option>`
+        ).join('');
     }
 
     function addSparepartRow() {
@@ -300,7 +304,7 @@
                 <td class="p-2">
                     <select class="sparepart-item w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                         <option value="">Pilih Item</option>
-                        {{-- TODO: fetch GET /api/aftersales/spareparts lalu isi <option value="{id}" data-code="{part_number}">{name}</option> --}}
+                        ${sparepartOptionsHtml()}
                     </select>
                 </td>
                 <td class="p-2">
@@ -389,14 +393,24 @@
             }
         });
 
+        const slaDueDate = $('#field-sla-due-date').val();
+        let slaValue = 1;
+        if (slaDueDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = new Date(slaDueDate + 'T00:00:00');
+            const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
+            slaValue = Math.max(diffDays, 1);
+        }
+
         return {
             customer_id: $('#field-customer').val(),
             customer_product_id: $('#field-machine').val(),
             category: $('#field-category').val(),
             priority: $('#field-priority').val(),
             description: $('#field-description').val(),
-            sla_value: $('#field-sla-value').val(),
-            sla_unit: $('#field-sla-unit').val(),
+            sla_value: slaValue,
+            sla_unit: 'day',
             supervisor_id: $('#field-supervisor').val() || null,
             assigned_technician_id: $('#field-technician').val() || null,
             scheduled_at: $('#field-visit-date').val() || null,
@@ -405,19 +419,130 @@
         };
     }
 
+    function runSequential(tasks, onDone, onError) {
+        if (tasks.length === 0) {
+            onDone();
+            return;
+        }
+
+        const [first, ...rest] = tasks;
+        first(
+            () => runSequential(rest, onDone, onError),
+            onError
+        );
+    }
+
+    function formatApiErrors(xhr) {
+        const errors = xhr.responseJSON?.errors;
+        if (errors) {
+            return Object.values(errors).flat().join('\n');
+        }
+        return xhr.responseJSON?.message || 'Terjadi kesalahan, silakan coba lagi.';
+    }
+
     function submitTicket() {
         const payload = collectPayload();
 
-         // TODO: sambungkan ke API asli, urutan request:
-         // 1) POST /api/aftersales/tickets  -> body: customer_id, customer_product_id, category, priority,
-         //    description, sla_value, sla_unit, supervisor_id, parts[], costs[]  => dapat {id}
-         // 2) jika payload.assigned_technician_id ada:
-         //    POST /api/aftersales/tickets/{id}/assign -> body: assigned_technician_id
-         // 3) jika payload.scheduled_at ada:
-         //    POST /api/aftersales/tickets/{id}/visits -> body: scheduled_at
-         // 4) redirect ke route('aftersales.pages.tickets.index') + notif sukses
-        console.log('submit payload (placeholder)', payload);
-        window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+        if (!payload.customer_id || !payload.customer_product_id) {
+            Swal.fire({
+                title: 'Data belum lengkap',
+                text: 'Pilih customer dan mesin terlebih dahulu di Step 1.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 1;
+            updateStepper();
+            return;
+        }
+
+        Swal.fire({
+            title: 'Simpan tiket ini?',
+            text: 'Pastikan seluruh data yang diisi sudah benar.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#115640',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, simpan!',
+            cancelButtonText: 'Batal'
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            $.ajax({
+                url: '/api/aftersales/tickets',
+                method: 'POST',
+                data: {
+                    customer_id: payload.customer_id,
+                    customer_product_id: payload.customer_product_id,
+                    category: payload.category,
+                    priority: payload.priority,
+                    description: payload.description,
+                    sla_value: payload.sla_value,
+                    sla_unit: payload.sla_unit,
+                    supervisor_id: payload.supervisor_id,
+                    parts: payload.parts,
+                    costs: payload.costs,
+                },
+                success: function (response) {
+                    const ticketId = response.data?.id;
+                    const ticketCode = response.data?.ticket_code;
+                    const followUpTasks = [];
+
+                    if (payload.assigned_technician_id) {
+                        followUpTasks.push((next, fail) => {
+                            $.ajax({
+                                url: `/api/aftersales/tickets/${ticketId}/assign`,
+                                method: 'POST',
+                                data: { assigned_technician_id: payload.assigned_technician_id },
+                            }).done(next).fail(fail);
+                        });
+                    }
+
+                    if (payload.scheduled_at) {
+                        followUpTasks.push((next, fail) => {
+                            $.ajax({
+                                url: `/api/aftersales/tickets/${ticketId}/visits`,
+                                method: 'POST',
+                                data: { scheduled_at: payload.scheduled_at },
+                            }).done(next).fail(fail);
+                        });
+                    }
+
+                    runSequential(
+                        followUpTasks,
+                        function () {
+                            Swal.fire({
+                                title: 'Tersimpan!',
+                                text: `Tiket ${ticketCode ?? ''} berhasil dibuat.`,
+                                icon: 'success',
+                                confirmButtonColor: '#115640'
+                            }).then(function () {
+                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                            });
+                        },
+                        function (xhr) {
+                            Swal.fire({
+                                title: 'Tiket dibuat, tapi ada masalah tambahan',
+                                text: formatApiErrors(xhr),
+                                icon: 'warning',
+                                confirmButtonColor: '#115640'
+                            }).then(function () {
+                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                            });
+                        }
+                    );
+                },
+                error: function (xhr) {
+                    Swal.fire({
+                        title: 'Gagal menyimpan tiket',
+                        text: formatApiErrors(xhr),
+                        icon: 'error',
+                        confirmButtonColor: '#115640'
+                    });
+                }
+            });
+        });
     }
 
     function recalculateCostTotal() {
@@ -428,27 +553,182 @@
         $('#cost-total').text('Rp' + total.toLocaleString('id-ID'));
     }
 
-    $(function () {
-         // TODO: fetch GET /api/aftersales/customers untuk isi #field-customer
-         // TODO: fetch GET /api/aftersales/technicians untuk isi #field-technician
-         // TODO: fetch GET /api/aftersales/tickets/supervisors untuk isi #field-supervisor
-         // TODO: fetch GET /api/aftersales/spareparts untuk isi opsi item di tiap baris sparepart
+    let customersCache = [];
+    let currentProducts = [];
 
+    function resetCustomerFields() {
+        $('#field-pic-name').val('');
+        $('#field-pic-email').val('');
+        $('#field-phone').val('');
+        $('#field-location').val('');
+    }
+
+    function resetMachineFields() {
+        $('#field-machine-model').val('');
+        $('#field-serial-number').val('');
+        $('#field-warranty-status').val('');
+    }
+
+    function warrantyStatusLabel(warrantyEnd) {
+        if (!warrantyEnd) return '-';
+        const end = new Date(warrantyEnd);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return end >= today ? 'Aktif' : 'Kadaluarsa';
+    }
+
+    function loadCustomerOptions() {
+        $.ajax({
+            url: '/api/aftersales/customers',
+            method: 'GET',
+            data: { per_page: 100 },
+            success: function (response) {
+                customersCache = response.data || [];
+
+                const options = customersCache.map(customer =>
+                    `<option value="${customer.id}">${escapeHtml(customer.name)}</option>`
+                ).join('');
+
+                $('#field-customer').html('<option value="">Pilih customer</option>' + options).trigger('change.select2');
+            },
+            error: function (xhr) {
+                console.error('Failed to load customers', xhr.responseJSON?.message || xhr.statusText);
+            }
+        });
+    }
+
+    function loadMachineOptions(customerId) {
+        $('#field-machine').prop('disabled', true).html('<option value="">Memuat...</option>').trigger('change.select2');
+        resetMachineFields();
+
+        $.ajax({
+            url: `/api/aftersales/customers/${customerId}`,
+            method: 'GET',
+            success: function (response) {
+                currentProducts = response.data?.products || [];
+
+                if (currentProducts.length === 0) {
+                    $('#field-machine').html('<option value="">Belum ada mesin terdaftar</option>').trigger('change.select2');
+                    return;
+                }
+
+                const options = currentProducts.map(product =>
+                    `<option value="${product.id}">${escapeHtml(product.product?.name)}</option>`
+                ).join('');
+
+                $('#field-machine').prop('disabled', false).html('<option value="">Pilih mesin</option>' + options).trigger('change.select2');
+            },
+            error: function (xhr) {
+                console.error('Failed to load customer machines', xhr.responseJSON?.message || xhr.statusText);
+                $('#field-machine').html('<option value="">Gagal memuat data mesin</option>').trigger('change.select2');
+            }
+        });
+    }
+
+    function loadTechnicianOptions() {
+        $.ajax({
+            url: '/api/aftersales/technicians',
+            method: 'GET',
+            data: { per_page: 100 },
+            success: function (response) {
+                const technicians = response.data || [];
+                const options = technicians.map(t =>
+                    `<option value="${t.user?.id}">${escapeHtml(t.user?.name)}</option>`
+                ).join('');
+                $('#field-technician').html('<option value="">Pilih Teknisi</option>' + options).trigger('change.select2');
+            },
+            error: function (xhr) {
+                console.error('Failed to load technicians', xhr.responseJSON?.message || xhr.statusText);
+            }
+        });
+    }
+
+    function loadSparepartOptions() {
+        $.ajax({
+            url: '/api/aftersales/spareparts',
+            method: 'GET',
+            data: { per_page: 100 },
+            success: function (response) {
+                sparepartsCache = response.data || [];
+
+                $('.sparepart-item').each(function () {
+                    const current = $(this).val();
+                    $(this).html('<option value="">Pilih Item</option>' + sparepartOptionsHtml());
+                    if (current) {
+                        $(this).val(current);
+                    }
+                });
+            },
+            error: function (xhr) {
+                console.error('Failed to load spareparts', xhr.responseJSON?.message || xhr.statusText);
+            }
+        });
+    }
+
+    function initSelect2() {
+        if (!window.jQuery || !jQuery.fn?.select2) {
+            return;
+        }
+
+        $('#field-customer, #field-machine, #field-technician').select2({
+            width: '100%',
+            dropdownCssClass: 'select2-dropdown-modern',
+        });
+    }
+
+    function initTooltips() {
+        if (window.jQuery && jQuery.fn?.tooltip) {
+            $('[data-toggle="tooltip"]').tooltip();
+        }
+    }
+
+    $(function () {
+        // TODO: fetch GET /api/aftersales/tickets/supervisors untuk isi #field-supervisor
+        // (endpoint belum tersedia di backend)
+
+        initSelect2();
+        initTooltips();
         for (let i = 0; i < 5; i++) addSparepartRow();
         updateStepper();
+        loadCustomerOptions();
+        loadTechnicianOptions();
+        loadSparepartOptions();
+
+        const defaultSlaDate = new Date();
+        defaultSlaDate.setDate(defaultSlaDate.getDate() + 3);
+        $('#field-sla-due-date').val(defaultSlaDate.toISOString().slice(0, 10));
 
         $('#field-customer').on('change', function () {
             const selected = $(this).val();
-            $('#field-machine').prop('disabled', !selected);
+            resetCustomerFields();
 
-             // TODO: fetch GET /api/aftersales/customers/{selected} lalu isi:
-             // - #field-pic-name, #field-pic-email, #field-phone, #field-location dari data customer
-             // - opsi #field-machine dari data.products
+            if (!selected) {
+                currentProducts = [];
+                $('#field-machine').prop('disabled', true).html('<option value="">Pilih customer dulu</option>').trigger('change.select2');
+                return;
+            }
+
+            const customer = customersCache.find(c => String(c.id) === String(selected));
+            if (customer) {
+                $('#field-pic-name').val(customer.pic_name || '');
+                $('#field-pic-email').val(customer.email || '');
+                $('#field-phone').val(customer.phone || '');
+                $('#field-location').val([customer.region?.name, customer.province?.name].filter(Boolean).join(', '));
+            }
+
+            loadMachineOptions(selected);
         });
 
         $('#field-machine').on('change', function () {
-             // TODO: dari opsi terpilih (data product), isi:
-             // - #field-machine-model, #field-serial-number, #field-warranty-status
+            const selected = $(this).val();
+            resetMachineFields();
+
+            const product = currentProducts.find(p => String(p.id) === String(selected));
+            if (product) {
+                $('#field-machine-model').val(product.product_type?.name || '');
+                $('#field-serial-number').val(product.serial_number || '');
+                $('#field-warranty-status').val(warrantyStatusLabel(product.warranty_end));
+            }
         });
 
         $(document).on('change', '.sparepart-item', function () {

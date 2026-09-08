@@ -54,7 +54,7 @@ class TicketController extends Controller
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
 
-        $query = Ticket::with(['customer', 'customerProduct', 'technician', 'logs']);
+        $query = Ticket::with(['customer', 'customerProduct', 'technician', 'logs', 'visits']);
 
         if ($request->filled('category')) {
             $query->where('category', $request->input('category'));
@@ -79,11 +79,17 @@ class TicketController extends Controller
         $perPage = (int) $request->input('per_page', 15);
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
-        $items = collect($paginated->items())->map(fn (Ticket $t) => array_merge($t->toArray(), [
-            'progress' => $t->progress,
-            'aging_days' => $t->aging_days,
-            'sla_status' => $t->sla_status,
-        ]));
+        $items = collect($paginated->items())->map(function (Ticket $t) {
+            $latestVisit = $t->visits->sortByDesc('scheduled_at')->first();
+
+            return array_merge($t->toArray(), [
+                'progress' => $t->progress,
+                'aging_days' => $t->aging_days,
+                'sla_status' => $t->sla_status,
+                'visit_date' => $latestVisit?->scheduled_at,
+                'closed_at' => $latestVisit?->actual_end,
+            ]);
+        });
 
         if ($request->filled('progress')) {
             $items = $items->where('progress', $request->input('progress'))->values();

@@ -236,24 +236,23 @@
     function loadTickets() {
         $('#ticket-table-body').html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
-         // TODO: fetch GET /api/aftersales/tickets?page=&per_page=&search=
-         // $.ajax({
-         //     url: '/api/aftersales/tickets',
-         //     method: 'GET',
-         //     data: { page: ticketState.page, per_page: ticketState.perPage, search: ticketState.search },
-         //     success: function (response) {
-         //         renderTicketRows(response.data);
-         //         renderTicketPagination(response);
-         //     },
-         //     error: function (xhr) {
-         //         const message = xhr.responseJSON?.message || 'Failed to load tickets';
-         //         $('#ticket-table-body').html(`<tr><td colspan="15" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
-         //     }
-         // });
-
-         // placeholder sementara sebelum API disambungkan
-        renderTicketRows([]);
-        renderTicketPagination({ total: 0, current_page: 1, last_page: 1 });
+        $.ajax({
+            url: '/api/aftersales/tickets',
+            method: 'GET',
+            data: {
+                page: ticketState.page,
+                per_page: ticketState.perPage,
+                search: ticketState.search,
+            },
+            success: function (response) {
+                renderTicketRows(response.data);
+                renderTicketPagination(response);
+            },
+            error: function (xhr) {
+                const message = xhr.responseJSON?.message || 'Failed to load tickets';
+                $('#ticket-table-body').html(`<tr><td colspan="15" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+            }
+        });
     }
 
     function openTicketDetail(ticket) {
