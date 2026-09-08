@@ -927,11 +927,16 @@ class ImportLeadController extends Controller
                     $sales = User::where('nip', $base['nip_sales'])->first();
                 }
 
+                $region  = Region::with('province')->find($base['region_id']);
+                $segment = LeadSegment::find($base['segment_id']);
+
                 $lead = Lead::withoutEvents(fn () => Lead::create([
                     'source_id'       => $base['source_id'],
                     'segment_id'      => $base['segment_id'],
                     'industry_id'     => $base['industry_id'] ?? null,
                     'region_id'       => $base['region_id'],
+                    'province'        => $region?->province?->name,
+                    'customer_type'   => $segment?->name,
                     'branch_id'       => $sales?->branch_id,
                     'status_id'       => $status,
                     'company'         => $base['company_name'] ?? null,
