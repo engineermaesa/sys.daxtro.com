@@ -608,6 +608,7 @@ Route::get('/debug/expense-realizations', function () {
 
         Route::name('spareparts.')->prefix('spareparts')->group(function () {
             Route::get('/', [DatsSparepartController::class, 'page'])->name('index');
+            Route::get('/create', [DatsSparepartController::class, 'createPage'])->name('create');
         });
 
         Route::name('tickets.')->prefix('tickets')->group(function () {

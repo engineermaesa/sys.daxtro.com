@@ -242,6 +242,17 @@
         @endif
 
         {{-- SPAREPART --}}
+        @if(auth()->check() && auth()->user()->hasPermission('masters.spareparts'))
+        <li
+            class="{{ request()->routeIs('aftersales.pages.spareparts.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('aftersales.pages.spareparts.index') }}">
+                <i class="bi bi-box-seam text-[20px] {{ request()->routeIs('aftersales.pages.spareparts.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }}"></i>
+                <span
+                    class="sidebar-label {{ request()->routeIs('aftersales.pages.spareparts.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Sparepart</span>
+            </a>
+        </li>
+        @endif
 
         {{-- SATISFACTION SURVEY MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
