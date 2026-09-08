@@ -23,6 +23,16 @@
                         <input type="text" id="field-name" placeholder="Full name" required
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium mb-1">Email<span class="text-red-600">*</span></label>
+                        <input type="email" id="field-email" placeholder="name@company.com" required
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium mb-1">Password<span class="text-red-600">*</span></label>
+                        <input type="password" id="field-password" placeholder="Minimum 6 characters" required minlength="6"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
+                    </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Level</label>
                         <select id="field-grade" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
@@ -84,7 +94,7 @@
                 </a>
                 <button type="submit" id="btn-save-technician"
                     class="bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633] transition-colors cursor-pointer">
-                    Save Technician
+                    <span id="btn-save-technician-label">Save Technician</span>
                 </button>
             </div>
         </form>
@@ -123,23 +133,46 @@
             .filter(skill => skill.level !== 'none');
     }
 
+    function formatApiErrors(xhr) {
+        const errors = xhr.responseJSON?.errors;
+        if (errors) {
+            return Object.values(errors).flat().join('\n');
+        }
+        return xhr.responseJSON?.message || 'Terjadi kesalahan, silakan coba lagi.';
+    }
+
     $(function () {
         loadRegionOptions();
 
-        // TODO: belum di-wiring ke backend (POST /api/aftersales/technicians) — masih tahap FE saja.
         $('#technician-form').on('submit', function (e) {
             e.preventDefault();
 
             const payload = {
                 name: $('#field-name').val(),
+                email: $('#field-email').val(),
+                password: $('#field-password').val(),
                 grade: $('#field-grade').val(),
                 region_id: $('#field-region').val() || null,
                 certification: $('#field-certification').val() || null,
                 skills: collectSkills(),
             };
 
-            console.log('Technician form payload (not yet submitted to backend):', payload);
-            alert('Form belum terhubung ke backend. Data yang akan dikirim sudah tercetak di console.');
+            $('#btn-save-technician').prop('disabled', true);
+            $('#btn-save-technician-label').text('Saving...');
+
+            $.ajax({
+                url: '/api/aftersales/technicians',
+                method: 'POST',
+                data: payload,
+                success: function () {
+                    window.location.href = '{{ route('aftersales.pages.technicians.index') }}';
+                },
+                error: function (xhr) {
+                    alert(formatApiErrors(xhr));
+                    $('#btn-save-technician').prop('disabled', false);
+                    $('#btn-save-technician-label').text('Save Technician');
+                }
+            });
         });
     });
 </script>
