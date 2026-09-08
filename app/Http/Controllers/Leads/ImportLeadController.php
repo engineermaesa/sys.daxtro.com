@@ -927,7 +927,7 @@ class ImportLeadController extends Controller
                     $sales = User::where('nip', $base['nip_sales'])->first();
                 }
 
-                $lead = Lead::withoutObservers(fn () => Lead::create([
+                $lead = Lead::withoutEvents(fn () => Lead::create([
                     'source_id'       => $base['source_id'],
                     'segment_id'      => $base['segment_id'],
                     'industry_id'     => $base['industry_id'] ?? null,
