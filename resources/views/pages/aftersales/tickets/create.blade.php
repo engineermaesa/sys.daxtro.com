@@ -485,8 +485,8 @@
                     costs: payload.costs,
                 },
                 success: function (response) {
-                    const ticketId = response.data?.id;
-                    const ticketCode = response.data?.ticket_code;
+                    const ticketId = response.data?.data?.id;
+                    const ticketCode = response.data?.data?.ticket_code;
                     const followUpTasks = [];
 
                     if (payload.assigned_technician_id) {

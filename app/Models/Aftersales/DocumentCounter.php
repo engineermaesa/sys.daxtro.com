@@ -3,7 +3,7 @@
 namespace App\Models\Aftersales;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Carbon;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DocumentCounter extends Model

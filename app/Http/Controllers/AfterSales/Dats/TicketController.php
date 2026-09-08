@@ -166,9 +166,10 @@ class TicketController extends Controller
             $sequence = DocumentCounter::nextNumber(DocumentCounter::TYPE_TICKET, $now);
             $ticketCode = 'DAX-AF-' . $now->format('Ymd') . '-' . $sequence;
 
+            $slaValue = (int) $validated['sla_value'];
             $slaDueAt = $validated['sla_unit'] === 'hour'
-                ? $now->copy()->addHours($validated['sla_value'])
-                : $now->copy()->addDays($validated['sla_value']);
+                ? $now->copy()->addHours($slaValue)
+                : $now->copy()->addDays($slaValue);
 
             $ticket = Ticket::create([
                 'ticket_code' => $ticketCode,
