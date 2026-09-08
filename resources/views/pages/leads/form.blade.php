@@ -37,7 +37,6 @@
                 $agentOptions = collect($agentOptions ?? []);
                 $selectedAgentInput = old('agent_id', $form_data->agent_id);
                 $selectedAgentId = is_array($selectedAgentInput) ? ($selectedAgentInput[0] ?? null) : $selectedAgentInput;
-                $agentSourceIds = $agentOptions->pluck('source_id')->filter()->map(fn ($id) => (int) $id)->all();
             @endphp
             <div id="lead-entries">
                 <div class="lead-entry">
@@ -290,35 +289,11 @@
                                         class="select2 source-select rounded-lg! px-3! py-2! border! border-[#D9D9D9]! text-[#1E1E1E]! focus:outline-none!"
                                         required>
                                         <option value="" disabled selected>Pilih</option>
-                                        @php
-                                        $filter = [
-                                        'Ads Google',
-                                        'Website',
-                                        'Meta Ads',
-                                        'Linked In',
-                                        'Tik Tok Marketing',
-                                        'Friends Recommendation',
-                                        'Canvas',
-                                        'Visit',
-                                        'Expo RHVAC Jakarta 2025',
-                                        'Association',
-                                        'Data Survey',
-                                        'Business Association',
-                                        'Repeat Order',
-                                        'Sales Independen',
-                                        'Aftersales',
-                                        'Expo FBI & IISM 2026',
-                                        ];
-                                        $isNew = empty($form_data->source_id);
-                                        @endphp
-
                                         @foreach ($sources as $source)
-                                            @if ($isNew ? in_array($source->name, $filter) || in_array((int) $source->id, $agentSourceIds) : true)
-                                                <option value="{{ $source->id }}" {{ old('source_id', $form_data->source_id) ==
-                                                    $source->id ? 'selected' : '' }}>
-                                                    {{ $source->name }}
-                                                </option>
-                                            @endif
+                                            <option value="{{ $source->id }}" {{ old('source_id', $form_data->source_id) ==
+                                                $source->id ? 'selected' : '' }}>
+                                                {{ $source->name }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>

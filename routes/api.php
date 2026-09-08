@@ -32,6 +32,7 @@ use App\Http\Controllers\Masters\CustomerTypeController;
 use App\Http\Controllers\Masters\ExpenseTypeController;
 use App\Http\Controllers\Masters\PartController;
 use App\Http\Controllers\Masters\ProductCategoryController;
+use App\Http\Controllers\Masters\SourceController;
 use App\Http\Controllers\Masters\ProductController;
 use App\Http\Controllers\Masters\ProvinceController;
 use App\Http\Controllers\Masters\RegionController;
@@ -360,6 +361,14 @@ Route::group([
         Route::get('/form/{id?}', [AccountController::class, 'form'])->name('form');
         Route::post('/save/{id?}', [AccountController::class, 'save'])->name('save');
         Route::delete('/delete/{id}', [AccountController::class, 'delete'])->name('delete');
+    });
+
+    // SOURCES (API)
+    Route::prefix('sources')->name('sources.')->group(function () {
+        Route::get('/list', [SourceController::class, 'list'])->name('list');
+        Route::get('/form/{id?}', [SourceController::class, 'form'])->name('form');
+        Route::post('/save/{id?}', [SourceController::class, 'save'])->name('save');
+        Route::delete('/delete/{id}', [SourceController::class, 'delete'])->name('delete');
     });
 
     // PRODUCT CATEGORIES (API)

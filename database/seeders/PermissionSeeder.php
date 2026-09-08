@@ -12,6 +12,7 @@ class PermissionSeeder extends Seeder
         $permissions = [
             ['name' => 'Dashboard', 'code' => 'dashboard', 'description' => 'Access dashboard'],
             ['name' => 'Agents', 'code' => 'masters.agents', 'description' => 'Manage agents'],
+            ['name' => 'Source', 'code' => 'masters.sources', 'description' => 'Manage lead sources'],
             ['name' => 'Banks', 'code' => 'masters.banks', 'description' => 'Manage banks'],
             ['name' => 'Accounts', 'code' => 'masters.accounts', 'description' => 'Manage accounts'],
             ['name' => 'Product Categories', 'code' => 'masters.product-categories', 'description' => 'Manage product categories'],

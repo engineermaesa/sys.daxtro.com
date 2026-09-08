@@ -502,6 +502,11 @@ Route::get('/debug/expense-realizations', function () {
             Route::get('/form/{id?}', 'AccountController@form')->name('form');
         });
 
+        Route::name('sources.')->prefix('sources')->group(function () {
+            Route::get('/', 'SourceController@index')->name('index');
+            Route::get('/form/{id?}', 'SourceController@form')->name('form');
+        });
+
         Route::name('product-categories.')->prefix('product-categories')->group(function () {
             Route::get('/', 'ProductCategoryController@index')->name('index');
             Route::get('/form/{id?}', 'ProductCategoryController@form')->name('form');
