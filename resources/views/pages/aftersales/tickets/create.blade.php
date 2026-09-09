@@ -5,11 +5,11 @@
     <div class="pt-4">
         <div class="flex items-center justify-between mb-1">
             <div>
-                <h1 class="text-[#115640] font-bold text-lg uppercase">Form Input Tiket <span class="text-[#757575] font-normal normal-case text-sm">(DAXTRO DATS v3.0)</span></h1>
+                <h1 class="text-[#115640] font-bold text-lg uppercase">Tickets Input Form</h1>
                 <p class="text-[#757575] text-sm mt-1">
                     <a href="{{ route('aftersales.pages.tickets.index') }}" class="hover:underline">All Ticket</a>
                     <span class="mx-1">&gt;</span>
-                    <span class="font-semibold text-[#1E1E1E]">Form Input Tiket</span>
+                    <span class="font-semibold text-[#1E1E1E]">{{ isset($ticket) ? 'Edit Ticket' : 'New Ticket' }}</span>
                 </p>
             </div>
         </div>
@@ -19,11 +19,11 @@
             <div id="ticket-stepper" class="flex items-center">
                 @php
                     $steps = [
-                        1 => 'Data Customer & Mesin',
-                        2 => 'Detail Keluhan',
+                        1 => 'Customer & Machine Data',
+                        2 => 'Complaint Details',
                         3 => 'Assignment',
                         4 => 'Sparepart',
-                        5 => 'Biaya',
+                        5 => 'Final Cost',
                     ];
                 @endphp
                 @foreach ($steps as $number => $label)
@@ -45,50 +45,50 @@
             {{-- STEP 1: DATA CUSTOMER & MESIN --}}
             <div class="wizard-step grid grid-cols-1 lg:grid-cols-2 gap-4" data-step="1">
                 <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
-                    <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">1. Data Customer</h6>
+                    <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">1. Customer Data</h6>
 
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Nama Customer<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Customer Name<span class="text-red-600">*</span></label>
                         <select id="field-customer" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
-                            <option value="">Pilih customer</option>
+                            <option value="">Choose customer</option>
                             {{-- TODO: fetch GET /api/aftersales/customers lalu isi <option value="{id}" data-*="...">{name}</option> --}}
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">PIC Contact<span class="text-red-600">*</span></label>
-                        <input type="text" id="field-pic-name" readonly placeholder="Nama PIC"
+                        <input type="text" id="field-pic-name" readonly placeholder="PIC Name"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Email PIC</label>
+                        <label class="block text-sm font-medium mb-1">PIC Email</label>
                         <input type="text" id="field-pic-email" readonly placeholder="pic@company.com"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Telepon / WA<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Phone Numbers / WA<span class="text-red-600">*</span></label>
                         <input type="text" id="field-phone" readonly placeholder="08xxxxxxxxxx"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Lokasi / Area<span class="text-red-600">*</span></label>
-                        <input type="text" id="field-location" readonly placeholder="Kota, Provinsi"
+                        <label class="block text-sm font-medium mb-1">Location / Area<span class="text-red-600">*</span></label>
+                        <input type="text" id="field-location" readonly placeholder="City, Province"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                 </div>
 
                 <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
-                    <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">2. Data Mesin & Garansi</h6>
+                    <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">2. Machine Data & Warranty</h6>
 
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Nama Mesin<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Machine Name<span class="text-red-600">*</span></label>
                         <select id="field-machine" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required disabled>
-                            <option value="">Pilih customer dulu</option>
-                            {{-- TODO: setelah customer dipilih, fetch GET /api/aftersales/customers/{id} lalu isi <option value="{product.id}">{machine_name}</option> --}}
+                            <option value="">Please choose the customer first.</option>
+                            {{-- TODO: after customer is selected, fetch GET /api/aftersales/customers/{id} then populate <option value="{product.id}">{machine_name}</option> --}}
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Model / Tipe</label>
-                        <input type="text" id="field-machine-model" readonly placeholder="Model atau tipe"
+                        <label class="block text-sm font-medium mb-1">Model / Type</label>
+                        <input type="text" id="field-machine-model" readonly placeholder="Model or type"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                     <div class="mb-3">
@@ -97,37 +97,37 @@
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-sm font-medium mb-1">Tahun Instalasi</label>
+                        <label class="block text-sm font-medium mb-1">Installation Year</label>
                         <input type="text" id="field-install-year" placeholder="e.g. 2022"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-                        <p class="text-xs text-[#B0B0B0] mt-1">Info saja — belum ada kolom penyimpanan di database, tidak ikut terkirim.</p>
+                        <p class="text-xs text-[#B0B0B0] mt-1">For info only — no storage column in the database yet, not submitted.</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Status Garansi</label>
-                        <input type="text" id="field-warranty-status" readonly placeholder="Aktif / Kadaluarsa"
+                        <label class="block text-sm font-medium mb-1">Warranty Status</label>
+                        <input type="text" id="field-warranty-status" readonly placeholder="Active / Expired"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                     </div>
                 </div>
             </div>
 
-            {{-- STEP 2: DETAIL KELUHAN --}}
+            {{-- STEP 2: COMPLAINT DETAILS --}}
             <div class="wizard-step hidden bg-white rounded-lg border border-[#D9D9D9] p-5" data-step="2">
-                <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">3. Detail Keluhan & Tiket</h6>
+                <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">3. Complaint & Ticket Details</h6>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div>
                         <label class="flex items-center gap-1 text-sm font-medium mb-1">
-                            Nomor Tiket
+                            Ticket Number
                             <i class="bi bi-info-circle text-[#757575] cursor-pointer" data-toggle="tooltip" data-placement="top"
-                                title="Nomor tiket akan digenerate otomatis saat disimpan"></i>
+                                title="{{ isset($ticket) ? 'Auto generated upon saving' : 'Preview of the number that will be assigned on saving' }}"></i>
                         </label>
-                        <input type="text" disabled value="Akan digenerate otomatis saat disimpan"
+                        <input type="text" id="field-ticket-code" disabled value="Generating..."
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F0FAF5] text-[#115640] font-semibold focus:outline-none!">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Kategori Keluhan<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Complaint Category<span class="text-red-600">*</span></label>
                         <select id="field-category" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
-                            <option value="">Pilih</option>
+                            <option value="">Select</option>
                             <option value="electrical">Electrical</option>
                             <option value="mechanical">Mechanical</option>
                             <option value="refrigeration_system">Refrigeration System</option>
@@ -135,7 +135,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Level Prioritas</label>
+                        <label class="block text-sm font-medium mb-1">Priority Level</label>
                         <select id="field-priority" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                             <option value="low">Low</option>
                             <option value="medium" selected>Medium</option>
@@ -145,8 +145,8 @@
                 </div>
 
                 <div class="mt-4">
-                    <label class="block text-sm font-medium mb-1">Deskripsi Problem<span class="text-red-600">*</span></label>
-                    <textarea id="field-description" rows="4" placeholder="Jelaskan keluhan atau problem yang dialami..."
+                    <label class="block text-sm font-medium mb-1">Problem Description<span class="text-red-600">*</span></label>
+                    <textarea id="field-description" rows="4" placeholder="Describe the complaint or problem encountered..."
                         class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required></textarea>
                 </div>
             </div>
@@ -157,30 +157,30 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1">Teknisi Assigned<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Assigned Technician</label>
                         <select id="field-technician" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
-                            <option value="">Pilih Teknisi</option>
+                            <option value="">Select Technician</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Jadwal Visit<span class="text-red-600">*</span></label>
+                        <label class="block text-sm font-medium mb-1">Visit Schedule</label>
                         <input type="datetime-local" id="field-visit-date"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Target SLA</label>
+                        <label class="block text-sm font-medium mb-1">SLA Target</label>
                         <input type="date" id="field-sla-due-date"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Supervisor Approval</label>
                         <select id="field-supervisor" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-                            <option value="">Pilih Supervisor</option>
-                            {{-- TODO: fetch GET /api/aftersales/tickets/supervisors (endpoint baru, role after_sales) lalu isi <option value="{id}">{name}</option> --}}
+                            <option value="">Select Supervisor</option>
+                            {{-- TODO: fetch GET /api/aftersales/tickets/supervisors (new endpoint, after_sales role) then populate <option value="{id}">{name}</option> --}}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Status Tiket</label>
+                        <label class="block text-sm font-medium mb-1">Ticket Status</label>
                         <select disabled class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
                             <option selected>Open</option>
                         </select>
@@ -194,7 +194,7 @@
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide mb-0">Sparepart</h6>
                     <button type="button" id="btn-add-sparepart"
                         class="border border-[#115640] text-[#115640] rounded-lg px-3 py-1.5 text-sm hover:bg-[#F5FAF8] cursor-pointer">
-                        <i class="bi bi-plus-lg"></i> Tambah Sparepart
+                        <i class="bi bi-plus-lg"></i> Add Sparepart
                     </button>
                 </div>
 
@@ -203,10 +203,10 @@
                         <thead>
                             <tr class="border-b border-[#D9D9D9] text-left text-xs uppercase text-[#757575]">
                                 <th class="p-2 w-10">No</th>
-                                <th class="p-2">Nama Item</th>
+                                <th class="p-2">Item Name</th>
                                 <th class="p-2">Part Code</th>
                                 <th class="p-2 w-24">Qty</th>
-                                <th class="p-2 w-32">Satuan</th>
+                                <th class="p-2 w-32">Unit</th>
                                 <th class="p-2 w-10"></th>
                             </tr>
                         </thead>
@@ -215,9 +215,9 @@
                 </div>
             </div>
 
-            {{-- STEP 5: BIAYA --}}
+            {{-- STEP 5: COST --}}
             <div class="wizard-step hidden bg-white rounded-lg border border-[#D9D9D9] p-5" data-step="5">
-                <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Biaya</h6>
+                <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Cost</h6>
 
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -230,7 +230,7 @@
                             </tr>
                         </thead>
                         <tbody id="cost-rows">
-                            @foreach (['labor' => 'Jasa', 'accommodation' => 'Akomodasi', 'transportation' => 'Transportasi', 'other' => 'Lain-lain'] as $key => $label)
+                            @foreach (['labor' => 'Labor', 'accommodation' => 'Accommodation', 'transportation' => 'Transportation', 'other' => 'Other'] as $key => $label)
                                 <tr class="border-t border-[#D9D9D9]" data-cost-category="{{ $key }}">
                                     <td class="p-2 font-semibold">{{ $label }}</td>
                                     <td class="p-2">
@@ -243,13 +243,17 @@
                                         </select>
                                     </td>
                                     <td class="p-2">
-                                        <input type="text" placeholder="Keterangan..." class="cost-remarks w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
+                                        <input type="text" placeholder="Remarks..." class="cost-remarks w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                                     </td>
                                 </tr>
                             @endforeach
                             <tr class="border-t border-[#D9D9D9] bg-[#F5FAF8]">
                                 <td class="p-2 font-semibold text-[#115640]">Total</td>
-                                <td class="p-2 font-semibold text-[#115640]" id="cost-total" colspan="3">Rp0</td>
+                                <td class="p-2 font-semibold text-[#115640]" colspan="3">
+                                    <span id="cost-total-idr">Rp0</span>
+                                    <span class="mx-2 text-[#D9D9D9]">|</span>
+                                    <span id="cost-total-usd">$0.00</span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -260,11 +264,11 @@
             <div class="flex items-center justify-between mt-4">
                 <button type="button" id="btn-wizard-back"
                     class="border border-[#D9D9D9] text-[#1E1E1E] rounded-lg px-4 py-2 hover:bg-gray-50 cursor-pointer">
-                    <i class="bi bi-arrow-left"></i> Kembali
+                    <i class="bi bi-arrow-left"></i> Back
                 </button>
                 <button type="button" id="btn-wizard-next"
                     class="ml-auto bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633] transition-colors cursor-pointer">
-                    Lanjut <i class="bi bi-arrow-right"></i>
+                    Next <i class="bi bi-arrow-right"></i>
                 </button>
             </div>
         </form>
@@ -278,6 +282,11 @@
     let currentStep = 1;
     let sparepartRowCount = 0;
     let sparepartsCache = [];
+
+    const EDIT_TICKET_ID = @json($ticket->id ?? null);
+    const EDIT_TICKET = @json(isset($ticket) ? $ticket->toArray() : null);
+    let originalTechnicianId = EDIT_TICKET?.assigned_technician_id ? String(EDIT_TICKET.assigned_technician_id) : null;
+    let originalVisitDate = null;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -294,16 +303,22 @@
         ).join('');
     }
 
-    function addSparepartRow() {
+    function renumberSparepartRows() {
+        $('#sparepart-rows tr').each(function (index) {
+            $(this).find('.sparepart-row-label').text(`Sparepart ${index + 1}`);
+        });
+    }
+
+    function addSparepartRow(prefill) {
         sparepartRowCount += 1;
         const rowNumber = sparepartRowCount;
 
         const html = `
             <tr class="border-t border-[#D9D9D9]" data-sparepart-row="${rowNumber}">
-                <td class="p-2">Sparepart ${rowNumber}</td>
+                <td class="p-2 sparepart-row-label">Sparepart ${rowNumber}</td>
                 <td class="p-2">
                     <select class="sparepart-item w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
-                        <option value="">Pilih Item</option>
+                        <option value="">Select Item</option>
                         ${sparepartOptionsHtml()}
                     </select>
                 </td>
@@ -315,7 +330,7 @@
                 </td>
                 <td class="p-2">
                     <select class="sparepart-unit w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
-                        <option value="">Pilih</option>
+                        <option value="">Select</option>
                         <option value="pieces">Pieces</option>
                         <option value="set">Set</option>
                         <option value="lot">Lot</option>
@@ -323,14 +338,24 @@
                     </select>
                 </td>
                 <td class="p-2 text-center">
-                    <button type="button" class="btn-remove-sparepart text-[#900B09] cursor-pointer" title="Hapus baris">
+                    <button type="button" class="btn-remove-sparepart text-[#900B09] cursor-pointer" title="Remove row">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
             </tr>
         `;
 
-        $('#sparepart-rows').append(html);
+        const $row = $(html);
+        $('#sparepart-rows').append($row);
+
+        if (prefill) {
+            $row.find('.sparepart-item').val(String(prefill.ref_sparepart_id));
+            $row.find('.sparepart-code').val(prefill.part_number || '');
+            $row.find('.sparepart-qty').val(prefill.qty);
+            $row.find('.sparepart-unit').val(prefill.unit);
+        }
+
+        renumberSparepartRows();
     }
 
     function updateStepper() {
@@ -358,14 +383,65 @@
         $(`.wizard-step[data-step="${currentStep}"]`).removeClass('hidden');
 
         $('#btn-wizard-back').toggle(currentStep > 1);
-        $('#btn-wizard-next').text(currentStep === TOTAL_STEPS ? 'Simpan Ticket' : 'Lanjut');
+        const saveLabel = EDIT_TICKET_ID ? 'Update Ticket' : 'Save Ticket';
         $('#btn-wizard-next').html(currentStep === TOTAL_STEPS
-            ? 'Simpan Ticket <i class="bi bi-check-lg"></i>'
-            : 'Lanjut <i class="bi bi-arrow-right"></i>');
+            ? `${saveLabel} <i class="bi bi-check-lg"></i>`
+            : 'Next <i class="bi bi-arrow-right"></i>');
+    }
+
+    const REQUIRED_FIELDS_BY_STEP = {
+        1: ['#field-customer', '#field-pic-name', '#field-phone', '#field-location', '#field-machine', '#field-serial-number'],
+        2: ['#field-category', '#field-description'],
+    };
+
+    function markFieldInvalid(selector) {
+        $(selector).addClass('border-red-500');
+        if (selector === '#field-customer' || selector === '#field-machine' || selector === '#field-technician') {
+            $(selector).next('.select2-container').find('.select2-selection').addClass('border-red-500');
+        }
+    }
+
+    function clearFieldInvalid(selector) {
+        $(selector).removeClass('border-red-500');
+        if (selector === '#field-customer' || selector === '#field-machine' || selector === '#field-technician') {
+            $(selector).next('.select2-container').find('.select2-selection').removeClass('border-red-500');
+        }
     }
 
     function validateCurrentStep() {
-        // TODO: perkuat validasi tiap step sebelum lanjut (khususnya field required)
+        const selectors = REQUIRED_FIELDS_BY_STEP[currentStep] || [];
+        const missing = selectors.filter(selector => !$(selector).val());
+
+        selectors.forEach(clearFieldInvalid);
+        missing.forEach(markFieldInvalid);
+
+        if (missing.length > 0) {
+            Swal.fire({
+                title: 'Data incomplete',
+                text: 'Please fill in all required fields before proceeding.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            return false;
+        }
+
+        if (currentStep === 5) {
+            let totalCost = 0;
+            $('#cost-rows tr[data-cost-category] .cost-amount').each(function () {
+                totalCost += Number($(this).val() || 0);
+            });
+
+            if (totalCost <= 0) {
+                Swal.fire({
+                    title: 'Data incomplete',
+                    text: 'Please fill in at least one cost amount greater than 0.',
+                    icon: 'warning',
+                    confirmButtonColor: '#115640'
+                });
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -437,16 +513,17 @@
         if (errors) {
             return Object.values(errors).flat().join('\n');
         }
-        return xhr.responseJSON?.message || 'Terjadi kesalahan, silakan coba lagi.';
+        return xhr.responseJSON?.message || 'An error occurred, please try again.';
     }
 
     function submitTicket() {
         const payload = collectPayload();
+        const isEdit = !!EDIT_TICKET_ID;
 
         if (!payload.customer_id || !payload.customer_product_id) {
             Swal.fire({
-                title: 'Data belum lengkap',
-                text: 'Pilih customer dan mesin terlebih dahulu di Step 1.',
+                title: 'Data incomplete',
+                text: 'Please select a customer and machine in Step 1 first.',
                 icon: 'warning',
                 confirmButtonColor: '#115640'
             });
@@ -456,40 +533,46 @@
         }
 
         Swal.fire({
-            title: 'Simpan tiket ini?',
-            text: 'Pastikan seluruh data yang diisi sudah benar.',
+            title: isEdit ? 'Update this ticket?' : 'Save this ticket?',
+            text: 'Make sure all the data entered is correct.',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#115640',
             cancelButtonColor: '#d33',
-            confirmButtonText: 'Ya, simpan!',
-            cancelButtonText: 'Batal'
+            confirmButtonText: isEdit ? 'Yes, update it!' : 'Yes, save it!',
+            cancelButtonText: 'Cancel'
         }).then(function (result) {
             if (!result.isConfirmed) {
                 return;
             }
 
+            const ajaxData = {
+                customer_id: payload.customer_id,
+                customer_product_id: payload.customer_product_id,
+                category: payload.category,
+                priority: payload.priority,
+                description: payload.description,
+                sla_value: payload.sla_value,
+                sla_unit: payload.sla_unit,
+                supervisor_id: payload.supervisor_id,
+                parts: payload.parts,
+                costs: payload.costs,
+            };
+
+            if (isEdit) {
+                ajaxData.assigned_technician_id = payload.assigned_technician_id;
+            }
+
             $.ajax({
-                url: '/api/aftersales/tickets',
-                method: 'POST',
-                data: {
-                    customer_id: payload.customer_id,
-                    customer_product_id: payload.customer_product_id,
-                    category: payload.category,
-                    priority: payload.priority,
-                    description: payload.description,
-                    sla_value: payload.sla_value,
-                    sla_unit: payload.sla_unit,
-                    supervisor_id: payload.supervisor_id,
-                    parts: payload.parts,
-                    costs: payload.costs,
-                },
+                url: isEdit ? `/api/aftersales/tickets/${EDIT_TICKET_ID}` : '/api/aftersales/tickets',
+                method: isEdit ? 'PUT' : 'POST',
+                data: ajaxData,
                 success: function (response) {
-                    const ticketId = response.data?.data?.id;
-                    const ticketCode = response.data?.data?.ticket_code;
+                    const ticketId = isEdit ? EDIT_TICKET_ID : response.data?.data?.id;
+                    const ticketCode = response.data?.data?.ticket_code ?? EDIT_TICKET?.ticket_code;
                     const followUpTasks = [];
 
-                    if (payload.assigned_technician_id) {
+                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId)) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/assign`,
@@ -499,7 +582,7 @@
                         });
                     }
 
-                    if (payload.scheduled_at) {
+                    if (payload.scheduled_at && (!isEdit || payload.scheduled_at !== originalVisitDate)) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/visits`,
@@ -513,8 +596,8 @@
                         followUpTasks,
                         function () {
                             Swal.fire({
-                                title: 'Tersimpan!',
-                                text: `Tiket ${ticketCode ?? ''} berhasil dibuat.`,
+                                title: isEdit ? 'Updated!' : 'Saved!',
+                                text: `Ticket ${ticketCode ?? ''} has been ${isEdit ? 'updated' : 'created'} successfully.`,
                                 icon: 'success',
                                 confirmButtonColor: '#115640'
                             }).then(function () {
@@ -523,7 +606,7 @@
                         },
                         function (xhr) {
                             Swal.fire({
-                                title: 'Tiket dibuat, tapi ada masalah tambahan',
+                                title: isEdit ? 'Ticket updated, but there was an additional issue' : 'Ticket created, but there was an additional issue',
                                 text: formatApiErrors(xhr),
                                 icon: 'warning',
                                 confirmButtonColor: '#115640'
@@ -535,7 +618,7 @@
                 },
                 error: function (xhr) {
                     Swal.fire({
-                        title: 'Gagal menyimpan tiket',
+                        title: isEdit ? 'Failed to update ticket' : 'Failed to save ticket',
                         text: formatApiErrors(xhr),
                         icon: 'error',
                         confirmButtonColor: '#115640'
@@ -546,11 +629,16 @@
     }
 
     function recalculateCostTotal() {
-        let total = 0;
+        const totals = { idr: 0, usd: 0 };
+
         $('#cost-rows tr[data-cost-category]').each(function () {
-            total += Number($(this).find('.cost-amount').val() || 0);
+            const amount = Number($(this).find('.cost-amount').val() || 0);
+            const currency = $(this).find('.cost-currency').val() || 'idr';
+            totals[currency] = (totals[currency] || 0) + amount;
         });
-        $('#cost-total').text('Rp' + total.toLocaleString('id-ID'));
+
+        $('#cost-total-idr').text('Rp' + totals.idr.toLocaleString('id-ID'));
+        $('#cost-total-usd').text('$' + totals.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
 
     let customersCache = [];
@@ -574,11 +662,11 @@
         const end = new Date(warrantyEnd);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        return end >= today ? 'Aktif' : 'Kadaluarsa';
+        return end >= today ? 'Active' : 'Expired';
     }
 
     function loadCustomerOptions() {
-        $.ajax({
+        return $.ajax({
             url: '/api/aftersales/customers',
             method: 'GET',
             data: { per_page: 100 },
@@ -589,7 +677,7 @@
                     `<option value="${customer.id}">${escapeHtml(customer.name)}</option>`
                 ).join('');
 
-                $('#field-customer').html('<option value="">Pilih customer</option>' + options).trigger('change.select2');
+                $('#field-customer').html('<option value="">Select customer</option>' + options).trigger('change.select2');
             },
             error: function (xhr) {
                 console.error('Failed to load customers', xhr.responseJSON?.message || xhr.statusText);
@@ -597,8 +685,8 @@
         });
     }
 
-    function loadMachineOptions(customerId) {
-        $('#field-machine').prop('disabled', true).html('<option value="">Memuat...</option>').trigger('change.select2');
+    function loadMachineOptions(customerId, onLoaded) {
+        $('#field-machine').prop('disabled', true).html('<option value="">Loading...</option>').trigger('change.select2');
         resetMachineFields();
 
         $.ajax({
@@ -608,7 +696,7 @@
                 currentProducts = response.data?.products || [];
 
                 if (currentProducts.length === 0) {
-                    $('#field-machine').html('<option value="">Belum ada mesin terdaftar</option>').trigger('change.select2');
+                    $('#field-machine').html('<option value="">No machines registered yet</option>').trigger('change.select2');
                     return;
                 }
 
@@ -616,17 +704,19 @@
                     `<option value="${product.id}">${escapeHtml(product.product?.name)}</option>`
                 ).join('');
 
-                $('#field-machine').prop('disabled', false).html('<option value="">Pilih mesin</option>' + options).trigger('change.select2');
+                $('#field-machine').prop('disabled', false).html('<option value="">Select machine</option>' + options).trigger('change.select2');
             },
             error: function (xhr) {
                 console.error('Failed to load customer machines', xhr.responseJSON?.message || xhr.statusText);
-                $('#field-machine').html('<option value="">Gagal memuat data mesin</option>').trigger('change.select2');
+                $('#field-machine').html('<option value="">Failed to load machine data</option>').trigger('change.select2');
             }
+        }).always(function () {
+            if (typeof onLoaded === 'function') onLoaded();
         });
     }
 
     function loadTechnicianOptions() {
-        $.ajax({
+        return $.ajax({
             url: '/api/aftersales/technicians',
             method: 'GET',
             data: { per_page: 100 },
@@ -635,7 +725,7 @@
                 const options = technicians.map(t =>
                     `<option value="${t.user?.id}">${escapeHtml(t.user?.name)}</option>`
                 ).join('');
-                $('#field-technician').html('<option value="">Pilih Teknisi</option>' + options).trigger('change.select2');
+                $('#field-technician').html('<option value="">Select Technician</option>' + options).trigger('change.select2');
             },
             error: function (xhr) {
                 console.error('Failed to load technicians', xhr.responseJSON?.message || xhr.statusText);
@@ -644,7 +734,7 @@
     }
 
     function loadSparepartOptions() {
-        $.ajax({
+        return $.ajax({
             url: '/api/aftersales/spareparts',
             method: 'GET',
             data: { per_page: 100 },
@@ -653,7 +743,7 @@
 
                 $('.sparepart-item').each(function () {
                     const current = $(this).val();
-                    $(this).html('<option value="">Pilih Item</option>' + sparepartOptionsHtml());
+                    $(this).html('<option value="">Select Item</option>' + sparepartOptionsHtml());
                     if (current) {
                         $(this).val(current);
                     }
@@ -663,6 +753,30 @@
                 console.error('Failed to load spareparts', xhr.responseJSON?.message || xhr.statusText);
             }
         });
+    }
+
+    function prefillSparepartAndCostRows() {
+        const parts = (EDIT_TICKET?.parts || []).filter(p => p.type === 'estimated');
+
+        if (parts.length > 0) {
+            parts.forEach(part => addSparepartRow({
+                ref_sparepart_id: part.ref_sparepart_id,
+                qty: part.qty,
+                unit: part.unit,
+                part_number: part.sparepart?.part_number,
+            }));
+        } else {
+            addSparepartRow();
+        }
+
+        (EDIT_TICKET?.costs || []).forEach(cost => {
+            const $row = $(`#cost-rows tr[data-cost-category="${cost.category}"]`);
+            $row.find('.cost-amount').val(cost.amount);
+            $row.find('.cost-currency').val(cost.currency);
+            $row.find('.cost-remarks').val(cost.remarks || '');
+        });
+
+        recalculateCostTotal();
     }
 
     function initSelect2() {
@@ -683,20 +797,61 @@
     }
 
     $(function () {
-        // TODO: fetch GET /api/aftersales/tickets/supervisors untuk isi #field-supervisor
-        // (endpoint belum tersedia di backend)
+        // TODO: fetch GET /api/aftersales/tickets/supervisors to populate #field-supervisor
+        // (endpoint not yet available in backend)
 
         initSelect2();
         initTooltips();
-        for (let i = 0; i < 5; i++) addSparepartRow();
         updateStepper();
-        loadCustomerOptions();
-        loadTechnicianOptions();
-        loadSparepartOptions();
 
-        const defaultSlaDate = new Date();
-        defaultSlaDate.setDate(defaultSlaDate.getDate() + 3);
-        $('#field-sla-due-date').val(defaultSlaDate.toISOString().slice(0, 10));
+        const customerPromise = loadCustomerOptions();
+        const technicianPromise = loadTechnicianOptions();
+        const sparepartPromise = loadSparepartOptions();
+
+        if (EDIT_TICKET_ID) {
+            $('#field-ticket-code').val(EDIT_TICKET.ticket_code || '-');
+
+            $.when(customerPromise, technicianPromise, sparepartPromise).done(function () {
+                $('#field-customer').val(String(EDIT_TICKET.customer_id)).trigger('change');
+                $('#field-category').val(EDIT_TICKET.category || '');
+                $('#field-priority').val(EDIT_TICKET.priority || 'medium');
+                $('#field-description').val(EDIT_TICKET.description || '');
+
+                if (EDIT_TICKET.assigned_technician_id) {
+                    $('#field-technician').val(String(EDIT_TICKET.assigned_technician_id)).trigger('change.select2');
+                }
+                if (EDIT_TICKET.supervisor_id) {
+                    $('#field-supervisor').val(String(EDIT_TICKET.supervisor_id));
+                }
+                if (EDIT_TICKET.sla_due_at) {
+                    $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 10));
+                }
+
+                const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at))[0];
+                if (latestVisit) {
+                    originalVisitDate = String(latestVisit.scheduled_at).slice(0, 16).replace(' ', 'T');
+                    $('#field-visit-date').val(originalVisitDate);
+                }
+
+                prefillSparepartAndCostRows();
+            });
+        } else {
+            const defaultSlaDate = new Date();
+            defaultSlaDate.setDate(defaultSlaDate.getDate() + 3);
+            $('#field-sla-due-date').val(defaultSlaDate.toISOString().slice(0, 10));
+            addSparepartRow();
+
+            $.ajax({
+                url: '/api/aftersales/tickets/next-code',
+                method: 'GET',
+                success: function (response) {
+                    $('#field-ticket-code').val(response.data?.ticket_code || 'Will be generated automatically upon saving');
+                },
+                error: function () {
+                    $('#field-ticket-code').val('Will be generated automatically upon saving');
+                }
+            });
+        }
 
         $('#field-customer').on('change', function () {
             const selected = $(this).val();
@@ -704,7 +859,7 @@
 
             if (!selected) {
                 currentProducts = [];
-                $('#field-machine').prop('disabled', true).html('<option value="">Pilih customer dulu</option>').trigger('change.select2');
+                $('#field-machine').prop('disabled', true).html('<option value="">Select customer first</option>').trigger('change.select2');
                 return;
             }
 
@@ -716,7 +871,11 @@
                 $('#field-location').val([customer.region?.name, customer.province?.name].filter(Boolean).join(', '));
             }
 
-            loadMachineOptions(selected);
+            loadMachineOptions(selected, function () {
+                if (EDIT_TICKET && EDIT_TICKET.customer_product_id && String(selected) === String(EDIT_TICKET.customer_id)) {
+                    $('#field-machine').val(String(EDIT_TICKET.customer_product_id)).trigger('change');
+                }
+            });
         });
 
         $('#field-machine').on('change', function () {
@@ -736,13 +895,22 @@
             $(this).closest('tr').find('.sparepart-code').val(code);
         });
 
-        $('#btn-add-sparepart').on('click', addSparepartRow);
+        $('#btn-add-sparepart').on('click', function () {
+            addSparepartRow();
+        });
 
         $(document).on('click', '.btn-remove-sparepart', function () {
             $(this).closest('tr').remove();
+            renumberSparepartRows();
         });
 
-        $(document).on('input', '.cost-amount', recalculateCostTotal);
+        $(document).on('input change', '.cost-amount, .cost-currency', recalculateCostTotal);
+
+        $(document).on('input change', '#field-customer, #field-pic-name, #field-phone, #field-location, #field-machine, #field-serial-number, #field-category, #field-description, #field-technician, #field-visit-date', function () {
+            if ($(this).val()) {
+                clearFieldInvalid('#' + $(this).attr('id'));
+            }
+        });
 
         $('#btn-wizard-back').on('click', function () {
             if (currentStep > 1) {

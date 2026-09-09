@@ -65,6 +65,7 @@ class RolePermissionSeeder extends Seeder
                 $permissions['aftersales.tickets.manage'] ?? null,
                 $permissions['aftersales.tickets.assign'] ?? null,
                 $permissions['aftersales.tickets.close'] ?? null,
+                $permissions['aftersales.documentation.submit'] ?? null,
                 $permissions['aftersales.satisfaction.submit'] ?? null,
                 $permissions['aftersales.work-orders.issue'] ?? null,
                 $permissions['masters.service-customers'] ?? null,

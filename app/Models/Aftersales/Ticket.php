@@ -89,8 +89,13 @@ class Ticket extends Model
     }
 
     /**
-     * Progress is never stored — it is the step of the latest ticket_logs
-     * row, per PRD §5.1.
+     * Progress is never stored. It's the higher of two things: the latest
+     * manually-logged ticket_logs step, and an "auto floor" derived from the
+     * ticket's own data (technician assigned -> assigned, visit day has
+     * arrived or already passed -> on_site) so a ticket never looks stuck
+     * just because no one has manually logged a step yet. Manual logs
+     * (repair, waiting_sparepart, documentation_published,
+     * satisfaction_submitted, closed) always take precedence once they exist.
      */
     public function getProgressAttribute(): ?string
     {
@@ -98,7 +103,39 @@ class Ticket extends Model
             ? $this->logs->sortByDesc('id')->first()
             : $this->logs()->latest('id')->first();
 
-        return $latest?->step;
+        $loggedStep = $latest?->step;
+        $loggedOrder = $loggedStep ? array_search($loggedStep, TicketLog::STEPS, true) : -1;
+
+        $autoFloor = TicketLog::STEP_PUBLISHED;
+        if ($this->assigned_technician_id) {
+            $autoFloor = TicketLog::STEP_ASSIGNED;
+
+            if ($this->hasVisitDue()) {
+                $autoFloor = TicketLog::STEP_ON_SITE;
+            }
+        }
+        $autoFloorOrder = array_search($autoFloor, TicketLog::STEPS, true);
+
+        return $loggedOrder >= $autoFloorOrder ? $loggedStep : $autoFloor;
+    }
+
+    /**
+     * Whether a visit exists whose scheduled day has arrived or already
+     * passed — used both to auto-advance progress to on_site and to gate
+     * manually logging on_site (PRD: can't be on-site without a visit set).
+     */
+    public function hasVisitDue(): bool
+    {
+        $visits = $this->relationLoaded('visits') ? $this->visits : $this->visits()->get();
+        $latestVisit = $visits->sortByDesc('scheduled_at')->first();
+
+        if (! $latestVisit?->scheduled_at) {
+            return false;
+        }
+
+        $endOfToday = Carbon::now('Asia/Jakarta')->endOfDay();
+
+        return $latestVisit->scheduled_at->lessThanOrEqualTo($endOfToday);
     }
 
     public function getAgingDaysAttribute(): int
@@ -112,19 +149,26 @@ class Ticket extends Model
         return (int) $this->created_at->diffInDays($end ?? Carbon::now('Asia/Jakarta'));
     }
 
+    /**
+     * SLA verdict is only decided once the ticket is actually closed —
+     * an open ticket always reads as Pending, even past its due date, so
+     * "Over SLA" can never appear before the ticket is really finished.
+     */
     public function getSlaStatusAttribute(): ?string
     {
         if (! $this->sla_due_at) {
             return null;
         }
 
-        $reference = $this->progress === TicketLog::STEP_CLOSED
-            ? ($this->relationLoaded('logs')
-                ? $this->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first()?->created_at
-                : $this->logs()->where('step', TicketLog::STEP_CLOSED)->latest('id')->first()?->created_at)
-            : Carbon::now('Asia/Jakarta');
+        if ($this->progress !== TicketLog::STEP_CLOSED) {
+            return 'Pending';
+        }
 
-        return ($reference ?? Carbon::now('Asia/Jakarta'))->lessThanOrEqualTo($this->sla_due_at) ? 'On Time' : 'Over SLA';
+        $closedAt = $this->relationLoaded('logs')
+            ? $this->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first()?->created_at
+            : $this->logs()->where('step', TicketLog::STEP_CLOSED)->latest('id')->first()?->created_at;
+
+        return ($closedAt ?? Carbon::now('Asia/Jakarta'))->lessThanOrEqualTo($this->sla_due_at) ? 'On Time' : 'Overtime';
     }
 
     /**

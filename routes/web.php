@@ -603,6 +603,7 @@ Route::get('/debug/expense-realizations', function () {
             Route::get('/{customer}/edit', [DatsServiceCustomerController::class, 'createPage'])->name('edit');
             Route::get('/{customer}/machines', [DatsServiceCustomerController::class, 'machinesPage'])->name('machines');
             Route::get('/{customer}/machines/create', [DatsServiceCustomerController::class, 'createMachinePage'])->name('machines.create');
+            Route::get('/{customer}/tickets', [DatsServiceCustomerController::class, 'ticketsPage'])->name('tickets');
         });
 
         Route::name('technicians.')->prefix('technicians')->group(function () {
@@ -619,6 +620,7 @@ Route::get('/debug/expense-realizations', function () {
         Route::name('tickets.')->prefix('tickets')->group(function () {
             Route::get('/', [DatsTicketController::class, 'page'])->name('index');
             Route::get('/create', [DatsTicketController::class, 'createPage'])->name('create');
+            Route::get('/{ticket}/edit', [DatsTicketController::class, 'editPage'])->name('edit');
             Route::get('/{ticket}', [DatsTicketController::class, 'showPage'])->name('show');
         });
     });
