@@ -27,6 +27,15 @@ class ServiceCustomerController extends Controller
         ]);
     }
 
+    public function ticketsPage(Request $request, ServiceCustomer $customer)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $this->pageTitle = 'Tickets — ' . $customer->name;
+        return $this->render('pages.aftersales.customers.tickets', [
+            'customer' => $customer,
+        ]);
+    }
+
     public function createPage(Request $request, ?ServiceCustomer $customer = null)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);

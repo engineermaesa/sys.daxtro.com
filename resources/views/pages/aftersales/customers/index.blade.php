@@ -26,7 +26,7 @@
             <div class="flex items-stretch gap-3">
                 <div class="flex-1 relative">
                     <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#757575] text-base pointer-events-none"></i>
-                    <input type="text" id="customer-search" placeholder="Search customer name, phone, or city"
+                    <input type="text" id="customer-search" placeholder="Search customer name, phone, or region"
                         class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
                 <button type="button" id="btn-search-customer"
@@ -45,7 +45,7 @@
                         <th class="p-3 text-left uppercase text-xs font-bold">Customer Name</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">PIC</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Contact</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">City</th>
+                        <th class="p-3 text-left uppercase text-xs font-bold">Region</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Province</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Action</th>
                     </tr>
@@ -150,6 +150,9 @@
                         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="customerActionsDropdown${row.id}">
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/customers/${row.id}/machines">
                                 <i class="bi bi-box-seam"></i> Machine
+                            </a>
+                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/customers/${row.id}/tickets">
+                                <i class="bi bi-ticket-perforated"></i> Ticket
                             </a>
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/customers/${row.id}/edit">
                                 <i class="bi bi-pencil"></i> Edit

@@ -119,7 +119,7 @@
             <tr class="border-t border-t-[#D9D9D9] align-top">
                 <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
                 <td class="p-3">${escapeHtml(customer.name)}</td>
-                <td class="p-3">${escapeHtml(machine.machine_name)}</td>
+                <td class="p-3">${escapeHtml(machine.product?.name)}</td>
                 <td class="p-3 max-w-[220px]"><span class="line-clamp-2">${escapeHtml(row.description)}</span></td>
                 <td class="p-3">${formatDate(row.created_at)}</td>
                 <td class="p-3">${formatDate(row.visit_date)}</td>

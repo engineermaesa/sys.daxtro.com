@@ -138,7 +138,7 @@
         if (errors) {
             return Object.values(errors).flat().join('\n');
         }
-        return xhr.responseJSON?.message || 'Terjadi kesalahan, silakan coba lagi.';
+        return xhr.responseJSON?.message || 'An error occurred, please try again.';
     }
 
     $(function () {

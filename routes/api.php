@@ -505,7 +505,9 @@ Route::group([
     Route::prefix('tickets')->name('tickets.')->group(function () {
         Route::get('/', [DatsTicketController::class, 'index'])->name('index');
         Route::post('/', [DatsTicketController::class, 'store'])->name('store');
+        Route::get('/next-code', [DatsTicketController::class, 'nextCode'])->name('next-code');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
+        Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');
         Route::post('/{ticket}/assign', [DatsTicketController::class, 'assign'])->name('assign');
         Route::post('/{ticket}/on-site', [DatsTicketController::class, 'onSite'])->name('on-site');
         Route::post('/{ticket}/repair', [DatsTicketController::class, 'repair'])->name('repair');

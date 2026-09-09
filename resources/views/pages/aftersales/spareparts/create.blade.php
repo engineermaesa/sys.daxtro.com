@@ -48,7 +48,7 @@
                         <label class="block text-sm font-medium mb-1">Stock</label>
                         <input type="number" id="field-stock" min="0" placeholder="0"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-                        <p id="field-stock-hint" class="text-xs text-[#B0B0B0] mt-1" hidden>Stok hanya bisa diubah lewat menu Stock Movement, bukan dari sini.</p>
+                        <p id="field-stock-hint" class="text-xs text-[#B0B0B0] mt-1" hidden>Stock can only be changed via the Stock Movement menu, not from here.</p>
                     </div>
                     <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">Minimum Stock</label>
@@ -88,7 +88,7 @@
         if (errors) {
             return Object.values(errors).flat().join('\n');
         }
-        return xhr.responseJSON?.message || 'Terjadi kesalahan, silakan coba lagi.';
+        return xhr.responseJSON?.message || 'An error occurred, please try again.';
     }
 
     function enterEditMode() {
