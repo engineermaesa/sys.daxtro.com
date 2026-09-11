@@ -1756,6 +1756,126 @@ class LeadController extends Controller
         return response()->download($file, 'available_leads_' . date('Ymd_His') . '.xlsx')->deleteFileAfterSend(true);
     }
 
+    public function manageBulkTrash(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role?->code === 'sales') {
+            abort(403);
+        }
+
+        $request->validate([
+            'lead_ids'   => 'required|array|min:1',
+            'lead_ids.*' => 'required|integer',
+            'note'       => 'required|string',
+        ]);
+
+        $note = trim($request->input('note'));
+
+        $leadIds = collect($request->input('lead_ids'))
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $trashStatusMap = [
+            LeadStatus::COLD => LeadStatus::TRASH_COLD,
+            LeadStatus::WARM => LeadStatus::TRASH_WARM,
+            LeadStatus::HOT  => LeadStatus::TRASH_HOT,
+        ];
+
+        // Branch manager hanya boleh men-trash lead pada branch-nya sendiri.
+        $restrictedBranchId = $user->role?->code === 'branch_manager' ? $user->branch_id : null;
+
+        $leads = Lead::with([
+            'claims' => fn($q) => $q->whereNull('released_at')->whereNull('trash_note'),
+            'claims.sales',
+        ])
+            ->whereIn('id', $leadIds)
+            ->get();
+
+        $trashedLeads = [];
+        $skipped      = [];
+
+        DB::transaction(function () use ($leads, $trashStatusMap, $restrictedBranchId, $note, &$trashedLeads, &$skipped) {
+            foreach ($leads as $lead) {
+                $targetStatus = $trashStatusMap[$lead->status_id] ?? null;
+
+                if (! $targetStatus) {
+                    $skipped[] = $lead->name;
+                    continue;
+                }
+
+                $activeClaim = $lead->claims->first();
+
+                if ($restrictedBranchId) {
+                    $claimBranchId = $activeClaim?->sales?->branch_id ?? $lead->branch_id;
+
+                    if ((int) $claimBranchId !== (int) $restrictedBranchId) {
+                        $skipped[] = $lead->name;
+                        continue;
+                    }
+                }
+
+                $firstClaim = $lead->claims()->orderBy('claimed_at')->first();
+                if (! $lead->first_sales_id && $firstClaim) {
+                    $lead->first_sales_id = $firstClaim->sales_id;
+                }
+
+                $lead->update(['status_id' => $targetStatus]);
+
+                $activeClaim?->update([
+                    'released_at' => now(),
+                    'trash_note'  => $note,
+                ]);
+
+                LeadStatusLog::create([
+                    'lead_id'   => $lead->id,
+                    'status_id' => $targetStatus,
+                ]);
+
+                $trashedLeads[] = $lead;
+            }
+        });
+
+        foreach ($trashedLeads as $lead) {
+            if (! $lead->branch_id) {
+                continue;
+            }
+
+            User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                ->where('branch_id', $lead->branch_id)
+                ->get()
+                ->each->notify(new LeadTrashedNotification(
+                    lead: $lead,
+                    sales: $request->user(),
+                    trashNote: $note,
+                    isAutoTrash: false
+                ));
+        }
+
+        $trashedCount = count($trashedLeads);
+        $skippedCount = count($skipped);
+
+        if ($trashedCount === 0) {
+            $message = 'No lead was moved to trash';
+        } elseif ($trashedCount === 1) {
+            $message = '1 lead successfully moved to trash';
+        } else {
+            $message = "{$trashedCount} leads successfully moved to trash";
+        }
+
+        if ($skippedCount > 0) {
+            $message .= ", {$skippedCount} lead skipped (stage not eligible or outside your branch)";
+        }
+
+        return $this->setJsonResponse($message, [
+            'trashed_count' => $trashedCount,
+            'skipped_count' => $skippedCount,
+            'skipped_leads' => $skipped,
+        ], $trashedCount > 0 ? 200 : 422);
+    }
+
     public function manageExport(Request $request)
     {
         if ($request->user()->role?->code === 'sales') {

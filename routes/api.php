@@ -180,6 +180,9 @@ Route::group([
         Route::get('/summary', [LeadController::class, 'manageSummary'])
             ->name('summary');
 
+        Route::post('/bulk-trash', [LeadController::class, 'manageBulkTrash'])
+            ->name('bulk-trash');
+
         Route::get('/form/{id?}', [LeadController::class, 'form'])
             ->name('form');
         Route::delete('/delete/{id}', [LeadController::class, 'delete'])
@@ -259,7 +262,7 @@ Route::group([
     Route::get('hot/list', 'TrashLeadController@hotList')->name('hot.list');
 
     Route::post('restore/{claim?}', 'TrashLeadController@restore')->name('restore');
-    Route::post('assign/{claim}', 'TrashLeadController@assign')->name('assign');
+    Route::post('assign/{claim?}', 'TrashLeadController@assign')->name('assign');
 });
 
 Route::group([

@@ -431,12 +431,20 @@
                     <input id="searchInput" type="text" placeholder="Search"
                         class="w-full px-3 py-1 border-none focus:outline-[#115640] " />
                 </div>
-                <button id="manageExportTriggerMobile" type="button" data-export-trigger="smallScreen" class="cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center lg:hidden">
-                    <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
-                        <x-icon.download />
-                        <span data-export-label>Export Excel</span>
-                    </div>
-                </button>
+                <div class="flex items-center gap-2 lg:hidden">
+                    <button id="manageExportTriggerMobile" type="button" data-export-trigger="smallScreen" class="flex-1 cursor-pointer bg-[#115640] rounded-lg flex justify-center items-center">
+                        <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
+                            <x-icon.download />
+                            <span data-export-label>Export Excel</span>
+                        </div>
+                    </button>
+                    <button id="manageTrashTriggerMobile" type="button" data-bulk-trash-trigger="smallScreen" class="flex-1 cursor-pointer bg-[#900B09] rounded-lg hidden justify-center items-center">
+                        <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
+                            <i class="fas fa-trash" style="font-size: 14px;"></i>
+                            <span data-bulk-trash-label>Trash Leads</span>
+                        </div>
+                    </button>
+                </div>
             </div>
 
             {{-- SEARCH TABLES --}}
@@ -522,12 +530,20 @@
             </div>
 
             {{-- EXPORT EXCELS LEADS --}}
-            <button id="manageExportTriggerDesktop" type="button" data-export-trigger="largeScreen" class="xl:w-[15%]! cursor-pointer bg-[#115640] rounded-lg hidden lg:inline!">
-                <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
-                    <x-icon.download />
-                    <span data-export-label>Export Excel</span>
-                </div>
-            </button>
+            <div class="xl:min-w-[15%]! items-center gap-2 hidden lg:flex!">
+                <button id="manageExportTriggerDesktop" type="button" data-export-trigger="largeScreen" class="flex-1 cursor-pointer bg-[#115640] rounded-lg">
+                    <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
+                        <x-icon.download />
+                        <span data-export-label>Export Excel</span>
+                    </div>
+                </button>
+                <button id="manageTrashTriggerDesktop" type="button" data-bulk-trash-trigger="largeScreen" class="flex-1 cursor-pointer bg-[#900B09] rounded-lg hidden">
+                    <div class="w-full flex items-center justify-center text-center gap-3 px-3 py-2 text-white">
+                        <i class="fas fa-trash" style="font-size: 14px;"></i>
+                        <span data-bulk-trash-label>Trash Leads</span>
+                    </div>
+                </button>
+            </div>
         </div>
 
         {{-- NAVIGATION STAGE --}}
@@ -796,6 +812,7 @@
 
         const selectedLeadIds = new Set();
         let isManageExportSubmitting = false;
+        let isManageBulkTrashSubmitting = false;
 
         const manageTableConfigs = {
             all: {
@@ -977,6 +994,32 @@
                     node.textContent = 'Export Excel';
                 }
             });
+
+            updateBulkTrashButtonState();
+        }
+
+        function updateBulkTrashButtonState() {
+            const selectedCount = selectedLeadIds.size;
+
+            document.querySelectorAll('[data-bulk-trash-trigger]').forEach((button) => {
+                const isMobile = button.dataset.bulkTrashTrigger === 'smallScreen';
+
+                if (selectedCount > 0) {
+                    button.classList.remove('hidden');
+                    button.classList.add(isMobile ? 'flex' : 'inline-block');
+                } else {
+                    button.classList.add('hidden');
+                    button.classList.remove(isMobile ? 'flex' : 'inline-block');
+                }
+            });
+
+            document.querySelectorAll('[data-bulk-trash-label]').forEach((node) => {
+                if (selectedCount > 0) {
+                    node.innerHTML = `Trash Leads <span class="block">(${selectedCount} Selected)</span>`;
+                } else {
+                    node.textContent = 'Trash Leads';
+                }
+            });
         }
 
         function renderManageTableHead(tab) {
@@ -1133,6 +1176,71 @@
             selectAll.disabled = !hasRows;
             selectAll.checked = hasRows && checkedCount === rowCheckboxes.length;
             selectAll.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+        }
+
+        function submitManageBulkTrash() {
+            if (isManageBulkTrashSubmitting) {
+                return;
+            }
+
+            const selectedIds = Array.from(selectedLeadIds);
+
+            if (selectedIds.length === 0) {
+                notif('Pilih lead terlebih dahulu', 'error');
+                return;
+            }
+
+            const leadLabel = selectedIds.length > 1 ? `${selectedIds.length} leads` : '1 lead';
+
+            Swal.fire({
+                title: 'Trash Leads',
+                text: `Provide a reason for trashing ${leadLabel}`,
+                input: 'textarea',
+                inputAttributes: {
+                    required: true
+                },
+                inputPlaceholder: 'Enter reason here...',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Submit',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#aaa',
+                preConfirm: (note) => {
+                    if (!note) {
+                        Swal.showValidationMessage('Note is required');
+                    }
+                    return note;
+                }
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                isManageBulkTrashSubmitting = true;
+
+                $.post(@json(url('api/leads/manage/bulk-trash')), {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    note: result.value,
+                    lead_ids: selectedIds
+                }, function (res) {
+                    notif(res.message || 'Leads successfully moved to trash');
+
+                    clearManageSelections();
+                    resetAllTabPages();
+                    reloadTab(getActiveManageTab());
+                }).fail(function (xhr) {
+                    let err = 'Failed to trash leads';
+
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        err = xhr.responseJSON.message;
+                    }
+
+                    notif(err, 'error');
+                }).always(function () {
+                    isManageBulkTrashSubmitting = false;
+                });
+            });
         }
 
         function submitManageExport() {
@@ -1771,6 +1879,14 @@
             e.stopImmediatePropagation();
             submitManageExport();
         });
+
+        $('#manageTrashTriggerMobile, #manageTrashTriggerDesktop')
+            .off('click.manageBulkTrash')
+            .on('click.manageBulkTrash', function (e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                submitManageBulkTrash();
+            });
 
         $(document).on('change', '.lead-row-checkbox', function () {
             const leadId = String(this.value || '');

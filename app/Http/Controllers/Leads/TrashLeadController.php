@@ -900,10 +900,8 @@ class TrashLeadController extends Controller
         return $this->setJsonResponse('Lead restored successfully');
     }
 
-    public function assign(Request $request, $claimId)
+    public function assign(Request $request, $claimId = null)
     {
-        $claim = LeadClaim::with('lead')->where('id', $claimId)->firstOrFail();
-
         $allowedRoles = [
             'super_admin',
             'branch_manager',
@@ -922,26 +920,61 @@ class TrashLeadController extends Controller
             ->whereHas('role', fn($q) => $q->where('code', 'sales'))
             ->firstOrFail();
 
+        // Jika kirim array claim_ids di body -> bulk assign
+        if ($request->has('claim_ids')) {
+            $data = $request->validate([
+                'claim_ids'   => 'required|array',
+                'claim_ids.*' => 'integer|exists:lead_claims,id',
+            ]);
+
+            $claims = LeadClaim::with('lead')
+                ->whereIn('id', $data['claim_ids'])
+                ->get();
+
+            DB::transaction(function () use ($claims, $sales) {
+                foreach ($claims as $claim) {
+                    $this->assignClaimToSales($claim, $sales);
+                }
+            });
+
+            $assignedCount = $claims->count();
+
+            $message = $assignedCount === 1
+                ? '1 lead assigned successfully'
+                : "{$assignedCount} leads assigned successfully";
+
+            return $this->setJsonResponse($message, [
+                'assigned_count' => $assignedCount,
+            ]);
+        }
+
+        $claim = LeadClaim::with('lead')->where('id', $claimId)->firstOrFail();
+
+        DB::transaction(function () use ($claim, $sales) {
+            $this->assignClaimToSales($claim, $sales);
+        });
+
+        return $this->setJsonResponse('Lead assigned successfully');
+    }
+
+    protected function assignClaimToSales(LeadClaim $claim, User $sales): void
+    {
         $newStatus = $claim->lead->status_id == LeadStatus::TRASH_COLD
             ? LeadStatus::COLD
             : LeadStatus::WARM;
 
-        DB::transaction(function () use ($claim, $sales, $newStatus) {
-            $claim->update([
-                'sales_id'   => $sales->id,
-                'claimed_at' => now(),
-                'released_at' => null,
-                'trash_note' => null,
-            ]);
+        $claim->update([
+            'sales_id'    => $sales->id,
+            'claimed_at'  => now(),
+            'released_at' => null,
+            'trash_note'  => null,
+        ]);
 
-            $claim->lead->update(['status_id' => $newStatus]);
+        $claim->lead->update(['status_id' => $newStatus]);
 
-            LeadStatusLog::create([
-                'lead_id'   => $claim->lead_id,
-                'status_id' => $newStatus,
-            ]);
-        });
-
-        return $this->setJsonResponse('Lead assigned successfully');
+        LeadStatusLog::create([
+            'lead_id'   => $claim->lead_id,
+            'status_id' => $newStatus,
+        ]);
     }
 }

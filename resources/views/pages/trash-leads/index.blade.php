@@ -141,9 +141,14 @@
 
     <div id="bulkRestoreBar" class="hidden items-center justify-between gap-3 px-3 py-2 border-b border-[#D9D9D9] bg-white">
       <p class="text-[#115640] font-semibold"><span id="bulkRestoreCount">0</span> lead selected</p>
-      <button id="bulkRestoreBtn" type="button" class="px-3 py-2 rounded-md bg-[#115640] text-white font-semibold cursor-pointer">
-        Restore Selected
-      </button>
+      <div class="flex items-center gap-2">
+        <button id="bulkAssignBtn" type="button" class="px-3 py-2 rounded-md border border-[#115640] text-[#115640] font-semibold cursor-pointer">
+          Assign Selected
+        </button>
+        <button id="bulkRestoreBtn" type="button" class="px-3 py-2 rounded-md bg-[#115640] text-white font-semibold cursor-pointer">
+          Restore Selected
+        </button>
+      </div>
     </div>
 
     {{-- CONTENTS TABLES --}}
@@ -243,7 +248,7 @@
   <div class="modal-dialog">
     <form id="assignLeadForm" class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Assign Lead</h5>
+        <h5 class="modal-title" id="assignLeadModalTitle">Assign Lead</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -962,11 +967,36 @@ $(function () {
     });
   });
 
+  let bulkAssignClaimIds = [];
+
   $(document).on('click', '.assign-lead', function(){
     const claimId = $(this).data('claim');
     const branchId = $(this).data('branch');
+
+    bulkAssignClaimIds = [];
+    $('#assignLeadModalTitle').text('Assign Lead');
     $('#assign_claim_id').val(claimId);
     $('#assign_branch_id').val(branchId).trigger('change');
+    $('#assignLeadModal').modal('show');
+  });
+
+  $('#bulkAssignBtn').on('click', function () {
+    const selectedIds = getSelectedClaimIds();
+
+    if (selectedIds.length === 0) {
+      notif('Please select at least one lead', 'error');
+      return;
+    }
+
+    bulkAssignClaimIds = selectedIds;
+
+    const titleSuffix = selectedIds.length > 1
+      ? `${selectedIds.length} Leads`
+      : '1 Lead';
+
+    $('#assignLeadModalTitle').text(`Assign ${titleSuffix}`);
+    $('#assign_claim_id').val('');
+    $('#assign_branch_id').val('').trigger('change');
     $('#assignLeadModal').modal('show');
   });
 
@@ -991,21 +1021,49 @@ $(function () {
     const claimId = $('#assign_claim_id').val();
     const salesId = $('#assign_sales_id').val();
     if(!salesId) { notif('Please select sales', 'error'); return; }
-    const url = '{{ url('trash-leads/assign') }}/' + claimId;
-    $.post(url, {sales_id: salesId, _token: '{{ csrf_token() }}'}, function(res){
-      notif(res.message || 'Lead assigned successfully');
+
+    const isBulkAssign = bulkAssignClaimIds.length > 0;
+
+    const url = isBulkAssign
+      ? '{{ url('api/trash-leads/assign') }}'
+      : '{{ url('trash-leads/assign') }}/' + claimId;
+
+    const payload = {sales_id: salesId, _token: '{{ csrf_token() }}'};
+
+    if (isBulkAssign) {
+      payload.claim_ids = bulkAssignClaimIds;
+    }
+
+    $.post(url, payload, function(res){
+      notif(res.message || (isBulkAssign ? 'Leads assigned successfully' : 'Lead assigned successfully'));
       $('#assignLeadModal').modal('hide');
+
+      if (isBulkAssign) {
+        Object.keys(selectedClaimIdsByTab).forEach(function (tab) {
+          selectedClaimIdsByTab[tab].clear();
+          syncSelectAllState(tab);
+        });
+        updateBulkRestoreUI();
+      }
+
+      bulkAssignClaimIds = [];
+
       refreshTrashLeadCounts();
       ['all', 'cold', 'warm', 'hot'].forEach(function(tab) {
         reloadTab(tab);
       });
     }).fail(function(xhr){
-      let err = 'Failed to assign lead';
+      let err = isBulkAssign ? 'Failed to assign selected leads' : 'Failed to assign lead';
       if(xhr.responseJSON && xhr.responseJSON.message){
         err = xhr.responseJSON.message;
       }
       notif(err, 'error');
     });
+  });
+
+  $('#assignLeadModal').on('hidden.bs.modal', function () {
+    bulkAssignClaimIds = [];
+    $('#assignLeadModalTitle').text('Assign Lead');
   });
 });
 </script>
