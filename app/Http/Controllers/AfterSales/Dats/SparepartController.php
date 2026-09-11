@@ -19,6 +19,15 @@ class SparepartController extends Controller
         return $this->render('pages.aftersales.spareparts.index');
     }
 
+    public function createPage(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('masters.spareparts'), 403);
+
+        $this->pageTitle = 'Add Sparepart';
+
+        return $this->render('pages.aftersales.spareparts.create');
+    }
+
     public function index(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.spareparts'), 403);

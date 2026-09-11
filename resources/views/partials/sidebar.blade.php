@@ -173,18 +173,83 @@
         @endif
 
         {{-- CUSTOMER MENU (AFTER SALES) --}}
-        @if(auth()->check() && auth()->user()->hasPermission('customers.view'))
+        @if(auth()->check() && auth()->user()->hasPermission('masters.service-customers'))
         <li
-            class="{{ request()->routeIs('after-sales.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            class="{{ request()->routeIs('aftersales.pages.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
-                href="{{ route('after-sales.customers.index') }}">
-                <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M2 20C1.45 20 0.979167 19.8042 0.5875 19.4125C0.195833 19.0208 0 18.55 0 18V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H11.175C11.4417 0 11.6958 0.0500001 11.9375 0.15C12.1792 0.25 12.3917 0.391667 12.575 0.575L17.425 5.425C17.6083 5.60833 17.75 5.82083 17.85 6.0625C17.95 6.30417 18 6.55833 18 6.825V18C18 18.55 17.8042 19.0208 17.4125 19.4125C17.0208 19.8042 16.55 20 16 20H2ZM11 6V2H2V18H16V7H12C11.7167 7 11.4792 6.90417 11.2875 6.7125C11.0958 6.52083 11 6.28333 11 6ZM5 15H13C13.2833 15 13.5208 14.9042 13.7125 14.7125C13.9042 14.5208 14 14.2833 14 14C14 13.7167 13.9042 13.4792 13.7125 13.2875C13.5208 13.0958 13.2833 13 13 13H5C4.71667 13 4.47917 13.0958 4.2875 13.2875C4.09583 13.4792 4 13.7167 4 14C4 14.2833 4.09583 14.5208 4.2875 14.7125C4.47917 14.9042 4.71667 15 5 15ZM5 11H13C13.2833 11 13.5208 10.9042 13.7125 10.7125C13.9042 10.5208 14 10.2833 14 10C14 9.71667 13.9042 9.47917 13.7125 9.2875C13.5208 9.09583 13.2833 9 13 9H5C4.71667 9 4.47917 9.09583 4.2875 9.2875C4.09583 9.47917 4 9.71667 4 10C4 10.2833 4.09583 10.5208 4.2875 10.7125C4.47917 10.9042 4.71667 11 5 11Z"
-                        fill="{{ request()->routeIs('after-sales.customers.*') ? '#115640' : '#1E1E1E' }}" />
+                href="{{ route('aftersales.pages.customers.index') }}">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd"
+                        d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"
+                        fill="{{ request()->routeIs('aftersales.pages.customers.*') ? '#115640' : '#1E1E1E' }}" />
                 </svg>
                 <span
-                    class="sidebar-label {{ request()->routeIs('after-sales.customer.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Customer</span>
+                    class="sidebar-label {{ request()->routeIs('aftersales.pages.customers.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Customer</span>
+            </a>
+        </li>
+        @endif
+
+        {{-- TICKETING MENU --}}
+        @if(auth()->check() && auth()->user()->hasPermission('aftersales.tickets.manage'))
+        <li id="listTicketing" class="rounded-lg mt-2">
+            <button id="ticketingToggle"  class="cursor-pointer w-full text-left rounded-lg px-3 py-2 grid place-items-center lg:flex lg:items-center lg:justify-between">
+                <div class="lg:flex! lg:items-center! lg:justify-start! lg:gap-3!">
+                    <svg id="ticketingIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M3 8C3 6.89543 3.89543 6 5 6H19C20.1046 6 21 6.89543 21 8V10C19.8954 10 19 10.8954 19 12C19 13.1046 19.8954 14 21 14V16C21 17.1046 20.1046 18 19 18H5C3.89543 18 3 17.1046 3 16V14C4.10457 14 5 13.1046 5 12C5 10.8954 4.10457 10 3 10V8Z"
+                            stroke="#1E1E1E" stroke-width="1.6" stroke-linejoin="round" />
+                        <path d="M10 6.5V17.5" stroke="#1E1E1E" stroke-width="1.6" stroke-dasharray="2 2" />
+                    </svg>
+
+                    <span id="ticketingSpan" class="sidebar-label text-[#1E1E1E] font-semibold sm:hidden lg:inline">
+                        Tickets
+                    </span>
+                </div>
+                <i id="chevronTicketingMenu" class="sidebar-chevron sm:hidden! lg:inline-block! fas fa-chevron-right transition-transform duration-300 text-black" style="font-size: 16px;"></i>
+            </button>
+            <div id="ticketingMenu" class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0">
+                <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
+                    {{-- ALL TICKET --}}
+                    <a class="flex items-center sm:gap-2 lg:gap-3"
+                        href="{{ route('aftersales.pages.tickets.index') }}">
+                        <span
+                            class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->routeIs('aftersales.pages.tickets.*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                        </span>
+                        <span
+                            class="sidebar-label {{ request()->routeIs('aftersales.pages.tickets.*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                            All Ticket
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </li>
+        @endif
+        @php
+            $isTicketingActive = request()->is('aftersales/tickets*');
+        @endphp
+
+        {{-- TECHNICIAN --}}
+        @if(auth()->check() && auth()->user()->hasPermission('masters.technicians'))
+        <li
+            class="{{ request()->routeIs('aftersales.pages.technicians.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('aftersales.pages.technicians.index') }}">
+                <i class="bi bi-wrench-adjustable text-[20px] {{ request()->routeIs('aftersales.pages.technicians.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }}"></i>
+                <span
+                    class="sidebar-label {{ request()->routeIs('aftersales.pages.technicians.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Technician</span>
+            </a>
+        </li>
+        @endif
+
+        {{-- SPAREPART --}}
+        @if(auth()->check() && auth()->user()->hasPermission('masters.spareparts'))
+        <li
+            class="{{ request()->routeIs('aftersales.pages.spareparts.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
+                href="{{ route('aftersales.pages.spareparts.index') }}">
+                <i class="bi bi-box-seam text-[20px] {{ request()->routeIs('aftersales.pages.spareparts.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }}"></i>
+                <span
+                    class="sidebar-label {{ request()->routeIs('aftersales.pages.spareparts.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Sparepart</span>
             </a>
         </li>
         @endif
@@ -463,6 +528,47 @@
         const userDropdown = document.getElementById('userDropdown');
         const userMeta = document.getElementById('userMeta');
         const chevronUserInfo = document.getElementById('chevronUserInfo');
+        const ticketingToggle = document.getElementById('ticketingToggle');
+        const ticketingMenu = document.getElementById('ticketingMenu');
+        const ticketingIcon = document.getElementById('ticketingIcon');
+        const ticketingSpan = document.getElementById('ticketingSpan');
+        const chevronTicketingMenu = document.getElementById('chevronTicketingMenu');
+
+        const isActive = @json($isTicketingActive);
+        function openTicketing() {
+            ticketingMenu.classList.remove('max-h-0');
+            ticketingMenu.classList.add('max-h-[500px]');
+            ticketingToggle.classList.add('bg-[#CFE7DE]');
+            ticketingSpan.classList.add('text-[#115640]');
+            ticketingIcon.querySelectorAll('path').forEach(p => p.setAttribute('stroke', '#115640'));
+            chevronTicketingMenu.classList.remove('text-black');
+            chevronTicketingMenu.classList.add('rotate-90', 'text-[#115640]');
+        }
+
+        function closeTicketing() {
+            ticketingMenu.classList.add('max-h-0');
+            ticketingMenu.classList.remove('max-h-[500px]');
+            ticketingToggle.classList.remove('bg-[#CFE7DE]');
+            ticketingSpan.classList.remove('text-[#115640]');
+            ticketingIcon.querySelectorAll('path').forEach(p => p.setAttribute('stroke', '#1E1E1E'));
+            chevronTicketingMenu.classList.remove('rotate-90', 'text-[#115640]');
+            chevronTicketingMenu.classList.add('text-black');
+        }
+
+        if (isActive) {
+            openTicketing();
+        }
+
+        ticketingToggle.addEventListener('click', () => {
+            const sidebarWrapper = document.getElementById('sidebarWrapper');
+            if (sidebarWrapper && sidebarWrapper.classList.contains('sidebar-collapsed')) return;
+
+            if (ticketingMenu.classList.contains('max-h-0')) {
+                openTicketing();
+            } else {
+                closeTicketing();
+            }
+        });
 
         if (!sidebarWrapper || !toggleSidepanel || !headerSidebar) return;
 

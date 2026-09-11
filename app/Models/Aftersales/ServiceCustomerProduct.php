@@ -3,6 +3,8 @@
 namespace App\Models\Aftersales;
 
 use App\Models\Masters\Industry;
+use App\Models\Masters\Product;
+use App\Models\Masters\ProductType;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,9 +18,9 @@ class ServiceCustomerProduct extends Model
 
     protected $fillable = [
         'customer_id',
-        'machine_name',
+        'product_id',
         'serial_number',
-        'model',
+        'ref_product_type_id',
         'industry_id',
         'warranty_period',
         'warranty_start',
@@ -35,6 +37,16 @@ class ServiceCustomerProduct extends Model
     public function customer()
     {
         return $this->belongsTo(ServiceCustomer::class, 'customer_id');
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    public function productType()
+    {
+        return $this->belongsTo(ProductType::class, 'ref_product_type_id');
     }
 
     public function industry()

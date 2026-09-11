@@ -45,6 +45,20 @@
             </a>
             @endif
 
+            {{-- MASTER SOURCES --}}
+            @if(auth()->check() && auth()->user()->hasPermission('masters.sources'))
+            <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/sources*')}}"
+                href="{{ route('masters.sources.index') }}">
+                <span
+                    class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->is('masters/sources*') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                </span>
+                <span
+                    class="{{ request()->is('masters/sources*') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                    Source
+                </span>
+            </a>
+            @endif
+
             {{-- MASTER COMPANIES --}}
             @if(auth()->check() && auth()->user()->hasPermission('masters.companies'))
             <a class="flex items-center sm:gap-2 lg:gap-3 {{ request()->routeIs('masters/companies*')}}"
@@ -227,6 +241,7 @@
 @php
 $isMastersActive =
 request()->is('masters/agents*') ||
+request()->is('masters/sources*') ||
 request()->is('masters/banks*') ||
 request()->is('masters/accounts*') ||
 request()->is('masters/companies*') ||

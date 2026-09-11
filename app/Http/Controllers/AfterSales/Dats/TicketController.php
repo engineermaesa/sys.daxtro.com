@@ -32,6 +32,15 @@ class TicketController extends Controller
         return $this->render('pages.aftersales.tickets.index');
     }
 
+    public function createPage(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $this->pageTitle = 'Tambah Ticket';
+
+        return $this->render('pages.aftersales.tickets.create');
+    }
+
     public function showPage(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
@@ -41,11 +50,40 @@ class TicketController extends Controller
         return $this->render('pages.aftersales.tickets.show', ['ticket' => $ticket]);
     }
 
+    public function editPage(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $this->pageTitle = 'Edit Ticket';
+
+        $ticket->load(['customer', 'customerProduct', 'technician', 'supervisor', 'visits', 'parts.sparepart', 'costs']);
+
+        return $this->render('pages.aftersales.tickets.create', ['ticket' => $ticket]);
+    }
+
+    /**
+     * Preview of the ticket code that will be assigned on save (PRD §2.1 /
+     * §3.4 code format). Purely informational — the real number is claimed
+     * atomically in store().
+     */
+    public function nextCode(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $now = Carbon::now('Asia/Jakarta');
+        $sequence = DocumentCounter::peekNextNumber(DocumentCounter::TYPE_TICKET, $now);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => ['ticket_code' => 'DAX-AF-' . $now->format('Ymd') . '-' . $sequence],
+        ]);
+    }
+
     public function index(Request $request)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
 
-        $query = Ticket::with(['customer', 'customerProduct', 'technician', 'logs']);
+        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'technician', 'logs.actor', 'visits']);
 
         if ($request->filled('category')) {
             $query->where('category', $request->input('category'));
@@ -59,6 +97,10 @@ class TicketController extends Controller
             $query->where('assigned_technician_id', $request->input('assigned_technician_id'));
         }
 
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->input('customer_id'));
+        }
+
         if ($request->filled('search')) {
             $search = trim((string) $request->input('search'));
             $query->where(function ($q) use ($search) {
@@ -70,11 +112,18 @@ class TicketController extends Controller
         $perPage = (int) $request->input('per_page', 15);
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
-        $items = collect($paginated->items())->map(fn (Ticket $t) => array_merge($t->toArray(), [
-            'progress' => $t->progress,
-            'aging_days' => $t->aging_days,
-            'sla_status' => $t->sla_status,
-        ]));
+        $items = collect($paginated->items())->map(function (Ticket $t) {
+            $latestVisit = $t->visits->sortByDesc('scheduled_at')->first();
+            $closedLog = $t->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first();
+
+            return array_merge($t->toArray(), [
+                'progress' => $t->progress,
+                'aging_days' => $t->aging_days,
+                'sla_status' => $t->sla_status,
+                'visit_date' => $latestVisit?->scheduled_at,
+                'closed_at' => $closedLog?->created_at,
+            ]);
+        });
 
         if ($request->filled('progress')) {
             $items = $items->where('progress', $request->input('progress'))->values();
@@ -96,6 +145,7 @@ class TicketController extends Controller
         $ticket->load([
             'customer', 'customerProduct.industry', 'technician', 'supervisor',
             'logs' => fn ($q) => $q->orderBy('id'),
+            'logs.actor',
             'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction',
         ]);
 
@@ -151,9 +201,10 @@ class TicketController extends Controller
             $sequence = DocumentCounter::nextNumber(DocumentCounter::TYPE_TICKET, $now);
             $ticketCode = 'DAX-AF-' . $now->format('Ymd') . '-' . $sequence;
 
+            $slaValue = (int) $validated['sla_value'];
             $slaDueAt = $validated['sla_unit'] === 'hour'
-                ? $now->copy()->addHours($validated['sla_value'])
-                : $now->copy()->addDays($validated['sla_value']);
+                ? $now->copy()->addHours($slaValue)
+                : $now->copy()->addDays($slaValue);
 
             $ticket = Ticket::create([
                 'ticket_code' => $ticketCode,
@@ -209,6 +260,109 @@ class TicketController extends Controller
         return $this->setJsonResponse('Ticket created successfully', ['data' => $ticket], 201);
     }
 
+    /**
+     * Updates the ticket's core fields (customer, machine, complaint details,
+     * SLA, assignment) plus the estimated sparepart/cost lines from the
+     * wizard. Visit scheduling keeps using its dedicated endpoint, and actual
+     * (post-documentation) parts are never touched here.
+     */
+    public function update(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $validated = $request->validate([
+            'customer_id' => 'required|integer|exists:service_customers,id',
+            'customer_product_id' => 'required|integer|exists:service_customer_products,id',
+            'category' => 'required|in:' . implode(',', Ticket::CATEGORIES),
+            'priority' => 'required|in:' . implode(',', Ticket::PRIORITIES),
+            'description' => 'required|string',
+            'sla_value' => 'required|integer|min:1',
+            'sla_unit' => 'required|in:hour,day',
+            'supervisor_id' => 'nullable|integer|exists:users,id',
+            'assigned_technician_id' => 'nullable|integer|exists:users,id',
+            'parts' => 'nullable|array',
+            'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
+            'parts.*.qty' => 'required_with:parts|numeric|min:0.01',
+            'parts.*.unit' => 'required_with:parts|in:' . implode(',', TicketPart::UNITS),
+            'costs' => 'nullable|array',
+            'costs.*.category' => 'required_with:costs|in:' . implode(',', TicketCost::CATEGORIES),
+            'costs.*.amount' => 'required_with:costs|numeric|min:0',
+            'costs.*.currency' => 'required_with:costs|in:' . implode(',', TicketCost::CURRENCIES),
+            'costs.*.exchange_rate' => 'nullable|numeric|min:0',
+            'costs.*.remarks' => 'nullable|string',
+        ]);
+
+        $product = ServiceCustomerProduct::findOrFail($validated['customer_product_id']);
+        if ($product->customer_id !== (int) $validated['customer_id']) {
+            throw ValidationException::withMessages([
+                'customer_product_id' => 'The selected product does not belong to the selected customer.',
+            ]);
+        }
+
+        $now = Carbon::now('Asia/Jakarta');
+        $slaValue = (int) $validated['sla_value'];
+        $slaDueAt = $validated['sla_unit'] === 'hour'
+            ? $now->copy()->addHours($slaValue)
+            : $now->copy()->addDays($slaValue);
+
+        DB::transaction(function () use ($validated, $ticket, $request, $slaDueAt) {
+            $ticket->update([
+                'customer_id' => $validated['customer_id'],
+                'customer_product_id' => $validated['customer_product_id'],
+                'category' => $validated['category'],
+                'priority' => $validated['priority'],
+                'description' => $validated['description'],
+                'sla_value' => $validated['sla_value'],
+                'sla_unit' => $validated['sla_unit'],
+                'sla_due_at' => $slaDueAt,
+                'supervisor_id' => $validated['supervisor_id'] ?? null,
+                'assigned_technician_id' => $validated['assigned_technician_id'] ?? null,
+                'updated_by' => $request->user()->id,
+            ]);
+
+            if ($request->has('costs')) {
+                $costs = $validated['costs'] ?? [];
+                $submittedCategories = array_column($costs, 'category');
+
+                $ticket->costs()->whereNotIn('category', $submittedCategories)->delete();
+
+                foreach ($costs as $cost) {
+                    TicketCost::updateOrCreate(
+                        ['ticket_id' => $ticket->id, 'category' => $cost['category']],
+                        [
+                            'amount' => $cost['amount'],
+                            'currency' => $cost['currency'],
+                            'exchange_rate' => $cost['currency'] === 'usd' ? ($cost['exchange_rate'] ?? null) : null,
+                            'remarks' => $cost['remarks'] ?? null,
+                            'updated_by' => $request->user()->id,
+                        ]
+                    );
+                }
+            }
+
+            if ($request->has('parts')) {
+                $ticket->parts()->where('type', TicketPart::TYPE_ESTIMATED)->delete();
+
+                foreach ($validated['parts'] ?? [] as $part) {
+                    $sparepart = RefSparepart::find($part['ref_sparepart_id']);
+                    TicketPart::create([
+                        'ticket_id' => $ticket->id,
+                        'ref_sparepart_id' => $part['ref_sparepart_id'],
+                        'qty' => $part['qty'],
+                        'unit' => $part['unit'],
+                        'unit_price' => $sparepart->price,
+                        'type' => TicketPart::TYPE_ESTIMATED,
+                        'created_by' => $request->user()->id,
+                    ]);
+                }
+            }
+        });
+
+        return $this->setJsonResponse('Ticket updated successfully', [
+            'data' => $ticket->fresh(['customer', 'customerProduct', 'technician', 'supervisor', 'parts', 'costs']),
+        ]);
+    }
+
     public function assign(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.assign'), 403);
@@ -256,6 +410,11 @@ class TicketController extends Controller
     {
         abort_unless($request->user()?->hasPermission($permission), 403);
         $this->guardNotClosed($ticket);
+        $this->guardSequential($ticket, $step);
+
+        if ($step === TicketLog::STEP_ON_SITE) {
+            abort_if($ticket->visits()->count() === 0, 422, 'Set a visit schedule before logging On Site.');
+        }
 
         $validated = $request->validate(['note' => 'nullable|string']);
 
@@ -313,6 +472,7 @@ class TicketController extends Controller
     {
         abort_unless($request->user()?->hasPermission('aftersales.documentation.submit'), 403);
         $this->guardNotClosed($ticket);
+        $this->guardSequential($ticket, TicketLog::STEP_DOCUMENTATION_PUBLISHED);
         $this->guardStepNotLogged($ticket, TicketLog::STEP_DOCUMENTATION_PUBLISHED, 'Documentation has already been submitted for this ticket.');
 
         $validated = $request->validate([
@@ -408,6 +568,7 @@ class TicketController extends Controller
     {
         abort_unless($request->user()?->hasPermission('aftersales.satisfaction.submit'), 403);
         $this->guardNotClosed($ticket);
+        $this->guardSequential($ticket, TicketLog::STEP_SATISFACTION_SUBMITTED);
         $this->guardStepNotLogged($ticket, TicketLog::STEP_SATISFACTION_SUBMITTED, 'Satisfaction assessment has already been submitted for this ticket.');
 
         $validated = $request->validate([
@@ -533,6 +694,35 @@ class TicketController extends Controller
         if ($ticket->logs()->where('step', $step)->exists()) {
             abort(422, $message);
         }
+    }
+
+    /**
+     * Steps must be logged in order — except waiting_sparepart, which is
+     * optional and can be logged any time once on_site has been reached
+     * without consuming the "next required step" slot.
+     */
+    private function guardSequential(Ticket $ticket, string $step): void
+    {
+        if ($step === TicketLog::STEP_WAITING_SPAREPART) {
+            $currentOrder = array_search($ticket->progress, TicketLog::STEPS, true);
+            $onSiteOrder = array_search(TicketLog::STEP_ON_SITE, TicketLog::STEPS, true);
+
+            abort_if($currentOrder < $onSiteOrder, 422, 'This step is out of order.');
+
+            return;
+        }
+
+        $currentOrder = array_search($ticket->progress, TicketLog::STEPS, true);
+        $stepOrder = array_search($step, TicketLog::STEPS, true);
+
+        // waiting_sparepart is optional, so skipping over it must not block
+        // the step that would otherwise have been the immediate next one.
+        $nextOrder = $currentOrder + 1;
+        if ((TicketLog::STEPS[$nextOrder] ?? null) === TicketLog::STEP_WAITING_SPAREPART) {
+            $nextOrder++;
+        }
+
+        abort_if($stepOrder < $currentOrder || $stepOrder > $nextOrder, 422, 'This step is out of order.');
     }
 
     private function guardNotClosed(Ticket $ticket): void

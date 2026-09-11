@@ -198,20 +198,6 @@ Route::middleware('auth')->group(function () {
         Route::get('update/{id}', [PurchaseController::class, 'update'])->name('update');
     });
 
-    // =====================================
-    // AFTER SALES
-    // =====================================
-
-    Route::group([
-        'prefix' => 'after-sales',
-        'as' => 'after-sales.',
-        'namespace' => 'App\\Http\\Controllers\\AfterSales',
-    ], function () {
-        Route::get('customers', 'CustomerController@index')->name('customers.index');
-        Route::get('customers/data', 'CustomerController@list')->name('customers.list');
-        Route::get('customers/{customer}', 'CustomerController@show')->name('customers.show');
-        Route::post('customers/{customer}/cad', 'CustomerController@uploadCad')->name('customers.cad.upload');
-    });
 
     // SATISFACTION SURVEY
     Route::get('satisfaction-survey', [\App\Http\Controllers\SatisfactionSurveyController::class, 'index'])
@@ -502,6 +488,11 @@ Route::get('/debug/expense-realizations', function () {
             Route::get('/form/{id?}', 'AccountController@form')->name('form');
         });
 
+        Route::name('sources.')->prefix('sources')->group(function () {
+            Route::get('/', 'SourceController@index')->name('index');
+            Route::get('/form/{id?}', 'SourceController@form')->name('form');
+        });
+
         Route::name('product-categories.')->prefix('product-categories')->group(function () {
             Route::get('/', 'ProductCategoryController@index')->name('index');
             Route::get('/form/{id?}', 'ProductCategoryController@form')->name('form');
@@ -608,18 +599,28 @@ Route::get('/debug/expense-realizations', function () {
     ], function () {
         Route::name('customers.')->prefix('customers')->group(function () {
             Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
+            Route::get('/create', [DatsServiceCustomerController::class, 'createPage'])->name('create');
+            Route::get('/{customer}/edit', [DatsServiceCustomerController::class, 'createPage'])->name('edit');
+            Route::get('/{customer}/machines', [DatsServiceCustomerController::class, 'machinesPage'])->name('machines');
+            Route::get('/{customer}/machines/create', [DatsServiceCustomerController::class, 'createMachinePage'])->name('machines.create');
+            Route::get('/{customer}/tickets', [DatsServiceCustomerController::class, 'ticketsPage'])->name('tickets');
         });
 
         Route::name('technicians.')->prefix('technicians')->group(function () {
             Route::get('/', [DatsTechnicianController::class, 'page'])->name('index');
+            Route::get('/create', [DatsTechnicianController::class, 'createPage'])->name('create');
+            Route::get('/{technician}/work-orders', [DatsTechnicianController::class, 'workOrdersPage'])->name('work-orders');
         });
 
         Route::name('spareparts.')->prefix('spareparts')->group(function () {
             Route::get('/', [DatsSparepartController::class, 'page'])->name('index');
+            Route::get('/create', [DatsSparepartController::class, 'createPage'])->name('create');
         });
 
         Route::name('tickets.')->prefix('tickets')->group(function () {
             Route::get('/', [DatsTicketController::class, 'page'])->name('index');
+            Route::get('/create', [DatsTicketController::class, 'createPage'])->name('create');
+            Route::get('/{ticket}/edit', [DatsTicketController::class, 'editPage'])->name('edit');
             Route::get('/{ticket}', [DatsTicketController::class, 'showPage'])->name('show');
         });
     });

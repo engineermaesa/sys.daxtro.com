@@ -23,6 +23,25 @@ class TechnicianController extends Controller
         return $this->render('pages.aftersales.technicians.index');
     }
 
+    public function createPage(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+
+        $this->pageTitle = 'Add Technician';
+
+        return $this->render('pages.aftersales.technicians.create');
+    }
+
+    public function workOrdersPage(Request $request, TechnicianProfile $technician)
+    {
+        abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+
+        $technician->load('user');
+        $this->pageTitle = $technician->user->name . ' — Work Order';
+
+        return $this->render('pages.aftersales.technicians.work-orders', ['technician' => $technician]);
+    }
+
     public function index(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);

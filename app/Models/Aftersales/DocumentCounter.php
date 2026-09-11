@@ -3,7 +3,7 @@
 namespace App\Models\Aftersales;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Carbon;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DocumentCounter extends Model
@@ -53,5 +53,22 @@ class DocumentCounter extends Model
 
             return $counter->last_number;
         });
+    }
+
+    /**
+     * Read-only preview of the number `nextNumber()` would hand out next, for
+     * display purposes (e.g. showing the upcoming ticket code before saving).
+     * Not reserved — a concurrent save can still claim the same number first.
+     */
+    public static function peekNextNumber(string $type, ?Carbon $date = null): int
+    {
+        $date = ($date ?? Carbon::now('Asia/Jakarta'))->toDateString();
+
+        $counter = self::query()
+            ->where('type', $type)
+            ->where('date', $date)
+            ->first();
+
+        return ($counter->last_number ?? 0) + 1;
     }
 }

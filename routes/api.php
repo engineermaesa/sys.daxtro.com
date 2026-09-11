@@ -32,6 +32,7 @@ use App\Http\Controllers\Masters\CustomerTypeController;
 use App\Http\Controllers\Masters\ExpenseTypeController;
 use App\Http\Controllers\Masters\PartController;
 use App\Http\Controllers\Masters\ProductCategoryController;
+use App\Http\Controllers\Masters\SourceController;
 use App\Http\Controllers\Masters\ProductController;
 use App\Http\Controllers\Masters\ProvinceController;
 use App\Http\Controllers\Masters\RegionController;
@@ -365,6 +366,14 @@ Route::group([
         Route::delete('/delete/{id}', [AccountController::class, 'delete'])->name('delete');
     });
 
+    // SOURCES (API)
+    Route::prefix('sources')->name('sources.')->group(function () {
+        Route::get('/list', [SourceController::class, 'list'])->name('list');
+        Route::get('/form/{id?}', [SourceController::class, 'form'])->name('form');
+        Route::post('/save/{id?}', [SourceController::class, 'save'])->name('save');
+        Route::delete('/delete/{id}', [SourceController::class, 'delete'])->name('delete');
+    });
+
     // PRODUCT CATEGORIES (API)
     Route::prefix('product-categories')->name('product-categories.')->group(function () {
         Route::get('/list', [ProductCategoryController::class, 'list'])->name('list');
@@ -464,6 +473,8 @@ Route::group([
     Route::prefix('customers')->name('customers.')->group(function () {
         Route::get('/', [ServiceCustomerController::class, 'index'])->name('index');
         Route::post('/', [ServiceCustomerController::class, 'store'])->name('store');
+        Route::get('/provinces', [ServiceCustomerController::class, 'provinces'])->name('provinces');
+        Route::get('/regions', [ServiceCustomerController::class, 'regions'])->name('regions');
         Route::get('/{customer}', [ServiceCustomerController::class, 'show'])->name('show');
         Route::put('/{customer}', [ServiceCustomerController::class, 'update'])->name('update');
         Route::delete('/{customer}', [ServiceCustomerController::class, 'destroy'])->name('destroy');
@@ -497,7 +508,9 @@ Route::group([
     Route::prefix('tickets')->name('tickets.')->group(function () {
         Route::get('/', [DatsTicketController::class, 'index'])->name('index');
         Route::post('/', [DatsTicketController::class, 'store'])->name('store');
+        Route::get('/next-code', [DatsTicketController::class, 'nextCode'])->name('next-code');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
+        Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');
         Route::post('/{ticket}/assign', [DatsTicketController::class, 'assign'])->name('assign');
         Route::post('/{ticket}/on-site', [DatsTicketController::class, 'onSite'])->name('on-site');
         Route::post('/{ticket}/repair', [DatsTicketController::class, 'repair'])->name('repair');

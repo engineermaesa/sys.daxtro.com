@@ -235,7 +235,7 @@
             }
 
             try {
-                const response = await fetch(`{{ route('after-sales.customers.list') }}?per_page=5`, {
+                const response = await fetch(`/api/aftersales/customers?per_page=5`, {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const result = await response.json();
