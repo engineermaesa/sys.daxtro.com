@@ -54,9 +54,8 @@
         </div>
         <div class="mb-3">
             <label class="block text-sm font-medium mb-1">Installation Year</label>
-            <input type="text" id="field-install-year" placeholder="e.g. 2022"
-                class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
-            <p class="text-xs text-[#B0B0B0] mt-1">For info only — no storage column in the database yet, not submitted.</p>
+            <input type="text" id="field-install-year" readonly placeholder="e.g. 2022"
+                class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Warranty Status</label>
@@ -80,6 +79,7 @@
     function resetMachineFields() {
         $('#field-machine-model').val('');
         $('#field-serial-number').val('');
+        $('#field-install-year').val('');
         $('#field-warranty-status').val('');
     }
 
@@ -175,6 +175,7 @@
             if (product) {
                 $('#field-machine-model').val(product.product_type?.name || '');
                 $('#field-serial-number').val(product.serial_number || '');
+                $('#field-install-year').val(product.warranty_start ? new Date(product.warranty_start).getFullYear() : '');
                 $('#field-warranty-status').val(warrantyStatusLabel(product.warranty_end));
             }
         });
