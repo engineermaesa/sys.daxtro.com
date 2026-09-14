@@ -621,6 +621,7 @@ Route::get('/debug/expense-realizations', function () {
             Route::get('/', [DatsTicketController::class, 'page'])->name('index');
             Route::get('/create', [DatsTicketController::class, 'createPage'])->name('create');
             Route::get('/{ticket}/edit', [DatsTicketController::class, 'editPage'])->name('edit');
+            Route::get('/{ticket}/work-order-pdf', [DatsTicketController::class, 'workOrderPdf'])->name('work-order-pdf');
             Route::get('/{ticket}', [DatsTicketController::class, 'showPage'])->name('show');
         });
     });

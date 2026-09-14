@@ -26,7 +26,8 @@
                         <th class="p-3 text-left uppercase text-xs">Close Date</th>
                         <th class="p-3 text-left uppercase text-xs">SLA</th>
                         <th class="p-3 text-left uppercase text-xs">Priority</th>
-                        <th class="p-3 text-left uppercase text-xs">Progress</th>
+                        <th class="p-3 text-left uppercase text-xs">Steps</th>
+                        <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
                 <tbody id="work-order-table-body" class="text-left"></tbody>
@@ -95,19 +96,31 @@
         return `<span class="font-semibold ${cls}">${escapeHtml(slaStatus)}</span>`;
     }
 
-    function progressBadge(step) {
+    const STEP_LABEL = {
+        published: 'Published',
+        assigned: 'Assigned',
+        on_site: 'On Site',
+        repair: 'Repair',
+        waiting_sparepart: 'Waiting Sparepart',
+        documentation_published: 'Documentation Published',
+        satisfaction_submitted: 'Satisfaction Submitted',
+        closed: 'Closed',
+    };
+
+    function stepBadge(step) {
         const percent = PROGRESS_PERCENT[step] ?? 0;
         let cls = 'bg-[#FBEAEA] text-[#900B09]';
         if (percent >= 100) cls = 'bg-[#E6F4EF] text-[#115640]';
         else if (percent >= 50) cls = 'bg-[#FFF3CD] text-[#8A6D00]';
-        return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${percent}%</span>`;
+        const label = STEP_LABEL[step] || step || '-';
+        return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${escapeHtml(label)}</span>`;
     }
 
     function renderWorkOrderRows(rows) {
         const $body = $('#work-order-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">No work orders found</td></tr>');
+            $body.html('<tr><td colspan="11" class="text-center p-4 text-[#757575]">No work orders found</td></tr>');
             return;
         }
 
@@ -126,7 +139,13 @@
                 <td class="p-3">${formatDate(row.closed_at)}</td>
                 <td class="p-3">${slaBadge(row.sla_status)}</td>
                 <td class="p-3">${priorityBadge(row.priority)}</td>
-                <td class="p-3">${progressBadge(row.progress)}</td>
+                <td class="p-3">${stepBadge(row.progress)}</td>
+                <td class="p-3 text-center">
+                    <a href="/aftersales/tickets/${row.id}/work-order-pdf" target="_blank"
+                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-[#115640] text-[#115640] text-xs font-semibold hover:bg-[#115640] hover:text-white transition-colors">
+                        <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                    </a>
+                </td>
             </tr>
         `;
         }).join('');
@@ -160,7 +179,7 @@
     }
 
     function loadWorkOrders() {
-        $('#work-order-table-body').html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#work-order-table-body').html('<tr><td colspan="11" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/tickets',
@@ -176,7 +195,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load work orders';
-                $('#work-order-table-body').html(`<tr><td colspan="10" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#work-order-table-body').html(`<tr><td colspan="11" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }

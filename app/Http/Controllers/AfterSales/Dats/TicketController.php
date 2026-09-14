@@ -15,6 +15,7 @@ use App\Models\Aftersales\TicketPhoto;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketVisit;
 use App\Models\Aftersales\TicketWorkOrder;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,47 @@ class TicketController extends Controller
         $this->pageTitle = 'Tambah Ticket';
 
         return $this->render('pages.aftersales.tickets.create');
+    }
+
+    public function workOrderPdf(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.work-orders.issue'), 403);
+
+        $ticket->load([
+            'customer.region',
+            'customer.province',
+            'customerProduct.product',
+            'technician',
+            'visits',
+            'parts.sparepart',
+            'costs',
+        ]);
+
+        $workOrder = $ticket->workOrders()->latest('issued_at')->first();
+
+        if (!$workOrder) {
+            $now = Carbon::now('Asia/Jakarta');
+            $latestVisit = $ticket->visits->sortByDesc('scheduled_at')->first();
+
+            $workOrder = TicketWorkOrder::create([
+                'ticket_id' => $ticket->id,
+                'ticket_visit_id' => $latestVisit?->id,
+                'wo_number' => str_replace('DAX-AF-', 'WO-', $ticket->ticket_code),
+                'technician_id' => $ticket->assigned_technician_id,
+                'issued_at' => $now,
+            ]);
+        }
+
+        $workOrder->load('visit');
+
+        $pdf = Pdf::loadView('pdfs.ticket_work_order', [
+            'ticket' => $ticket,
+            'workOrder' => $workOrder,
+            'partsEstimated' => $ticket->parts->where('type', TicketPart::TYPE_ESTIMATED),
+            'costs' => $ticket->costs,
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download($workOrder->wo_number . '.pdf');
     }
 
     public function showPage(Request $request, Ticket $ticket)
