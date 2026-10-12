@@ -30,6 +30,7 @@ class ServiceCustomerProduct extends Model
     ];
 
     protected $casts = [
+        'customer_id' => 'integer',
         'warranty_start' => 'date',
         'warranty_end' => 'date',
     ];

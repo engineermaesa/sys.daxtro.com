@@ -22,6 +22,8 @@ class TicketWorkOrder extends Model
     ];
 
     protected $casts = [
+        'ticket_id' => 'integer',
+        'technician_id' => 'integer',
         'issued_at' => 'datetime',
         'technician_signed_at' => 'datetime',
     ];

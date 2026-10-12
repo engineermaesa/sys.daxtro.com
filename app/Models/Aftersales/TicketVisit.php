@@ -18,6 +18,7 @@ class TicketVisit extends Model
     ];
 
     protected $casts = [
+        'ticket_id' => 'integer',
         'scheduled_at' => 'datetime',
         'actual_start' => 'datetime',
         'actual_end' => 'datetime',
