@@ -81,6 +81,8 @@ class RolePermissionSeeder extends Seeder
                 $permissions['aftersales.tickets.recoming'] ?? null,
                 $permissions['aftersales.survey-link.share'] ?? null,
                 $permissions['aftersales.documentation.submit'] ?? null,
+                $permissions['aftersales.tickets.view-own'] ?? null,
+                $permissions['aftersales.documents.fill'] ?? null,
             ],
             'sales' => [
                 $permissions['dashboard'] ?? null,

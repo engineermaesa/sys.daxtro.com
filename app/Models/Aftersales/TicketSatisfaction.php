@@ -84,13 +84,13 @@ class TicketSatisfaction extends Model
         return $this->belongsTo(User::class, 'filled_by_user_id');
     }
 
-    public static function storeSignature(int $ticketId, string $dataUri): string
+    public static function storeSignature(int $ticketId, string $dataUri, string $dir = 'satisfaction-signatures'): string
     {
         abort_unless(preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $dataUri, $m), 422, 'Invalid signature.');
         $png = base64_decode($m[1], true);
         abort_if($png === false || strlen($png) > 512 * 1024 || ! str_starts_with($png, "\x89PNG"), 422, 'Invalid signature.');
 
-        $path = 'satisfaction-signatures/' . $ticketId . '/' . Str::uuid() . '.png';
+        $path = $dir . '/' . $ticketId . '/' . Str::uuid() . '.png';
         Storage::disk('local')->put($path, $png);
 
         return $path;

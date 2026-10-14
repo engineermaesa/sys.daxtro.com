@@ -27,6 +27,12 @@ class ServiceCustomerProduct extends Model
         'warranty_end',
         'pm_contract_status',
         'pm_frequency',
+        'capacity',
+        'refrigerant',
+        'condenser_type',
+        'voltage',
+        'phase',
+        'hz',
     ];
 
     protected $casts = [
