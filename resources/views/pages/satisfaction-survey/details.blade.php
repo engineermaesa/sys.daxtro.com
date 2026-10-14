@@ -79,7 +79,7 @@
         <div class="flex flex-wrap gap-2">
             <button type="button" id="btnViewForm" class="px-4 py-2 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">View form (read-only)</button>
             <button type="button" id="btnMarkReviewed" class="px-4 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Mark as reviewed</button>
-            <button type="button" class="px-4 py-2 bg-[#FBF3D5] text-[#8A6D0B] font-semibold rounded-lg cursor-pointer">Schedule Recoming</button>
+            <button type="button" id="btnScheduleRecoming" class="px-4 py-2 bg-[#FBF3D5] text-[#8A6D0B] font-semibold rounded-lg cursor-pointer">Schedule Recoming</button>
         </div>
     </div>
 </div>

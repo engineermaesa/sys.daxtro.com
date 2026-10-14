@@ -105,6 +105,7 @@
 
     @include('pages.satisfaction-survey.details')
     @include('pages.satisfaction-survey.view-form')
+    @include('pages.satisfaction-survey.recoming')
 </section>
 @endsection
 
@@ -225,11 +226,61 @@
 
             document.querySelectorAll('.review-cell').forEach(function (cell) {
                 if (cell.dataset.ticket !== s.ticket) return;
-                cell.textContent = s.reviewed ? 'Reviewed' : 'Needs review';
-                cell.classList.toggle('text-[#115640]', s.reviewed);
-                cell.classList.toggle('text-[#D97706]', ! s.reviewed);
+                cell.textContent = s.recoming ? 'Recoming' : (s.reviewed ? 'Reviewed' : 'Needs review');
+                cell.classList.toggle('text-[#115640]', s.reviewed && ! s.recoming);
+                cell.classList.toggle('text-[#D97706]', ! s.reviewed || s.recoming);
+            });
+
+            const rcBtn = document.getElementById('btnScheduleRecoming');
+            rcBtn.textContent = s.recoming ? 'Recoming scheduled' : 'Schedule Recoming';
+            rcBtn.disabled = !! s.recoming;
+            rcBtn.classList.toggle('opacity-60', !! s.recoming);
+            rcBtn.classList.toggle('cursor-not-allowed', !! s.recoming);
+        }
+
+        // SCHEDULE RECOMING (client-side only)
+        // TODO: persist to backend (ticket progress -> Recoming, survey link disabled, status back to On Site on follow-up date)
+        const recomingModal = document.getElementById('recomingModal');
+        const rcDate = document.getElementById('rcDate');
+        const rcDateError = document.getElementById('rcDateError');
+
+        function setReason(btn) {
+            document.querySelectorAll('.rc-reason').forEach(function (b) {
+                const on = b === btn;
+                b.classList.toggle('bg-[#115640]', on);
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('border-[#115640]', on);
+                b.classList.toggle('bg-white', ! on);
+                b.classList.toggle('border-[#D9D9D9]', ! on);
             });
         }
+
+        function closeRecoming() { recomingModal.classList.add('hidden'); }
+
+        document.getElementById('btnScheduleRecoming').addEventListener('click', function () {
+            set('rcTicket', currentTicket);
+            setReason(document.querySelector('.rc-reason'));
+            rcDate.value = '';
+            document.getElementById('rcNotes').value = '';
+            rcDateError.classList.add('hidden');
+            recomingModal.classList.remove('hidden');
+        });
+
+        document.querySelectorAll('.rc-reason').forEach(function (b) {
+            b.addEventListener('click', function () { setReason(this); });
+        });
+        document.getElementById('rcCancel').addEventListener('click', closeRecoming);
+        recomingModal.addEventListener('click', function (e) { if (e.target === recomingModal) closeRecoming(); });
+
+        document.getElementById('rcSave').addEventListener('click', function () {
+            if (! rcDate.value) return rcDateError.classList.remove('hidden');
+
+            const s = surveys.find(function (x) { return x.ticket === currentTicket; });
+            if (! s) return;
+            s.recoming = true;
+            renderReviewState(s);
+            closeRecoming();
+        });
 
         document.getElementById('btnMarkReviewed').addEventListener('click', function () {
             const s = surveys.find(function (x) { return x.ticket === currentTicket; });
