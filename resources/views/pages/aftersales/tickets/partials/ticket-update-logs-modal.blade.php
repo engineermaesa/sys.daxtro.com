@@ -34,7 +34,6 @@
                             <option value="on_site">On Site</option>
                             <option value="repair">Repair</option>
                             <option value="waiting_sparepart">Waiting Sparepart</option>
-                            <option value="documentation_published">Documentation Published</option>
                             <option value="satisfaction_submitted">Satisfaction Submitted</option>
                             <option value="closed">Closed</option>
                         </select>

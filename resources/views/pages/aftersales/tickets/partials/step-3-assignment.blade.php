@@ -23,7 +23,6 @@
             <label class="block text-sm font-medium mb-1">Supervisor Approval</label>
             <select id="field-supervisor" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                 <option value="">Select Supervisor</option>
-                {{-- TODO: fetch GET /api/aftersales/tickets/supervisors (new endpoint, after_sales role) then populate <option value="{id}">{name}</option> --}}
             </select>
         </div>
         <div>

@@ -393,10 +393,24 @@
         }
     }
 
-    $(function () {
-        // TODO: fetch GET /api/aftersales/tickets/supervisors to populate #field-supervisor
-        // (endpoint not yet available in backend)
+    function loadSupervisorOptions() {
+        return $.ajax({
+            url: '/api/aftersales/tickets/supervisors',
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+            success: function (response) {
+                const options = (response.data || []).map(function (u) {
+                    return '<option value="' + u.id + '">' + escapeHtml(u.name) + '</option>';
+                }).join('');
+                $('#field-supervisor').html('<option value="">Select Supervisor</option>' + options);
+            },
+            error: function (xhr) {
+                console.error('Failed to load supervisors', xhr.responseJSON?.message || xhr.statusText);
+            }
+        });
+    }
 
+    $(function () {
         initSelect2();
         initTooltips();
         updateStepper();
@@ -404,11 +418,12 @@
         const customerPromise = loadCustomerOptions();
         const technicianPromise = loadTechnicianOptions();
         const sparepartPromise = loadSparepartOptions();
+        const supervisorPromise = loadSupervisorOptions();
 
         if (EDIT_TICKET_ID) {
             $('#field-ticket-code').val(EDIT_TICKET.ticket_code || '-');
 
-            $.when(customerPromise, technicianPromise, sparepartPromise).done(function () {
+            $.when(customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
                 $('#field-customer').val(String(EDIT_TICKET.customer_id)).trigger('change');
                 $('#field-category').val(EDIT_TICKET.category || '');
                 $('#field-priority').val(EDIT_TICKET.priority || 'medium');

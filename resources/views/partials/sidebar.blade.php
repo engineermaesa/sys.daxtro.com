@@ -189,8 +189,8 @@
         </li>
         @endif
 
-        {{-- TICKETING MENU --}}
-        @if(auth()->check() && auth()->user()->hasPermission('aftersales.tickets.manage'))
+        {{-- TICKETING MENU (admin/supervisor, atau teknisi yang hanya melihat tiket miliknya) --}}
+        @if(auth()->check() && (auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own')))
         <li id="listTicketing" class="rounded-lg mt-2">
             <button id="ticketingToggle"  class="cursor-pointer w-full text-left rounded-lg px-3 py-2 grid place-items-center lg:flex lg:items-center lg:justify-between">
                 <div class="lg:flex! lg:items-center! lg:justify-start! lg:gap-3!">

@@ -22,6 +22,10 @@
                     <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or machine"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
+                <label class="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" id="ticket-supervisor-me" style="width: 16px; height: 16px;">
+                    <span>Supervisor: Saya</span>
+                </label>
                 <button type="button" id="btn-search-ticket"
                 class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
@@ -87,6 +91,7 @@
         lastPage: 1,
         perPage: 10,
         search: '',
+        supervisorMe: false,
     };
 
     // Step name -> display percent. Backend hanya expose nama step (lihat Ticket::getProgressAttribute),
@@ -261,6 +266,7 @@
                 page: ticketState.page,
                 per_page: ticketState.perPage,
                 search: ticketState.search,
+                supervisor: ticketState.supervisorMe ? 'me' : '',
             },
             success: function (response) {
                 renderTicketRows(response.data);
@@ -295,6 +301,12 @@
                 ticketState.page = 1;
                 loadTickets();
             }, 400);
+        });
+
+        $('#ticket-supervisor-me').on('change', function () {
+            ticketState.supervisorMe = this.checked;
+            ticketState.page = 1;
+            loadTickets();
         });
 
         $('#btn-search-ticket').on('click', function () {
@@ -348,8 +360,6 @@
             $('#tdWoView, #tdWoDownload').attr('href', woUrl);
             $('#tdShareLink').text('Share Link').data('url', 'https://' + surveyUrl);
 
-            renderSupervisorState(); // status Service Form per ticket
-
             $('#ticketListView').addClass('hidden');
             $('#ticketDetailsView').removeClass('hidden');
             window.scrollTo(0, 0);
@@ -387,222 +397,7 @@
             $('#ticketDetailsView').removeClass('hidden');
         });
 
-        // SERVICE AGREEMENT SHEET (frontend only)
-        // TODO: persist ke backend; sementara tersimpan per ticket di memori selama halaman belum di-refresh
-        const agreementState = {};
-
-        function refreshAgreement() {
-            let all = 0, checked = 0;
-
-            $('#ticketAgreementView .sa-section').each(function () {
-                const $clauses = $(this).find('.sa-clause');
-                const done = $clauses.filter(':checked').length;
-                all += $clauses.length;
-                checked += done;
-
-                $(this).find('.sa-count').text(done + ' / ' + $clauses.length + ' clauses');
-                $(this).find('.sa-section-check')
-                    .prop('checked', done === $clauses.length)
-                    .prop('indeterminate', done > 0 && done < $clauses.length);
-            });
-
-            $('#saCheckAll')
-                .prop('checked', all > 0 && checked === all)
-                .prop('indeterminate', checked > 0 && checked < all);
-        }
-
-        $(document).on('change', '#ticketAgreementView .sa-clause', refreshAgreement);
-
-        $(document).on('change', '#ticketAgreementView .sa-section-check', function () {
-            $(this).closest('.sa-section').find('.sa-clause').prop('checked', this.checked);
-            refreshAgreement();
-        });
-
-        $(document).on('change', '#saCheckAll', function () {
-            $('#ticketAgreementView .sa-clause').prop('checked', this.checked);
-            refreshAgreement();
-        });
-
-        $(document).on('click', '#tdSaView', function () {
-            const t = currentTicket || {};
-            const saved = agreementState[t.id] || [];
-
-            $('#saSubtitle').text((t.ticket_code || '-') + ' · ' + (t.customer?.name || '-'));
-            $('#saSignTechnician').text(t.technician?.name || '-');
-            $('#saSignSupervisor').text(t.supervisor?.name || '-'); // TODO: supervisor belum di-load oleh API index
-            $('#saSignCustomer').text(t.customer?.name || '-');
-
-            $('#ticketAgreementView .sa-clause').each(function (i) {
-                $(this).prop('checked', !!saved[i]);
-            });
-            refreshAgreement();
-
-            $('#ticketDetailsView').addClass('hidden');
-            $('#ticketAgreementView').removeClass('hidden');
-            window.scrollTo(0, 0);
-        });
-
-        $(document).on('click', '#saSave', function () {
-            const $btn = $(this);
-            agreementState[(currentTicket || {}).id] = $('#ticketAgreementView .sa-clause')
-                .map(function () { return this.checked; }).get();
-
-            $btn.text('Saved');
-            setTimeout(function () { $btn.text('Save'); }, 1500);
-        });
-
-        $(document).on('click', '.btn-sa-back', function () {
-            $('#ticketAgreementView').addClass('hidden');
-            $('#ticketDetailsView').removeClass('hidden');
-        });
-
-        // SERVICE & MACHINE INSPECTION FORM (frontend only)
-        // TODO: persist ke backend; Add photo / Take photo / Open > masih placeholder
-        $(document).on('click', '#tdSfView', function () {
-            const t = currentTicket || {};
-            const machine = t.customer_product?.product?.name || '-';
-
-            $('#sfSubtitle').text((t.ticket_code || '-') + ' · ' + machine);
-            $('#sfFormNumber').val('SF-' + (t.ticket_code || '').replace('DAX-AF-', 'DAX-'));
-            $('#sfCustomer').val(t.customer?.name || '');
-            $('#sfMachineType').val(machine === '-' ? '' : machine);
-            $('#sfSignTechnician').text(t.technician?.name || '-');
-            $('#sfSignSupervisor').text(t.supervisor?.name || '-'); // TODO: supervisor belum di-load oleh API index
-            $('#sfSignCustomer').text(t.customer?.name || '-');
-
-            $('#ticketDetailsView').addClass('hidden');
-            $('#ticketServiceFormView').removeClass('hidden');
-            window.scrollTo(0, 0);
-        });
-
-        $(document).on('click', '.btn-sf-back', function () {
-            $('#ticketServiceFormView').addClass('hidden');
-            $('#ticketDetailsView').removeClass('hidden');
-        });
-
-        $(document).on('click', '.sf-tab', function () {
-            const key = $(this).data('tab');
-
-            $('.sf-tab')
-                .removeClass('bg-[#115640] text-white border-[#115640]')
-                .addClass('bg-white text-[#4B5563] border-[#D9D9D9]');
-            $(this)
-                .removeClass('bg-white text-[#4B5563] border-[#D9D9D9]')
-                .addClass('bg-[#115640] text-white border-[#115640]');
-
-            $('.sf-panel').addClass('hidden').filter('[data-tab="' + key + '"]').removeClass('hidden');
-        });
-
-        $(document).on('click', '#sfSaveDraft, #sfSaveForm', function () {
-            const $btn = $(this);
-            const label = $btn.text();
-            $btn.text('Saved');
-            setTimeout(function () { $btn.text(label); }, 1500);
-        });
-
-        // SUPERVISOR SIGNATURE (frontend only)
-        // TODO: persist ke backend (simpan gambar tanda tangan + ubah status Service Form)
-        const supervisorSigned = {};
-        const ssCanvas = document.getElementById('ssCanvas');
-        const ssCtx = ssCanvas.getContext('2d');
-        let ssDrawing = false;
-        let ssHasInk = false;
-
-        function ssResizeCanvas() {
-            const rect = ssCanvas.getBoundingClientRect();
-            ssCanvas.width = rect.width;
-            ssCanvas.height = rect.height;
-            ssCtx.lineWidth = 2;
-            ssCtx.lineCap = 'round';
-            ssCtx.strokeStyle = '#1E1E1E';
-        }
-
-        function ssClear() {
-            ssCtx.clearRect(0, 0, ssCanvas.width, ssCanvas.height);
-            ssHasInk = false;
-            $('#ssPlaceholder').removeClass('hidden');
-        }
-
-        function ssPoint(e) {
-            const rect = ssCanvas.getBoundingClientRect();
-            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        }
-
-        ssCanvas.addEventListener('pointerdown', function (e) {
-            if (supervisorSigned[(currentTicket || {}).id]) return;
-            ssDrawing = true;
-            const p = ssPoint(e);
-            ssCtx.beginPath();
-            ssCtx.moveTo(p.x, p.y);
-            ssCanvas.setPointerCapture(e.pointerId);
-        });
-
-        ssCanvas.addEventListener('pointermove', function (e) {
-            if (! ssDrawing) return;
-            const p = ssPoint(e);
-            ssCtx.lineTo(p.x, p.y);
-            ssCtx.stroke();
-            ssHasInk = true;
-            $('#ssPlaceholder').addClass('hidden');
-            $('#ssError').addClass('hidden');
-        });
-
-        ['pointerup', 'pointercancel'].forEach(function (type) {
-            ssCanvas.addEventListener(type, function () { ssDrawing = false; });
-        });
-
-        function renderSupervisorState() {
-            const signed = !! supervisorSigned[(currentTicket || {}).id];
-
-            $('#ssStatusBadge')
-                .text(signed ? 'Signed' : 'Awaiting signature')
-                .css(signed
-                    ? { background: '#E7F3EE', color: '#115640' }
-                    : { background: '#FFF3CD', color: '#D97706' });
-            $('#ssSign').prop('disabled', signed).css('opacity', signed ? 0.6 : 1);
-            $('#ssClear').prop('disabled', signed);
-
-            $('#tdSfStatus').text(signed ? 'Signed by supervisor' : 'Awaiting supervisor signature');
-            $('#tdSupervisorSign').toggleClass('hidden', signed);
-        }
-
-        $(document).on('click', '#tdSupervisorSign', function () {
-            const t = currentTicket || {};
-
-            $('#ssTicket').text(t.ticket_code || '-');
-            $('#ssCustomer').text(t.customer?.name || '-');
-            $('#ssMachine').text(t.customer_product?.product?.name || '-');
-            $('#ssTechnician').text(t.technician?.name || '-');
-            $('#ssName').val(t.supervisor?.name || ''); // TODO: supervisor belum di-load oleh API index; nanti pakai user yang login
-            $('#ssError').addClass('hidden');
-
-            $('#ticketDetailsView').addClass('hidden');
-            $('#ticketSupervisorSignView').removeClass('hidden');
-            ssResizeCanvas();
-            ssClear();
-            renderSupervisorState();
-            window.scrollTo(0, 0);
-        });
-
-        $(document).on('click', '#ssClear', ssClear);
-
-        $(document).on('click', '#ssSign', function () {
-            if (! ssHasInk) return $('#ssError').removeClass('hidden');
-
-            supervisorSigned[(currentTicket || {}).id] = true;
-            renderSupervisorState();
-        });
-
-        $(document).on('click', '.btn-ss-back', function () {
-            $('#ticketSupervisorSignView').addClass('hidden');
-            $('#ticketDetailsView').removeClass('hidden');
-        });
-
-        $(document).on('click', '.btn-ss-list', function () {
-            $('#ticketSupervisorSignView').addClass('hidden');
-            $('#ticketDetailsView').addClass('hidden');
-            $('#ticketListView').removeClass('hidden');
-        });
+        // Service Agreement, Service Form, tanda tangan, dan Supervisor Sign: lihat partials/documents-script.blade.php
 
         $(document).on('click', '#tdShareLink', function () {
             const $btn = $(this);
@@ -633,4 +428,5 @@
         });
     });
 </script>
+@include('pages.aftersales.tickets.partials.documents-script')
 @endsection

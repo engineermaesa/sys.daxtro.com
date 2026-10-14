@@ -243,6 +243,19 @@ class TicketController extends Controller
         ]);
     }
 
+    /** Users who can be chosen as ticket supervisor: role After Sales (code `after_sales`). */
+    public function supervisors(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+
+        $users = \App\Models\User::query()
+            ->whereHas('role', fn ($q) => $q->where('code', 'after_sales'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json(['status' => 'success', 'data' => $users]);
+    }
+
     /** Live IDR rates for USD and CNY (cached), used by the Cost step of the ticket form. */
     public function exchangeRates(\App\Services\ExchangeRateService $rates)
     {

@@ -32,40 +32,29 @@
             <p id="tdDescription" style="margin-top: 6px;"></p>
         </div>
 
-        {{-- SUPPORTING DOCUMENTS --}}
-        {{-- TODO: status dokumen, Service Agreement & Service Form menunggu backend --}}
+        {{-- SUPPORTING DOCUMENTS (status dokumen dari GET /api/aftersales/tickets/{id}/documents, dirender oleh documents-script) --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
             <h2 class="font-bold tracking-wide">SUPPORTING DOCUMENTS</h2>
 
-            @php
-                $docs = [
-                    ['Work Order', 'Document ready', false, true],
-                    ['Service Agreement', 'Document ready', false, false],
-                    ['Service Form', 'Awaiting supervisor signature', true, false],
-                ];
-            @endphp
+            <div id="tdDocsWarning" class="hidden rounded-md bg-[#FFF3CD] text-[#8A6D00] text-xs" style="margin-top: 12px; padding: 10px 14px;"></div>
 
             <div style="margin-top: 12px;">
-                @foreach ($docs as [$title, $status, $needsSign, $isWorkOrder])
-                    <div class="flex items-center justify-between flex-wrap border-b border-[#EDEDED] last:border-b-0" style="padding: 14px 0; gap: 12px;">
-                        <div>
-                            <p class="font-semibold">{{ $title }}</p>
-                            <p @if ($needsSign) id="tdSfStatus" @endif class="text-[#9CA3AF] text-xs" style="margin-top: 2px;">{{ $status }}</p>
-                        </div>
-                        <div class="flex items-center" style="gap: 8px;">
-                            @if ($needsSign)
-                                <button type="button" id="tdSupervisorSign" class="bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" style="padding: 8px 14px;">Supervisor Sign</button>
-                            @endif
-                            @if ($isWorkOrder)
-                                <button type="button" id="tdWoView" class="bg-white border border-[#D9D9D9] rounded-md cursor-pointer" style="padding: 8px 14px;">View</button>
-                                <a id="tdWoDownload" href="#" target="_blank" class="bg-white border border-[#D9D9D9] text-[#115640] font-semibold rounded-md" style="padding: 8px 14px;">Download PDF</a>
-                            @else
-                                <button type="button" @if ($title === 'Service Agreement') id="tdSaView" @elseif ($title === 'Service Form') id="tdSfView" @endif class="bg-white border border-[#D9D9D9] rounded-md cursor-pointer" style="padding: 8px 14px;">View</button>
-                                <button type="button" class="bg-white border border-[#D9D9D9] text-[#115640] font-semibold rounded-md cursor-pointer" style="padding: 8px 14px;">Download PDF</button>
-                            @endif
-                        </div>
+                {{-- WORK ORDER --}}
+                <div class="flex items-center justify-between flex-wrap border-b border-[#EDEDED]" style="padding: 14px 0; gap: 12px;">
+                    <div>
+                        <p class="font-semibold">Work Order</p>
+                        <p class="text-[#9CA3AF] text-xs" style="margin-top: 2px;">Document ready</p>
                     </div>
-                @endforeach
+                    <div class="flex items-center" style="gap: 8px;">
+                        <button type="button" id="tdWoView" class="bg-white border border-[#D9D9D9] rounded-md cursor-pointer" style="padding: 8px 14px;">View</button>
+                        <a id="tdWoDownload" href="#" target="_blank" class="bg-white border border-[#D9D9D9] text-[#115640] font-semibold rounded-md" style="padding: 8px 14px;">Download PDF</a>
+                    </div>
+                </div>
+
+                {{-- SERVICE AGREEMENT & SERVICE FORM --}}
+                <div id="tdDocsDynamic">
+                    <p class="text-[#9CA3AF] text-xs" style="padding: 14px 0;">Loading documents...</p>
+                </div>
             </div>
         </div>
 
