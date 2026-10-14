@@ -227,7 +227,7 @@ class TechnicianController extends Controller
         // responses entered on behalf of the customer don't count to the technician (PRD SV-22)
         $avgCsat = TicketSatisfaction::whereIn('ticket_id', $tickets->pluck('id'))
             ->whereNull('admin_input_reason')
-            ->get()
+            ->with('answers')->get()
             ->avg('average_score');
 
         return [

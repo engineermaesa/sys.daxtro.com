@@ -64,6 +64,7 @@ class TicketSatisfaction extends Model
         'duration_seconds',
         'filled_by_user_id',
         'filled_at',
+        'ref_survey_template_id',
     ];
 
     protected $casts = [
@@ -77,6 +78,16 @@ class TicketSatisfaction extends Model
     public function ticket()
     {
         return $this->belongsTo(Ticket::class, 'ticket_id');
+    }
+
+    public function template()
+    {
+        return $this->belongsTo(RefSurveyTemplate::class, 'ref_survey_template_id');
+    }
+
+    public function answers()
+    {
+        return $this->hasMany(TicketSatisfactionAnswer::class, 'ticket_satisfaction_id');
     }
 
     public function filledBy()
@@ -108,6 +119,10 @@ class TicketSatisfaction extends Model
 
     public function getAverageScoreAttribute(): ?float
     {
+        if ($this->ref_survey_template_id) {
+            $scores = $this->answers->where('type', 'rating')->whereNotNull('value_number');
+            return $scores->isEmpty() ? null : round($scores->avg('value_number'), 1);
+        }
         $scores = collect(array_keys(self::ASPECTS))
             ->map(fn ($col) => $this->{$col})
             ->filter(fn ($v) => $v !== null);

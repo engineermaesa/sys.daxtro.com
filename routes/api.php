@@ -58,6 +58,17 @@ use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementCon
 use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
 use App\Http\Controllers\AfterSales\Dats\AgreementTemplateController;
 use App\Http\Controllers\AfterSales\Dats\InspectionTemplateController;
+use App\Http\Controllers\AfterSales\Dats\SurveyTemplateController;
+
+Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {
+    Route::get('/', [SurveyTemplateController::class, 'index'])->name('index');
+    Route::get('/question-scores', [SurveyTemplateController::class, 'questionScores'])->name('question-scores');
+    Route::post('/draft', [SurveyTemplateController::class, 'createDraft'])->name('draft');
+    Route::get('/{surveyTemplate}', [SurveyTemplateController::class, 'show'])->name('show');
+    Route::put('/{surveyTemplate}', [SurveyTemplateController::class, 'update'])->name('update');
+    Route::post('/{surveyTemplate}/preview', [SurveyTemplateController::class, 'preview'])->name('preview');
+    Route::post('/{surveyTemplate}/activate', [SurveyTemplateController::class, 'activate'])->name('activate');
+});
 
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/inspection-templates')->name('aftersales.inspection-templates.')->group(function () {
     Route::get('/', [InspectionTemplateController::class, 'index'])->name('index');

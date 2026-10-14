@@ -11,6 +11,7 @@ use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
 use App\Services\WhatsAppSender;
+use App\Services\Aftersales\SurveyResponses;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -140,35 +141,20 @@ class CustomerSurveyController extends Controller
                     'service_date' => ($visit?->actual_start ?? $visit?->scheduled_at)?->toDateString(),
                     'wo_number' => $ticket->workOrders->sortByDesc('id')->first()?->wo_number,
                 ],
-                'aspects' => collect(TicketSatisfaction::ASPECTS)
-                    ->map(fn ($label, $key) => ['key' => $key, 'label' => $label])->values(),
+                'aspects' => collect($link->template->questions())->where('type', 'rating')->map(fn ($q) => ['key' => $q['question_key'], 'label' => $q['label']])->values(),
+                'template' => ['version' => $link->template->version, 'title' => $link->template->title, 'scale_labels' => $link->template->content['scale_labels'], 'sections' => $link->template->documentSections()],
             ],
         ]);
     }
 
     public function submit(Request $request, string $token)
     {
-        $rules = [
-            'machine_ok' => 'required|boolean',
-            'machine_issue_note' => 'nullable|string',
-            'feedback' => 'nullable|string',
-            'signer_name' => 'required|string|max:255',
-            'signer_position' => 'required|string|max:255',
-            'signature' => 'required|string',
-        ];
-        foreach (array_keys(TicketSatisfaction::ASPECTS) as $key) {
-            $rules[$key] = 'required|integer|min:1|max:5';
-        }
-        $validated = $request->validate($rules);
-
-        if (! $validated['machine_ok'] && blank($validated['machine_issue_note'] ?? null)) {
-            abort(422, 'Please explain what is still not working.');
-        }
-
         $link = $this->activeLink($token);
         $otp = $this->verifiedOtp($request, $link);
+        $responseData = app(SurveyResponses::class)->validate($request, $link->template);
+        $validated = $responseData['attributes'];
 
-        $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $request) {
+        $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $responseData, $request) {
             
             $locked = SatisfactionLink::whereKey($link->id)->lockForUpdate()->first();
             abort_if($locked->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'This link can no longer be used.');
@@ -199,6 +185,8 @@ class CustomerSurveyController extends Controller
                     'filled_at' => $now,
                 ]
             ));
+
+            app(SurveyResponses::class)->store($satisfaction, $responseData['answers']);
 
             SatisfactionLink::markUsedFor($ticket);
             MachineNotWorkingNotification::sendFor($satisfaction);

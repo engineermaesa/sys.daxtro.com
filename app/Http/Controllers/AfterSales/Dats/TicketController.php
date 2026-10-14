@@ -744,39 +744,7 @@ class TicketController extends Controller
         $this->guardSequential($ticket, TicketLog::STEP_SATISFACTION_SUBMITTED);
         $this->guardStepNotLogged($ticket, TicketLog::STEP_SATISFACTION_SUBMITTED, 'Satisfaction assessment has already been submitted for this ticket.');
 
-        $validated = $request->validate([
-            'timeliness' => 'required|integer|min:1|max:5',
-            'technician_attitude' => 'required|integer|min:1|max:5',
-            'technical_knowledge' => 'required|integer|min:1|max:5',
-            'work_neatness' => 'required|integer|min:1|max:5',
-            'solution_quality' => 'required|integer|min:1|max:5',
-        ]);
-
-        $satisfaction = DB::transaction(function () use ($validated, $ticket, $request) {
-            $satisfaction = TicketSatisfaction::create(array_merge($validated, [
-                'ticket_id' => $ticket->id,
-                'source' => TicketSatisfaction::SOURCE_ADMIN,
-                'review_status' => TicketSatisfaction::REVIEW_NEEDS_REVIEW,
-                'review_reasons' => ['admin_input'],
-                'admin_input_reason' => 'Entered by after-sales (legacy form)',
-                'filled_by_user_id' => $request->user()->id,
-                'filled_at' => Carbon::now('Asia/Jakarta'),
-                'created_by' => $request->user()->id,
-            ]));
-
-            SatisfactionLink::markUsedFor($ticket);
-
-            TicketLog::create([
-                'ticket_id' => $ticket->id,
-                'step' => TicketLog::STEP_SATISFACTION_SUBMITTED,
-                'actor_user_id' => $request->user()->id,
-                'created_by' => $request->user()->id,
-            ]);
-
-            return $satisfaction;
-        });
-
-        return $this->setJsonResponse('Satisfaction assessment submitted successfully', ['data' => $satisfaction], 201);
+        return app(SurveyLinkController::class)->enterOnBehalf($request, $ticket);
     }
 
     /**

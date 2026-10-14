@@ -2,7 +2,7 @@
 <div id="surveyFormView" class="hidden">
     <div class="pt-4 flex items-start justify-between gap-3">
         <div>
-            <h1 class="font-semibold text-xl lg:text-2xl text-[#115640]">Submitted Survey Form</h1>
+            <h1 class="font-semibold text-xl lg:text-2xl text-[#115640]">Submitted Survey Form <span id="vfTemplateVersion" class="text-sm"></span></h1>
             <p class="text-[#757575] mt-1 flex items-center gap-2">
                 <button type="button" class="back-to-response cursor-pointer">Response Detail</button>
                 <i class="fas fa-chevron-right text-[9px]"></i>
@@ -47,6 +47,7 @@
     </div>
 
     {{-- MACHINE WORKING STATUS --}}
+    <div id="vfAdditionalQuestions" class="hidden mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg"></div>
     <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
         <h2 class="font-bold tracking-wide">MACHINE WORKING STATUS</h2>
         <hr class="my-3 border-[#EDEDED]">

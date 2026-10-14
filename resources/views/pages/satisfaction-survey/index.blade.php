@@ -448,6 +448,14 @@
 
         function renderForm(f) {
             const job = f.job_information || {}, signer = f.signer || {};
+            set('vfTemplateVersion', f.template ? '· Template v' + f.template.version : '');
+            const extras = (f.answers || []).filter(function (answer) { return answer.type !== 'rating' && answer.question_key !== 'machine_ok' && !(answer.question_key === 'feedback' && ['short_text', 'long_text'].includes(answer.type)); });
+            const extraBox = document.getElementById('vfAdditionalQuestions');
+            extraBox.classList.toggle('hidden', !extras.length);
+            extraBox.innerHTML = extras.map(function (answer) {
+                const value = answer.type === 'yes_no' && answer.value !== null ? (answer.value ? 'Yes' : 'No') : dash(answer.value);
+                return '<div class="py-3"><p class="font-semibold">' + esc(answer.label) + '</p><p style="white-space:pre-wrap">' + esc(value) + '</p></div>';
+            }).join('');
             set('vfTicket', dash(job.ticket_code));
             set('vfCustomer', dash(job.customer));
             set('vfTechnician', dash(job.technician));
@@ -461,7 +469,7 @@
             set('vfSigner', [signer.name, signer.position].filter(Boolean).join(' · ') || '-');
             setSignature('vfSignature', signer.signature_url);
 
-            document.getElementById('vfRatings').innerHTML = (f.ratings || []).map(function (item) {
+            document.getElementById('vfRatings').innerHTML = (f.template ? '<p class="text-xs text-[#757575]">' + f.template.scale_labels.map(function (label, i) { return (i + 1) + ': ' + esc(label); }).join(' · ') + '</p>' : '') + (f.ratings || []).map(function (item) {
                 const boxes = [1, 2, 3, 4, 5].map(function (n) {
                     const on = n === Math.round(item.score);
                     return `<span class="flex items-center justify-center h-14 rounded-lg border font-semibold ${on ? 'bg-[#115640] border-[#115640] text-white' : 'bg-white border-[#D9D9D9] text-[#4B5563]'}">${n}</span>`;

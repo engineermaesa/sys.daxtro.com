@@ -34,6 +34,7 @@ class SatisfactionLink extends Model
         'shared_by_user_id',
         'shared_via',
         'shared_at',
+        'ref_survey_template_id',
     ];
 
     protected $hidden = ['token_hash', 'token_encrypted'];
@@ -60,11 +61,17 @@ class SatisfactionLink extends Model
         return $this->belongsTo(User::class, 'shared_by_user_id');
     }
 
-    public static function issue(Ticket $ticket, ?int $userId = null): self
+    public function template()
+    {
+        return $this->belongsTo(RefSurveyTemplate::class, 'ref_survey_template_id');
+    }
+
+    public static function issue(Ticket $ticket, ?int $userId = null, ?RefSurveyTemplate $template = null): self
     {
         $token = Str::random(64);
 
         return static::create([
+            'ref_survey_template_id' => ($template ?? RefSurveyTemplate::active())->id,
             'ticket_id' => $ticket->id,
             'token_hash' => hash('sha256', $token),
             'token_encrypted' => Crypt::encryptString($token),

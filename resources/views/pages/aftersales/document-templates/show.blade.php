@@ -23,6 +23,6 @@
 @elseif($template === 'service-inspection-report')
 <script src="{{ asset('assets/js/inspection-templates.js') }}?v={{ filemtime(public_path('assets/js/inspection-templates.js')) }}"></script>
 @else
-<script src="{{ asset('assets/js/document-templates.js') }}"></script>
+<script src="{{ asset('assets/js/survey-templates.js') }}?v={{ filemtime(public_path('assets/js/survey-templates.js')) }}"></script>
 @endif
 @endsection

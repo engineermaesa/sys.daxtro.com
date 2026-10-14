@@ -9,6 +9,7 @@ use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
 use App\Services\WhatsAppSender;
+use App\Services\Aftersales\SurveyResponses;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,9 @@ class SurveyLinkController extends Controller
         abort_if(! $old || $old->status !== SatisfactionLink::STATUS_ACTIVE, 422, 'There is no live survey link to regenerate.');
 
         DB::transaction(function () use ($ticket, $old, $validated, $request) {
-            $new = SatisfactionLink::issue($ticket, $request->user()->id);
+            $old = SatisfactionLink::whereKey($old->id)->lockForUpdate()->firstOrFail();
+            abort_unless($old->status === SatisfactionLink::STATUS_ACTIVE, 409, 'This link was already replaced. Reload the page.');
+            $new = SatisfactionLink::issue($ticket, $request->user()->id, $old->template);
             $old->update([
                 'status' => SatisfactionLink::STATUS_REPLACED,
                 'replaced_by_id' => $new->id,
@@ -70,30 +73,15 @@ class SurveyLinkController extends Controller
     {
         abort_unless($request->user()?->hasPermission('aftersales.satisfaction.submit'), 403);
 
-        $rules = [
-            'reason' => 'required|string|max:255',
-            'machine_ok' => 'required|boolean',
-            'machine_issue_note' => 'nullable|string',
-            'feedback' => 'nullable|string',
-            'signer_name' => 'required|string|max:255',
-            'signer_position' => 'required|string|max:255',
-            'signature' => 'nullable|string',
-        ];
-        foreach (array_keys(TicketSatisfaction::ASPECTS) as $key) {
-            $rules[$key] = 'required|integer|min:1|max:5';
-        }
-        $validated = $request->validate($rules);
+        $activeLink = $this->activeLink($ticket);
+        $responseData = app(SurveyResponses::class)->validate($request, $activeLink->template, true);
+        $validated = $responseData['attributes'];
 
-        if (! $validated['machine_ok'] && blank($validated['machine_issue_note'] ?? null)) {
-            abort(422, 'Please explain what is still not working.');
-        }
-
-        $this->activeLink($ticket);
-
-        $satisfaction = DB::transaction(function () use ($ticket, $validated, $request) {
+        $satisfaction = DB::transaction(function () use ($ticket, $validated, $responseData, $activeLink, $request) {
             // single use: re-check under lock so a double submit can't create two responses
             $link = SatisfactionLink::where('ticket_id', $ticket->id)->latest('id')->lockForUpdate()->first();
             abort_if(! $link || $link->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'Survey link is not active.');
+            abort_unless($link->id === $activeLink->id, 409, 'The survey link changed. Reload the form.');
 
             $now = Carbon::now('Asia/Jakarta');
             $user = $request->user();
@@ -113,6 +101,8 @@ class SurveyLinkController extends Controller
                     'filled_at' => $now,
                 ]
             ));
+
+            app(SurveyResponses::class)->store($satisfaction, $responseData['answers']);
 
             SatisfactionLink::markUsedFor($ticket);
 
@@ -168,6 +158,8 @@ class SurveyLinkController extends Controller
         return [
             'ticket_id' => $ticket->id,
             'ticket_code' => $ticket->ticket_code,
+            'template_version' => $link?->template?->version,
+            'template' => $isActive ? ['version' => $link->template->version, 'title' => $link->template->title, 'scale_labels' => $link->template->content['scale_labels'], 'sections' => $link->template->documentSections()] : null,
             'status' => $link?->display_status ?? SatisfactionLink::STATUS_INACTIVE,
             'filled' => $link?->status === SatisfactionLink::STATUS_USED,
             'expires_at' => $link?->expires_at,

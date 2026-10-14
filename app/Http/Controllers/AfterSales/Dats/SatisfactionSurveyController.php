@@ -15,7 +15,7 @@ class SatisfactionSurveyController extends Controller
         TicketSatisfaction::SOURCE_ADMIN => 'Admin assisted',
     ];
 
-    private const WITH = ['ticket.customer', 'ticket.technician', 'ticket.visits', 'ticket.workOrders'];
+    private const WITH = ['ticket.customer', 'ticket.technician', 'ticket.visits', 'ticket.workOrders', 'template', 'answers'];
 
     public function index(Request $request)
     {
@@ -128,6 +128,8 @@ class SatisfactionSurveyController extends Controller
                     'wo_number' => $ticket->workOrders->sortByDesc('id')->first()?->wo_number,
                 ],
                 'ratings' => $this->ratings($satisfaction),
+                'template' => $this->templateData($satisfaction),
+                'answers' => $this->answerData($satisfaction),
                 'machine_ok' => $satisfaction->machine_ok,
                 'machine_issue_note' => $satisfaction->machine_issue_note,
                 'comments' => $satisfaction->feedback,
@@ -169,6 +171,8 @@ class SatisfactionSurveyController extends Controller
     {
         return [
             'ratings' => $this->ratings($s),
+            'template' => $this->templateData($s),
+            'answers' => $this->answerData($s),
             'machine_ok' => $s->machine_ok,
             'machine_issue_note' => $s->machine_issue_note,
             'comments' => $s->feedback,
@@ -185,6 +189,9 @@ class SatisfactionSurveyController extends Controller
 
     private function ratings(TicketSatisfaction $s): array
     {
+        if ($s->ref_survey_template_id) {
+            return collect($this->answerData($s))->where('type', 'rating')->filter(fn ($a) => $a['value'] !== null)->map(fn ($a) => ['key' => $a['question_key'], 'label' => $a['label'], 'score' => (int) $a['value']])->values()->all();
+        }
         $ratings = [];
         foreach (TicketSatisfaction::ASPECTS as $key => $label) {
             
@@ -194,6 +201,22 @@ class SatisfactionSurveyController extends Controller
         }
 
         return $ratings;
+    }
+
+    private function templateData(TicketSatisfaction $s): ?array
+    {
+        return $s->template ? ['version' => $s->template->version, 'title' => $s->template->title, 'scale_labels' => $s->template->content['scale_labels'], 'sections' => $s->template->documentSections()] : null;
+    }
+
+    private function answerData(TicketSatisfaction $s): array
+    {
+        if (! $s->template) return [];
+        $answers = $s->answers->keyBy('question_key');
+        return collect($s->template->questions())->map(function ($q) use ($answers) {
+            $answer = $answers->get($q['question_key']);
+            $value = in_array($q['type'], ['rating', 'yes_no']) ? $answer?->value_number : $answer?->value_text;
+            return ['question_key' => $q['question_key'], 'label' => $q['label'], 'type' => $q['type'], 'value' => $q['type'] === 'yes_no' && $value !== null ? (bool) $value : $value];
+        })->all();
     }
 
     private function serviceDate(TicketSatisfaction $s): ?Carbon
