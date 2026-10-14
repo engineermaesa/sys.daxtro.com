@@ -33,6 +33,7 @@ class ServiceFormController extends Controller
             'status' => $form->status,
             'locked' => $form->isLocked(),
             'saved_at' => $form->saved_at,
+            'template' => $form->template->only(['version', 'title', 'diagnosis_section_title', 'diagnosis_fields']),
             'section1' => [
                 'customer' => $ticket->customer?->name,
                 'pic_name' => $ticket->customer?->pic_name,
@@ -75,7 +76,7 @@ class ServiceFormController extends Controller
             'unit.phase' => 'nullable|string|max:100',
             'unit.hz' => 'nullable|string|max:100',
             'inspections' => 'nullable|array',
-            'inspections.*.item_number' => 'required|integer|between:1,34',
+            'inspections.*.item_number' => 'required|integer|min:1',
             'inspections.*.status' => 'nullable|in:' . implode(',', TicketInspection::STATUSES),
             'inspections.*.values' => 'nullable|array',
         ]);
@@ -92,14 +93,16 @@ class ServiceFormController extends Controller
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
 
         $validated = $request->validate([
-            'item_number' => 'required|integer|between:1,34',
+            'item_number' => 'required|integer|min:1',
             'field_key' => 'required|string|max:40',
         ]);
 
         $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
         abort_if($form->isLocked(), 422, 'The Service Form is saved and locked. Unlock it first.');
 
-        $item = RefInspectionItem::where('number', $validated['item_number'])->firstOrFail();
+        $item = $form->template->items()->where('number', $validated['item_number'])->firstOrFail();
+        $typeId = $ticket->customerProduct?->ref_product_type_id;
+        abort_unless($item->appliesToType($typeId === null ? null : (int) $typeId), 422, 'This item is not applicable to this machine type.');
         $field = RefInspectionField::where('item_id', $item->id)->where('key', $validated['field_key'])->first();
         abort_if(! $field || $field->type !== RefInspectionField::TYPE_NUMBER, 422, 'Photos can only be attached to number fields.');
 

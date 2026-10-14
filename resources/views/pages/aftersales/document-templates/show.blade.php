@@ -20,6 +20,8 @@
 @section('scripts')
 @if($template === 'service-agreement')
 <script src="{{ asset('assets/js/agreement-templates.js') }}?v={{ filemtime(public_path('assets/js/agreement-templates.js')) }}"></script>
+@elseif($template === 'service-inspection-report')
+<script src="{{ asset('assets/js/inspection-templates.js') }}?v={{ filemtime(public_path('assets/js/inspection-templates.js')) }}"></script>
 @else
 <script src="{{ asset('assets/js/document-templates.js') }}"></script>
 @endif

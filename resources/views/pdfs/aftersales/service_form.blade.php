@@ -7,8 +7,8 @@
         $visit = $ticket->visits->sortByDesc('scheduled_at')->first();
     @endphp
 
-    <h1>Machine Service Form</h1>
-    <p class="sub">No. {{ $docNumber }}</p>
+    <h1>{{ $doc->template->title }}</h1>
+    <p class="sub">No. {{ $docNumber }} · Template v{{ $doc->template_version }}</p>
 
     <h2>1. Customer Information</h2>
     <table class="nob">
@@ -38,7 +38,7 @@
                     <td>
                         @foreach ($item['fields'] as $field)
                             @if (filled($field['value']))
-                                {{ $field['label'] }}: <strong>{{ $field['value'] }}</strong> {{ $field['unit'] }}@if (! $loop->last); @endif
+                                {{ $field['label'] }}: <strong>{{ is_array($field['value']) ? implode(', ', $field['value']) : $field['value'] }}</strong> {{ $field['unit'] }}@if (! $loop->last); @endif
                             @endif
                         @endforeach
                     </td>

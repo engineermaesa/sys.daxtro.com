@@ -120,6 +120,7 @@ class DocumentController extends Controller
             'status' => $doc->status,
             'locked' => $doc->isLocked(),
             'saved_at' => $doc->saved_at,
+            'template_version' => $doc->template_version,
             'signatures' => TicketDocuments::signatureSummary($doc, $ticket),
             'completeness' => TicketDocuments::completeness($ticket, $type),
             'can' => TicketDocuments::can($request->user(), $ticket, $doc),

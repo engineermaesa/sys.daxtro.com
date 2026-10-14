@@ -10,6 +10,9 @@ class InspectionItemSeeder extends Seeder
 {
     public function run(): void
     {
+        if (\Illuminate\Support\Facades\Schema::hasTable('ref_inspection_templates') && \App\Models\Aftersales\RefInspectionTemplate::exists()) {
+            return;
+        }
         $num = fn (string $key, string $label, ?string $unit = null) => ['key' => $key, 'label' => $label, 'type' => 'number', 'unit' => $unit];
         $chk = fn (array $options, string $label = 'Condition', string $key = 'condition') => ['key' => $key, 'label' => $label, 'type' => 'checklist', 'options' => $options];
         $txt = fn (string $key, string $label, ?string $requiredWhen = null) => ['key' => $key, 'label' => $label, 'type' => 'text', 'required_when' => $requiredWhen];

@@ -13,7 +13,12 @@ class TicketServiceForm extends Model
     public const STATUS_DRAFT = 'draft';
     public const STATUS_SAVED = 'saved';
 
-    protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id'];
+    protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id', 'ref_inspection_template_id', 'template_version'];
+
+    public function template()
+    {
+        return $this->belongsTo(RefInspectionTemplate::class, 'ref_inspection_template_id');
+    }
 
     protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime'];
 

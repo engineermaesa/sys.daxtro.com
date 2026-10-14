@@ -57,6 +57,16 @@ use App\Http\Controllers\AfterSales\Dats\ServiceFormController as DatsServiceFor
 use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementController;
 use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
 use App\Http\Controllers\AfterSales\Dats\AgreementTemplateController;
+use App\Http\Controllers\AfterSales\Dats\InspectionTemplateController;
+
+Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/inspection-templates')->name('aftersales.inspection-templates.')->group(function () {
+    Route::get('/', [InspectionTemplateController::class, 'index'])->name('index');
+    Route::post('/draft', [InspectionTemplateController::class, 'createDraft'])->name('draft');
+    Route::get('/{inspectionTemplate}', [InspectionTemplateController::class, 'show'])->name('show');
+    Route::put('/{inspectionTemplate}', [InspectionTemplateController::class, 'update'])->name('update');
+    Route::post('/{inspectionTemplate}/preview', [InspectionTemplateController::class, 'preview'])->name('preview');
+    Route::post('/{inspectionTemplate}/activate', [InspectionTemplateController::class, 'activate'])->name('activate');
+});
 
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/agreement-templates')->name('aftersales.agreement-templates.')->group(function () {
     Route::get('/', [AgreementTemplateController::class, 'index'])->name('index');

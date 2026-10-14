@@ -8,6 +8,7 @@ use App\Models\Aftersales\DocumentCounter;
 use App\Models\Aftersales\RefAgreementTemplate;
 use App\Models\Aftersales\RefInspectionField;
 use App\Models\Aftersales\RefInspectionItem;
+use App\Models\Aftersales\RefInspectionTemplate;
 use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketAgreement;
@@ -43,7 +44,10 @@ class TicketDocuments
             return;
         }
 
-        TicketServiceForm::firstOrCreate(['ticket_id' => $ticket->id]);
+        if (! TicketServiceForm::where('ticket_id', $ticket->id)->exists()) {
+            $inspectionTemplate = RefInspectionTemplate::active();
+            TicketServiceForm::firstOrCreate(['ticket_id' => $ticket->id], ['ref_inspection_template_id' => $inspectionTemplate->id, 'template_version' => $inspectionTemplate->version]);
+        }
 
         if (! TicketAgreement::where('ticket_id', $ticket->id)->exists()) {
             $template = RefAgreementTemplate::active();
@@ -127,13 +131,13 @@ class TicketDocuments
 
     public static function formStructure(Ticket $ticket, TicketServiceForm $form): array
     {
-        $typeName = self::productTypeName($ticket);
+        $typeId = $ticket->customerProduct?->ref_product_type_id;
         $inspections = $form->inspections()->with('values.photo')->get()->keyBy('ref_inspection_item_id');
 
         $groups = [];
-        foreach (RefInspectionItem::with('fields')->orderBy('number')->get() as $item) {
+        foreach ($form->template->items()->with(['fields', 'group'])->get() as $item) {
             $inspection = $inspections->get($item->id);
-            $applicable = $item->appliesTo($typeName);
+            $applicable = $item->appliesToType($typeId === null ? null : (int) $typeId);
             $status = $applicable ? $inspection?->status : 'na';
             $values = $inspection?->values->keyBy('ref_inspection_field_id') ?? collect();
 
@@ -146,10 +150,14 @@ class TicketDocuments
                     'key' => $field->key,
                     'label' => $field->label,
                     'type' => $field->type,
-                    'unit' => $field->unit,
+                    'unit' => $value?->unit ?? $field->unit,
+                    'units' => $field->units ?? [],
+                    'min_value' => $field->min_value,
+                    'max_value' => $field->max_value,
+                    'is_multiple' => $field->is_multiple,
                     'options' => $field->options,
                     'required_when' => $field->required_when,
-                    'value' => $value?->value,
+                    'value' => $field->is_multiple && $value?->value ? json_decode($value->value, true) : $value?->value,
                     'photo_required' => $field->type === RefInspectionField::TYPE_NUMBER,
                     'photo' => $photo ? [
                         'id' => $photo->id,
@@ -161,7 +169,7 @@ class TicketDocuments
             })->values()->all();
 
             $groups[$item->group_code]['code'] = $item->group_code;
-            $groups[$item->group_code]['title'] = RefInspectionItem::GROUPS[$item->group_code] ?? $item->group_code;
+            $groups[$item->group_code]['title'] = $item->group?->title ?? $item->group_code;
             $groups[$item->group_code]['items'][] = [
                 'id' => $item->id,
                 'number' => $item->number,
@@ -207,10 +215,10 @@ class TicketDocuments
                         $unfilled++;
                         continue;
                     }
-                    $checklistValue = collect($item['fields'])->firstWhere('type', RefInspectionField::TYPE_CHECKLIST)['value'] ?? null;
+                    $checklistValues = collect($item['fields'])->where('type', RefInspectionField::TYPE_CHECKLIST)->flatMap(fn ($f) => is_array($f['value']) ? $f['value'] : [$f['value']])->all();
                     foreach ($item['fields'] as $field) {
                         $required = $field['type'] !== RefInspectionField::TYPE_TEXT
-                            || ($field['required_when'] && $field['required_when'] === $checklistValue);
+                            || ($field['required_when'] && in_array($field['required_when'], $checklistValues, true));
                         if ($required && blank($field['value'])) {
                             $emptyFields++;
                         } elseif ($field['type'] === RefInspectionField::TYPE_NUMBER && filled($field['value']) && ! $field['photo']) {
@@ -272,16 +280,19 @@ class TicketDocuments
                 $ticket->customerProduct->update(array_intersect_key($data['unit'], array_flip(self::UNIT_FIELDS)));
             }
 
-            $typeName = self::productTypeName($ticket);
-            $items = RefInspectionItem::with('fields')->get()->keyBy('number');
+            $typeId = $ticket->customerProduct?->ref_product_type_id;
+            $items = $form->template->items()->with('fields')->get()->keyBy('number');
 
             foreach ($data['inspections'] ?? [] as $entry) {
                 $item = $items->get($entry['item_number']);
                 abort_if(! $item, 422, "Unknown inspection item {$entry['item_number']}.");
 
-                $applicable = $item->appliesTo($typeName);
+                $applicable = $item->appliesToType($typeId === null ? null : (int) $typeId);
                 $inspection = TicketInspection::firstOrCreate(['ticket_service_form_id' => $form->id, 'ref_inspection_item_id' => $item->id]);
                 $inspection->update(['status' => $applicable ? ($entry['status'] ?? $inspection->status) : 'na']);
+                if (! $applicable) {
+                    continue;
+                }
 
                 foreach ($entry['values'] ?? [] as $key => $raw) {
                     $field = $item->fields->firstWhere('key', $key);
@@ -307,6 +318,24 @@ class TicketDocuments
 
     private static function storeValue(TicketInspection $inspection, RefInspectionField $field, mixed $raw): void
     {
+        if ($field->is_multiple) {
+            abort_unless($raw === null || is_array($raw), 422, "'{$field->label}' needs a list of options.");
+            abort_unless(collect($raw ?? [])->every(fn ($option) => is_string($option)), 422, 'Checklist options must be strings.');
+            $options = array_values(array_unique($raw ?? []));
+            abort_if(array_diff($options, $field->options ?? []), 422, "'{$field->label}' contains an unknown option.");
+            TicketInspectionValue::updateOrCreate(['ticket_inspection_id' => $inspection->id, 'ref_inspection_field_id' => $field->id], ['value' => count($options) ? json_encode($options) : null]);
+            return;
+        }
+        $unit = $field->unit;
+        if (is_array($raw)) {
+            abort_unless($field->type === RefInspectionField::TYPE_NUMBER, 422, 'Invalid field value.');
+            $unit = $raw['unit'] ?? $field->unit;
+            $raw = $raw['value'] ?? null;
+        }
+        abort_unless($raw === null || is_scalar($raw), 422, 'Invalid field value.');
+        if ($field->type === RefInspectionField::TYPE_NUMBER && $unit !== null) {
+            abort_unless(in_array($unit, $field->units ?? ($field->unit ? [$field->unit] : []), true), 422, 'Invalid measurement unit.');
+        }
         $value = is_string($raw) ? trim($raw) : $raw;
         $value = ($value === '' || $value === null) ? null : (string) $value;
 
@@ -314,6 +343,8 @@ class TicketDocuments
             if ($field->type === RefInspectionField::TYPE_NUMBER) {
                 $value = str_replace(',', '.', $value);
                 abort_unless(is_numeric($value), 422, "'{$field->label}' must be a number.");
+                abort_unless(is_finite((float) $value), 422, "'{$field->label}' must be a finite number.");
+                abort_if(($field->min_value !== null && (float) $value < (float) $field->min_value) || ($field->max_value !== null && (float) $value > (float) $field->max_value), 422, "'{$field->label}' is outside the allowed range.");
             } elseif ($field->type === RefInspectionField::TYPE_CHECKLIST) {
                 abort_unless(in_array($value, $field->options ?? [], true), 422, "'{$field->label}' must be one of: " . implode(', ', $field->options ?? []));
             }
@@ -321,11 +352,12 @@ class TicketDocuments
 
         $row = TicketInspectionValue::firstOrNew(['ticket_inspection_id' => $inspection->id, 'ref_inspection_field_id' => $field->id]);
 
-        if ($row->exists && $field->type === RefInspectionField::TYPE_NUMBER && (string) $row->value !== (string) $value) {
+        if ($row->exists && $field->type === RefInspectionField::TYPE_NUMBER && ((string) $row->value !== (string) $value || ($row->unit ?? $field->unit) !== $unit)) {
             self::deletePhotos($row);
         }
 
         $row->value = $value;
+        $row->unit = $field->type === RefInspectionField::TYPE_NUMBER ? $unit : null;
         $row->save();
     }
 

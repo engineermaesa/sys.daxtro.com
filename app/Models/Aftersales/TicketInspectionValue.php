@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketInspectionValue extends Model
 {
-    protected $fillable = ['ticket_inspection_id', 'ref_inspection_field_id', 'value'];
+    protected $fillable = ['ticket_inspection_id', 'ref_inspection_field_id', 'value', 'unit'];
 
     public function inspection()
     {

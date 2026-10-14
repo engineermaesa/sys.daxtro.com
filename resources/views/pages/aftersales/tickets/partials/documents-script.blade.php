@@ -299,7 +299,7 @@
             return '<div class="border-b border-[#EDEDED] last:border-b-0" style="padding: 14px 0;">'
                 + '<div class="flex items-center justify-between flex-wrap" style="gap: 12px;">'
                 + '<div><p class="font-semibold">' + TYPE_TITLE[type] + ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; ' + (saved ? 'background:#E7F3EE;color:#115640;' : 'background:#FFF3CD;color:#D97706;') + '">' + (saved ? 'Saved' : 'Draft') + '</span></p>'
-                + '<p class="text-[#9CA3AF] text-xs" style="margin-top: 4px;">' + esc(note) + '</p>'
+                + '<p class="text-[#9CA3AF] text-xs" style="margin-top: 4px;">' + esc(note) + (doc.template_version ? ' &middot; Template v' + esc(doc.template_version) : '') + '</p>'
                 + '<div style="margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap;">' + chips + '</div></div>'
                 + '<div class="flex items-center flex-wrap" style="gap: 8px;">' + buttons + '</div></div>'
                 + dispatches + '</div>';
@@ -532,7 +532,8 @@
 
         if (f.type === 'checklist') {
             const opts = (f.options || []).map(function (o) {
-                return '<label class="flex items-center cursor-pointer" style="gap: 8px;"><input type="radio" class="sf-input" name="' + id + '" data-key="' + esc(f.key) + '" data-type="checklist" value="' + esc(o) + '" ' + (f.value === o ? 'checked' : '') + ' ' + dis + '> ' + esc(o) + '</label>';
+                const checked = f.is_multiple ? Array.isArray(f.value) && f.value.indexOf(o) >= 0 : f.value === o;
+                return '<label class="flex items-center cursor-pointer" style="gap: 8px;"><input type="' + (f.is_multiple ? 'checkbox' : 'radio') + '" class="sf-input" name="' + id + '" data-key="' + esc(f.key) + '" data-type="checklist" data-multiple="' + (f.is_multiple ? '1' : '0') + '" value="' + esc(o) + '" ' + (checked ? 'checked' : '') + ' ' + dis + '> ' + esc(o) + '</label>';
             }).join('');
             return '<div class="rounded-lg border border-[#D9D9D9] bg-white lg:col-span-3" style="padding: 16px;">'
                 + '<p class="font-semibold" style="margin-bottom: 10px;">' + label + '</p>'
@@ -562,6 +563,8 @@
             + 'style="padding: 10px ' + (hasList ? '36' : '12') + 'px 10px 12px; border: 1px solid ' + (filled ? '#115640' : '#D9D9D9') + ';" ' + dis + '>'
             + (hasList ? '<i class="bi bi-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: 13px;"></i>' : '')
             + '</div>'
+            + ((f.units || []).length > 1 ? '<select class="sf-unit-choice w-full border border-[#D9D9D9] rounded-md" data-key="' + esc(f.key) + '" style="padding:8px;margin-top:8px;" ' + dis + '>' + f.units.map(function (unit) { return '<option ' + (unit === f.unit ? 'selected' : '') + '>' + esc(unit) + '</option>'; }).join('') + '</select>' : '')
+            + (f.min_value !== null || f.max_value !== null ? '<p class="text-xs text-[#757575]" style="margin-top:6px;">' + (f.min_value !== null ? 'Min: ' + esc(f.min_value) : '') + (f.max_value !== null ? ' Max: ' + esc(f.max_value) : '') + '</p>' : '')
             + photoBlock
             + (ro ? '' : '<button type="button" class="sf-photo flex items-center justify-center w-full rounded-md border border-dashed border-[#9CA3AF] bg-white cursor-pointer text-xs" data-item="' + item.number + '" data-key="' + esc(f.key) + '" style="margin-top: 10px; padding: 14px; gap: 6px;"><i class="bi bi-plus"></i> ' + (photo ? 'Retake photo' : 'Upload photo') + '</button>')
             + '<p class="sf-helper text-[11px]" style="margin-top: 8px;"></p></div>';
@@ -610,6 +613,7 @@
         $('#sfLoading').addClass('hidden');
         $('#sfBody').removeClass('hidden');
         statusBadge('#sfStatusBadge', f);
+        $('#sfSubtitle').text(f.template ? 'Template v' + f.template.version + ' · ' + f.template.title : '');
 
         $('#sfFormNumber').val(f.number || '');
         $('#sfServiceDate').val(s1.service_date || '');
@@ -716,12 +720,21 @@
             const key = $(this).data('key');
             const type = $(this).data('type');
             if (type === 'checklist') {
-                if ($(this).is(':checked')) values[key] = $(this).val();
-                else if (!(key in values)) values[key] = null;
+                if ($(this).data('multiple') === 1) {
+                    if (!(key in values)) values[key] = [];
+                    if ($(this).is(':checked')) values[key].push($(this).val());
+                } else {
+                    if ($(this).is(':checked')) values[key] = $(this).val();
+                    else if (!(key in values)) values[key] = null;
+                }
             } else {
                 const v = String($(this).val() || '').trim();
                 values[key] = v === '' ? null : v;
             }
+        });
+        $d.find('.sf-unit-choice').each(function () {
+            const key = $(this).data('key');
+            if (values[key] !== null && values[key] !== undefined) values[key] = { value: values[key], unit: $(this).val() };
         });
         return { item_number: number, status: status, values: values };
     }

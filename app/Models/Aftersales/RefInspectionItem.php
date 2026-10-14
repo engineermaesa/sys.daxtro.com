@@ -17,9 +17,19 @@ class RefInspectionItem extends Model
         'E' => 'Machine Cleanliness',
     ];
 
-    protected $fillable = ['group_code', 'number', 'name', 'standard', 'only_for_types'];
+    protected $fillable = ['group_code', 'number', 'name', 'standard', 'only_for_types', 'ref_inspection_template_id', 'ref_inspection_group_id', 'item_key', 'machine_types', 'types_restricted'];
 
-    protected $casts = ['only_for_types' => 'array'];
+    protected $casts = ['only_for_types' => 'array', 'machine_types' => 'array', 'types_restricted' => 'boolean'];
+
+    public function group()
+    {
+        return $this->belongsTo(RefInspectionGroup::class, 'ref_inspection_group_id');
+    }
+
+    public function appliesToType(?int $typeId): bool
+    {
+        return ! $this->types_restricted || in_array($typeId, $this->machine_types ?? [], true);
+    }
 
     public function fields()
     {
