@@ -52,6 +52,10 @@ use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketControlle
 use App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController as DatsSatisfactionSurveyController;
 use App\Http\Controllers\AfterSales\Dats\SurveyLinkController as DatsSurveyLinkController;
 use App\Http\Controllers\AfterSales\Survey\CustomerSurveyController;
+use App\Http\Controllers\AfterSales\Survey\InspectionPhotoController;
+use App\Http\Controllers\AfterSales\Dats\ServiceFormController as DatsServiceFormController;
+use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementController;
+use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
 
 // =====================================
 // NOTIFICATIONS (API)
@@ -476,6 +480,15 @@ Route::group([
     Route::post('/submit', [CustomerSurveyController::class, 'submit'])->name('submit');
 });
 
+Route::group([
+    'prefix' => 'inspection-photo/{token}',
+    'as' => 'inspection-photo.',
+    'middleware' => ['api', 'throttle:30,1'],
+], function () {
+    Route::get('/', [InspectionPhotoController::class, 'show'])->name('show');
+    Route::post('/', [InspectionPhotoController::class, 'upload'])->name('upload');
+});
+
 // =====================================
 // AFTERSALES DATS (API)
 // =====================================
@@ -538,6 +551,22 @@ Route::group([
         Route::post('/{ticket}/survey-link/share', [DatsSurveyLinkController::class, 'share'])->name('survey-link.share');
         Route::post('/{ticket}/survey-link/regenerate', [DatsSurveyLinkController::class, 'regenerate'])->name('survey-link.regenerate');
         Route::post('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'enterOnBehalf'])->name('survey-response.store');
+
+        // SERVICE FORM, SERVICE AGREEMENT & DOCUMENTS
+        Route::get('/{ticket}/documents', [DatsDocumentController::class, 'index'])->name('documents.index');
+        Route::get('/{ticket}/service-form', [DatsServiceFormController::class, 'show'])->name('service-form.show');
+        Route::put('/{ticket}/service-form', [DatsServiceFormController::class, 'saveDraft'])->name('service-form.update');
+        Route::post('/{ticket}/service-form/photo-links', [DatsServiceFormController::class, 'photoLink'])->name('service-form.photo-links');
+        Route::get('/{ticket}/service-form/photos/{photo}', [DatsServiceFormController::class, 'photo'])->name('service-form.photos.show');
+        Route::get('/{ticket}/agreement', [DatsAgreementController::class, 'show'])->name('agreement.show');
+        Route::put('/{ticket}/agreement', [DatsAgreementController::class, 'saveDraft'])->name('agreement.update');
+        Route::post('/{ticket}/documents/{type}/signatures', [DatsDocumentController::class, 'sign'])->name('documents.signatures.store');
+        Route::get('/{ticket}/documents/{type}/signatures/{role}/image', [DatsDocumentController::class, 'signatureImage'])->name('documents.signature');
+        Route::post('/{ticket}/documents/{type}/save', [DatsDocumentController::class, 'save'])->name('documents.save');
+        Route::post('/{ticket}/documents/{type}/unlock', [DatsDocumentController::class, 'unlock'])->name('documents.unlock');
+        Route::get('/{ticket}/documents/{type}/pdf', [DatsDocumentController::class, 'pdf'])->name('documents.pdf');
+        Route::get('/{ticket}/documents/{type}/dispatches', [DatsDocumentController::class, 'dispatches'])->name('documents.dispatches');
+        Route::post('/{ticket}/documents/{type}/dispatches/{dispatch}/resend', [DatsDocumentController::class, 'resend'])->name('documents.dispatches.resend');
         Route::post('/{ticket}/recoming', [DatsTicketController::class, 'recoming'])->name('recoming');
         Route::post('/{ticket}/close', [DatsTicketController::class, 'close'])->name('close');
         Route::post('/{ticket}/visits', [DatsTicketController::class, 'storeVisit'])->name('visits.store');

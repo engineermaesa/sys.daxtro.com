@@ -13,14 +13,20 @@ class TicketPhoto extends Model
     public const CATEGORY_PROBLEM = 'problem';
     public const CATEGORY_ANALYSIS = 'analysis';
     public const CATEGORY_REPAIR = 'repair';
+    public const CATEGORY_INSPECTION = 'inspection';
 
     protected $fillable = [
         'ticket_id',
+        'ticket_inspection_value_id',
         'category',
         'sequence',
         'file_path',
         'file_name',
+        'captured_at',
+        'thumbnail_path',
     ];
+
+    protected $casts = ['captured_at' => 'datetime'];
 
     public function ticket()
     {

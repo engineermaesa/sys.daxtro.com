@@ -10,6 +10,7 @@ use App\Models\Aftersales\ServiceCustomerProduct;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCost;
 use App\Models\Aftersales\SatisfactionLink;
+use App\Services\Aftersales\TicketDocuments;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketPart;
 use App\Models\Aftersales\TicketPhoto;
@@ -28,7 +29,8 @@ class TicketController extends Controller
 {
     public function page(Request $request)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage') || $request->user()?->hasPermission('aftersales.tickets.view-own'), 403);
 
         $this->pageTitle = 'Tickets';
 
@@ -46,7 +48,12 @@ class TicketController extends Controller
 
     public function workOrderPdf(Request $request, Ticket $ticket)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.work-orders.issue'), 403);
+        $user = $request->user();
+        abort_unless(
+            $user?->hasPermission('aftersales.work-orders.issue')
+            || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
+            403
+        );
 
         $ticket->load([
             'customer.region',
@@ -87,7 +94,12 @@ class TicketController extends Controller
 
     public function showPage(Request $request, Ticket $ticket)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $user = $request->user();
+        abort_unless(
+            $user?->hasPermission('aftersales.tickets.manage')
+            || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
+            403
+        );
 
         $this->pageTitle = 'Ticket ' . $ticket->ticket_code;
 
@@ -125,9 +137,22 @@ class TicketController extends Controller
 
     public function index(Request $request)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $user = $request->user();
+        $isManager = (bool) $user?->hasPermission('aftersales.tickets.manage');
+        // technician menu "Ticket": only their own tickets (PRD FR-04)
+        $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
+        abort_unless($isManager || $ownOnly, 403);
 
         $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'technician', 'logs.actor', 'visits', 'recomings']);
+
+        if ($ownOnly) {
+            $query->where('assigned_technician_id', $user->id);
+        }
+
+        // "Supervisor: Saya" filter: tickets waiting for my signature (FR-08)
+        if ($request->input('supervisor') === 'me') {
+            $query->where('supervisor_id', $user->id);
+        }
 
         if ($request->filled('category')) {
             $query->where('category', $request->input('category'));
@@ -185,18 +210,30 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $user = $request->user();
+        // admin/supervisor see any ticket; a technician only their own (UC-02)
+        abort_unless(
+            $user?->hasPermission('aftersales.tickets.manage')
+            || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
+            403
+        );
+
+        TicketDocuments::ensure($ticket);
 
         $ticket->load([
             'customer', 'customerProduct.industry', 'technician', 'supervisor',
             'logs' => fn ($q) => $q->orderBy('id'),
             'logs.actor',
-            'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings',
+            'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings', 'serviceForm', 'agreement',
         ]);
 
         return response()->json([
             'status' => 'success',
             'data' => array_merge($ticket->toArray(), [
+                'documents' => [
+                    'service_form' => $ticket->serviceForm?->status,
+                    'agreement' => $ticket->agreement?->status,
+                ],
                 'current_recoming' => $this->currentRecoming($ticket),
                 'progress' => $ticket->progress,
                 'aging_days' => $ticket->aging_days,
@@ -404,6 +441,8 @@ class TicketController extends Controller
             }
         });
 
+        TicketDocuments::ensure($ticket->fresh());
+
         return $this->setJsonResponse('Ticket updated successfully', [
             'data' => $ticket->fresh(['customer', 'customerProduct', 'technician', 'supervisor', 'parts', 'costs']),
         ]);
@@ -433,6 +472,8 @@ class TicketController extends Controller
                 'created_by' => $request->user()->id,
             ]);
         });
+
+        TicketDocuments::ensure($ticket->fresh());
 
         return $this->setJsonResponse('Technician assigned successfully', ['data' => $ticket->fresh(['technician', 'logs'])]);
     }
@@ -530,6 +571,8 @@ class TicketController extends Controller
         }
         $fromStep = $ticket->progress;
         abort_unless(in_array($fromStep, $allowed, true), 422, 'Recoming is not allowed from the current progress.');
+        // RC-04: the single Service Form must stay editable across visits
+        abort_if($ticket->serviceForm()->where('status', 'saved')->exists(), 422, 'Unlock the Service Form first: it is saved and locked.');
 
         $recoming = DB::transaction(function () use ($validated, $ticket, $user, $fromStep) {
             $visitNo = $ticket->visits()->count() + 1;

@@ -27,6 +27,9 @@ class Ticket extends Model
         'sla_due_at',
         'assigned_technician_id',
         'supervisor_id',
+        'service_type',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [
@@ -86,6 +89,21 @@ class Ticket extends Model
     public function satisfaction()
     {
         return $this->hasOne(TicketSatisfaction::class, 'ticket_id')->latestOfMany();
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function serviceForm()
+    {
+        return $this->hasOne(TicketServiceForm::class, 'ticket_id');
+    }
+
+    public function agreement()
+    {
+        return $this->hasOne(TicketAgreement::class, 'ticket_id');
     }
 
     public function surveyLink()
