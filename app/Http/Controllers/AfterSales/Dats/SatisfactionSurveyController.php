@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Aftersales\TicketSatisfaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SatisfactionSurveyController extends Controller
 {
@@ -87,6 +88,7 @@ class SatisfactionSurveyController extends Controller
                     'machine_ok' => $satisfaction->machine_ok,
                     'source' => $satisfaction->source,
                     'source_label' => self::SOURCE_LABELS[$satisfaction->source] ?? $satisfaction->source,
+                    'admin_input_reason' => $satisfaction->admin_input_reason,
                 ],
                 'feedback' => $this->feedback($satisfaction),
                 'security_trail' => [
@@ -132,9 +134,18 @@ class SatisfactionSurveyController extends Controller
                 'signer' => [
                     'name' => $satisfaction->signer_name,
                     'position' => $satisfaction->signer_position,
+                    'signature_url' => $this->signatureUrl($satisfaction),
                 ],
             ],
         ]);
+    }
+
+    public function signature(Request $request, TicketSatisfaction $satisfaction)
+    {
+        abort_unless($request->user()?->hasPermission('satisfaction-survey.view'), 403);
+        abort_if(! $satisfaction->signature_path || ! Storage::disk('local')->exists($satisfaction->signature_path), 404, 'No signature for this response.');
+
+        return Storage::disk('local')->response($satisfaction->signature_path, null, ['Content-Type' => 'image/png']);
     }
 
     public function review(Request $request, TicketSatisfaction $satisfaction)
@@ -163,7 +174,13 @@ class SatisfactionSurveyController extends Controller
             'comments' => $s->feedback,
             'signer_name' => $s->signer_name,
             'signer_position' => $s->signer_position,
+            'signature_url' => $this->signatureUrl($s),
         ];
+    }
+
+    private function signatureUrl(TicketSatisfaction $s): ?string
+    {
+        return $s->signature_path ? route('aftersales.satisfaction-surveys.signature', $s->id, false) : null;
     }
 
     private function ratings(TicketSatisfaction $s): array

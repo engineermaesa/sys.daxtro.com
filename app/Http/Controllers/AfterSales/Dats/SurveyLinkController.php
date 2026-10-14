@@ -5,6 +5,10 @@ namespace App\Http\Controllers\AfterSales\Dats;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\Ticket;
+use App\Models\Aftersales\TicketLog;
+use App\Models\Aftersales\TicketSatisfaction;
+use App\Notifications\Aftersales\MachineNotWorkingNotification;
+use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,20 +22,27 @@ class SurveyLinkController extends Controller
         return response()->json(['status' => 'success', 'data' => $this->payload($request, $ticket)]);
     }
 
-    public function share(Request $request, Ticket $ticket)
+    public function share(Request $request, Ticket $ticket, WhatsAppSender $whatsapp)
     {
         $this->authorizeShare($request, $ticket);
 
-        $validated = $request->validate(['via' => 'required|in:copy']);
+        $validated = $request->validate(['via' => 'required|in:copy,whatsapp']);
 
         $link = $this->activeLink($ticket);
+
+        if ($validated['via'] === 'whatsapp') {
+            $phone = $ticket->customer?->phone;
+            abort_if(blank($phone), 422, 'No WhatsApp number is registered for this customer.');
+            abort_unless($whatsapp->send($phone, $this->whatsappMessage($ticket, $link)), 503, 'Failed to send the WhatsApp message.');
+        }
+
         $link->update([
             'shared_by_user_id' => $request->user()->id,
             'shared_via' => $validated['via'],
             'shared_at' => Carbon::now('Asia/Jakarta'),
         ]);
 
-        return $this->setJsonResponse('Survey link share recorded', ['data' => $this->payload($request, $ticket->refresh())]);
+        return response()->json(['status' => 'success', 'message' => 'Survey link share recorded', 'data' => $this->payload($request, $ticket->refresh())]);
     }
 
     public function regenerate(Request $request, Ticket $ticket)
@@ -52,7 +63,72 @@ class SurveyLinkController extends Controller
             ]);
         });
 
-        return $this->setJsonResponse('Survey link regenerated', ['data' => $this->payload($request, $ticket->refresh())], 201);
+        return response()->json(['status' => 'success', 'message' => 'Survey link regenerated', 'data' => $this->payload($request, $ticket->refresh())], 201);
+    }
+
+    public function enterOnBehalf(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.satisfaction.submit'), 403);
+
+        $rules = [
+            'reason' => 'required|string|max:255',
+            'machine_ok' => 'required|boolean',
+            'machine_issue_note' => 'nullable|string',
+            'feedback' => 'nullable|string',
+            'signer_name' => 'required|string|max:255',
+            'signer_position' => 'required|string|max:255',
+            'signature' => 'nullable|string',
+        ];
+        foreach (array_keys(TicketSatisfaction::ASPECTS) as $key) {
+            $rules[$key] = 'required|integer|min:1|max:5';
+        }
+        $validated = $request->validate($rules);
+
+        if (! $validated['machine_ok'] && blank($validated['machine_issue_note'] ?? null)) {
+            abort(422, 'Please explain what is still not working.');
+        }
+
+        $this->activeLink($ticket);
+
+        $satisfaction = DB::transaction(function () use ($ticket, $validated, $request) {
+            // single use: re-check under lock so a double submit can't create two responses
+            $link = SatisfactionLink::where('ticket_id', $ticket->id)->latest('id')->lockForUpdate()->first();
+            abort_if(! $link || $link->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'Survey link is not active.');
+
+            $now = Carbon::now('Asia/Jakarta');
+            $user = $request->user();
+
+            $satisfaction = TicketSatisfaction::create(array_merge(
+                collect($validated)->except(['reason', 'signature'])->all(),
+                [
+                    'ticket_id' => $ticket->id,
+                    'signature_path' => filled($validated['signature'] ?? null)
+                        ? TicketSatisfaction::storeSignature($ticket->id, $validated['signature'])
+                        : null,
+                    'source' => TicketSatisfaction::SOURCE_ADMIN,
+                    'review_status' => TicketSatisfaction::REVIEW_NEEDS_REVIEW,
+                    'review_reasons' => ['admin_input'],
+                    'admin_input_reason' => $validated['reason'],
+                    'filled_by_user_id' => $user->id,
+                    'filled_at' => $now,
+                ]
+            ));
+
+            SatisfactionLink::markUsedFor($ticket);
+
+            TicketLog::create([
+                'ticket_id' => $ticket->id,
+                'step' => TicketLog::STEP_SATISFACTION_SUBMITTED,
+                'actor_user_id' => $user->id,
+                'note' => 'Entered on behalf of customer: ' . $validated['reason'],
+            ]);
+
+            MachineNotWorkingNotification::sendFor($satisfaction);
+
+            return $satisfaction;
+        });
+
+        return $this->setJsonResponse('Survey response entered on behalf of customer', ['data' => $satisfaction], 201);
     }
 
     private function authorizeShare(Request $request, Ticket $ticket): void
@@ -75,6 +151,14 @@ class SurveyLinkController extends Controller
         return $link;
     }
 
+    private function whatsappMessage(Ticket $ticket, SatisfactionLink $link): string
+    {
+        $name = $ticket->customer?->pic_name ?: $ticket->customer?->name;
+
+        return "Halo {$name}, terima kasih telah menggunakan layanan Daxtro. "
+            . "Mohon luangkan waktu mengisi survei kepuasan untuk tiket {$ticket->ticket_code} melalui tautan berikut: {$link->url}";
+    }
+
     private function payload(Request $request, Ticket $ticket): array
     {
         $link = $ticket->surveyLink()->with('sharedBy')->first();
@@ -85,8 +169,10 @@ class SurveyLinkController extends Controller
             'ticket_id' => $ticket->id,
             'ticket_code' => $ticket->ticket_code,
             'status' => $link?->display_status ?? SatisfactionLink::STATUS_INACTIVE,
+            'filled' => $link?->status === SatisfactionLink::STATUS_USED,
             'expires_at' => $link?->expires_at,
             'url' => $isActive ? $link->url : null,
+            'whatsapp_message' => $isActive ? $this->whatsappMessage($ticket, $link) : null,
             'phone_masked' => $this->maskPhone($phone),
             'phone_missing' => blank($phone),
             'shared_by' => $link?->sharedBy?->name,
@@ -98,6 +184,7 @@ class SurveyLinkController extends Controller
         ];
     }
 
+    /** 0812••••1234: keep first 4 and last 4 digits. */
     private function maskPhone(?string $phone): ?string
     {
         $digits = preg_replace('/\D+/', '', (string) $phone);

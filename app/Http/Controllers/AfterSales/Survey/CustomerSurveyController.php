@@ -5,13 +5,15 @@ namespace App\Http\Controllers\AfterSales\Survey;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\SatisfactionOtp;
+use App\Models\Aftersales\ServiceCustomerPhoneChange;
+use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
+use App\Notifications\Aftersales\MachineNotWorkingNotification;
 use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CustomerSurveyController extends Controller
@@ -163,12 +165,10 @@ class CustomerSurveyController extends Controller
             abort(422, 'Please explain what is still not working.');
         }
 
-        $png = $this->decodeSignature($validated['signature']);
-
         $link = $this->activeLink($token);
         $otp = $this->verifiedOtp($request, $link);
 
-        $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $png, $request) {
+        $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $request) {
             
             $locked = SatisfactionLink::whereKey($link->id)->lockForUpdate()->first();
             abort_if($locked->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'This link can no longer be used.');
@@ -176,10 +176,9 @@ class CustomerSurveyController extends Controller
             $ticket = $link->ticket;
             $now = Carbon::now('Asia/Jakarta');
             $duration = (int) abs($otp->verified_at->diffInSeconds($now, true));
-            $reasons = $this->reviewReasons($ticket->assigned_technician_id, $request, $duration);
+            $reasons = $this->reviewReasons($ticket, $request, $duration);
 
-            $path = 'satisfaction-signatures/' . $ticket->id . '/' . Str::uuid() . '.png';
-            Storage::disk('local')->put($path, $png);
+            $path = TicketSatisfaction::storeSignature($ticket->id, $validated['signature']);
 
             $satisfaction = TicketSatisfaction::create(array_merge(
                 collect($validated)->except('signature')->all(),
@@ -202,6 +201,7 @@ class CustomerSurveyController extends Controller
             ));
 
             SatisfactionLink::markUsedFor($ticket);
+            MachineNotWorkingNotification::sendFor($satisfaction);
 
             TicketLog::create([
                 'ticket_id' => $ticket->id,
@@ -246,7 +246,9 @@ class CustomerSurveyController extends Controller
     private function guardNotLocked(SatisfactionLink $link): void
     {
         $until = $this->lockedUntil($link);
-        abort_if($until, 423, 'This link is locked until ' . $until->format('H:i') . '. Please try again later.');
+        if ($until) {
+            abort(423, 'This link is locked until ' . $until->format('H:i') . '. Please try again later.');
+        }
     }
 
     private function verifiedOtp(Request $request, SatisfactionLink $link): SatisfactionOtp
@@ -263,7 +265,7 @@ class CustomerSurveyController extends Controller
         return $otp;
     }
 
-    private function reviewReasons(?int $technicianId, Request $request, int $duration): array
+    private function reviewReasons(Ticket $ticket, Request $request, int $duration): array
     {
         $reasons = [];
 
@@ -271,24 +273,21 @@ class CustomerSurveyController extends Controller
             $reasons[] = 'fast_completion';
         }
 
-        if ($technicianId && DB::table('sessions')
-            ->where('user_id', $technicianId)
+        if ($ticket->assigned_technician_id && DB::table('sessions')
+            ->where('user_id', $ticket->assigned_technician_id)
             ->where('ip_address', $request->ip())
             ->where('last_activity', '>=', Carbon::now('Asia/Jakarta')->subDay()->timestamp)
             ->exists()) {
             $reasons[] = 'same_network_as_technician';
         }
 
+        if (ServiceCustomerPhoneChange::where('customer_id', $ticket->customer_id)
+            ->where('changed_at', '>=', Carbon::now('Asia/Jakarta')->subDay())
+            ->exists()) {
+            $reasons[] = 'phone_changed_recently';
+        }
+
         return $reasons;
-    }
-
-    private function decodeSignature(string $dataUri): string
-    {
-        abort_unless(preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $dataUri, $m), 422, 'Invalid signature.');
-        $png = base64_decode($m[1], true);
-        abort_if($png === false || strlen($png) > 512 * 1024 || ! str_starts_with($png, "\x89PNG"), 422, 'Invalid signature.');
-
-        return $png;
     }
 
     private function maskPhone(?string $phone): ?string

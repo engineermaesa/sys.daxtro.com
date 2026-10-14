@@ -7,6 +7,7 @@ use App\Models\Aftersales\TechnicianProfile;
 use App\Models\Aftersales\TechnicianSkill;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
+use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
@@ -223,7 +224,11 @@ class TechnicianController extends Controller
         $onTimeClosed = $closedTickets->filter(fn (Ticket $t) => $t->sla_status === 'On Time')->count();
         $slaAdherence = $closedTickets->count() > 0 ? round($onTimeClosed / $closedTickets->count() * 100, 2) : 0;
 
-        $avgCsat = $tickets->pluck('satisfaction')->filter()->avg('average_score');
+        // responses entered on behalf of the customer don't count to the technician (PRD SV-22)
+        $avgCsat = TicketSatisfaction::whereIn('ticket_id', $tickets->pluck('id'))
+            ->whereNull('admin_input_reason')
+            ->get()
+            ->avg('average_score');
 
         return [
             'total_tickets' => $totalTickets,

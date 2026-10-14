@@ -48,6 +48,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Manage Tickets', 'code' => 'aftersales.tickets.manage', 'description' => 'Create and manage aftersales tickets'],
             ['name' => 'Schedule Recoming', 'code' => 'aftersales.tickets.recoming', 'description' => 'Schedule a follow-up visit (Recoming) on own assigned ticket'],
             ['name' => 'Share Survey Link', 'code' => 'aftersales.survey-link.share', 'description' => 'Copy/share the satisfaction survey link of own assigned ticket'],
+            ['name' => 'Change Customer Phone', 'code' => 'aftersales.customer-phone.change', 'description' => 'Change the customer WhatsApp number (OTP destination)'],
             ['name' => 'Assign Technician', 'code' => 'aftersales.tickets.assign', 'description' => 'Assign technician to a ticket'],
             ['name' => 'Close Tickets', 'code' => 'aftersales.tickets.close', 'description' => 'Close aftersales tickets'],
             ['name' => 'Submit Documentation', 'code' => 'aftersales.documentation.submit', 'description' => 'Submit ticket repair documentation'],

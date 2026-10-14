@@ -4,7 +4,9 @@ namespace App\Http\Controllers\AfterSales\Dats;
 
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\ServiceCustomer;
+use App\Models\Aftersales\ServiceCustomerPhoneChange;
 use App\Models\Aftersales\ServiceCustomerProduct;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ServiceCustomerController extends Controller
@@ -139,9 +141,43 @@ class ServiceCustomerController extends Controller
 
         $validated['updated_by'] = $request->user()->id;
 
+        $digits = fn ($p) => preg_replace('/\D+/', '', (string) $p);
+        $phoneChanged = array_key_exists('phone', $validated) && $digits($validated['phone']) !== $digits($customer->phone);
+        if ($phoneChanged) {
+            abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403, 'Only admin can change the customer WhatsApp number.');
+        }
+
+        $oldPhone = $customer->phone;
         $customer->update($validated);
 
+        if ($phoneChanged) {
+            ServiceCustomerPhoneChange::create([
+                'customer_id' => $customer->id,
+                'old_phone' => $oldPhone,
+                'new_phone' => $validated['phone'],
+                'changed_by_user_id' => $request->user()->id,
+                'changed_at' => Carbon::now('Asia/Jakarta'),
+            ]);
+        }
+
         return $this->setJsonResponse('Customer updated successfully', ['data' => $customer->fresh(['province', 'region'])]);
+    }
+
+    public function phoneChanges(Request $request, ServiceCustomer $customer)
+    {
+        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => ServiceCustomerPhoneChange::with('changedBy:id,name')
+                ->where('customer_id', $customer->id)->latest('id')->get()
+                ->map(fn ($c) => [
+                    'old_phone' => $c->old_phone,
+                    'new_phone' => $c->new_phone,
+                    'changed_by' => $c->changedBy?->name,
+                    'changed_at' => $c->changed_at,
+                ]),
+        ]);
     }
 
     public function provinces(Request $request)

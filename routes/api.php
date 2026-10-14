@@ -491,6 +491,7 @@ Route::group([
         Route::post('/', [ServiceCustomerController::class, 'store'])->name('store');
         Route::get('/provinces', [ServiceCustomerController::class, 'provinces'])->name('provinces');
         Route::get('/regions', [ServiceCustomerController::class, 'regions'])->name('regions');
+        Route::get('/{customer}/phone-changes', [ServiceCustomerController::class, 'phoneChanges'])->name('phone-changes');
         Route::get('/{customer}', [ServiceCustomerController::class, 'show'])->name('show');
         Route::put('/{customer}', [ServiceCustomerController::class, 'update'])->name('update');
         Route::delete('/{customer}', [ServiceCustomerController::class, 'destroy'])->name('destroy');
@@ -536,6 +537,7 @@ Route::group([
         Route::get('/{ticket}/survey-link', [DatsSurveyLinkController::class, 'show'])->name('survey-link.show');
         Route::post('/{ticket}/survey-link/share', [DatsSurveyLinkController::class, 'share'])->name('survey-link.share');
         Route::post('/{ticket}/survey-link/regenerate', [DatsSurveyLinkController::class, 'regenerate'])->name('survey-link.regenerate');
+        Route::post('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'enterOnBehalf'])->name('survey-response.store');
         Route::post('/{ticket}/recoming', [DatsTicketController::class, 'recoming'])->name('recoming');
         Route::post('/{ticket}/close', [DatsTicketController::class, 'close'])->name('close');
         Route::post('/{ticket}/visits', [DatsTicketController::class, 'storeVisit'])->name('visits.store');
@@ -548,6 +550,7 @@ Route::group([
         Route::get('/', [DatsSatisfactionSurveyController::class, 'index'])->name('index');
         Route::get('/{satisfaction}', [DatsSatisfactionSurveyController::class, 'show'])->name('show');
         Route::get('/{satisfaction}/form', [DatsSatisfactionSurveyController::class, 'form'])->name('form');
+        Route::get('/{satisfaction}/signature', [DatsSatisfactionSurveyController::class, 'signature'])->name('signature');
         Route::post('/{satisfaction}/review', [DatsSatisfactionSurveyController::class, 'review'])->name('review');
     });
 });

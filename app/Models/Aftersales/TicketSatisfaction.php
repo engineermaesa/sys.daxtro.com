@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class TicketSatisfaction extends Model
 {
@@ -50,6 +52,7 @@ class TicketSatisfaction extends Model
         'source',
         'review_status',
         'review_reasons',
+        'admin_input_reason',
         'reviewed_by_user_id',
         'reviewed_at',
         'otp_verified_at',
@@ -79,6 +82,18 @@ class TicketSatisfaction extends Model
     public function filledBy()
     {
         return $this->belongsTo(User::class, 'filled_by_user_id');
+    }
+
+    public static function storeSignature(int $ticketId, string $dataUri): string
+    {
+        abort_unless(preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $dataUri, $m), 422, 'Invalid signature.');
+        $png = base64_decode($m[1], true);
+        abort_if($png === false || strlen($png) > 512 * 1024 || ! str_starts_with($png, "\x89PNG"), 422, 'Invalid signature.');
+
+        $path = 'satisfaction-signatures/' . $ticketId . '/' . Str::uuid() . '.png';
+        Storage::disk('local')->put($path, $png);
+
+        return $path;
     }
 
     public function reviewedBy()

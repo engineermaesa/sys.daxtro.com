@@ -127,7 +127,7 @@ class TicketController extends Controller
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
 
-        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'technician', 'logs.actor', 'visits']);
+        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'technician', 'logs.actor', 'visits', 'recomings']);
 
         if ($request->filled('category')) {
             $query->where('category', $request->input('category'));
@@ -161,6 +161,7 @@ class TicketController extends Controller
             $closedLog = $t->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first();
 
             return array_merge($t->toArray(), [
+                'current_recoming' => $this->currentRecoming($t),
                 'progress' => $t->progress,
                 'aging_days' => $t->aging_days,
                 'sla_status' => $t->sla_status,
@@ -190,12 +191,13 @@ class TicketController extends Controller
             'customer', 'customerProduct.industry', 'technician', 'supervisor',
             'logs' => fn ($q) => $q->orderBy('id'),
             'logs.actor',
-            'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction',
+            'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings',
         ]);
 
         return response()->json([
             'status' => 'success',
             'data' => array_merge($ticket->toArray(), [
+                'current_recoming' => $this->currentRecoming($ticket),
                 'progress' => $ticket->progress,
                 'aging_days' => $ticket->aging_days,
                 'sla_status' => $ticket->sla_status,
@@ -685,6 +687,10 @@ class TicketController extends Controller
         $satisfaction = DB::transaction(function () use ($validated, $ticket, $request) {
             $satisfaction = TicketSatisfaction::create(array_merge($validated, [
                 'ticket_id' => $ticket->id,
+                'source' => TicketSatisfaction::SOURCE_ADMIN,
+                'review_status' => TicketSatisfaction::REVIEW_NEEDS_REVIEW,
+                'review_reasons' => ['admin_input'],
+                'admin_input_reason' => 'Entered by after-sales (legacy form)',
                 'filled_by_user_id' => $request->user()->id,
                 'filled_at' => Carbon::now('Asia/Jakarta'),
                 'created_by' => $request->user()->id,
@@ -792,6 +798,18 @@ class TicketController extends Controller
         ]);
 
         return $this->setJsonResponse('Work order confirmed successfully', ['data' => $workOrder->fresh()]);
+    }
+
+    /** Latest recoming (visit_no, planned_visit_at, reason) while the ticket is in Recoming, else null. */
+    private function currentRecoming(Ticket $ticket): ?array
+    {
+        if ($ticket->progress !== TicketLog::STEP_RECOMING) {
+            return null;
+        }
+
+        $r = $ticket->recomings->sortByDesc('id')->first();
+
+        return $r ? ['visit_no' => $r->visit_no, 'planned_visit_at' => $r->planned_visit_at, 'reason' => $r->reason, 'from_step' => $r->from_step] : null;
     }
 
     private function guardStepNotLogged(Ticket $ticket, string $step, string $message): void
