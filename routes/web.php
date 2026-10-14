@@ -600,6 +600,11 @@ Route::get('/debug/expense-realizations', function () {
         'prefix' => 'aftersales',
         'as' => 'aftersales.pages.',
     ], function () {
+        Route::get('/document-templates/{template}', function (string $template) {
+            abort_unless(auth()->user()->hasPermission('aftersales.tickets.manage'), 403);
+            return view('pages.aftersales.document-templates.show', compact('template'));
+        })->whereIn('template', ['service-agreement', 'service-inspection-report', 'satisfaction-survey'])->name('document-templates.show');
+
         Route::name('customers.')->prefix('customers')->group(function () {
             Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
             Route::get('/create', [DatsServiceCustomerController::class, 'createPage'])->name('create');

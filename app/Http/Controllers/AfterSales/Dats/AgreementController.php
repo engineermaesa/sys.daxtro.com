@@ -25,7 +25,7 @@ class AgreementController extends Controller
             'template' => [
                 'version' => $agreement->template->version,
                 'title' => $agreement->template->title,
-                'sections' => $agreement->template->sections,
+                'sections' => $agreement->template->documentSections(),
                 'closing_statement' => $agreement->template->closing_statement,
             ],
             'accepted_clauses' => $agreement->accepted_clauses ?? [],
@@ -42,7 +42,7 @@ class AgreementController extends Controller
 
         $validated = $request->validate([
             'accepted_clauses' => 'nullable|array',
-            'accepted_clauses.*' => 'string|max:10',
+            'accepted_clauses.*' => 'string|max:64',
             'customer_name' => 'nullable|string|max:255',
         ]);
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="UTF-8">@include('pdfs.aftersales._layout_head')</head>
 <body>
-    <h1>Service / Repair Work Agreement Sheet</h1>
+    <h1>{{ $doc->template->title }}</h1>
     <p class="sub">No. {{ $docNumber }} · Version {{ $doc->template_version }}</p>
 
     <table class="nob">

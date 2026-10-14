@@ -271,6 +271,8 @@
         </li>
         @endif
 
+        @include('partials.sidebar.document-templates-menu')
+
         {{-- INCENTIVES MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('incentives.view'))
         <li

@@ -402,10 +402,10 @@
         $('#saClosing').text(tpl.closing_statement || '');
 
         $('#saSections').html((tpl.sections || []).map(function (sec) {
-            const clauses = (sec.clauses || []).map(function (c) {
+            const clauses = (sec.clauses || []).map(function (c, index) {
                 return '<label class="flex items-start cursor-pointer" style="gap: 12px; padding: 8px 0;">'
                     + '<input type="checkbox" class="sa-clause" data-key="' + esc(c.key) + '" ' + (accepted.indexOf(c.key) >= 0 ? 'checked' : '') + ' ' + (readOnly ? 'disabled' : '') + ' style="width: 16px; height: 16px; margin-top: 2px;">'
-                    + '<span class="text-[#4B5563]"><strong>' + esc(c.key) + '.</strong> ' + esc(c.text) + '</span></label>';
+                    + '<span class="text-[#4B5563]"><strong>' + esc(sec.code) + (index + 1) + '.</strong> ' + esc(c.text) + '</span></label>';
             }).join('');
             return '<div class="sa-section border-b border-[#EDEDED] last:border-b-0">'
                 + '<div class="flex items-center justify-between" style="padding: 14px 16px; background: #FAFAFA;">'

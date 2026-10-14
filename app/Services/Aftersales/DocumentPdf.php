@@ -32,7 +32,7 @@ class DocumentPdf
 
         if ($type === TicketDocuments::TYPE_AGREEMENT) {
             return Pdf::loadView('pdfs.aftersales.agreement', $base + [
-                'sections' => $doc->template->sections,
+                'sections' => $doc->template->documentSections(),
                 'closing' => $doc->template->closing_statement,
                 'accepted' => $doc->accepted_clauses ?? [],
             ])->setPaper('A4', 'portrait');

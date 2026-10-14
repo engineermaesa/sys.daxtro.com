@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Aftersales\RefAgreementTemplate;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class AgreementTemplateSeeder extends Seeder
 {
@@ -82,14 +83,19 @@ class AgreementTemplateSeeder extends Seeder
             ];
         }
 
-        RefAgreementTemplate::updateOrCreate(
+        $template = RefAgreementTemplate::firstOrCreate(
             ['version' => 1],
             [
                 'title' => 'Service / Repair Work Agreement Sheet',
                 'sections' => $content,
                 'closing_statement' => 'By signing this document, the Customer declares that they have read, understood, and agree to all the terms and conditions stated in this Service / Repair Work Agreement.',
                 'is_active' => true,
+                'status' => 'active',
+                'activated_at' => now(),
             ]
         );
+        if ($template->wasRecentlyCreated) {
+            DB::table('agreement_template_state')->where('id', 1)->whereNull('active_template_id')->update(['active_template_id' => $template->id]);
+        }
     }
 }

@@ -56,6 +56,16 @@ use App\Http\Controllers\AfterSales\Survey\InspectionPhotoController;
 use App\Http\Controllers\AfterSales\Dats\ServiceFormController as DatsServiceFormController;
 use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementController;
 use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
+use App\Http\Controllers\AfterSales\Dats\AgreementTemplateController;
+
+Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/agreement-templates')->name('aftersales.agreement-templates.')->group(function () {
+    Route::get('/', [AgreementTemplateController::class, 'index'])->name('index');
+    Route::post('/draft', [AgreementTemplateController::class, 'createDraft'])->name('draft');
+    Route::get('/{agreementTemplate}', [AgreementTemplateController::class, 'show'])->name('show');
+    Route::put('/{agreementTemplate}', [AgreementTemplateController::class, 'update'])->name('update');
+    Route::post('/{agreementTemplate}/preview', [AgreementTemplateController::class, 'preview'])->name('preview');
+    Route::post('/{agreementTemplate}/activate', [AgreementTemplateController::class, 'activate'])->name('activate');
+});
 
 // =====================================
 // NOTIFICATIONS (API)
