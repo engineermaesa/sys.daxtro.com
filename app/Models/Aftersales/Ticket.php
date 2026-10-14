@@ -200,7 +200,7 @@ class Ticket extends Model
     }
 
     /**
-     * Sum of actual sparepart usage + operational costs (USD converted at the
+     * Sum of actual sparepart usage + operational costs (USD/CNY converted at the
      * snapshot exchange_rate). Estimated parts are excluded.
      */
     public function getTotalCostAttribute(): float
@@ -211,7 +211,7 @@ class Ticket extends Model
 
         $costs = $this->relationLoaded('costs') ? $this->costs : $this->costs()->get();
         $costsTotal = $costs->sum(function (TicketCost $c) {
-            return $c->currency === 'usd'
+            return $c->currency !== 'idr'
                 ? (float) $c->amount * (float) ($c->exchange_rate ?? 1)
                 : (float) $c->amount;
         });

@@ -140,6 +140,8 @@
       $picContact = trim(($customer->pic_name ?? '') . (($customer->phone ?? '') ? ' (' . $customer->phone . ')' : ''));
       $totalByCurrency = $costs->groupBy(fn ($cost) => strtoupper($cost->currency ?? 'IDR'))
           ->map(fn ($group) => $group->sum(fn ($cost) => (float) $cost->amount));
+      $totalIdr = $costs->sum(fn ($cost) => $cost->amount_idr);
+      $hasForeign = $costs->contains(fn ($cost) => strtolower($cost->currency ?? 'idr') !== 'idr');
     @endphp
 
     <h1>WORK ORDER / SURAT TUGAS SERVIS</h1>
@@ -250,6 +252,14 @@
           <td></td>
         </tr>
         @endforeach
+        @if($hasForeign)
+        <tr class="total-row">
+          <td>TOTAL (IDR)</td>
+          <td class="text-right">{{ number_format($totalIdr, 0, ',', '.') }}</td>
+          <td>IDR</td>
+          <td></td>
+        </tr>
+        @endif
       </tbody>
     </table>
 

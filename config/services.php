@@ -41,6 +41,11 @@ return [
         'test_to' => env('WHATSAPP_TEST_TO'),
     ],
 
+    'exchange_rates' => [
+        'fallback_usd' => env('EXCHANGE_FALLBACK_USD', 16000),
+        'fallback_cny' => env('EXCHANGE_FALLBACK_CNY', 2250),
+    ],
+
     'lead_register_api_token' => env('LEAD_REGISTER_API_TOKEN'),
 
     'google_sheets' => [

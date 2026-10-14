@@ -69,12 +69,19 @@
 @endsection
 
 @section('scripts')
+{{-- data Blade dibawa lewat atribut HTML supaya kode JS di bawah tetap JS murni --}}
+<div id="ticketBoot" class="hidden"
+    data-ticket-id="{{ $ticket->id ?? '' }}"
+    data-ticket="{{ json_encode(isset($ticket) ? $ticket->toArray() : null) }}"
+    data-index-url="{{ route('aftersales.pages.tickets.index') }}"></div>
 <script>
     const TOTAL_STEPS = 5;
     let currentStep = 1;
 
-    const EDIT_TICKET_ID = @json($ticket->id ?? null);
-    const EDIT_TICKET = @json(isset($ticket) ? $ticket->toArray() : null);
+    const ticketBoot = document.getElementById('ticketBoot');
+    const EDIT_TICKET_ID = ticketBoot.dataset.ticketId ? Number(ticketBoot.dataset.ticketId) : null;
+    const EDIT_TICKET = JSON.parse(ticketBoot.dataset.ticket || 'null');
+    const TICKETS_INDEX_URL = ticketBoot.dataset.indexUrl;
     let originalTechnicianId = EDIT_TICKET?.assigned_technician_id ? String(EDIT_TICKET.assigned_technician_id) : null;
     let originalVisitDate = null;
 
@@ -193,6 +200,7 @@
                     category: $(this).data('cost-category'),
                     amount: amount,
                     currency: $(this).find('.cost-currency').val(),
+                    exchange_rate: $(this).find('.cost-currency').val() === 'idr' ? null : costRateFor($(this).find('.cost-currency').val()),
                     remarks: $(this).find('.cost-remarks').val() || null,
                 });
             }
@@ -341,7 +349,7 @@
                                 icon: 'success',
                                 confirmButtonColor: '#115640'
                             }).then(function () {
-                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                                window.location.href = TICKETS_INDEX_URL;
                             });
                         },
                         function (xhr) {
@@ -351,7 +359,7 @@
                                 icon: 'warning',
                                 confirmButtonColor: '#115640'
                             }).then(function () {
-                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                                window.location.href = TICKETS_INDEX_URL;
                             });
                         }
                     );

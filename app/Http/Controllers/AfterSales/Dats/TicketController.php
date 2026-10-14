@@ -243,6 +243,12 @@ class TicketController extends Controller
         ]);
     }
 
+    /** Live IDR rates for USD and CNY (cached), used by the Cost step of the ticket form. */
+    public function exchangeRates(\App\Services\ExchangeRateService $rates)
+    {
+        return response()->json(['status' => 'success', 'data' => $rates->get()]);
+    }
+
     /**
      * Input Ticket flow (PRD §2.1 / §3.4). Creates the ticket, its estimated
      * sparepart & cost lines, and the initial `published` log — atomically.
@@ -325,7 +331,7 @@ class TicketController extends Controller
                     'category' => $cost['category'],
                     'amount' => $cost['amount'],
                     'currency' => $cost['currency'],
-                    'exchange_rate' => $cost['currency'] === 'usd' ? ($cost['exchange_rate'] ?? null) : null,
+                    'exchange_rate' => $cost['currency'] !== 'idr' ? ($cost['exchange_rate'] ?? null) : null,
                     'remarks' => $cost['remarks'] ?? null,
                     'created_by' => $request->user()->id,
                 ]);
@@ -421,7 +427,7 @@ class TicketController extends Controller
                         [
                             'amount' => $cost['amount'],
                             'currency' => $cost['currency'],
-                            'exchange_rate' => $cost['currency'] === 'usd' ? ($cost['exchange_rate'] ?? null) : null,
+                            'exchange_rate' => $cost['currency'] !== 'idr' ? ($cost['exchange_rate'] ?? null) : null,
                             'remarks' => $cost['remarks'] ?? null,
                             'updated_by' => $request->user()->id,
                         ]
