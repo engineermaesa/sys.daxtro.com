@@ -35,6 +35,12 @@ return [
         ],
     ],
     
+    'whatsapp' => [
+        'url' => env('WHATSAPP_API_URL', 'https://api.fonnte.com/send'),
+        'token' => env('WHATSAPP_API_TOKEN'),
+        'test_to' => env('WHATSAPP_TEST_TO'),
+    ],
+
     'lead_register_api_token' => env('LEAD_REGISTER_API_TOKEN'),
 
     'google_sheets' => [

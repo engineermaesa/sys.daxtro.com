@@ -49,6 +49,9 @@ use App\Http\Controllers\AfterSales\Dats\ServiceCustomerController;
 use App\Http\Controllers\AfterSales\Dats\TechnicianController as DatsTechnicianController;
 use App\Http\Controllers\AfterSales\Dats\SparepartController;
 use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketController;
+use App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController as DatsSatisfactionSurveyController;
+use App\Http\Controllers\AfterSales\Dats\SurveyLinkController as DatsSurveyLinkController;
+use App\Http\Controllers\AfterSales\Survey\CustomerSurveyController;
 
 // =====================================
 // NOTIFICATIONS (API)
@@ -460,6 +463,19 @@ Route::group([
     });
 });
 
+// CUSTOMER SATISFACTION SURVEY
+Route::group([
+    'prefix' => 'survey/{token}',
+    'as' => 'survey.',
+    'middleware' => ['api', 'throttle:30,1'],
+], function () {
+    Route::get('/', [CustomerSurveyController::class, 'show'])->name('show');
+    Route::post('/otp/send', [CustomerSurveyController::class, 'sendOtp'])->name('otp.send');
+    Route::post('/otp/verify', [CustomerSurveyController::class, 'verifyOtp'])->name('otp.verify');
+    Route::get('/form', [CustomerSurveyController::class, 'form'])->name('form');
+    Route::post('/submit', [CustomerSurveyController::class, 'submit'])->name('submit');
+});
+
 // =====================================
 // AFTERSALES DATS (API)
 // =====================================
@@ -517,11 +533,22 @@ Route::group([
         Route::post('/{ticket}/waiting-sparepart', [DatsTicketController::class, 'waitingSparepart'])->name('waiting-sparepart');
         Route::post('/{ticket}/documentation', [DatsTicketController::class, 'storeDocumentation'])->name('documentation.store');
         Route::post('/{ticket}/satisfaction', [DatsTicketController::class, 'storeSatisfaction'])->name('satisfaction.store');
+        Route::get('/{ticket}/survey-link', [DatsSurveyLinkController::class, 'show'])->name('survey-link.show');
+        Route::post('/{ticket}/survey-link/share', [DatsSurveyLinkController::class, 'share'])->name('survey-link.share');
+        Route::post('/{ticket}/survey-link/regenerate', [DatsSurveyLinkController::class, 'regenerate'])->name('survey-link.regenerate');
+        Route::post('/{ticket}/recoming', [DatsTicketController::class, 'recoming'])->name('recoming');
         Route::post('/{ticket}/close', [DatsTicketController::class, 'close'])->name('close');
         Route::post('/{ticket}/visits', [DatsTicketController::class, 'storeVisit'])->name('visits.store');
         Route::put('/{ticket}/visits/{visit}', [DatsTicketController::class, 'updateVisit'])->name('visits.update');
         Route::post('/{ticket}/work-orders', [DatsTicketController::class, 'issueWorkOrder'])->name('work-orders.store');
         Route::post('/{ticket}/work-orders/{workOrder}/sign', [DatsTicketController::class, 'signWorkOrder'])->name('work-orders.sign');
+    });
+
+    Route::prefix('satisfaction-surveys')->name('satisfaction-surveys.')->group(function () {
+        Route::get('/', [DatsSatisfactionSurveyController::class, 'index'])->name('index');
+        Route::get('/{satisfaction}', [DatsSatisfactionSurveyController::class, 'show'])->name('show');
+        Route::get('/{satisfaction}/form', [DatsSatisfactionSurveyController::class, 'form'])->name('form');
+        Route::post('/{satisfaction}/review', [DatsSatisfactionSurveyController::class, 'review'])->name('review');
     });
 });
 

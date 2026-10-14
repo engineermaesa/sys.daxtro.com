@@ -62,6 +62,7 @@ class RolePermissionSeeder extends Seeder
                 $permissions['dashboard'] ?? null,
                 $permissions['customers.view'] ?? null,
                 $permissions['satisfaction-survey.view'] ?? null,
+                $permissions['satisfaction-survey.review'] ?? null,
                 $permissions['aftersales.tickets.manage'] ?? null,
                 $permissions['aftersales.tickets.assign'] ?? null,
                 $permissions['aftersales.tickets.close'] ?? null,
@@ -76,6 +77,8 @@ class RolePermissionSeeder extends Seeder
             ],
             'technician' => [
                 $permissions['dashboard'] ?? null,
+                $permissions['aftersales.tickets.recoming'] ?? null,
+                $permissions['aftersales.survey-link.share'] ?? null,
                 $permissions['aftersales.documentation.submit'] ?? null,
             ],
             'sales' => [

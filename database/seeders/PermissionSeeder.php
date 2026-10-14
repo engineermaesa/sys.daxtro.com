@@ -42,9 +42,12 @@ class PermissionSeeder extends Seeder
             ['name' => 'Quotation Approvals', 'code' => 'quotation.approvals', 'description' => 'Quotation Approvals'],
             ['name' => 'Customers', 'code' => 'customers.view', 'description' => 'View customer technical specification data'],
             ['name' => 'Satisfaction Survey', 'code' => 'satisfaction-survey.view', 'description' => 'View technician satisfaction survey responses'],
+            ['name' => 'Review Satisfaction Survey', 'code' => 'satisfaction-survey.review', 'description' => 'Mark satisfaction survey responses as reviewed'],
 
             // DATS (Aftersales Ticketing System)
             ['name' => 'Manage Tickets', 'code' => 'aftersales.tickets.manage', 'description' => 'Create and manage aftersales tickets'],
+            ['name' => 'Schedule Recoming', 'code' => 'aftersales.tickets.recoming', 'description' => 'Schedule a follow-up visit (Recoming) on own assigned ticket'],
+            ['name' => 'Share Survey Link', 'code' => 'aftersales.survey-link.share', 'description' => 'Copy/share the satisfaction survey link of own assigned ticket'],
             ['name' => 'Assign Technician', 'code' => 'aftersales.tickets.assign', 'description' => 'Assign technician to a ticket'],
             ['name' => 'Close Tickets', 'code' => 'aftersales.tickets.close', 'description' => 'Close aftersales tickets'],
             ['name' => 'Submit Documentation', 'code' => 'aftersales.documentation.submit', 'description' => 'Submit ticket repair documentation'],

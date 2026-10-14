@@ -85,7 +85,17 @@ class Ticket extends Model
 
     public function satisfaction()
     {
-        return $this->hasOne(TicketSatisfaction::class, 'ticket_id');
+        return $this->hasOne(TicketSatisfaction::class, 'ticket_id')->latestOfMany();
+    }
+
+    public function surveyLink()
+    {
+        return $this->hasOne(SatisfactionLink::class, 'ticket_id')->latestOfMany();
+    }
+
+    public function recomings()
+    {
+        return $this->hasMany(TicketRecoming::class, 'ticket_id');
     }
 
     /**

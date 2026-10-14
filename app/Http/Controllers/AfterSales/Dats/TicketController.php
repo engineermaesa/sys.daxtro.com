@@ -9,9 +9,11 @@ use App\Models\Aftersales\RefSparepart;
 use App\Models\Aftersales\ServiceCustomerProduct;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCost;
+use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketPart;
 use App\Models\Aftersales\TicketPhoto;
+use App\Models\Aftersales\TicketRecoming;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketVisit;
 use App\Models\Aftersales\TicketWorkOrder;
@@ -505,6 +507,63 @@ class TicketController extends Controller
         return $this->setJsonResponse('Visit updated successfully', ['data' => $visit->fresh()]);
     }
 
+    public function recoming(Request $request, Ticket $ticket)
+    {
+        $user = $request->user();
+        $isManager = $user?->hasPermission('aftersales.tickets.manage');
+        $isOwnTechnician = $user?->hasPermission('aftersales.tickets.recoming')
+            && $ticket->assigned_technician_id === $user->id;
+        abort_unless($isManager || $isOwnTechnician, 403);
+        $this->guardNotClosed($ticket);
+
+        $validated = $request->validate([
+            'reason' => 'required|in:' . implode(',', TicketRecoming::REASONS),
+            'planned_visit_at' => 'required|date|after_or_equal:' . Carbon::now('Asia/Jakarta')->toDateString(),
+            'notes' => 'nullable|string',
+        ]);
+
+        $allowed = [TicketLog::STEP_ON_SITE, TicketLog::STEP_REPAIR, TicketLog::STEP_WAITING_SPAREPART];
+        if ($isManager) {
+            $allowed = array_merge($allowed, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED]);
+        }
+        $fromStep = $ticket->progress;
+        abort_unless(in_array($fromStep, $allowed, true), 422, 'Recoming is not allowed from the current progress.');
+
+        $recoming = DB::transaction(function () use ($validated, $ticket, $user, $fromStep) {
+            $visitNo = $ticket->visits()->count() + 1;
+
+            $ticket->visits()->create([
+                'scheduled_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(),
+                'created_by' => $user->id,
+            ]);
+
+            $recoming = TicketRecoming::create([
+                'ticket_id' => $ticket->id,
+                'visit_no' => $visitNo,
+                'reason' => $validated['reason'],
+                'notes' => $validated['notes'] ?? null,
+                'planned_visit_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(),
+                'from_step' => $fromStep,
+                'created_by_user_id' => $user->id,
+                'created_by' => $user->id,
+            ]);
+
+            SatisfactionLink::deactivateFor($ticket);
+
+            TicketLog::create([
+                'ticket_id' => $ticket->id,
+                'step' => TicketLog::STEP_RECOMING,
+                'actor_user_id' => $user->id,
+                'note' => $validated['notes'] ?? null,
+                'created_by' => $user->id,
+            ]);
+
+            return $recoming;
+        });
+
+        return $this->setJsonResponse('Recoming scheduled successfully', ['data' => $recoming], 201);
+    }
+
     /**
      * Documentation Published (PRD §5.1 step 5a, actor Technician). Submits the
      * repair narrative, actual sparepart usage, and site photos in one go.
@@ -587,6 +646,8 @@ class TicketController extends Controller
                 TicketPhoto::insert($rows);
             }
 
+            SatisfactionLink::issue($ticket, $request->user()->id);
+
             return TicketLog::create([
                 'ticket_id' => $ticket->id,
                 'step' => TicketLog::STEP_DOCUMENTATION_PUBLISHED,
@@ -629,6 +690,8 @@ class TicketController extends Controller
                 'created_by' => $request->user()->id,
             ]));
 
+            SatisfactionLink::markUsedFor($ticket);
+
             TicketLog::create([
                 'ticket_id' => $ticket->id,
                 'step' => TicketLog::STEP_SATISFACTION_SUBMITTED,
@@ -652,7 +715,7 @@ class TicketController extends Controller
         abort_unless($request->user()?->hasPermission('aftersales.tickets.close'), 403);
         $this->guardNotClosed($ticket);
 
-        $steps = $ticket->logs()->pluck('step');
+        $steps = $this->cycleLogs($ticket)->pluck('step');
         if (! $steps->contains(TicketLog::STEP_DOCUMENTATION_PUBLISHED) || ! $steps->contains(TicketLog::STEP_SATISFACTION_SUBMITTED)) {
             abort(422, 'This ticket cannot be closed until documentation and satisfaction assessment are both submitted.');
         }
@@ -733,9 +796,16 @@ class TicketController extends Controller
 
     private function guardStepNotLogged(Ticket $ticket, string $step, string $message): void
     {
-        if ($ticket->logs()->where('step', $step)->exists()) {
+        if ($this->cycleLogs($ticket)->where('step', $step)->exists()) {
             abort(422, $message);
         }
+    }
+
+    private function cycleLogs(Ticket $ticket)
+    {
+        $lastRecomingId = $ticket->logs()->where('step', TicketLog::STEP_RECOMING)->max('id');
+
+        return $ticket->logs()->when($lastRecomingId, fn ($q) => $q->where('id', '>', $lastRecomingId));
     }
 
     /**
@@ -745,6 +815,13 @@ class TicketController extends Controller
      */
     private function guardSequential(Ticket $ticket, string $step): void
     {
+        if ($ticket->progress === TicketLog::STEP_RECOMING) {
+            abort_if($step !== TicketLog::STEP_ON_SITE, 422, 'Ticket is in Recoming until the follow-up visit.');
+
+            return;
+        }
+
+
         if ($step === TicketLog::STEP_WAITING_SPAREPART) {
             $currentOrder = array_search($ticket->progress, TicketLog::STEPS, true);
             $onSiteOrder = array_search(TicketLog::STEP_ON_SITE, TicketLog::STEPS, true);
