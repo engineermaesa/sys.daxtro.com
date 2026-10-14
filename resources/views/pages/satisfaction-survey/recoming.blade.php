@@ -1,4 +1,4 @@
-{{-- RECOMING MODAL (partial; di-include dari index.blade.php, frontend only) --}}
+{{-- RECOMING MODAL (partial; di-include dari index.blade.php) --}}
 {{-- Jarak memakai inline style agar tidak bergantung pada Tailwind yang perlu di-build ulang --}}
 <div id="recomingModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-lg w-full max-w-md max-h-[92vh] overflow-y-auto text-xs">
