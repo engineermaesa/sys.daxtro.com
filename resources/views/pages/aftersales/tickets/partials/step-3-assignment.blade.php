@@ -16,7 +16,7 @@
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">SLA Target</label>
-            <input type="date" id="field-sla-due-date"
+            <input type="datetime-local" id="field-sla-due-date"
                 class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
         </div>
         <div>

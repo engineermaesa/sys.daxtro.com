@@ -314,6 +314,17 @@
             openTicketDetail($(this).data('ticket'));
         });
 
+        // SLA Target: tanggal + jam dari sla_due_at, fallback ke nilai + satuan
+        function slaLabel(t, slaUnit) {
+            if (t.sla_due_at) {
+                const d = new Date(t.sla_due_at);
+                if (!isNaN(d)) {
+                    return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            }
+            return t.sla_value ? t.sla_value + ' ' + slaUnit : '';
+        }
+
         // TICKET DETAILS (frontend only, diisi dari data row API)
         $(document).on('click', '.btn-ticket-details', function () {
             const t = $(this).data('ticket') || {};
@@ -330,7 +341,7 @@
             text('#tdSupervisor', t.supervisor?.name); // TODO: supervisor belum di-load oleh API index
             text('#tdCategory', CATEGORY_LABEL[t.category] || t.category);
             text('#tdVisit', t.visit_date ? formatDate(t.visit_date) : '');
-            text('#tdSla', t.sla_value ? t.sla_value + ' ' + slaUnit : '');
+            text('#tdSla', slaLabel(t, slaUnit));
             text('#tdPriority', t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : '');
             text('#tdDescription', t.description);
             text('#tdSurveyUrl', surveyUrl);
@@ -363,7 +374,7 @@
             text('#woProblem', CATEGORY_LABEL[t.category] || t.category);
             text('#woTechnician', t.technician?.name);
             text('#woVisit', t.visit_date ? formatDate(t.visit_date) : '');
-            text('#woSla', t.sla_value ? t.sla_value + ' ' + slaUnit : '');
+            text('#woSla', slaLabel(t, slaUnit));
             $('#woExportPdf').attr('href', '/aftersales/tickets/' + t.id + '/work-order-pdf');
 
             $('#ticketDetailsView').addClass('hidden');

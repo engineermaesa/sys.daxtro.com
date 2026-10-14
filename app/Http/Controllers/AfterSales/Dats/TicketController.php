@@ -259,6 +259,7 @@ class TicketController extends Controller
             'description' => 'required|string',
             'sla_value' => 'required|integer|min:1',
             'sla_unit' => 'required|in:hour,day',
+            'sla_due_at' => 'nullable|date',
             'supervisor_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
             'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
@@ -285,9 +286,11 @@ class TicketController extends Controller
             $ticketCode = 'DAX-AF-' . $now->format('Ymd') . '-' . $sequence;
 
             $slaValue = (int) $validated['sla_value'];
-            $slaDueAt = $validated['sla_unit'] === 'hour'
-                ? $now->copy()->addHours($slaValue)
-                : $now->copy()->addDays($slaValue);
+            $slaDueAt = ! empty($validated['sla_due_at'])
+                ? Carbon::parse($validated['sla_due_at'], 'Asia/Jakarta')
+                : ($validated['sla_unit'] === 'hour'
+                    ? $now->copy()->addHours($slaValue)
+                    : $now->copy()->addDays($slaValue));
 
             $ticket = Ticket::create([
                 'ticket_code' => $ticketCode,
@@ -361,6 +364,7 @@ class TicketController extends Controller
             'description' => 'required|string',
             'sla_value' => 'required|integer|min:1',
             'sla_unit' => 'required|in:hour,day',
+            'sla_due_at' => 'nullable|date',
             'supervisor_id' => 'nullable|integer|exists:users,id',
             'assigned_technician_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
@@ -384,9 +388,11 @@ class TicketController extends Controller
 
         $now = Carbon::now('Asia/Jakarta');
         $slaValue = (int) $validated['sla_value'];
-        $slaDueAt = $validated['sla_unit'] === 'hour'
-            ? $now->copy()->addHours($slaValue)
-            : $now->copy()->addDays($slaValue);
+        $slaDueAt = ! empty($validated['sla_due_at'])
+            ? Carbon::parse($validated['sla_due_at'], 'Asia/Jakarta')
+            : ($validated['sla_unit'] === 'hour'
+                ? $now->copy()->addHours($slaValue)
+                : $now->copy()->addDays($slaValue));
 
         DB::transaction(function () use ($validated, $ticket, $request, $slaDueAt) {
             $ticket->update([

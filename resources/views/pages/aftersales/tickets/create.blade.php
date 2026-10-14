@@ -198,14 +198,11 @@
             }
         });
 
-        const slaDueDate = $('#field-sla-due-date').val();
+        const slaDueAt = $('#field-sla-due-date').val();
         let slaValue = 1;
-        if (slaDueDate) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const due = new Date(slaDueDate + 'T00:00:00');
-            const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
-            slaValue = Math.max(diffDays, 1);
+        if (slaDueAt) {
+            const diffHours = Math.ceil((new Date(slaDueAt) - new Date()) / (1000 * 60 * 60));
+            slaValue = Math.max(diffHours, 1);
         }
 
         return {
@@ -215,7 +212,8 @@
             priority: $('#field-priority').val(),
             description: $('#field-description').val(),
             sla_value: slaValue,
-            sla_unit: 'day',
+            sla_unit: 'hour',
+            sla_due_at: slaDueAt || null,
             supervisor_id: $('#field-supervisor').val() || null,
             assigned_technician_id: $('#field-technician').val() || null,
             scheduled_at: $('#field-visit-date').val() || null,
@@ -261,6 +259,18 @@
             return;
         }
 
+        if (payload.scheduled_at && payload.sla_due_at && new Date(payload.sla_due_at) < new Date(payload.scheduled_at)) {
+            Swal.fire({
+                title: 'Invalid SLA Target',
+                text: 'SLA Target cannot be earlier than the Visit Schedule.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 3;
+            updateStepper();
+            return;
+        }
+
         Swal.fire({
             title: isEdit ? 'Update this ticket?' : 'Save this ticket?',
             text: 'Make sure all the data entered is correct.',
@@ -283,6 +293,7 @@
                 description: payload.description,
                 sla_value: payload.sla_value,
                 sla_unit: payload.sla_unit,
+                sla_due_at: payload.sla_due_at,
                 supervisor_id: payload.supervisor_id,
                 parts: payload.parts,
                 costs: payload.costs,
@@ -402,7 +413,8 @@
                     $('#field-supervisor').val(String(EDIT_TICKET.supervisor_id));
                 }
                 if (EDIT_TICKET.sla_due_at) {
-                    $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 10));
+                    $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 16).replace(' ', 'T'));
+                    slaTouched = true;
                 }
 
                 const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at))[0];
@@ -414,9 +426,6 @@
                 prefillSparepartAndCostRows();
             });
         } else {
-            const defaultSlaDate = new Date();
-            defaultSlaDate.setDate(defaultSlaDate.getDate() + 3);
-            $('#field-sla-due-date').val(defaultSlaDate.toISOString().slice(0, 10));
             addSparepartRow();
 
             $.ajax({
@@ -430,6 +439,19 @@
                 }
             });
         }
+
+        // SLA Target default: 8 jam setelah Visit Schedule, selama belum diubah manual
+        var slaTouched = false;
+        function pad(n) { return String(n).padStart(2, '0'); }
+        $(document).on('input change', '#field-sla-due-date', function () { slaTouched = true; });
+        $(document).on('input change', '#field-visit-date', function () {
+            const v = $(this).val();
+            if (slaTouched || !v) return;
+            const d = new Date(v);
+            if (isNaN(d)) return;
+            d.setHours(d.getHours() + 8);
+            $('#field-sla-due-date').val(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+        });
 
         $(document).on('input change', '#field-customer, #field-pic-name, #field-phone, #field-location, #field-machine, #field-serial-number, #field-category, #field-description, #field-technician, #field-visit-date', function () {
             if ($(this).val()) {
