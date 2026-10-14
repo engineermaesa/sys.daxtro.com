@@ -92,7 +92,7 @@
 
 @section('scripts')
 <script>
-    const customerId = {{ $customer->id }};
+    const customerId = Number('{{ $customer->id }}');
 
     const ticketState = {
         page: 1,
