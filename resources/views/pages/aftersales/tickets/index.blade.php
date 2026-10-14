@@ -2,6 +2,7 @@
 
 @section('content')
 <section class="min-h-screen sm:text-xs lg:text-sm">
+    <div id="ticketListView">
     <div class="pt-4">
         <div class="flex items-center justify-between">
             <div>
@@ -61,6 +62,13 @@
             <div id="ticket-pagination" class="flex items-center gap-2"></div>
         </div>
     </div>
+    </div>
+
+    @include('pages.aftersales.tickets.partials.details')
+    @include('pages.aftersales.tickets.partials.work-order')
+    @include('pages.aftersales.tickets.partials.service-agreement')
+    @include('pages.aftersales.tickets.partials.service-form')
+    @include('pages.aftersales.tickets.partials.supervisor-sign')
 </section>
 
 @include('pages.aftersales.tickets.partials.ticket-detail-modal')
@@ -72,6 +80,8 @@
 
 @section('scripts')
 <script>
+    let currentTicket = null;
+
     const ticketState = {
         page: 1,
         lastPage: 1,
@@ -184,6 +194,9 @@
                             <i class="bi bi-three-dots"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="ticketActionsDropdown${row.id}">
+                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer btn-ticket-details">
+                                <i class="bi bi-file-earmark-text"></i> Details
+                            </a>
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/tickets/${row.id}/edit">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
@@ -205,6 +218,10 @@
         });
 
         $body.find('.btn-ticket-update-logs').each(function (index) {
+            $(this).data('ticket', rows[index]);
+        });
+
+        $body.find('.btn-ticket-details').each(function (index) {
             $(this).data('ticket', rows[index]);
         });
     }
@@ -295,6 +312,300 @@
 
         $(document).on('click', '.btn-ticket-detail', function () {
             openTicketDetail($(this).data('ticket'));
+        });
+
+        // TICKET DETAILS (frontend only, diisi dari data row API)
+        $(document).on('click', '.btn-ticket-details', function () {
+            const t = $(this).data('ticket') || {};
+            currentTicket = t;
+            const slaUnit = t.sla_unit === 'hour' ? 'hour(s)' : 'business day(s)';
+            const surveyUrl = 'survey.daxtro.id/s/' + String(t.ticket_code || '').toLowerCase();
+            const woUrl = '/aftersales/tickets/' + t.id + '/work-order-pdf';
+            const text = function (id, value) { $(id).text(value || '-'); };
+
+            text('#tdCode', t.ticket_code);
+            text('#tdCustomer', t.customer?.name);
+            text('#tdMachine', t.customer_product?.product?.name);
+            text('#tdTechnician', t.technician?.name);
+            text('#tdSupervisor', t.supervisor?.name); // TODO: supervisor belum di-load oleh API index
+            text('#tdCategory', CATEGORY_LABEL[t.category] || t.category);
+            text('#tdVisit', t.visit_date ? formatDate(t.visit_date) : '');
+            text('#tdSla', t.sla_value ? t.sla_value + ' ' + slaUnit : '');
+            text('#tdPriority', t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : '');
+            text('#tdDescription', t.description);
+            text('#tdSurveyUrl', surveyUrl);
+            $('#tdWoView, #tdWoDownload').attr('href', woUrl);
+            $('#tdShareLink').text('Share Link').data('url', 'https://' + surveyUrl);
+
+            renderSupervisorState(); // status Service Form per ticket
+
+            $('#ticketListView').addClass('hidden');
+            $('#ticketDetailsView').removeClass('hidden');
+            window.scrollTo(0, 0);
+        });
+
+        $(document).on('click', '.btn-ticket-details-back', function () {
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketListView').removeClass('hidden');
+        });
+
+        // WORK ORDER (frontend only)
+        $(document).on('click', '#tdWoView', function () {
+            const t = currentTicket || {};
+            const slaUnit = t.sla_unit === 'hour' ? 'hour(s)' : 'business day(s)';
+            const text = function (id, value) { $(id).text(value || '-'); };
+
+            // TODO: WO number sebaiknya dari ticket_work_orders.wo_number; sementara diturunkan dari ticket_code
+            text('#woNumber', String(t.ticket_code || '').replace('DAX-AF-', 'WO-'));
+            text('#woTicketRef', t.ticket_code);
+            text('#woCustomer', t.customer?.name);
+            text('#woMachine', t.customer_product?.product?.name);
+            text('#woProblem', CATEGORY_LABEL[t.category] || t.category);
+            text('#woTechnician', t.technician?.name);
+            text('#woVisit', t.visit_date ? formatDate(t.visit_date) : '');
+            text('#woSla', t.sla_value ? t.sla_value + ' ' + slaUnit : '');
+            $('#woExportPdf').attr('href', '/aftersales/tickets/' + t.id + '/work-order-pdf');
+
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketWorkOrderView').removeClass('hidden');
+            window.scrollTo(0, 0);
+        });
+
+        $(document).on('click', '.btn-wo-back', function () {
+            $('#ticketWorkOrderView').addClass('hidden');
+            $('#ticketDetailsView').removeClass('hidden');
+        });
+
+        // SERVICE AGREEMENT SHEET (frontend only)
+        // TODO: persist ke backend; sementara tersimpan per ticket di memori selama halaman belum di-refresh
+        const agreementState = {};
+
+        function refreshAgreement() {
+            let all = 0, checked = 0;
+
+            $('#ticketAgreementView .sa-section').each(function () {
+                const $clauses = $(this).find('.sa-clause');
+                const done = $clauses.filter(':checked').length;
+                all += $clauses.length;
+                checked += done;
+
+                $(this).find('.sa-count').text(done + ' / ' + $clauses.length + ' clauses');
+                $(this).find('.sa-section-check')
+                    .prop('checked', done === $clauses.length)
+                    .prop('indeterminate', done > 0 && done < $clauses.length);
+            });
+
+            $('#saCheckAll')
+                .prop('checked', all > 0 && checked === all)
+                .prop('indeterminate', checked > 0 && checked < all);
+        }
+
+        $(document).on('change', '#ticketAgreementView .sa-clause', refreshAgreement);
+
+        $(document).on('change', '#ticketAgreementView .sa-section-check', function () {
+            $(this).closest('.sa-section').find('.sa-clause').prop('checked', this.checked);
+            refreshAgreement();
+        });
+
+        $(document).on('change', '#saCheckAll', function () {
+            $('#ticketAgreementView .sa-clause').prop('checked', this.checked);
+            refreshAgreement();
+        });
+
+        $(document).on('click', '#tdSaView', function () {
+            const t = currentTicket || {};
+            const saved = agreementState[t.id] || [];
+
+            $('#saSubtitle').text((t.ticket_code || '-') + ' · ' + (t.customer?.name || '-'));
+            $('#saSignTechnician').text(t.technician?.name || '-');
+            $('#saSignSupervisor').text(t.supervisor?.name || '-'); // TODO: supervisor belum di-load oleh API index
+            $('#saSignCustomer').text(t.customer?.name || '-');
+
+            $('#ticketAgreementView .sa-clause').each(function (i) {
+                $(this).prop('checked', !!saved[i]);
+            });
+            refreshAgreement();
+
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketAgreementView').removeClass('hidden');
+            window.scrollTo(0, 0);
+        });
+
+        $(document).on('click', '#saSave', function () {
+            const $btn = $(this);
+            agreementState[(currentTicket || {}).id] = $('#ticketAgreementView .sa-clause')
+                .map(function () { return this.checked; }).get();
+
+            $btn.text('Saved');
+            setTimeout(function () { $btn.text('Save'); }, 1500);
+        });
+
+        $(document).on('click', '.btn-sa-back', function () {
+            $('#ticketAgreementView').addClass('hidden');
+            $('#ticketDetailsView').removeClass('hidden');
+        });
+
+        // SERVICE & MACHINE INSPECTION FORM (frontend only)
+        // TODO: persist ke backend; Add photo / Take photo / Open > masih placeholder
+        $(document).on('click', '#tdSfView', function () {
+            const t = currentTicket || {};
+            const machine = t.customer_product?.product?.name || '-';
+
+            $('#sfSubtitle').text((t.ticket_code || '-') + ' · ' + machine);
+            $('#sfFormNumber').val('SF-' + (t.ticket_code || '').replace('DAX-AF-', 'DAX-'));
+            $('#sfCustomer').val(t.customer?.name || '');
+            $('#sfMachineType').val(machine === '-' ? '' : machine);
+            $('#sfSignTechnician').text(t.technician?.name || '-');
+            $('#sfSignSupervisor').text(t.supervisor?.name || '-'); // TODO: supervisor belum di-load oleh API index
+            $('#sfSignCustomer').text(t.customer?.name || '-');
+
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketServiceFormView').removeClass('hidden');
+            window.scrollTo(0, 0);
+        });
+
+        $(document).on('click', '.btn-sf-back', function () {
+            $('#ticketServiceFormView').addClass('hidden');
+            $('#ticketDetailsView').removeClass('hidden');
+        });
+
+        $(document).on('click', '.sf-tab', function () {
+            const key = $(this).data('tab');
+
+            $('.sf-tab')
+                .removeClass('bg-[#115640] text-white border-[#115640]')
+                .addClass('bg-white text-[#4B5563] border-[#D9D9D9]');
+            $(this)
+                .removeClass('bg-white text-[#4B5563] border-[#D9D9D9]')
+                .addClass('bg-[#115640] text-white border-[#115640]');
+
+            $('.sf-panel').addClass('hidden').filter('[data-tab="' + key + '"]').removeClass('hidden');
+        });
+
+        $(document).on('click', '#sfSaveDraft, #sfSaveForm', function () {
+            const $btn = $(this);
+            const label = $btn.text();
+            $btn.text('Saved');
+            setTimeout(function () { $btn.text(label); }, 1500);
+        });
+
+        // SUPERVISOR SIGNATURE (frontend only)
+        // TODO: persist ke backend (simpan gambar tanda tangan + ubah status Service Form)
+        const supervisorSigned = {};
+        const ssCanvas = document.getElementById('ssCanvas');
+        const ssCtx = ssCanvas.getContext('2d');
+        let ssDrawing = false;
+        let ssHasInk = false;
+
+        function ssResizeCanvas() {
+            const rect = ssCanvas.getBoundingClientRect();
+            ssCanvas.width = rect.width;
+            ssCanvas.height = rect.height;
+            ssCtx.lineWidth = 2;
+            ssCtx.lineCap = 'round';
+            ssCtx.strokeStyle = '#1E1E1E';
+        }
+
+        function ssClear() {
+            ssCtx.clearRect(0, 0, ssCanvas.width, ssCanvas.height);
+            ssHasInk = false;
+            $('#ssPlaceholder').removeClass('hidden');
+        }
+
+        function ssPoint(e) {
+            const rect = ssCanvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        ssCanvas.addEventListener('pointerdown', function (e) {
+            if (supervisorSigned[(currentTicket || {}).id]) return;
+            ssDrawing = true;
+            const p = ssPoint(e);
+            ssCtx.beginPath();
+            ssCtx.moveTo(p.x, p.y);
+            ssCanvas.setPointerCapture(e.pointerId);
+        });
+
+        ssCanvas.addEventListener('pointermove', function (e) {
+            if (! ssDrawing) return;
+            const p = ssPoint(e);
+            ssCtx.lineTo(p.x, p.y);
+            ssCtx.stroke();
+            ssHasInk = true;
+            $('#ssPlaceholder').addClass('hidden');
+            $('#ssError').addClass('hidden');
+        });
+
+        ['pointerup', 'pointercancel'].forEach(function (type) {
+            ssCanvas.addEventListener(type, function () { ssDrawing = false; });
+        });
+
+        function renderSupervisorState() {
+            const signed = !! supervisorSigned[(currentTicket || {}).id];
+
+            $('#ssStatusBadge')
+                .text(signed ? 'Signed' : 'Awaiting signature')
+                .css(signed
+                    ? { background: '#E7F3EE', color: '#115640' }
+                    : { background: '#FFF3CD', color: '#D97706' });
+            $('#ssSign').prop('disabled', signed).css('opacity', signed ? 0.6 : 1);
+            $('#ssClear').prop('disabled', signed);
+
+            $('#tdSfStatus').text(signed ? 'Signed by supervisor' : 'Awaiting supervisor signature');
+            $('#tdSupervisorSign').toggleClass('hidden', signed);
+        }
+
+        $(document).on('click', '#tdSupervisorSign', function () {
+            const t = currentTicket || {};
+
+            $('#ssTicket').text(t.ticket_code || '-');
+            $('#ssCustomer').text(t.customer?.name || '-');
+            $('#ssMachine').text(t.customer_product?.product?.name || '-');
+            $('#ssTechnician').text(t.technician?.name || '-');
+            $('#ssName').val(t.supervisor?.name || ''); // TODO: supervisor belum di-load oleh API index; nanti pakai user yang login
+            $('#ssError').addClass('hidden');
+
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketSupervisorSignView').removeClass('hidden');
+            ssResizeCanvas();
+            ssClear();
+            renderSupervisorState();
+            window.scrollTo(0, 0);
+        });
+
+        $(document).on('click', '#ssClear', ssClear);
+
+        $(document).on('click', '#ssSign', function () {
+            if (! ssHasInk) return $('#ssError').removeClass('hidden');
+
+            supervisorSigned[(currentTicket || {}).id] = true;
+            renderSupervisorState();
+        });
+
+        $(document).on('click', '.btn-ss-back', function () {
+            $('#ticketSupervisorSignView').addClass('hidden');
+            $('#ticketDetailsView').removeClass('hidden');
+        });
+
+        $(document).on('click', '.btn-ss-list', function () {
+            $('#ticketSupervisorSignView').addClass('hidden');
+            $('#ticketDetailsView').addClass('hidden');
+            $('#ticketListView').removeClass('hidden');
+        });
+
+        $(document).on('click', '#tdShareLink', function () {
+            const $btn = $(this);
+            const url = $btn.data('url') || '';
+            const done = function () {
+                $btn.text('Copied');
+                setTimeout(function () { $btn.text('Share Link'); }, 1500);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(done);
+            } else {
+                done();
+            }
         });
 
         $(document).on('click', '.btn-ticket-update-logs', function () {

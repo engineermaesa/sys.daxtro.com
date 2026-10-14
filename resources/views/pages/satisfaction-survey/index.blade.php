@@ -24,7 +24,7 @@
     unset($s);
 @endphp
 
-<section class="text-xs! lg:text-sm! text-[#1E1E1E]">
+<section id="surveyRoot" class="text-xs! lg:text-sm! text-[#1E1E1E]" data-surveys="{{ json_encode($surveys) }}">
     {{-- LIST VIEW --}}
     <div id="surveyListView">
         <div class="pt-4">
@@ -42,7 +42,7 @@
             <div class="overflow-x-auto">
                 <table class="w-full whitespace-nowrap">
                     <thead>
-                        <tr class="border-b border-[#D9D9D9] text-left text-[#757575] bg-[#FAFAFA] text-center">
+                        <tr class="border-b border-[#D9D9D9] text-[#757575] bg-[#FAFAFA] text-center">
                             <th class="p-3 font-semibold">Ticket ID</th>
                             <th class="p-3 font-semibold">Customer</th>
                             <th class="p-3 font-semibold">Technician</th>
@@ -59,25 +59,25 @@
                         @foreach ($surveys as $s)
                             <tr class="survey-row border-b border-[#D9D9D9] last:border-b-0"
                                 data-search="{{ strtolower($s['ticket'].' '.$s['customer'].' '.$s['technician']) }}">
-                                <td class="p-3 font-semibold text-[#115640]">{{ $s['ticket'] }}</td>
+                                <td class="p-3 font-semibold text-[#115640] text-center">{{ $s['ticket'] }}</td>
                                 <td class="p-3 font-semibold text-center">{{ $s['customer'] }}</td>
                                 <td class="text-center p-3 text-[#757575]">{{ $s['technician'] }}</td>
                                 <td class="p-3 text-center text-[#757575]">{{ $s['service_date'] }}</td>
                                 <td class="p-3 text-center text-[#757575]">{{ $s['submitted'] }}</td>
                                 <td class="p-3 font-semibold text-[#115640] text-center">{{ number_format($s['avg'], 1) }} / 5</td>
-                                <td class="p-3">
+                                <td class="p-3 text-center">
                                     @if ($s['machine_ok'])
                                         <span class="px-2.5 py-1 rounded-full bg-[#E7F3EE] text-[#115640] font-semibold">Yes</span>
                                     @else
                                         <span class="px-2.5 py-1 rounded-full bg-[#FBEAEA] text-[#EC221F] font-semibold">No</span>
                                     @endif
                                 </td>
-                                <td class="p-3 text-[#757575]">{{ $s['source'] }}</td>
+                                <td class="p-3 text-center text-[#757575]">{{ $s['source'] }}</td>
                                 <td data-ticket="{{ $s['ticket'] }}"
-                                    class="review-cell p-3 font-semibold {{ $s['reviewed'] ? 'text-[#115640]' : 'text-[#D97706]' }}">
+                                    class="review-cell p-3 text-center font-semibold {{ $s['reviewed'] ? 'text-[#115640]' : 'text-[#D97706]' }}">
                                     {{ $s['reviewed'] ? 'Reviewed' : 'Needs review' }}
                                 </td>
-                                <td class="p-3">
+                                <td class="p-3 text-center">
                                     <div class="relative inline-block">
                                         <button type="button"
                                             class="action-toggle w-9 h-9 flex items-center justify-center rounded-lg border border-[#D9D9D9] bg-[#F5F5F5] text-[#757575] cursor-pointer">
@@ -112,7 +112,8 @@
 @section('scripts')
 <script>
     (function () {
-        const surveys = @json($surveys);
+        // data dummy dibaca dari atribut HTML supaya tidak ada sintaks Blade di dalam <script>
+        const surveys = JSON.parse(document.getElementById('surveyRoot').dataset.surveys);
         const listView = document.getElementById('surveyListView');
         const detailView = document.getElementById('surveyDetailView');
         const formView = document.getElementById('surveyFormView');
@@ -220,15 +221,16 @@
         function renderReviewState(s) {
             const btn = document.getElementById('btnMarkReviewed');
             btn.textContent = s.reviewed ? 'Reviewed' : 'Mark as reviewed';
-            btn.disabled = s.reviewed;
-            btn.classList.toggle('opacity-60', s.reviewed);
-            btn.classList.toggle('cursor-not-allowed', s.reviewed);
+            btn.disabled = !! s.reviewed;
+            btn.classList.toggle('opacity-60', !! s.reviewed);
+            btn.classList.toggle('cursor-not-allowed', !! s.reviewed);
 
             document.querySelectorAll('.review-cell').forEach(function (cell) {
                 if (cell.dataset.ticket !== s.ticket) return;
                 cell.textContent = s.recoming ? 'Recoming' : (s.reviewed ? 'Reviewed' : 'Needs review');
-                cell.classList.toggle('text-[#115640]', s.reviewed && ! s.recoming);
-                cell.classList.toggle('text-[#D97706]', ! s.reviewed || s.recoming);
+                // !! → toggle() needs a real boolean, undefined would flip the class instead of forcing it
+                cell.classList.toggle('text-[#115640]', !! (s.reviewed && ! s.recoming));
+                cell.classList.toggle('text-[#D97706]', !! (! s.reviewed || s.recoming));
             });
 
             const rcBtn = document.getElementById('btnScheduleRecoming');
@@ -261,6 +263,7 @@
             set('rcTicket', currentTicket);
             setReason(document.querySelector('.rc-reason'));
             rcDate.value = '';
+            rcDate.min = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
             document.getElementById('rcNotes').value = '';
             rcDateError.classList.add('hidden');
             recomingModal.classList.remove('hidden');
@@ -273,7 +276,7 @@
         recomingModal.addEventListener('click', function (e) { if (e.target === recomingModal) closeRecoming(); });
 
         document.getElementById('rcSave').addEventListener('click', function () {
-            if (! rcDate.value) return rcDateError.classList.remove('hidden');
+            if (! rcDate.value || rcDate.value < rcDate.min) return rcDateError.classList.remove('hidden');
 
             const s = surveys.find(function (x) { return x.ticket === currentTicket; });
             if (! s) return;
@@ -333,6 +336,17 @@
 
         document.querySelectorAll('.back-to-list').forEach(function (btn) {
             btn.addEventListener('click', showList);
+        });
+
+        // browser back/forward: keep the visible view in sync with the URL hash
+        window.addEventListener('hashchange', function () {
+            if (location.hash) showDetail(decodeURIComponent(location.hash.slice(1)));
+            else showList();
+        });
+
+        // ESC closes the recoming modal
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRecoming();
         });
 
         if (location.hash) showDetail(decodeURIComponent(location.hash.slice(1)));
