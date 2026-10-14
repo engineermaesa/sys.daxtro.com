@@ -1,4 +1,4 @@
-{{-- VIEW FORM (partial; di-include dari index.blade.php, diisi oleh JS dengan data dummy) --}}
+{{-- VIEW FORM (partial; di-include dari index.blade.php, diisi oleh JS dari API) --}}
 <div id="surveyFormView" class="hidden">
     <div class="pt-4 flex items-start justify-between gap-3">
         <div>
@@ -51,6 +51,10 @@
         <h2 class="font-bold tracking-wide">MACHINE WORKING STATUS</h2>
         <hr class="my-3 border-[#EDEDED]">
         <p id="vfMachine" class="font-semibold"></p>
+        <div id="vfExplanationWrap" class="hidden mt-3">
+            <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Explanation</p>
+            <p id="vfExplanation" class="mt-1 text-[#4B5563]"></p>
+        </div>
     </div>
 
     {{-- COMMENTS & SUGGESTIONS --}}
@@ -58,6 +62,14 @@
         <h2 class="font-bold tracking-wide">COMMENTS &amp; SUGGESTIONS</h2>
         <hr class="my-3 border-[#EDEDED]">
         <p id="vfComments" class="text-[#4B5563]"></p>
+    </div>
+
+    {{-- SIGNER --}}
+    <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
+        <h2 class="font-bold tracking-wide">SIGNER</h2>
+        <hr class="my-3 border-[#EDEDED]">
+        <p id="vfSigner" class="font-semibold"></p>
+        <img id="vfSignature" alt="Customer signature" class="hidden mt-2 max-h-32 border border-[#EDEDED] rounded-lg bg-white">
     </div>
 
     <div class="mt-4 pb-6">

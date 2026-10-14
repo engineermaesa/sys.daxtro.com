@@ -1,4 +1,4 @@
-{{-- DETAIL VIEW (partial; di-include dari index.blade.php, diisi oleh JS dengan data dummy) --}}
+{{-- DETAIL VIEW (partial; di-include dari index.blade.php, diisi oleh JS dari API) --}}
 <div id="surveyDetailView" class="hidden">
     <div class="pt-4">
         <h1 class="font-bold text-xl lg:text-2xl text-[#115640]">Survey Response</h1>
@@ -54,6 +54,11 @@
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Signer</p>
                 <p id="dSigner" class="mt-1 font-semibold"></p>
+                <img id="dSignature" alt="Customer signature" class="hidden mt-2 max-h-32 border border-[#EDEDED] rounded-lg bg-white">
+            </div>
+            <div id="dAdminReasonWrap" class="hidden">
+                <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Admin Input Reason</p>
+                <p id="dAdminReason" class="mt-1"></p>
             </div>
         </div>
     </div>
@@ -71,7 +76,7 @@
         </div>
     </div>
 
-    {{-- FOOTER ACTIONS (TODO: belum terhubung ke backend) --}}
+    {{-- FOOTER ACTIONS --}}
     <div class="mt-4 pb-6 flex flex-wrap items-center justify-between gap-3">
         <button type="button" class="back-to-list px-4 py-2 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">
             <i class="fas fa-chevron-left text-[10px] mr-1"></i> Back
