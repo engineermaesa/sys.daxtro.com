@@ -20,6 +20,8 @@ class TicketLog extends Model
     public const STEP_SATISFACTION_SUBMITTED = 'satisfaction_submitted';
     public const STEP_CLOSED = 'closed';
 
+    public const STEP_RECOMING = 'recoming';
+
     public const STEPS = [
         self::STEP_PUBLISHED,
         self::STEP_ASSIGNED,
@@ -29,6 +31,7 @@ class TicketLog extends Model
         self::STEP_DOCUMENTATION_PUBLISHED,
         self::STEP_SATISFACTION_SUBMITTED,
         self::STEP_CLOSED,
+        self::STEP_RECOMING,
     ];
 
     protected $fillable = [
