@@ -1,505 +1,290 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    // TODO: DUMMY DATA (frontend only) — ganti dengan data dari backend saat survey otomatis dari ticket aftersales siap.
+    $criteria = [
+        'Punctuality', 'Technician Attitude', 'Technical Knowledge', 'Work Speed', 'Service Quality',
+        'Cleanliness', 'Work Explanation', 'Overall Satisfaction', 'Technician Appearance',
+    ];
+
+    $surveys = [
+        ['ticket' => 'DAX-AF-20261012-1', 'customer' => 'PT Global Dynamics', 'technician' => 'Ahmad Fauzi', 'service_date' => '2026-10-12', 'submitted' => '2026-10-12 16:42', 'scores' => [5,5,5,4,5,5,5,5,4], 'machine_ok' => true, 'source' => 'Customer link', 'reviewed' => false, 'explanation' => 'The machine is stable after servicing. Cooling performance should be monitored for the next 24 hours.', 'comments' => 'Technician was helpful and explained the repair clearly. Please improve arrival time updates.', 'signer' => 'Budi Hartono · Customer PIC', 'otp' => 'Yes · customer phone', 'link_by' => 'Novia Rajmi', 'shared_via' => 'WhatsApp', 'device' => '103.28.xxx.xxx · Chrome Mobile', 'duration' => '04m 18s', 'reason' => 'High confidence response'],
+        ['ticket' => 'DAX-AF-20261010-2', 'customer' => 'CV Heavy Logistics', 'technician' => 'Rizky Pratama', 'service_date' => '2026-10-10', 'submitted' => '2026-10-10 11:10', 'scores' => [4,4,4,4,5,4,4,4,4], 'machine_ok' => false, 'source' => 'Admin assisted', 'reviewed' => true, 'explanation' => 'Machine still makes noise under full load. Sparepart follow up required.', 'comments' => 'Perlu follow up sparepart.', 'signer' => 'Rina Wijaya · Supervisor', 'otp' => 'No · admin assisted', 'link_by' => 'Novia Rajmi', 'shared_via' => 'Phone call', 'device' => '103.28.xxx.xxx · Chrome Desktop', 'duration' => '06m 02s', 'reason' => 'Machine not working'],
+        ['ticket' => 'DAX-AF-20261008-3', 'customer' => 'PT Maju Bersama', 'technician' => 'Dedi Kurniawan', 'service_date' => '2026-10-08', 'submitted' => '2026-10-09 09:15', 'scores' => [3,4,3,3,4,3,4,3,4], 'machine_ok' => true, 'source' => 'Customer link', 'reviewed' => false, 'explanation' => 'Preventive maintenance completed, machine running normally.', 'comments' => '', 'signer' => 'Hendra Gunawan · Owner', 'otp' => 'Yes · customer phone', 'link_by' => 'Novia Rajmi', 'shared_via' => 'WhatsApp', 'device' => '114.10.xxx.xxx · Safari Mobile', 'duration' => '03m 40s', 'reason' => 'Low average score'],
+        ['ticket' => 'DAX-AF-20261005-4', 'customer' => 'PT Sinar Abadi', 'technician' => 'Ahmad Fauzi', 'service_date' => '2026-10-05', 'submitted' => '2026-10-05 14:30', 'scores' => [5,5,4,5,5,5,5,5,5], 'machine_ok' => true, 'source' => 'Admin assisted', 'reviewed' => true, 'explanation' => 'Installation completed and tested, machine ready for production.', 'comments' => 'Instalasi rapi, terima kasih.', 'signer' => 'Siti Aminah · Factory Manager', 'otp' => 'No · admin assisted', 'link_by' => 'Novia Rajmi', 'shared_via' => 'Email', 'device' => '103.28.xxx.xxx · Chrome Desktop', 'duration' => '05m 11s', 'reason' => 'High confidence response'],
+        ['ticket' => 'DAX-AF-20261003-5', 'customer' => 'UD Berkah Jaya', 'technician' => 'Rizky Pratama', 'service_date' => '2026-10-03', 'submitted' => '2026-10-04 08:05', 'scores' => [2,3,3,2,3,3,2,2,3], 'machine_ok' => false, 'source' => 'Customer link', 'reviewed' => false, 'explanation' => 'Technician arrived late and the issue is not fully resolved.', 'comments' => 'Mohon ketepatan waktu ditingkatkan.', 'signer' => 'Agus Salim · Operator', 'otp' => 'Yes · customer phone', 'link_by' => 'Novia Rajmi', 'shared_via' => 'WhatsApp', 'device' => '36.80.xxx.xxx · Chrome Mobile', 'duration' => '02m 55s', 'reason' => 'Low score and machine not working'],
+        ['ticket' => 'DAX-AF-20260929-6', 'customer' => 'PT Nusantara Pack', 'technician' => 'Dedi Kurniawan', 'service_date' => '2026-09-29', 'submitted' => '2026-09-29 17:20', 'scores' => [4,5,5,4,4,4,5,4,5], 'machine_ok' => true, 'source' => 'Customer link', 'reviewed' => true, 'explanation' => 'Repair finished, all parts working properly.', 'comments' => 'Penjelasan hasil pekerjaan jelas.', 'signer' => 'Dewi Lestari · Maintenance Head', 'otp' => 'Yes · customer phone', 'link_by' => 'Novia Rajmi', 'shared_via' => 'WhatsApp', 'device' => '103.28.xxx.xxx · Chrome Mobile', 'duration' => '04m 02s', 'reason' => 'High confidence response'],
+    ];
+
+    foreach ($surveys as &$s) {
+        $s['avg'] = round(array_sum($s['scores']) / count($s['scores']), 1);
+        $s['breakdown'] = array_map(fn ($l, $v) => ['label' => $l, 'score' => $v], $criteria, $s['scores']);
+    }
+    unset($s);
+@endphp
+
 <section class="text-xs! lg:text-sm! text-[#1E1E1E]">
-    <div class="pt-4">
-        <h1 class="font-bold text-xl lg:text-2xl text-[#1E1E1E]">Satisfaction Survey</h1>
-        <p class="text-[#757575] mt-1">Customer satisfaction tracking for after-sales service quality.</p>
-    </div>
-
-    {{-- SUMMARY CARDS --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-        {{-- WORK TYPE --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#417866] text-[#417866] [&_svg]:w-4 [&_svg]:h-4"><x-icon.task/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">WORK TYPE</span>
-            </div>
-            <p class="mt-4 text-2xl font-bold">{{ $totalWorkType }} <span class="text-sm font-normal text-[#757575]">total</span></p>
-            <ul class="mt-3 divide-y divide-[#EDEDED]">
-                @foreach ($jobTypes as $type)
-                    <li class="flex items-center justify-between py-1.5">
-                        <span>{{ $type }}</span>
-                        <span class="font-semibold">{{ $jobTypeCounts[$type] ?? 0 }}</span>
-                    </li>
-                @endforeach
-            </ul>
+    {{-- LIST VIEW --}}
+    <div id="surveyListView">
+        <div class="pt-4">
+            <h1 class="font-bold text-xl lg:text-2xl text-[#115640]">Satisfaction Survey</h1>
+            <p class="text-[#757575] mt-1">Review customer feedback and service quality responses.</p>
         </div>
 
-        {{-- PENDING MACHINES --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#E8B931] text-[#E8B931] [&_svg]:w-4 [&_svg]:h-4"><x-icon.info/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">PENDING MACHINES</span>
-            </div>
-            <p class="mt-4 text-3xl font-bold text-[#E8B931]">{{ $pendingCount }}</p>
-            <p class="text-[#757575] mt-1">Machines not yet resolved</p>
-            @if ($pendingCompanies->isNotEmpty())
-                <hr class="my-3 border-[#EDEDED]">
-                <ul class="space-y-1.5">
-                    @foreach ($pendingCompanies->take(3) as $company)
-                        <li class="text-[#1E1E1E] truncate">{{ $company }}</li>
-                    @endforeach
-                </ul>
-                @if ($pendingCompanies->count() > 3)
-                    <button type="button" id="openPendingModal" class="mt-2 text-[#115640] font-semibold hover:underline cursor-pointer">
-                        View more ({{ $pendingCompanies->count() - 3 }})
-                    </button>
-                @endif
-            @endif
-        </div>
+        <form id="surveySearchForm" class="mt-4 p-4 bg-white border border-[#D9D9D9] rounded-lg flex flex-col lg:flex-row lg:items-center gap-3">
+            <input type="text" id="surveySearchInput" placeholder="Search ticket, customer, or technician"
+                class="flex-1 border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none focus:border-[#115640]" />
+            <button type="submit" class="px-5 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Search</button>
+        </form>
 
-        {{-- RESOLVED MACHINES --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#115640] text-[#115640] [&_svg]:w-4 [&_svg]:h-4"><x-icon.circle-check/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">RESOLVED MACHINES</span>
-            </div>
-            <p class="mt-4 text-3xl font-bold text-[#115640]">{{ $resolvedCount }}</p>
-            <p class="text-[#757575] mt-1">Machines working properly</p>
-            <div class="mt-4 flex items-center gap-3">
-                <div class="flex-1 h-2 bg-[#EDEDED] rounded-full overflow-hidden">
-                    <div class="h-full bg-[#115640] rounded-full" style="width: {{ $resolvedPct }}%"></div>
-                </div>
-                <span class="font-semibold text-[#757575]">{{ $resolvedPct }}%</span>
-            </div>
-        </div>
-    </div>
-
-    {{-- PENDING MACHINES MODAL --}}
-    @if ($pendingCompanies->count() > 3)
-        <div id="pendingModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-            <div class="bg-white rounded-lg w-full max-w-sm max-h-[70vh] overflow-y-auto p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-semibold">Pending Machines ({{ $pendingCompanies->count() }})</h3>
-                    <button type="button" id="closePendingModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
-                </div>
-                <ul class="divide-y divide-[#EDEDED]">
-                    @foreach ($pendingCompanies as $company)
-                        <li class="text-[#1E1E1E] py-2">{{ $company }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        </div>
-    @endif
-
-    {{-- SURVEY RESULTS --}}
-    <div class="mt-4 bg-white border border-[#D9D9D9] rounded-lg">
-        <div class="p-4 border-b border-[#D9D9D9]">
-            <h2 class="font-semibold text-base">Survey Results</h2>
-            <p class="text-[#757575]">{{ $responses->total() }} entries found</p>
-
-            <form id="surveyFilterForm" method="GET" action="{{ route('satisfaction-survey.index') }}"
-                class="mt-3 flex flex-col lg:flex-row lg:items-center gap-3">
-
-                <div class="flex-1 border border-[#D9D9D9] rounded-lg flex items-center gap-2 px-3">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
-                        <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786" />
-                    </svg>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search customer, company, technician..."
-                        class="w-full py-2 border-none focus:outline-none" />
-                </div>
-
-                <select name="job_type" class="border border-[#D9D9D9] rounded-lg px-3 py-2 lg:w-48">
-                    <option value="">All Job Types</option>
-                    @foreach ($jobTypes as $type)
-                        <option value="{{ $type }}" @selected(request('job_type') === $type)>{{ $type }}</option>
-                    @endforeach
-                </select>
-
-                <select name="sort" class="border border-[#D9D9D9] rounded-lg px-3 py-2 lg:w-44">
-                    <option value="">Sort by Score</option>
-                    <option value="score_asc" @selected(request('sort') === 'score_asc')>Score: Low to High</option>
-                    <option value="score_desc" @selected(request('sort') === 'score_desc')>Score: High to Low</option>
-                </select>
-
-                <div class="relative shrink-0" id="serviceDateFilter">
-                    <button type="button" id="openServiceDate"
-                        class="flex items-center gap-2 border border-[#D9D9D9] rounded-lg px-3 py-2 w-full lg:w-auto cursor-pointer">
-                        <span id="serviceDateLabel" class="text-[#1E1E1E] whitespace-nowrap">
-                            @if (request('from_date') && request('to_date'))
-                                {{ request('from_date') }} &rarr; {{ request('to_date') }}
-                            @else
-                                Service Date
-                            @endif
-                        </span>
-                        <i id="serviceDateChevron" class="fas fa-chevron-down text-xs text-[#757575] transition-transform duration-200"></i>
-                    </button>
-
-                    <div id="serviceDateDropdown"
-                        class="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl w-[320px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top-right">
-                        <h3 class="font-semibold mb-2">Select Service Date Range</h3>
-
-                        <div class="flex justify-center">
-                            <input type="text" id="service-date-picker" class="hidden">
-                        </div>
-
-                        <div class="flex justify-end gap-2 mt-3">
-                            <button type="button" id="cancelServiceDate" class="px-3 py-1 text-[#303030] cursor-pointer">Cancel</button>
-                            <button type="button" id="applyServiceDate" class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">Apply</button>
-                        </div>
-                    </div>
-                </div>
-
-                <input type="hidden" name="from_date" id="fromDateInput" value="{{ request('from_date') }}">
-                <input type="hidden" name="to_date" id="toDateInput" value="{{ request('to_date') }}">
-            </form>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full whitespace-nowrap">
-                <thead>
-                    <tr class="border-b border-[#D9D9D9] text-left text-[#757575]">
-                        <th class="p-3 font-semibold">Customer / Company</th>
-                        <th class="p-3 font-semibold">WO #</th>
-                        <th class="p-3 font-semibold">Date</th>
-                        <th class="p-3 font-semibold">Technician</th>
-                        <th class="p-3 font-semibold">Job Type</th>
-                        <th class="p-3 font-semibold">Avg Score</th>
-                        <th class="p-3 font-semibold">Machine Functioning</th>
-                        <th class="p-3 font-semibold">Pending Issues</th>
-                        <th class="p-3 font-semibold">Feedback</th>
-                        <th class="p-3 font-semibold">Respondent / Role</th>
-                        <th class="p-3 font-semibold">Submitted</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($responses as $row)
-                        <tr class="border-b border-[#D9D9D9] align-top">
-                            <td class="p-3">
-                                <p class="font-semibold">{{ $row['customer'] }}</p>
-                                <p class="text-[#757575]">{{ $row['company'] }}</p>
-                            </td>
-                            <td class="p-3">{{ $row['wo_number'] }}</td>
-                            <td class="p-3">{{ $row['service_date']?->format('d M y') }}</td>
-                            <td class="p-3">{{ $row['technician'] }}</td>
-                            <td class="p-3">
-                                @if ($row['job_type'] !== '')
-                                    @php
-                                        $jobTypeLabels = ['Preventive Maintenance' => 'PM', 'Installation' => 'Install'];
-                                    @endphp
-                                    <span class="px-2 py-1 rounded-md bg-[#EDEDED] text-[#1E1E1E] font-medium">
-                                        {{ $jobTypeLabels[$row['job_type']] ?? $row['job_type'] }}
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                @if (! is_null($row['avg_score']))
-                                    @php
-                                        $scoreColor = $row['avg_score'] >= 4 ? '#115640' : ($row['avg_score'] >= 3 ? '#B4841F' : '#EC221F');
-                                        $scoreModalData = [
-                                            'avg' => $row['avg_score'],
-                                            'customer' => $row['customer'],
-                                            'wo' => $row['wo_number'],
-                                            'date' => optional($row['service_date'])->format('d M Y'),
-                                            'technician' => $row['technician'],
-                                            'breakdown' => $row['score_breakdown'],
-                                        ];
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1.5">
-                                        <span class="font-semibold" style="color: {{ $scoreColor }}">{{ number_format($row['avg_score'], 1) }}</span>
+        <div class="mt-4 bg-white border border-[#D9D9D9] rounded-lg">
+            <div class="overflow-x-auto">
+                <table class="w-full whitespace-nowrap">
+                    <thead>
+                        <tr class="border-b border-[#D9D9D9] text-left text-[#757575] bg-[#FAFAFA] text-center">
+                            <th class="p-3 font-semibold">Ticket ID</th>
+                            <th class="p-3 font-semibold">Customer</th>
+                            <th class="p-3 font-semibold">Technician</th>
+                            <th class="p-3 font-semibold">Service Date</th>
+                            <th class="p-3 font-semibold">Submitted On</th>
+                            <th class="p-3 font-semibold">Average</th>
+                            <th class="p-3 font-semibold">Machine OK</th>
+                            <th class="p-3 font-semibold">Source</th>
+                            <th class="p-3 font-semibold">Review</th>
+                            <th class="p-3 font-semibold">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surveyTableBody">
+                        @foreach ($surveys as $s)
+                            <tr class="survey-row border-b border-[#D9D9D9] last:border-b-0"
+                                data-search="{{ strtolower($s['ticket'].' '.$s['customer'].' '.$s['technician']) }}">
+                                <td class="p-3 font-semibold text-[#115640]">{{ $s['ticket'] }}</td>
+                                <td class="p-3 font-semibold text-center">{{ $s['customer'] }}</td>
+                                <td class="text-center p-3 text-[#757575]">{{ $s['technician'] }}</td>
+                                <td class="p-3 text-center text-[#757575]">{{ $s['service_date'] }}</td>
+                                <td class="p-3 text-center text-[#757575]">{{ $s['submitted'] }}</td>
+                                <td class="p-3 font-semibold text-[#115640] text-center">{{ number_format($s['avg'], 1) }} / 5</td>
+                                <td class="p-3">
+                                    @if ($s['machine_ok'])
+                                        <span class="px-2.5 py-1 rounded-full bg-[#E7F3EE] text-[#115640] font-semibold">Yes</span>
+                                    @else
+                                        <span class="px-2.5 py-1 rounded-full bg-[#FBEAEA] text-[#EC221F] font-semibold">No</span>
+                                    @endif
+                                </td>
+                                <td class="p-3 text-[#757575]">{{ $s['source'] }}</td>
+                                <td data-ticket="{{ $s['ticket'] }}"
+                                    class="review-cell p-3 font-semibold {{ $s['reviewed'] ? 'text-[#115640]' : 'text-[#D97706]' }}">
+                                    {{ $s['reviewed'] ? 'Reviewed' : 'Needs review' }}
+                                </td>
+                                <td class="p-3">
+                                    <div class="relative inline-block">
                                         <button type="button"
-                                            class="score-trigger w-5 h-5 flex items-center justify-center rounded-full border border-[#115640] text-[#115640] cursor-pointer"
-                                            data-score="{{ json_encode($scoreModalData) }}">
-                                            <i class="fas fa-info text-[9px]"></i>
+                                            class="action-toggle w-9 h-9 flex items-center justify-center rounded-lg border border-[#D9D9D9] bg-[#F5F5F5] text-[#757575] cursor-pointer">
+                                            <i class="fas fa-ellipsis-h"></i>
                                         </button>
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                @if ($row['machine_ok'] === true)
-                                    <span class="px-2 py-1 rounded-md bg-[#E7F3EE] text-[#115640] font-medium">Yes</span>
-                                @elseif ($row['machine_ok'] === false)
-                                    <span class="px-2 py-1 rounded-md bg-[#FBEAEA] text-[#EC221F] font-medium">No</span>
-                                @endif
-                            </td>
-                            @php
-                                $issueModalMeta = [
-                                    'customer' => $row['customer'],
-                                    'wo' => $row['wo_number'],
-                                    'date' => optional($row['service_date'])->format('d M Y'),
-                                    'technician' => $row['technician'],
-                                ];
-                            @endphp
-                            <td class="p-3 w-[160px]">
-                                @if ($row['pending_issues'])
-                                    <button type="button" class="issue-trigger flex items-center gap-2 w-full text-left cursor-pointer"
-                                        data-issue="{{ json_encode($issueModalMeta + ['title' => 'Pending Issues', 'text' => $row['pending_issues']]) }}">
-                                        <span class="truncate min-w-0">{{ \Illuminate\Support\Str::limit($row['pending_issues'], 25) }}</span>
-                                        <span class="shrink-0 w-6 h-6 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#757575]">
-                                            <i class="fas fa-arrow-right text-[10px]"></i>
-                                        </span>
-                                    </button>
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            <td class="p-3 w-[160px]">
-                                @if ($row['feedback'])
-                                    <button type="button" class="issue-trigger flex items-center gap-2 w-full text-left cursor-pointer"
-                                        data-issue="{{ json_encode($issueModalMeta + ['title' => 'Feedback', 'text' => $row['feedback']]) }}">
-                                        <span class="truncate min-w-0 text-[#115640]">{{ \Illuminate\Support\Str::limit($row['feedback'], 25) }}</span>
-                                        <span class="shrink-0 w-6 h-6 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#757575]">
-                                            <i class="fas fa-arrow-right text-[10px]"></i>
-                                        </span>
-                                    </button>
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                <p class="font-semibold">{{ $row['respondent'] }}</p>
-                                <p class="text-[#757575]">{{ $row['role'] }}</p>
-                            </td>
-                            <td class="p-3">{{ $row['submitted_at']?->format('d M Y H:i') }}</td>
+                                        <div class="action-menu hidden fixed w-52 bg-white border border-[#D9D9D9] rounded-lg shadow-lg z-50 p-1">
+                                            <button type="button" data-ticket="{{ $s['ticket'] }}"
+                                                class="view-detail w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-[#F5F5F5] text-left cursor-pointer">
+                                                <i class="far fa-copy text-[#757575]"></i>
+                                                <span>View Detail</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                        <tr id="surveyEmptyRow" class="hidden">
+                            <td class="p-10 text-center text-[#757575]" colspan="10">No survey responses found.</td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td class="p-10 text-center text-[#757575]" colspan="11">No survey responses found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- PAGINATION --}}
-        <div class="flex justify-between items-center px-4 py-3 text-[#1E1E1E] border-t border-[#D9D9D9]">
-            <p class="text-[#757575]">
-                Showing {{ $responses->firstItem() ?? 0 }} to {{ $responses->lastItem() ?? 0 }} of {{ $responses->total() }} entries
-            </p>
-
-            @if ($responses->lastPage() > 1)
-                <div class="flex items-center gap-1">
-                    <a href="{{ $responses->previousPageUrl() ?? '#' }}"
-                        class="p-2 border border-[#D9D9D9] rounded-md {{ $responses->onFirstPage() ? 'pointer-events-none opacity-40' : '' }}">
-                        <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
-                    </a>
-
-                    @for ($p = 1; $p <= $responses->lastPage(); $p++)
-                        <a href="{{ $responses->url($p) }}"
-                            class="px-3 py-1.5 rounded-md border {{ $p === $responses->currentPage() ? 'bg-[#115640] text-white border-[#115640]' : 'border-[#D9D9D9]' }}">
-                            {{ $p }}
-                        </a>
-                    @endfor
-
-                    <a href="{{ $responses->nextPageUrl() ?? '#' }}"
-                        class="p-2 border border-[#D9D9D9] rounded-md {{ ! $responses->hasMorePages() ? 'pointer-events-none opacity-40' : '' }}">
-                        <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
-                    </a>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- ISSUE / FEEDBACK DETAIL MODAL --}}
-    <div id="issueModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg w-full max-w-sm p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h3 id="issueModalTitle" class="font-semibold text-base"></h3>
-                <button type="button" id="closeIssueModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
-            </div>
-            <div class="flex items-center justify-between bg-[#F7F7F7] rounded-lg p-3 mb-4">
-                <div>
-                    <p id="issueModalCustomer" class="font-semibold"></p>
-                    <p id="issueModalMeta" class="text-[#757575] text-xs mt-0.5"></p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] uppercase text-[#9CA3AF] font-semibold">Technician</p>
-                    <p id="issueModalTechnician" class="font-semibold"></p>
-                </div>
-            </div>
-            <p id="issueModalText" class="text-[#1E1E1E]"></p>
-        </div>
-    </div>
-
-    {{-- SCORE BREAKDOWN MODAL --}}
-    <div id="scoreModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg w-full max-w-md p-5">
-            <div class="flex items-start justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="bg-[#E7F3EE] rounded-lg px-3 py-1.5 text-center">
-                        <p id="scoreModalAvg" class="text-[#115640] font-bold text-lg leading-none"></p>
-                        <p class="text-[10px] text-[#417866]">/ 5.0</p>
-                    </div>
-                    <div>
-                        <p class="font-semibold">Score Breakdown</p>
-                        <p id="scoreModalCriteria" class="text-[#757575] text-xs"></p>
-                    </div>
-                </div>
-                <button type="button" id="closeScoreModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
-            </div>
-
-            <div class="flex items-center justify-between bg-[#F7F7F7] rounded-lg p-3 mb-4">
-                <div>
-                    <p id="scoreModalCustomer" class="font-semibold"></p>
-                    <p id="scoreModalMeta" class="text-[#757575] text-xs mt-0.5"></p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] uppercase text-[#9CA3AF] font-semibold">Technician</p>
-                    <p id="scoreModalTechnician" class="font-semibold"></p>
-                </div>
-            </div>
-
-            <ul id="scoreModalList" class="space-y-2.5 max-h-[45vh] overflow-y-auto"></ul>
-
-            <div class="mt-4 pt-3 border-t border-[#EDEDED] flex items-center justify-between gap-3">
-                <p class="text-[#757575] shrink-0"><span class="text-[#115640] font-semibold">Overall</span> Average</p>
-                <div class="flex items-center gap-2 flex-1">
-                    <div class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
-                        <div id="scoreModalOverallBar" class="h-full bg-[#115640] rounded-full"></div>
-                    </div>
-                    <span id="scoreModalOverallValue" class="font-bold text-[#115640] shrink-0"></span>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
+    @include('pages.satisfaction-survey.details')
+    @include('pages.satisfaction-survey.view-form')
 </section>
 @endsection
 
 @section('scripts')
 <script>
     (function () {
-        const form = document.getElementById('surveyFilterForm');
-        if (! form) return;
+        const surveys = @json($surveys);
+        const listView = document.getElementById('surveyListView');
+        const detailView = document.getElementById('surveyDetailView');
+        const formView = document.getElementById('surveyFormView');
+        let currentTicket = null;
+        const set = (id, text) => { document.getElementById(id).textContent = text; };
 
-        form.querySelectorAll('select').forEach(function (el) {
-            el.addEventListener('change', function () { form.requestSubmit(); });
-        });
-
-        let searchTimer = null;
-        form.querySelector('input[name="search"]').addEventListener('input', function () {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(function () { form.requestSubmit(); }, 500);
-        });
-
-        // SERVICE DATE RANGE PICKER
-        const openBtn = document.getElementById('openServiceDate');
-        const dropdown = document.getElementById('serviceDateDropdown');
-        const chevron = document.getElementById('serviceDateChevron');
-        const fromInput = document.getElementById('fromDateInput');
-        const toInput = document.getElementById('toDateInput');
-        const label = document.getElementById('serviceDateLabel');
-
-        const fp = flatpickr('#service-date-picker', {
-            mode: 'range',
-            inline: true,
-            dateFormat: 'Y-m-d',
-            defaultDate: (fromInput.value && toInput.value) ? [fromInput.value, toInput.value] : null,
-        });
-
-        function closeDropdown() {
-            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            chevron.classList.remove('rotate-180');
+        // ACTION MENU
+        function closeMenus() {
+            document.querySelectorAll('.action-menu').forEach(function (m) { m.classList.add('hidden'); });
         }
 
-        openBtn.addEventListener('click', function () {
-            dropdown.classList.toggle('opacity-0');
-            dropdown.classList.toggle('scale-95');
-            dropdown.classList.toggle('pointer-events-none');
-            chevron.classList.toggle('rotate-180');
+        document.querySelectorAll('.action-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const menu = this.nextElementSibling;
+                const wasHidden = menu.classList.contains('hidden');
+                closeMenus();
+                if (wasHidden) {
+                    // fixed positioning so the menu is never clipped or covered by the next row
+                    const rect = this.getBoundingClientRect();
+                    menu.style.top = (rect.bottom + 4) + 'px';
+                    menu.style.left = (rect.right - 208) + 'px';
+                    menu.classList.remove('hidden');
+                }
+            });
         });
+        document.addEventListener('click', closeMenus);
+        window.addEventListener('scroll', closeMenus, true);
+        window.addEventListener('resize', closeMenus);
 
-        document.addEventListener('click', function (e) {
-            if (! document.getElementById('serviceDateFilter').contains(e.target)) closeDropdown();
-        });
+        // SEARCH (client-side, dummy data)
+        const form = document.getElementById('surveySearchForm');
+        const input = document.getElementById('surveySearchInput');
 
-        document.getElementById('cancelServiceDate').addEventListener('click', closeDropdown);
+        function applySearch() {
+            const term = input.value.trim().toLowerCase();
+            let visible = 0;
+            document.querySelectorAll('.survey-row').forEach(function (row) {
+                const show = row.dataset.search.includes(term);
+                row.classList.toggle('hidden', ! show);
+                if (show) visible++;
+            });
+            document.getElementById('surveyEmptyRow').classList.toggle('hidden', visible > 0);
+        }
 
-        document.getElementById('applyServiceDate').addEventListener('click', function () {
-            const dates = fp.selectedDates;
-            if (dates.length !== 2) return closeDropdown();
+        form.addEventListener('submit', function (e) { e.preventDefault(); applySearch(); });
+        input.addEventListener('input', applySearch);
 
-            const startDate = fp.formatDate(dates[0], 'Y-m-d');
-            const endDate = fp.formatDate(dates[1], 'Y-m-d');
+        // DETAIL VIEW
+        function scoreColor(score) {
+            return score >= 4 ? '#115640' : (score >= 3 ? '#E8B931' : '#EC221F');
+        }
 
-            fromInput.value = startDate;
-            toInput.value = endDate;
-            label.textContent = `${startDate} → ${endDate}`;
+        function showDetail(ticket) {
+            const s = surveys.find(function (x) { return x.ticket === ticket; });
+            if (! s) return showList();
 
-            closeDropdown();
-            form.requestSubmit();
-        });
+            const machine = s.machine_ok ? 'Working properly' : 'Not working properly';
 
-        // PENDING MACHINES MODAL
-        const pendingModal = document.getElementById('pendingModal');
-        const openPendingModal = document.getElementById('openPendingModal');
-        const closePendingModal = document.getElementById('closePendingModal');
+            set('dTicketCrumb', s.ticket);
+            set('dAvg', Number(s.avg).toFixed(1));
+            set('dCustomer', s.customer);
+            set('dMachineTop', machine);
+            set('dMachine', machine);
+            document.getElementById('dMachine').style.color = s.machine_ok ? '#115640' : '#EC221F';
+            set('dSource', s.source);
+            set('dExplanation', s.explanation || '-');
+            set('dComments', s.comments || '-');
+            set('dSigner', s.signer);
+            set('dOtp', s.otp);
+            set('dLinkBy', s.link_by);
+            set('dSharedVia', s.shared_via);
+            set('dDevice', s.device);
+            set('dDuration', s.duration);
+            set('dReason', s.reason);
 
-        if (pendingModal && openPendingModal) {
-            openPendingModal.addEventListener('click', function () { pendingModal.classList.remove('hidden'); });
-            closePendingModal.addEventListener('click', function () { pendingModal.classList.add('hidden'); });
-            pendingModal.addEventListener('click', function (e) {
-                if (e.target === pendingModal) pendingModal.classList.add('hidden');
+            document.getElementById('dBreakdown').innerHTML = s.breakdown.map(function (item) {
+                const width = item.score / 5 * 100;
+                return `<li class="flex items-center gap-4">
+                    <span class="w-48 shrink-0">${item.label}</span>
+                    <span class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
+                        <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreColor(item.score)}"></span>
+                    </span>
+                    <span class="w-8 text-right font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                </li>`;
+            }).join('');
+
+            currentTicket = s.ticket;
+            renderReviewState(s);
+
+            listView.classList.add('hidden');
+            formView.classList.add('hidden');
+            detailView.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+
+        function showList() {
+            detailView.classList.add('hidden');
+            formView.classList.add('hidden');
+            listView.classList.remove('hidden');
+            if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        }
+
+        // MARK AS REVIEWED (client-side only, TODO: persist via backend)
+        function renderReviewState(s) {
+            const btn = document.getElementById('btnMarkReviewed');
+            btn.textContent = s.reviewed ? 'Reviewed' : 'Mark as reviewed';
+            btn.disabled = s.reviewed;
+            btn.classList.toggle('opacity-60', s.reviewed);
+            btn.classList.toggle('cursor-not-allowed', s.reviewed);
+
+            document.querySelectorAll('.review-cell').forEach(function (cell) {
+                if (cell.dataset.ticket !== s.ticket) return;
+                cell.textContent = s.reviewed ? 'Reviewed' : 'Needs review';
+                cell.classList.toggle('text-[#115640]', s.reviewed);
+                cell.classList.toggle('text-[#D97706]', ! s.reviewed);
             });
         }
 
-        // ISSUE / FEEDBACK DETAIL MODAL
-        const issueModal = document.getElementById('issueModal');
-
-        document.querySelectorAll('.issue-trigger').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const data = JSON.parse(this.dataset.issue);
-                document.getElementById('issueModalTitle').textContent = data.title;
-                document.getElementById('issueModalCustomer').textContent = data.customer;
-                document.getElementById('issueModalMeta').textContent = [data.wo, data.date].filter(Boolean).join(' · ');
-                document.getElementById('issueModalTechnician').textContent = data.technician;
-                document.getElementById('issueModalText').textContent = data.text;
-                issueModal.classList.remove('hidden');
-            });
+        document.getElementById('btnMarkReviewed').addEventListener('click', function () {
+            const s = surveys.find(function (x) { return x.ticket === currentTicket; });
+            if (! s) return;
+            s.reviewed = true;
+            renderReviewState(s);
         });
 
-        document.getElementById('closeIssueModal').addEventListener('click', function () { issueModal.classList.add('hidden'); });
-        issueModal.addEventListener('click', function (e) {
-            if (e.target === issueModal) issueModal.classList.add('hidden');
-        });
+        // VIEW FORM (read-only)
+        function showForm() {
+            const s = surveys.find(function (x) { return x.ticket === currentTicket; });
+            if (! s) return;
 
-        // SCORE BREAKDOWN MODAL
-        const scoreModal = document.getElementById('scoreModal');
+            set('vfTicket', s.ticket);
+            set('vfCustomer', s.customer);
+            set('vfTechnician', s.technician);
+            set('vfServiceDate', s.service_date);
+            set('vfComments', s.comments || '-');
+            set('vfMachineBadge', 'Machine: ' + (s.machine_ok ? 'Yes' : 'No'));
+            set('vfMachine', s.machine_ok ? 'Yes, machine is working properly' : 'No, machine is not working properly');
+            document.getElementById('vfMachine').style.color = s.machine_ok ? '#115640' : '#EC221F';
 
-        function scoreBarColor(score) {
-            if (score === null) return '#D9D9D9';
-            if (score >= 4.5) return '#115640';
-            if (score >= 3.5) return '#3FA772';
-            if (score >= 2.5) return '#E8B931';
-            return '#EC221F';
-        }
-
-        document.querySelectorAll('.score-trigger').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const data = JSON.parse(this.dataset.score);
-
-                document.getElementById('scoreModalAvg').textContent = data.avg !== null ? Number(data.avg).toFixed(1) : '-';
-                document.getElementById('scoreModalCriteria').textContent = data.breakdown.length + ' criteria evaluated';
-                document.getElementById('scoreModalCustomer').textContent = data.customer;
-                document.getElementById('scoreModalMeta').textContent = [data.wo, data.date].filter(Boolean).join(' · ');
-                document.getElementById('scoreModalTechnician').textContent = data.technician;
-
-                document.getElementById('scoreModalList').innerHTML = data.breakdown.map(function (item, index) {
-                    const num = String(index + 1).padStart(2, '0');
-                    const width = item.score !== null ? (item.score / 5 * 100) : 0;
-
-                    return `<li class="flex items-center gap-3">
-                        <span class="text-[#B0B0B0] font-semibold w-5 shrink-0">${num}</span>
-                        <span class="flex-1 text-[#1E1E1E] truncate">${item.label}</span>
-                        <span class="w-24 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden shrink-0">
-                            <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreBarColor(item.score)}"></span>
-                        </span>
-                        <span class="w-7 text-center font-semibold text-[#115640] bg-[#E7F3EE] rounded-md py-0.5 shrink-0">${item.score ?? '-'}</span>
-                    </li>`;
+            document.getElementById('vfRatings').innerHTML = s.breakdown.map(function (item) {
+                const boxes = [1, 2, 3, 4, 5].map(function (n) {
+                    const on = n === Math.round(item.score);
+                    return `<span class="flex items-center justify-center h-14 rounded-lg border font-semibold ${on ? 'bg-[#115640] border-[#115640] text-white' : 'bg-white border-[#D9D9D9] text-[#4B5563]'}">${n}</span>`;
                 }).join('');
+                return `<div class="py-4 border-b border-[#EDEDED] last:border-b-0">
+                    <p class="font-medium mb-3">${item.label}</p>
+                    <div class="grid grid-cols-5 gap-2">${boxes}</div>
+                </div>`;
+            }).join('');
 
-                const overallWidth = data.avg !== null ? (data.avg / 5 * 100) : 0;
-                document.getElementById('scoreModalOverallBar').style.width = overallWidth + '%';
-                document.getElementById('scoreModalOverallValue').textContent = data.avg !== null ? Number(data.avg).toFixed(1) : '-';
+            detailView.classList.add('hidden');
+            formView.classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
 
-                scoreModal.classList.remove('hidden');
+        document.getElementById('btnViewForm').addEventListener('click', showForm);
+        document.querySelectorAll('.back-to-response').forEach(function (btn) {
+            btn.addEventListener('click', function () { showDetail(currentTicket); });
+        });
+
+        document.querySelectorAll('.view-detail').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                location.hash = this.dataset.ticket;
+                showDetail(this.dataset.ticket);
             });
         });
 
-        document.getElementById('closeScoreModal').addEventListener('click', function () { scoreModal.classList.add('hidden'); });
-        scoreModal.addEventListener('click', function (e) {
-            if (e.target === scoreModal) scoreModal.classList.add('hidden');
+        document.querySelectorAll('.back-to-list').forEach(function (btn) {
+            btn.addEventListener('click', showList);
         });
+
+        if (location.hash) showDetail(decodeURIComponent(location.hash.slice(1)));
     })();
 </script>
 @endsection

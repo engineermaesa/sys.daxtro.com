@@ -2,14 +2,94 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\GoogleSheetsReader;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Collection;
 
 class SatisfactionSurveyController extends Controller
 {
+    // TODO: backend satisfaction survey sementara dinonaktifkan (dikomentari) dan memakai DUMMY DATA.
+    // Survey nanti dibuat otomatis saat ticket dibuat oleh role aftersales,
+    // sumber data diganti dari Google Sheets ke database.
+    public function index(Request $request)
+    {
+        $all = $this->dummyResponses();
+
+        if ($request->filled('search')) {
+            $term = strtolower($request->string('search'));
+            $all = $all->filter(fn ($r) => str_contains(
+                strtolower($r['ticket_id'].' '.$r['customer'].' '.$r['company'].' '.$r['technician']),
+                $term
+            ));
+        }
+
+        $perPage = 5;
+        $page = max(1, (int) $request->get('page', 1));
+        $all = $all->values();
+
+        $responses = new LengthAwarePaginator(
+            $all->forPage($page, $perPage)->values(),
+            $all->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return view('pages.satisfaction-survey.index', [
+            'responses' => $responses,
+        ]);
+    }
+
+    // TODO: DUMMY DATA — ganti dengan data dari DB saat backend survey siap.
+    protected function dummyResponses(): Collection
+    {
+        $labels = [
+            'Punctuality', 'Technician Attitude', 'Technical Knowledge', 'Work Speed', 'Service Quality',
+            'Cleanliness', 'Work Explanation', 'Overall Satisfaction', 'Technician Appearance',
+        ];
+
+        $rows = [
+            ['DAX-AF-20261012-1', 'Budi Santoso', 'PT Global Dynamics', 'WO-0001', '2026-10-12', '2026-10-12 16:42', 'Ahmad Fauzi', 'Service', [5, 5, 5, 4, 5, 5, 5, 5, 4], true, '', 'Teknisi cepat dan ramah.', 'Budi Santoso', 'Production Manager', 'Customer link', 'needs_review'],
+            ['DAX-AF-20261010-2', 'Rina Wijaya', 'CV Heavy Logistics', 'WO-0002', '2026-10-10', '2026-10-10 11:10', 'Rizky Pratama', 'Repair', [4, 4, 4, 4, 5, 4, 4, 4, 4], false, 'Mesin masih berbunyi saat beban penuh.', 'Perlu follow up sparepart.', 'Rina Wijaya', 'Supervisor', 'Admin assisted', 'reviewed'],
+            ['DAX-AF-20261008-3', 'Hendra Gunawan', 'PT Maju Bersama', 'WO-0003', '2026-10-08', '2026-10-09 09:15', 'Dedi Kurniawan', 'Preventive Maintenance', [3, 4, 3, 3, 4, 3, 4, 3, 4], true, '', '', 'Hendra Gunawan', 'Owner', 'Customer link', 'needs_review'],
+            ['DAX-AF-20261005-4', 'Siti Aminah', 'PT Sinar Abadi', 'WO-0004', '2026-10-05', '2026-10-05 14:30', 'Ahmad Fauzi', 'Installation', [5, 5, 4, 5, 5, 5, 5, 5, 5], true, '', 'Instalasi rapi, terima kasih.', 'Siti Aminah', 'Factory Manager', 'Admin assisted', 'reviewed'],
+            ['DAX-AF-20261003-5', 'Agus Salim', 'UD Berkah Jaya', 'WO-0005', '2026-10-03', '2026-10-04 08:05', 'Rizky Pratama', 'Service', [2, 3, 3, 2, 3, 3, 2, 2, 3], false, 'Teknisi datang terlambat, masalah belum tuntas.', 'Mohon ketepatan waktu ditingkatkan.', 'Agus Salim', 'Operator', 'Customer link', 'needs_review'],
+            ['DAX-AF-20260929-6', 'Dewi Lestari', 'PT Nusantara Pack', 'WO-0006', '2026-09-29', '2026-09-29 17:20', 'Dedi Kurniawan', 'Repair', [4, 5, 5, 4, 4, 4, 5, 4, 5], true, '', 'Penjelasan hasil pekerjaan jelas.', 'Dewi Lestari', 'Maintenance Head', 'Customer link', 'reviewed'],
+            ['DAX-AF-20260925-7', 'Yoga Prakoso', 'PT Citra Mandiri', 'WO-0007', '2026-09-25', '2026-09-26 10:00', 'Ahmad Fauzi', 'Preventive Maintenance', [5, 4, 5, 5, 5, 4, 4, 5, 4], true, '', '', 'Yoga Prakoso', 'Supervisor', 'Admin assisted', 'needs_review'],
+            ['DAX-AF-20260920-8', 'Lilis Marlina', 'CV Tiga Roda', 'WO-0008', '2026-09-20', '2026-09-20 13:45', 'Rizky Pratama', 'Service', [4, 4, 4, 3, 4, 4, 4, 4, 4], false, 'Kebocoran kecil masih terlihat.', 'Tolong dijadwalkan kunjungan ulang.', 'Lilis Marlina', 'Owner', 'Customer link', 'needs_review'],
+        ];
+
+        return collect($rows)->map(function ($r) use ($labels) {
+            [$ticket, $customer, $company, $wo, $serviceDate, $submitted, $tech, $jobType, $scores, $machineOk, $pending, $feedback, $respondent, $role, $source, $review] = $r;
+
+            return [
+                'ticket_id' => $ticket,
+                'customer' => $customer,
+                'company' => $company,
+                'wo_number' => $wo,
+                'service_date' => Carbon::parse($serviceDate, 'Asia/Jakarta'),
+                'technician' => $tech,
+                'job_type' => $jobType,
+                'avg_score' => round(array_sum($scores) / count($scores), 1),
+                'score_breakdown' => array_map(
+                    fn ($label, $score) => ['label' => $label, 'score' => (float) $score],
+                    $labels,
+                    $scores
+                ),
+                'machine_ok' => $machineOk,
+                'pending_issues' => $pending,
+                'feedback' => $feedback,
+                'respondent' => $respondent,
+                'role' => $role,
+                'submitted_at' => Carbon::parse($submitted, 'Asia/Jakarta'),
+                'source' => $source,
+                'review_status' => $review,
+            ];
+        });
+    }
+
+    /*
     protected const JOB_TYPES = ['Service', 'Repair', 'Preventive Maintenance', 'Installation'];
 
     protected const SCORE_LABELS = [
@@ -159,4 +239,5 @@ class SatisfactionSurveyController extends Controller
 
         return null;
     }
+    */
 }
