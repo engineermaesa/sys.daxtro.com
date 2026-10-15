@@ -25,6 +25,7 @@ class Ticket extends Model
         'sla_value',
         'sla_unit',
         'sla_due_at',
+        'cost_display_currency',
         'assigned_technician_id',
         'supervisor_id',
         'service_type',

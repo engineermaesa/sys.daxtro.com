@@ -32,6 +32,72 @@
             <p id="tdDescription" style="margin-top: 6px;"></p>
         </div>
 
+        {{-- FINAL COST (rincian sparepart + category, dirender oleh documents-script) --}}
+        <div id="tdFinalCostCard" class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
+            <div class="flex items-start justify-between flex-wrap" style="gap: 12px;">
+                <div>
+                    <h2 class="font-bold tracking-wide">FINAL COST</h2>
+                    <p class="text-[#9CA3AF] text-xs" style="margin-top: 2px;">Sparepart and service charges for this ticket</p>
+                </div>
+                <div id="tdFinalCostChips" class="flex" style="gap: 8px;"></div>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Used Materials &middot; Sparepart</p>
+                <div class="overflow-x-auto" style="margin-top: 6px;">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#D9D9D9] text-left text-xs text-[#757575]">
+                                <th class="p-2">Item Name</th>
+                                <th class="p-2">Part Code</th>
+                                <th class="p-2 text-right w-20">Qty</th>
+                                <th class="p-2 w-28">Unit</th>
+                                <th class="p-2 text-right w-36">Unit Price</th>
+                                <th class="p-2 text-right w-40">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tdFcParts"></tbody>
+                        <tfoot>
+                            <tr class="border-t border-[#D9D9D9] bg-[#F5FAF8]">
+                                <td class="p-2 font-semibold text-[#115640]" colspan="5">Total Sparepart</td>
+                                <td id="tdFcPartsTotal" class="p-2 text-right font-semibold text-[#115640]">-</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Service Charges &middot; Cost</p>
+                <div class="overflow-x-auto" style="margin-top: 6px;">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#D9D9D9] text-left text-xs text-[#757575]">
+                                <th class="p-2">Category</th>
+                                <th class="p-2 text-right w-48">Amount</th>
+                                <th class="p-2 w-28">Currency</th>
+                                <th class="p-2">Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tdFcCosts"></tbody>
+                        <tfoot>
+                            <tr class="border-t border-[#D9D9D9] bg-[#F5FAF8]">
+                                <td class="p-2 font-semibold text-[#115640]">Total Category</td>
+                                <td id="tdFcCostsTotal" class="p-2 text-right font-semibold text-[#115640]">-</td>
+                                <td colspan="2"></td>
+                            </tr>
+                            <tr class="border-t-2 border-[#115640] bg-[#E7F3EE]">
+                                <td class="p-2 font-bold text-[#115640] uppercase">Final Cost</td>
+                                <td id="tdFcFinal" class="p-2 text-right font-bold text-[#115640]" style="font-size: 1.1em;">-</td>
+                                <td id="tdFcFinalCurrency" class="p-2 font-semibold text-[#115640]"></td>
+                                <td class="p-2 text-xs text-[#4B5563]">Total category + total sparepart</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         {{-- SUPPORTING DOCUMENTS (status dokumen dari GET /api/aftersales/tickets/{id}/documents, dirender oleh documents-script) --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
             <h2 class="font-bold tracking-wide">SUPPORTING DOCUMENTS</h2>

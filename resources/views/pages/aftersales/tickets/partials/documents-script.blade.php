@@ -221,6 +221,73 @@
         $btn.prop('disabled', !ok).css('opacity', ok ? 1 : 0.5);
     }
 
+    // ---------- Final Cost (sparepart + category) di Ticket Detail ----------
+    function rupiah(n) { return 'Rp ' + Math.round(Number(n || 0)).toLocaleString('id-ID'); }
+
+    function moneyIn(idr, cur, rates) {
+        const per = cur === 'usd' ? rates.usd : (cur === 'cny' ? rates.cny : 1);
+        if (cur === 'idr' || !per) return rupiah(idr);
+        const v = idr / per;
+        return (cur === 'usd' ? '$' : '\u00A5') + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function loadFinalCost() {
+        const id = currentId();
+        if (!id) return;
+
+        $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#9CA3AF]" colspan="6">Loading...</td></tr>');
+
+        $.when(
+            call('GET', '/tickets/' + id),
+            call('GET', '/tickets/exchange-rates')
+        ).done(function (tRes, rRes) {
+            const t = tRes[0].data || {};
+            const r = (rRes[0] && rRes[0].data) || {};
+            const rates = { usd: Number(r.idr_per_usd || 0), cny: Number(r.idr_per_cny || 0) };
+            const cur = ['idr', 'usd', 'cny'].indexOf(t.cost_display_currency) >= 0 ? t.cost_display_currency : 'idr';
+
+            const parts = (t.parts || []).filter(function (p) { return p.type === 'estimated'; });
+            let partsIdr = 0;
+            $('#tdFcParts').html(parts.length ? parts.map(function (p) {
+                const price = Number(p.unit_price || 0);
+                const line = Number(p.qty || 0) * price;
+                partsIdr += line;
+                return '<tr class="border-t border-[#EDEDED]">'
+                    + '<td class="p-2">' + esc(dash((p.sparepart || {}).name)) + '</td>'
+                    + '<td class="p-2 text-[#757575]">' + esc(dash((p.sparepart || {}).part_number)) + '</td>'
+                    + '<td class="p-2 text-right">' + esc(Number(p.qty)) + '</td>'
+                    + '<td class="p-2">' + esc(dash(p.unit)) + '</td>'
+                    + '<td class="p-2 text-right text-[#4B5563]">' + (price > 0 ? rupiah(price) : '-') + '</td>'
+                    + '<td class="p-2 text-right font-semibold">' + (price > 0 ? rupiah(line) : '-') + '</td></tr>';
+            }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="6">No sparepart.</td></tr>');
+            $('#tdFcPartsTotal').text(partsIdr > 0 ? moneyIn(partsIdr, cur, rates) : '-');
+
+            const costs = t.costs || [];
+            let costsIdr = 0;
+            $('#tdFcCosts').html(costs.length ? costs.map(function (c) {
+                const amount = Number(c.amount || 0);
+                const idr = c.currency === 'idr' ? amount : amount * Number(c.exchange_rate || 1);
+                costsIdr += idr;
+                const sym = c.currency === 'usd' ? '$' : (c.currency === 'cny' ? '\u00A5' : 'Rp ');
+                return '<tr class="border-t border-[#EDEDED]">'
+                    + '<td class="p-2">' + esc(String(c.category || '-').replace(/^./, function (x) { return x.toUpperCase(); })) + '</td>'
+                    + '<td class="p-2 text-right">' + sym + amount.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + '</td>'
+                    + '<td class="p-2">' + esc(String(c.currency || '').toUpperCase()) + '</td>'
+                    + '<td class="p-2 text-[#757575]">' + esc(dash(c.remarks)) + '</td></tr>';
+            }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="4">No cost entered.</td></tr>');
+
+            $('#tdFcCostsTotal').text(moneyIn(costsIdr, cur, rates));
+            $('#tdFcFinal').text(moneyIn(costsIdr + partsIdr, cur, rates));
+            $('#tdFcFinalCurrency').text(cur.toUpperCase());
+
+            $('#tdFinalCostChips').html('<div class="rounded-md border text-center" style="padding: 6px 12px; border-color:#115640; background:#E7F3EE;">'
+                + '<p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Total Currency</p>'
+                + '<p class="font-bold text-[#115640] text-xs">' + cur.toUpperCase() + '</p></div>');
+        }).fail(function (xhr) {
+            $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#EC221F]" colspan="6">' + esc(errMsg(xhr, 'Failed to load cost details.')) + '</td></tr>');
+        });
+    }
+
     // ---------- Supporting Documents card ----------
     function loadDocs() {
         const id = currentId();
@@ -314,6 +381,7 @@
             S.ticketId = (currentTicket || {}).id;
             $('#tdDocsDynamic').html('<p class="text-[#9CA3AF] text-xs" style="padding: 14px 0;">Loading documents...</p>');
             loadDocs();
+            loadFinalCost();
         });
     });
 

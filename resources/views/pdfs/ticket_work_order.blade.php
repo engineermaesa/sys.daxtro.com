@@ -142,6 +142,26 @@
           ->map(fn ($group) => $group->sum(fn ($cost) => (float) $cost->amount));
       $totalIdr = $costs->sum(fn ($cost) => $cost->amount_idr);
       $hasForeign = $costs->contains(fn ($cost) => strtolower($cost->currency ?? 'idr') !== 'idr');
+
+      // Final Cost = total category + total sparepart (IDR), ditampilkan juga dalam mata uang pilihan tiket
+      $totalSparepartIdr = $partsEstimated->sum(fn ($part) => (float) $part->qty * (float) $part->unit_price);
+      $finalCostIdr = $totalIdr + $totalSparepartIdr;
+      $displayCurrency = strtolower($ticket->cost_display_currency ?? 'idr');
+      $idrPerUnit = ['idr' => 1, 'usd' => (float) ($rates['idr_per_usd'] ?? 0), 'cny' => (float) ($rates['idr_per_cny'] ?? 0)];
+      $fmtCurrency = function (float $idr, string $cur) use ($idrPerUnit) {
+          $rate = $idrPerUnit[$cur] ?? 1;
+          if ($cur === 'idr' || $rate <= 0) {
+              return 'Rp ' . number_format($idr, 0, ',', '.');
+          }
+          return ($cur === 'usd' ? 'USD ' : 'CNY ') . number_format($idr / $rate, 2, ',', '.');
+      };
+      $fmtNum = function (float $idr, string $cur) use ($idrPerUnit) {
+          $rate = $idrPerUnit[$cur] ?? 1;
+          if ($cur === 'idr' || $rate <= 0) {
+              return number_format($idr, 0, ',', '.');
+          }
+          return number_format($idr / $rate, 2, ',', '.');
+      };
     @endphp
 
     <h1>WORK ORDER / SURAT TUGAS SERVIS</h1>
@@ -186,7 +206,7 @@
         <td class="value">{{ $picContact ?: '-' }}</td>
         <td class="label">Jadwal Visit:</td>
         <td class="colon">:</td>
-        <td class="value">{{ optional($workOrder->visit->scheduled_at ?? null)->format('m/d/Y') ?? '-' }}</td>
+        <td class="value">{{ optional($ticket->visits->sortByDesc('scheduled_at')->first()?->scheduled_at ?? $workOrder->visit->scheduled_at ?? null)->format('d/m/Y H:i') ?? '-' }}</td>
       </tr>
     </table>
 
@@ -197,10 +217,12 @@
     <table class="items">
       <thead>
         <tr>
-          <th width="20%">Part Code</th>
-          <th width="45%">Nama Item</th>
-          <th width="15%">Qty</th>
-          <th width="20%">Satuan</th>
+          <th width="16%">Part Code</th>
+          <th width="30%">Nama Item</th>
+          <th width="9%">Qty</th>
+          <th width="13%">Satuan</th>
+          <th width="16%">Harga Satuan</th>
+          <th width="16%">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -210,12 +232,20 @@
           <td>{{ $part->sparepart->name ?? '-' }}</td>
           <td>{{ rtrim(rtrim(number_format((float) $part->qty, 2, '.', ''), '0'), '.') }}</td>
           <td>{{ ucfirst($part->unit ?? '-') }}</td>
+          <td class="text-right">{{ (float) $part->unit_price > 0 ? $fmtNum((float) $part->unit_price, 'idr') : '-' }}</td>
+          <td class="text-right">{{ (float) $part->unit_price > 0 ? $fmtNum((float) $part->qty * (float) $part->unit_price, 'idr') : '-' }}</td>
         </tr>
         @empty
         <tr>
-          <td colspan="4" class="text-right" style="text-align:center;">Tidak ada estimasi sparepart</td>
+          <td colspan="6" class="text-right" style="text-align:center;">Tidak ada estimasi sparepart</td>
         </tr>
         @endforelse
+        @if($partsEstimated->count())
+        <tr class="total-row">
+          <td colspan="5">TOTAL SPAREPART ({{ strtoupper($displayCurrency) }})</td>
+          <td class="text-right">{{ $fmtNum($totalSparepartIdr, $displayCurrency) }}</td>
+        </tr>
+        @endif
       </tbody>
     </table>
 
@@ -242,24 +272,24 @@
           <td colspan="4" style="text-align:center;">Tidak ada estimasi cost</td>
         </tr>
         @endforelse
-        @foreach($totalByCurrency as $currency => $sum)
         <tr class="total-row">
-          @if($loop->first)
-          <td rowspan="{{ $totalByCurrency->count() }}">TOTAL</td>
-          @endif
-          <td class="text-right">{{ number_format($sum, 0, ',', '.') }}</td>
-          <td>{{ $currency }}</td>
+          <td>TOTAL SPAREPART</td>
+          <td class="text-right">{{ $fmtNum($totalSparepartIdr, $displayCurrency) }}</td>
+          <td>{{ strtoupper($displayCurrency) }}</td>
           <td></td>
         </tr>
-        @endforeach
-        @if($hasForeign)
         <tr class="total-row">
-          <td>TOTAL (IDR)</td>
-          <td class="text-right">{{ number_format($totalIdr, 0, ',', '.') }}</td>
-          <td>IDR</td>
+          <td>TOTAL CATEGORY</td>
+          <td class="text-right">{{ $fmtNum($totalIdr, $displayCurrency) }}</td>
+          <td>{{ strtoupper($displayCurrency) }}</td>
           <td></td>
         </tr>
-        @endif
+        <tr class="total-row">
+          <td><strong>FINAL COST</strong></td>
+          <td class="text-right"><strong>{{ $fmtNum($finalCostIdr, $displayCurrency) }}</strong></td>
+          <td>{{ strtoupper($displayCurrency) }}</td>
+          <td>Total category + total sparepart</td>
+        </tr>
       </tbody>
     </table>
 

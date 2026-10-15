@@ -117,6 +117,7 @@
 
         $('.wizard-step').addClass('hidden');
         $(`.wizard-step[data-step="${currentStep}"]`).removeClass('hidden');
+        if (currentStep === 5 && typeof recalculateCostTotal === 'function') recalculateCostTotal();
 
         $('#btn-wizard-back').toggle(currentStep > 1);
         const saveLabel = EDIT_TICKET_ID ? 'Update Ticket' : 'Save Ticket';
@@ -222,6 +223,7 @@
             sla_value: slaValue,
             sla_unit: 'hour',
             sla_due_at: slaDueAt || null,
+            cost_display_currency: $('#cost-total-currency').val() || 'idr',
             supervisor_id: $('#field-supervisor').val() || null,
             assigned_technician_id: $('#field-technician').val() || null,
             scheduled_at: $('#field-visit-date').val() || null,
@@ -302,6 +304,7 @@
                 sla_value: payload.sla_value,
                 sla_unit: payload.sla_unit,
                 sla_due_at: payload.sla_due_at,
+                cost_display_currency: payload.cost_display_currency,
                 supervisor_id: payload.supervisor_id,
                 parts: payload.parts,
                 costs: payload.costs,

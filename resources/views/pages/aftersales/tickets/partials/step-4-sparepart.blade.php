@@ -17,6 +17,7 @@
                     <th class="p-2">Part Code</th>
                     <th class="p-2 w-24">Qty</th>
                     <th class="p-2 w-32">Unit</th>
+                    <th class="p-2 w-36 text-right">Unit Price</th>
                     <th class="p-2 w-10"></th>
                 </tr>
             </thead>
@@ -31,8 +32,32 @@
 
     function sparepartOptionsHtml() {
         return sparepartsCache.map(sp =>
-            `<option value="${sp.id}" data-code="${escapeHtml(sp.part_number || '')}">${escapeHtml(sp.name)}</option>`
+            `<option value="${sp.id}" data-code="${escapeHtml(sp.part_number || '')}" data-price="${Number(sp.price || 0)}">${escapeHtml(sp.name)}</option>`
         ).join('');
+    }
+
+    // harga satuan (IDR) sebagai teks, tidak bisa diedit
+    // (nilai tetap IDR di data-unit-price; hanya tampilan yang ikut Total Currency)
+    function formatRupiah(value) {
+        const n = Number(value || 0);
+        if (!(n > 0)) return '-';
+        return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+    }
+
+    function refreshSparepartPrices() {
+        $('#sparepart-rows tr').each(function () {
+            $(this).find('.sparepart-price').text(formatRupiah($(this).attr('data-unit-price')));
+        });
+    }
+
+    function setSparepartRowPrice($row, price) {
+        $row.attr('data-unit-price', Number(price || 0));
+        $row.find('.sparepart-price').text(formatRupiah(price));
+    }
+
+    function masterSparepartPrice(id) {
+        const sp = sparepartsCache.find(x => String(x.id) === String(id));
+        return sp ? Number(sp.price || 0) : 0;
     }
 
     function renumberSparepartRows() {
@@ -69,6 +94,7 @@
                         <option value="kilogram">Kilogram</option>
                     </select>
                 </td>
+                <td class="p-2 text-right text-[#4B5563] sparepart-price">-</td>
                 <td class="p-2 text-center">
                     <button type="button" class="btn-remove-sparepart text-[#900B09] cursor-pointer" title="Remove row">
                         <i class="bi bi-trash"></i>
@@ -85,6 +111,10 @@
             $row.find('.sparepart-code').val(prefill.part_number || '');
             $row.find('.sparepart-qty').val(prefill.qty);
             $row.find('.sparepart-unit').val(prefill.unit);
+            // pakai harga snapshot tiket bila ada, kalau tidak harga master saat ini
+            setSparepartRowPrice($row, prefill.unit_price !== undefined && prefill.unit_price !== null
+                ? prefill.unit_price
+                : masterSparepartPrice(prefill.ref_sparepart_id));
         }
 
         renumberSparepartRows();
@@ -105,6 +135,15 @@
                         $(this).val(current);
                     }
                 });
+
+                // harga master baru tersedia: isi harga baris yang belum punya harga
+                $('#sparepart-rows tr').each(function () {
+                    const id = $(this).find('.sparepart-item').val();
+                    if (id && !Number($(this).attr('data-unit-price'))) {
+                        setSparepartRowPrice($(this), masterSparepartPrice(id));
+                    }
+                });
+                if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
             },
             error: function (xhr) {
                 console.error('Failed to load spareparts', xhr.responseJSON?.message || xhr.statusText);
@@ -113,6 +152,10 @@
     }
 
     function prefillSparepartAndCostRows() {
+        // mata uang tampilan Final Cost yang terakhir dipilih untuk tiket ini
+        if (EDIT_TICKET?.cost_display_currency) {
+            $('#cost-total-currency').val(EDIT_TICKET.cost_display_currency);
+        }
         const parts = (EDIT_TICKET?.parts || []).filter(p => p.type === 'estimated');
 
         if (parts.length > 0) {
@@ -121,6 +164,7 @@
                 qty: part.qty,
                 unit: part.unit,
                 part_number: part.sparepart?.part_number,
+                unit_price: part.unit_price,
             }));
         } else {
             addSparepartRow();
@@ -139,7 +183,14 @@
     document.addEventListener('DOMContentLoaded', function () {
         $(document).on('change', '.sparepart-item', function () {
             const code = $(this).find('option:selected').data('code') || '';
-            $(this).closest('tr').find('.sparepart-code').val(code);
+            const $row = $(this).closest('tr');
+            $row.find('.sparepart-code').val(code);
+            setSparepartRowPrice($row, $(this).find('option:selected').data('price') || 0);
+            if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
+        });
+
+        $(document).on('input change', '.sparepart-qty, .sparepart-unit', function () {
+            if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
         });
 
         $('#btn-add-sparepart').on('click', function () {
@@ -149,6 +200,7 @@
         $(document).on('click', '.btn-remove-sparepart', function () {
             $(this).closest('tr').remove();
             renumberSparepartRows();
+            if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
         });
     });
 </script>

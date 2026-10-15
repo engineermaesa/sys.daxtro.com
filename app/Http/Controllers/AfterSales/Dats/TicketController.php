@@ -87,6 +87,7 @@ class TicketController extends Controller
             'workOrder' => $workOrder,
             'partsEstimated' => $ticket->parts->where('type', TicketPart::TYPE_ESTIMATED),
             'costs' => $ticket->costs,
+            'rates' => app(\App\Services\ExchangeRateService::class)->get(),
         ])->setPaper('A4', 'portrait');
 
         return $pdf->download($workOrder->wo_number . '.pdf');
@@ -279,6 +280,7 @@ class TicketController extends Controller
             'sla_value' => 'required|integer|min:1',
             'sla_unit' => 'required|in:hour,day',
             'sla_due_at' => 'nullable|date',
+            'cost_display_currency' => 'nullable|in:idr,usd,cny',
             'supervisor_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
             'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
@@ -321,6 +323,7 @@ class TicketController extends Controller
                 'sla_value' => $validated['sla_value'],
                 'sla_unit' => $validated['sla_unit'],
                 'sla_due_at' => $slaDueAt,
+                'cost_display_currency' => $validated['cost_display_currency'] ?? 'idr',
                 'supervisor_id' => $validated['supervisor_id'] ?? null,
                 'created_by' => $request->user()->id,
             ]);
@@ -384,6 +387,7 @@ class TicketController extends Controller
             'sla_value' => 'required|integer|min:1',
             'sla_unit' => 'required|in:hour,day',
             'sla_due_at' => 'nullable|date',
+            'cost_display_currency' => 'nullable|in:idr,usd,cny',
             'supervisor_id' => 'nullable|integer|exists:users,id',
             'assigned_technician_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
@@ -423,6 +427,7 @@ class TicketController extends Controller
                 'sla_value' => $validated['sla_value'],
                 'sla_unit' => $validated['sla_unit'],
                 'sla_due_at' => $slaDueAt,
+                'cost_display_currency' => $validated['cost_display_currency'] ?? $ticket->cost_display_currency ?? 'idr',
                 'supervisor_id' => $validated['supervisor_id'] ?? null,
                 'assigned_technician_id' => $validated['assigned_technician_id'] ?? null,
                 'updated_by' => $request->user()->id,

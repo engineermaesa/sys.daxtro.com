@@ -1,9 +1,12 @@
 .dt-page {
-    font-family: Poppins, sans-serif;
+    /* font mengikuti font aplikasi seperti halaman lain */
     color: #344563;
     padding: 24px 0 40px;
-    font-size: 12px;
+    font-size: 14px;
     min-height: 100vh;
+}
+@media (max-width: 1023px) {
+    .dt-page { font-size: 12px; }
 }
 .dt-breadcrumb {
     color: #929ba7;
@@ -199,6 +202,12 @@
     border-radius: 5px;
     cursor: pointer;
     margin-bottom: 3px;
+}
+.dt-order[draggable="true"] {
+    cursor: grab;
+}
+.dt-order[draggable="true"]:active {
+    cursor: grabbing;
 }
 .dt-order.selected {
     background: #cfe7de;
