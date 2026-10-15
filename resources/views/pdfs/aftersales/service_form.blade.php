@@ -48,6 +48,26 @@
         </table>
     @endforeach
 
+    @if (! empty($diagnosis) && ! $diagnosis['legacy'])
+        <h2>4. {{ $diagnosis['title'] }}</h2>
+        @foreach ($diagnosis['fields'] as $field)
+            <h2>{{ $loop->iteration }}. {{ $field['label'] }}</h2>
+            @foreach ($field['entries'] as $entry)
+                <p><strong>Visit {{ $entry['visit_no'] }} · {{ $entry['entry_date'] }} {{ $entry['visit_time'] }} · {{ $entry['name'] }}</strong></p>
+                <div style="white-space:pre-wrap;">{{ $entry['body'] }}</div>
+                @if ($entry['visit_notes'])<p style="white-space:pre-wrap;">Visit notes: {{ $entry['visit_notes'] }}</p>@endif
+            @endforeach
+            <table>
+                @foreach (array_chunk($field['photos'], 3) as $row)
+                <tr>
+                @foreach ($row as $photo)
+                    <td class="photo">@if($photo['image'])<img src="{{ $photo['image'] }}" alt="{{ $field['label'] }}">@endif<div>{{ $photo['caption'] }}</div></td>
+                @endforeach
+                </tr>
+                @endforeach
+            </table>
+        @endforeach
+    @endif
     @include('pdfs.aftersales._signatures')
 
     @if (count($photos))

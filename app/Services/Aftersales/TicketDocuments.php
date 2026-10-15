@@ -231,6 +231,7 @@ class TicketDocuments
             $unfilled && $missing[] = "{$unfilled} inspection item(s) have no status";
             $emptyFields && $missing[] = "{$emptyFields} field(s) are empty";
             $noPhoto && $missing[] = "{$noPhoto} number field(s) have no photo";
+            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc));
         } else {
             $keys = $doc->template->clauseKeys();
             $unchecked = count(array_diff($keys, $doc->accepted_clauses ?? []));
@@ -272,6 +273,9 @@ class TicketDocuments
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
 
         DB::transaction(function () use ($ticket, $form, $data, $user) {
+            $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
+            abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
+            if (array_key_exists('diagnosis', $data)) app(ServiceDiagnosis::class)->save($ticket, $form, $data['diagnosis'], $user);
             if (array_key_exists('service_type', $data)) {
                 $ticket->update(['service_type' => $data['service_type'], 'updated_by' => $user->id]);
             }
@@ -487,6 +491,13 @@ class TicketDocuments
         abort_if(! $check['complete'], 422, 'Cannot save yet: ' . $check['summary']);
 
         $result = DB::transaction(function () use ($ticket, $type, $doc, $user) {
+            $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
+            abort_if($doc->isLocked(), 422, 'This document is already saved.');
+            if ($type === self::TYPE_FORM) {
+                $missing = app(ServiceDiagnosis::class)->missing($doc);
+                abort_if($missing, 422, implode('; ', $missing));
+                app(ServiceDiagnosis::class)->lock($doc);
+            }
             $doc->update(['status' => 'saved', 'saved_at' => Carbon::now('Asia/Jakarta'), 'saved_by_user_id' => $user->id]);
 
             self::publishDocumentationIfBothSaved($ticket, $user);

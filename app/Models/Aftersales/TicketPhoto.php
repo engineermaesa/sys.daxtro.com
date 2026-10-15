@@ -14,6 +14,7 @@ class TicketPhoto extends Model
     public const CATEGORY_ANALYSIS = 'analysis';
     public const CATEGORY_REPAIR = 'repair';
     public const CATEGORY_INSPECTION = 'inspection';
+    public const CATEGORY_DIAGNOSIS = 'diagnosis';
 
     protected $fillable = [
         'ticket_id',
@@ -24,9 +25,10 @@ class TicketPhoto extends Model
         'file_name',
         'captured_at',
         'thumbnail_path',
+        'ticket_service_form_id', 'diagnosis_field', 'caption', 'locked_at',
     ];
 
-    protected $casts = ['captured_at' => 'datetime'];
+    protected $casts = ['captured_at' => 'datetime', 'locked_at' => 'datetime'];
 
     public function ticket()
     {

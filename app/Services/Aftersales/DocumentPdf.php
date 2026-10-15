@@ -54,7 +54,16 @@ class DocumentPdf
             }
         }
 
-        return Pdf::loadView('pdfs.aftersales.service_form', $base + ['groups' => $groups, 'photos' => $photos])->setPaper('A4', 'portrait');
+        $diagnosis = app(ServiceDiagnosis::class)->structure($ticket, $doc);
+        foreach ($diagnosis['fields'] as &$field) {
+            foreach ($field['photos'] as &$photo) {
+                $stored = \App\Models\Aftersales\TicketPhoto::find($photo['id']);
+                $photo['image'] = self::dataUri($stored->file_path, 'image/jpeg');
+            }
+            unset($photo);
+        }
+        unset($field);
+        return Pdf::loadView('pdfs.aftersales.service_form', $base + ['groups' => $groups, 'photos' => $photos, 'diagnosis' => $diagnosis])->setPaper('A4', 'portrait');
     }
 
     private static function dataUri(?string $path, string $mime): ?string

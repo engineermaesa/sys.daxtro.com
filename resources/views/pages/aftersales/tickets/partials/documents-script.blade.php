@@ -5,6 +5,8 @@
     .sf-combo input[list]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; top: 0; width: 40px; height: 100%; cursor: pointer; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="{{ asset('assets/css/service-diagnosis.css') }}?v={{ filemtime(public_path('assets/css/service-diagnosis.css')) }}">
+<script src="{{ asset('assets/js/service-diagnosis.js') }}?v={{ filemtime(public_path('assets/js/service-diagnosis.js')) }}"></script>
 <script>
 (function () {
     const API = '/api/aftersales';
@@ -723,6 +725,11 @@
 
         $('.sf-field').each(function () { refreshHelper($(this)); });
 
+        window.ServiceDiagnosisEditor.mount({ticketId: currentId(), number: f.number, data: f.diagnosis, readOnly: ro,
+            readOnlyReason: f.locked ? 'This Service Form is saved and locked. Diagnosis and attachments are read-only.' : 'Only the technician assigned to this ticket can enter diagnosis and attach photos. This account has view-only access.',
+            persist: function () { return putForm({service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect()}); },
+            reload: function () { return loadForm(); }
+        });
         renderSignatureCards('#sfSignatures', 'service_form', f);
         completenessBox('#sfCompleteness', f);
         $('#sfSaveDraft').toggleClass('hidden', ro);
@@ -873,6 +880,7 @@
             service_type: $('#sfServiceType').val() || null,
             unit: collectUnit(),
             inspections: collectAll(),
+            diagnosis: window.ServiceDiagnosisEditor.collect(),
         })
             .done(function () { toast('Draft saved'); })
             .fail(function (xhr) { fail(xhr, 'Failed to save draft.'); })
@@ -882,7 +890,7 @@
     $(document).on('click', '#sfSaveForm', function () {
         const run = function () { saveDocument('service_form'); };
         if (!formReadOnly()) {
-            putForm({ service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll() })
+            putForm({ service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect() })
                 .done(run)
                 .fail(function (xhr) { fail(xhr, 'Failed to save draft.'); });
         } else {

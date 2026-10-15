@@ -286,6 +286,14 @@ class AdminController extends Controller
             $user->updated_by   = $authUser->id;
             $user->save();
 
+            // Users created through user management must also be available for ticket assignment.
+            $technicianRole = UserRole::whereKey($user->role_id)->where(function ($query) {
+                $query->where('code', 'technician')->orWhereIn('name', ['Technician', 'Teknisi']);
+            })->exists();
+            if ($technicianRole) {
+                \App\Models\Aftersales\TechnicianProfile::firstOrCreate(['user_id' => $user->id]);
+            }
+
             $after = $user->fresh()->toArray();
 
             ActivityLogger::writeLog(
