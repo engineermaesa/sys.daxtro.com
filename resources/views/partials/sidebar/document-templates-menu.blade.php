@@ -1,10 +1,11 @@
 @if(auth()->check() && auth()->user()->hasPermission('aftersales.tickets.manage'))
 <style>
-    #documentTemplatesToggle[aria-expanded="false"] .sidebar-chevron { transform: rotate(180deg); }
+    #documentTemplatesToggle .sidebar-chevron { transition: transform .3s; color: #000; }
+    #documentTemplatesToggle[aria-expanded="true"] .sidebar-chevron { transform: rotate(90deg); color: #115640; }
 </style>
 <li class="rounded-lg mt-2">
     <button id="documentTemplatesToggle" type="button" class="cursor-pointer w-full flex items-center gap-3 px-3 py-2 rounded-lg {{ request()->routeIs('aftersales.pages.document-templates.*') ? 'bg-[#CFE7DE] text-[#115640]' : 'text-[#1E1E1E]' }}" onclick="const menu=document.getElementById('documentTemplatesMenu'); menu.hidden=!menu.hidden; this.setAttribute('aria-expanded', !menu.hidden)" aria-expanded="true" aria-controls="documentTemplatesMenu">
-        <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span class="sidebar-label {{ request()->routeIs('aftersales.pages.document-templates.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold text-left">Document Templates</span><i class="bi bi-chevron-up sidebar-chevron ml-auto text-black" aria-hidden="true"></i>
+        <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span class="sidebar-label {{ request()->routeIs('aftersales.pages.document-templates.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold text-left">Document Templates</span><i class="sidebar-chevron sm:hidden! lg:inline-block! fas fa-chevron-right ml-auto" style="font-size: 16px;" aria-hidden="true"></i>
     </button>
     <div id="documentTemplatesMenu" class="sidebar-submenu mt-2 overflow-hidden">
         <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
