@@ -22,10 +22,6 @@
                     <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or machine"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
-                <label class="flex items-center gap-2 cursor-pointer whitespace-nowrap">
-                    <input type="checkbox" id="ticket-supervisor-me" style="width: 16px; height: 16px;">
-                    <span>Supervisor: Saya</span>
-                </label>
                 <button type="button" id="btn-search-ticket"
                 class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
@@ -91,7 +87,6 @@
         lastPage: 1,
         perPage: 10,
         search: '',
-        supervisorMe: false,
     };
 
     // Step name -> display percent. Backend hanya expose nama step (lihat Ticket::getProgressAttribute),
@@ -266,7 +261,6 @@
                 page: ticketState.page,
                 per_page: ticketState.perPage,
                 search: ticketState.search,
-                supervisor: ticketState.supervisorMe ? 'me' : '',
             },
             success: function (response) {
                 renderTicketRows(response.data);
@@ -303,11 +297,6 @@
             }, 400);
         });
 
-        $('#ticket-supervisor-me').on('change', function () {
-            ticketState.supervisorMe = this.checked;
-            ticketState.page = 1;
-            loadTickets();
-        });
 
         $('#btn-search-ticket').on('click', function () {
             ticketState.search = $('#ticket-search').val();
