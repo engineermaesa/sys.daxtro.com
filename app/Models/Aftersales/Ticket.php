@@ -35,6 +35,8 @@ class Ticket extends Model
 
     protected $casts = [
         'sla_due_at' => 'datetime',
+        'assigned_technician_id' => 'integer',
+        'supervisor_id' => 'integer',
     ];
 
     public function customer()
