@@ -120,6 +120,7 @@
             </div>
 
             {{-- SIGNATURES --}}
+            <div id="sfDiagnosis" style="margin-top:20px;"></div>
             <div id="sfSignatures" class="grid grid-cols-1 lg:grid-cols-3" style="margin-top: 20px; gap: 16px;"></div>
 
             {{-- COMPLETENESS --}}

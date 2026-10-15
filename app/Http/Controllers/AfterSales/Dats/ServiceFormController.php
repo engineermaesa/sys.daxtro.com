@@ -55,6 +55,7 @@ class ServiceFormController extends Controller
                 'hz' => $product?->hz,
             ],
             'groups' => TicketDocuments::formStructure($ticket, $form),
+            'diagnosis' => app(\App\Services\Aftersales\ServiceDiagnosis::class)->structure($ticket, $form),
             'signatures' => TicketDocuments::signatureSummary($form, $ticket),
             'completeness' => TicketDocuments::completeness($ticket, TicketDocuments::TYPE_FORM),
             'can' => TicketDocuments::can($request->user(), $ticket, $form),
@@ -79,6 +80,12 @@ class ServiceFormController extends Controller
             'inspections.*.item_number' => 'required|integer|min:1',
             'inspections.*.status' => 'nullable|in:' . implode(',', TicketInspection::STATUSES),
             'inspections.*.values' => 'nullable|array',
+            'diagnosis' => 'sometimes|array|max:3',
+            'diagnosis.*.id' => 'nullable|integer',
+            'diagnosis.*.field' => 'required|in:problem,cause,action|distinct',
+            'diagnosis.*.name' => 'nullable|string|max:255',
+            'diagnosis.*.body' => 'nullable|string',
+            'diagnosis.*.visit_notes' => 'nullable|string',
         ]);
 
         $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
@@ -129,7 +136,7 @@ class ServiceFormController extends Controller
     public function photo(Request $request, Ticket $ticket, TicketPhoto $photo)
     {
         TicketDocuments::authorizeView($request->user(), $ticket);
-        abort_unless($photo->ticket_id === $ticket->id && $photo->category === TicketPhoto::CATEGORY_INSPECTION, 404);
+        abort_unless($photo->ticket_id === $ticket->id && in_array($photo->category, [TicketPhoto::CATEGORY_INSPECTION, TicketPhoto::CATEGORY_DIAGNOSIS], true), 404);
 
         $path = ($request->boolean('thumb') && $photo->thumbnail_path) ? $photo->thumbnail_path : $photo->file_path;
         abort_unless(Storage::disk('local')->exists($path), 404);

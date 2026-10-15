@@ -20,6 +20,16 @@ class TicketServiceForm extends Model
         return $this->belongsTo(RefInspectionTemplate::class, 'ref_inspection_template_id');
     }
 
+    public function diagnosisEntries()
+    {
+        return $this->hasMany(TicketDiagnosisEntry::class, 'ticket_service_form_id')->orderBy('entry_date')->orderBy('id');
+    }
+
+    public function diagnosisPhotos()
+    {
+        return $this->hasMany(TicketPhoto::class, 'ticket_service_form_id')->where('category', 'diagnosis')->orderBy('sequence');
+    }
+
     protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime'];
 
     public function ticket()
