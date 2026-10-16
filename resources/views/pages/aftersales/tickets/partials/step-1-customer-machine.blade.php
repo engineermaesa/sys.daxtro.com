@@ -97,7 +97,9 @@
             method: 'GET',
             data: { per_page: 100 },
             success: function (response) {
-                customersCache = response.data || [];
+                customersCache = (response.data || []).slice().sort((a, b) =>
+                    String(a.name || '').trim().localeCompare(String(b.name || '').trim(), 'id', { sensitivity: 'base' })
+                );
 
                 const options = customersCache.map(customer =>
                     `<option value="${customer.id}">${escapeHtml(customer.name)}</option>`
