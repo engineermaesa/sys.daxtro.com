@@ -175,6 +175,8 @@ class ServiceDiagnosisTest extends TestCase
     public function test_diagnosis_evidence_can_be_viewed_through_the_authorized_photo_endpoint(): void
     {
         $photo = $this->service->upload($this->ticket, $this->form, 'problem', UploadedFile::fake()->image('proof.jpg'), null, $this->technician);
+      
+        $photo->setRawAttributes(array_replace($photo->getAttributes(), ['ticket_id' => (string) $this->ticket->id]));
         $viewer = Mockery::mock(User::class)->makePartial();
         $viewer->forceFill(['id' => 1]);
         $viewer->shouldReceive('hasPermission')->andReturn(true);
@@ -182,6 +184,34 @@ class ServiceDiagnosisTest extends TestCase
         $request->setUserResolver(fn () => $viewer);
         $response = app(\App\Http\Controllers\AfterSales\Dats\ServiceFormController::class)->photo($request, $this->ticket, $photo);
         $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('image/jpeg', $response->headers->get('Content-Type'));
+        ob_start();
+        try {
+            $response->sendContent();
+            $bytes = ob_get_contents();
+        } finally {
+            ob_end_clean();
+        }
+        $this->assertSame(Storage::disk('local')->get($photo->file_path), $bytes);
+    }
+
+    public function test_diagnosis_evidence_from_another_ticket_is_not_served(): void
+    {
+        $photo = $this->service->upload($this->ticket, $this->form, 'problem', UploadedFile::fake()->image('proof.jpg'), null, $this->technician);
+        $photo->setRawAttributes(array_replace($photo->getAttributes(), ['ticket_id' => '2']));
+        $viewer = Mockery::mock(User::class)->makePartial();
+        $viewer->shouldReceive('hasPermission')->andReturn(true);
+        $request = \Illuminate\Http\Request::create('/');
+        $request->setUserResolver(fn () => $viewer);
+
+        $this->expectException(HttpException::class);
+        $this->expectExceptionCode(0);
+        try {
+            app(\App\Http\Controllers\AfterSales\Dats\ServiceFormController::class)->photo($request, $this->ticket, $photo);
+        } catch (HttpException $exception) {
+            $this->assertSame(404, $exception->getStatusCode());
+            throw $exception;
+        }
     }
 
     public function test_pdf_renders_diagnosis_entries_using_the_pinned_template(): void

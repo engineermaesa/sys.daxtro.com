@@ -28,7 +28,7 @@ class TicketPhoto extends Model
         'ticket_service_form_id', 'diagnosis_field', 'caption', 'locked_at',
     ];
 
-    protected $casts = ['captured_at' => 'datetime', 'locked_at' => 'datetime'];
+    protected $casts = ['ticket_id' => 'integer', 'captured_at' => 'datetime', 'locked_at' => 'datetime'];
 
     public function ticket()
     {
