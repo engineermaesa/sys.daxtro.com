@@ -645,7 +645,7 @@
         const statusKey = item.status || 'none';
         const statusText = item.status ? STATUS_LABEL[item.status] : 'Empty';
         const roItem = ro || lockedNa;
-        const open = S.openItem === item.number;
+        const open = S.openItem !== null && Number(S.openItem) === Number(item.number);
 
         const statusButtons = ['ok', 'rep', 'na'].map(function (s) {
             const on = item.status === s;
@@ -848,12 +848,13 @@
 
     function step(number, direction, withSave) {
         const flat = itemsFlat();
-        const idx = flat.findIndex(function (x) { return x.item.number === number; });
+        const idx = flat.findIndex(function (x) { return Number(x.item.number) === Number(number); });
+        if (idx < 0) return;
         const target = flat[idx + direction];
 
         const go = function () {
             if (!target) { S.openItem = null; renderForm(); return; }
-            S.openItem = target.item.number;
+            S.openItem = Number(target.item.number);
             S.activeTab = target.group;
             renderForm();
             const el = $('.sf-row[data-item="' + target.item.number + '"]')[0];
