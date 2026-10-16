@@ -21,13 +21,14 @@ class ServiceDiagnosis
     {
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can edit diagnosis.');
         abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
-        abort_if(in_array($ticket->progress, [TicketLog::STEP_CLOSED, TicketLog::STEP_RECOMING], true), 422, 'Diagnosis cannot be edited in this ticket status.');
+        abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'Diagnosis cannot be edited in this ticket status.');
     }
 
     public function structure(Ticket $ticket, TicketServiceForm $form): array
     {
         $entries = $form->diagnosisEntries()->get();
         $photos = $form->diagnosisPhotos()->get();
+        $currentVisitNo = max(1, $ticket->visits()->count());
         $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
         $date = ($visit?->actual_start ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
 
@@ -35,7 +36,7 @@ class ServiceDiagnosis
             'fields' => collect(self::FIELDS)->map(fn ($field) => [
                 'key' => $field, 'label' => $form->template->diagnosis_fields[$field]['label'], 'hint' => $form->template->diagnosis_fields[$field]['hint'],
                 'visit_date' => $date->toDateString(), 'visit_time' => $date->format('H:i'),
-                'entries' => $entries->where('field', $field)->values()->map(fn ($e) => ['id' => $e->id, 'name' => $e->name, 'body' => $e->body, 'visit_notes' => $e->visit_notes, 'visit_no' => $e->visit_no, 'entry_date' => $e->entry_date->toDateString(), 'visit_time' => substr($e->visit_time, 0, 5), 'locked' => (bool) $e->locked_at])->all(),
+                'entries' => $entries->where('field', $field)->values()->map(fn ($e) => ['id' => $e->id, 'name' => $e->name, 'body' => $e->body, 'visit_notes' => $e->visit_notes, 'visit_no' => $e->visit_no, 'entry_date' => $e->entry_date->toDateString(), 'visit_time' => substr($e->visit_time, 0, 5), 'locked' => (bool) $e->locked_at || $e->visit_no < $currentVisitNo])->all(),
                 'photos' => $photos->where('diagnosis_field', $field)->values()->map(fn ($p) => ['id' => $p->id, 'caption' => $p->caption, 'locked' => (bool) $p->locked_at, 'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $p->id], false)])->all(),
             ])->all()];
     }
@@ -48,8 +49,9 @@ class ServiceDiagnosis
             $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
             $date = ($visit?->actual_start ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
             $visitNo = max(1, $ticket->visits()->count(), (int) $form->diagnosisEntries()->whereNotNull('locked_at')->max('visit_no') + 1);
+            $form->diagnosisEntries()->where('visit_no', '<', $visitNo)->whereNull('locked_at')->update(['locked_at' => now()]);
             foreach ($entries as $input) {
-                $entry = isset($input['id']) ? $form->diagnosisEntries()->where('field', $input['field'])->findOrFail($input['id']) : $form->diagnosisEntries()->where('field', $input['field'])->whereNull('locked_at')->first();
+                $entry = isset($input['id']) ? $form->diagnosisEntries()->where('field', $input['field'])->findOrFail($input['id']) : $form->diagnosisEntries()->where('field', $input['field'])->where('visit_no', $visitNo)->whereNull('locked_at')->first();
                 abort_if($entry?->locked_at, 409, 'Previously saved diagnosis notes are read-only. Add a new visit note.');
                 if (! $entry) {
                     $entry = new TicketDiagnosisEntry(['ticket_service_form_id' => $form->id, 'field' => $input['field'], 'visit_no' => $visitNo, 'entry_date' => $date->toDateString(), 'visit_time' => $date->format('H:i:s'), 'created_by_user_id' => $user->id]);

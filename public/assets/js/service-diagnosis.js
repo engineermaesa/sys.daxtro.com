@@ -45,7 +45,8 @@
                           visit_notes: entry.visit_notes || "",
                       }
                     : blank();
-            if (!drafts[field.key] || readOnly) drafts[field.key] = server;
+            const previousIsLocked = drafts[field.key]?.id && field.entries.some(e => e.id === drafts[field.key].id && e.locked);
+            if (!drafts[field.key] || readOnly || previousIsLocked) drafts[field.key] = server;
             else if (entry) drafts[field.key].id = entry.id;
         });
         render();

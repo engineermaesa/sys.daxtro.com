@@ -112,6 +112,50 @@ class ServiceDiagnosisTest extends TestCase
         $this->assertCount(5, Storage::disk('local')->allFiles('diagnosis'));
     }
 
+    public function test_recoming_visits_append_notes_and_preserve_previous_visit_text_and_photos(): void
+    {
+        DB::table('ticket_visits')->insert(['ticket_id' => 1, 'scheduled_at' => now()->subDay()]);
+        $this->service->save($this->ticket, $this->form, $this->notes(), $this->technician);
+        $original = $this->form->diagnosisEntries()->get()->keyBy('field');
+        $photo = $this->service->upload($this->ticket, $this->form, 'problem', UploadedFile::fake()->image('first-visit.jpg'), 'Original evidence', $this->technician);
+        $this->ticket->setRelation('logs', collect([(new \App\Models\Aftersales\TicketLog)->forceFill(['id' => 1, 'step' => 'recoming'])]));
+        for ($visit = 2; $visit <= 3; $visit++) {
+            DB::table('ticket_visits')->insert(['ticket_id' => 1, 'scheduled_at' => now()->addDays($visit)]);
+            $structure = $this->service->structure($this->ticket, $this->form);
+            $this->assertTrue($structure['fields'][0]['entries'][0]['locked']);
+            $notes = array_map(fn ($entry) => array_replace($entry, ['body' => 'Visit '.$visit]), $this->notes());
+            $this->service->save($this->ticket, $this->form, $notes, $this->technician);
+            // Repeated draft saves update only the current visit.
+            $this->service->save($this->ticket, $this->form, $notes, $this->technician);
+            $this->assertSame($visit * 3, $this->form->diagnosisEntries()->count());
+        }
+        foreach (ServiceDiagnosis::FIELDS as $field) {
+            $this->assertSame('Detailed '.$field, $original[$field]->fresh()->body);
+            $this->assertNotNull($original[$field]->fresh()->locked_at);
+            $this->assertSame([1, 2, 3], $this->form->diagnosisEntries()->where('field', $field)->orderBy('visit_no')->pluck('visit_no')->all());
+        }
+        $this->assertSame('Original evidence', $photo->fresh()->caption);
+        Storage::disk('local')->assertExists($photo->file_path);
+        $this->assertCount(3, $this->service->structure($this->ticket, $this->form)['fields'][0]['entries']);
+    }
+
+    public function test_previous_visit_notes_cannot_be_overwritten_by_sending_their_id(): void
+    {
+        $this->service->save($this->ticket, $this->form, $this->notes(), $this->technician);
+        $entry = $this->form->diagnosisEntries()->first();
+        DB::table('ticket_visits')->insert([
+            ['ticket_id' => 1, 'scheduled_at' => now()->subDay()],
+            ['ticket_id' => 1, 'scheduled_at' => now()],
+        ]);
+        try {
+            $this->service->save($this->ticket, $this->form, [['id' => $entry->id, 'field' => $entry->field, 'body' => 'Overwrite']], $this->technician);
+            $this->fail('Previous visits must be immutable');
+        } catch (HttpException $exception) {
+            $this->assertSame(409, $exception->getStatusCode());
+        }
+        $this->assertSame($entry->body, $entry->fresh()->body);
+    }
+
     public function test_completion_requires_text_and_photos_for_all_three_fields(): void
     {
         $this->assertCount(6, $this->service->missing($this->form));

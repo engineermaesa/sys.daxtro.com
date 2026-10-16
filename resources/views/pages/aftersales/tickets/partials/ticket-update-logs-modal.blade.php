@@ -11,7 +11,7 @@
                     <span aria-hidden="true" class="text-2xl font-light leading-none">&times;</span>
                 </button>
             </div>
-            <div class="modal-body px-6! pb-6! pt-0!">
+            <div id="ticketLogsHistoryPanel" class="modal-body px-6! pb-6! pt-0!">
                 <hr class="border-[#D9D9D9] mb-4">
 
                 <div class="overflow-x-auto mb-4">
@@ -77,13 +77,113 @@
                         class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors cursor-pointer">
                         <i class="bi bi-plus-lg"></i> Activity
                     </button>
+                    <button type="button" id="ticketLogsScheduleRecoming" class="border border-[#D9D9D9] rounded-lg cursor-pointer" style="margin-left:8px;padding:8px 16px;background:#fff4cf;color:#856400;">Schedule Recoming</button>
                 </div>
             </div>
+            <form id="ticketLogsRecomingForm" class="modal-body px-6! pb-6! pt-0!" style="display:none;">
+                <hr class="border-[#D9D9D9] mb-4">
+                <h6 class="font-bold" style="margin-bottom:20px;">Job not finished (Recoming)</h6>
+                <fieldset style="margin-bottom:20px;">
+                    <legend style="font-size:14px;margin-bottom:10px;">Reason</legend>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                        @foreach (['Spare part not available yet', 'Further work needed', 'Site access / conditions', 'Other'] as $reason)
+                            <label style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #D9D9D9;border-radius:24px;padding:8px 12px;">
+                                <input type="radio" name="ticket_logs_recoming_reason" value="{{ $reason }}" required @checked($loop->first)>
+                                <span>{{ $reason }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </fieldset>
+                <label for="ticketLogsRecomingDate" class="block" style="margin-bottom:8px;">Follow-up visit date <span style="color:#EC221F;">*</span></label>
+                <input type="date" id="ticketLogsRecomingDate" required class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;">
+                <label for="ticketLogsRecomingNotes" class="block" style="margin-bottom:8px;">Notes</label>
+                <textarea id="ticketLogsRecomingNotes" rows="3" maxlength="5000" placeholder="Details of the remaining work..." class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;"></textarea>
+                <div style="padding:16px;background:#EEF4FF;color:#2F5BD3;border-radius:8px;font-size:13px;">
+                    <p class="font-bold" style="margin-bottom:8px;">AFTER SAVING</p>
+                    <ul style="padding-left:18px;list-style:disc;line-height:1.8;">
+                        <li>Ticket progress changes to Recoming (second visit scheduled).</li>
+                        <li>Service Form remains in Draft status.</li>
+                        <li>The satisfaction survey link is temporarily disabled.</li>
+                        <li>Ticket status returns to On Site on the follow-up visit date.</li>
+                    </ul>
+                </div>
+                <p id="ticketLogsRecomingFeedback" role="status" style="margin-top:16px;color:#EC221F;font-size:13px;"></p>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+                    <button type="button" id="ticketLogsRecomingCancel" class="border border-[#D9D9D9] rounded-lg cursor-pointer" style="padding:8px 16px;">Cancel</button>
+                    <button type="submit" class="bg-[#115640] text-white rounded-lg cursor-pointer" style="padding:8px 16px;">Save Recoming</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
+    $(function () {
+        let recomingSaving = false;
+        function showTicketLogsRecoming(show) {
+            $('#ticketLogsHistoryPanel').toggle(!show);
+            $('#ticketLogsRecomingForm').toggle(show);
+            if (show) {
+                $('#ticketLogsRecomingDate').attr('min', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })).trigger('focus');
+            }
+        }
+        $('#ticketLogsScheduleRecoming').on('click', function () { showTicketLogsRecoming(true); });
+        $('#ticketLogsRecomingCancel').on('click', function () { showTicketLogsRecoming(false); });
+        $('#ticketUpdateLogsModal').on('show.bs.modal', function () {
+            $('#ticketLogsRecomingForm')[0].reset();
+            $('#ticketLogsRecomingFeedback').text('');
+            showTicketLogsRecoming(false);
+        });
+        $('#ticketLogsRecomingForm').on('submit', function (event) {
+            event.preventDefault();
+            if (recomingSaving || !currentUpdateLogsTicketId || !this.reportValidity()) return;
+            const reasons = {
+                'Spare part not available yet': 'sparepart_unavailable',
+                'Further work needed': 'further_work_needed',
+                'Site access / conditions': 'site_access',
+                'Other': 'other',
+            };
+            const ticketId = currentUpdateLogsTicketId;
+            const $buttons = $('#ticketLogsRecomingForm button');
+            recomingSaving = true;
+            $buttons.prop('disabled', true);
+            $('#ticketLogsRecomingFeedback').text('');
+            $.ajax({
+                url: '/api/aftersales/tickets/' + ticketId + '/recoming',
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                data: {
+                    reason: reasons[$('input[name="ticket_logs_recoming_reason"]:checked').val()],
+                    planned_visit_at: $('#ticketLogsRecomingDate').val(),
+                    notes: $('#ticketLogsRecomingNotes').val().trim(),
+                },
+                success: function () {
+                    showTicketLogsRecoming(false);
+                    loadTickets();
+                    $.ajax({
+                        url: '/api/aftersales/tickets/' + ticketId,
+                        method: 'GET',
+                        success: function (response) {
+                            if (currentUpdateLogsTicketId === ticketId) renderTicketUpdateLogsRows(response.data?.logs || []);
+                        },
+                        error: function () {
+                            if (currentUpdateLogsTicketId === ticketId) $('#ticketUpdateLogsRows').html('<tr><td colspan="4" class="p-2">Recoming saved. Reopen Update Logs to refresh the history.</td></tr>');
+                        },
+                    });
+                    Swal.fire({ title: 'Recoming scheduled', icon: 'success', confirmButtonColor: '#115640', timer: 1500 });
+                },
+                error: function (xhr) {
+                    const body = xhr.responseJSON || {};
+                    $('#ticketLogsRecomingFeedback').text(Object.values(body.errors || {}).flat()[0] || body.message || 'Failed to schedule Recoming. Please try again.');
+                },
+                complete: function () { recomingSaving = false; $buttons.prop('disabled', false); },
+            });
+        });
+        $('#ticketUpdateLogsModal').on('hide.bs.modal', function (event) {
+            if (recomingSaving) event.preventDefault();
+        });
+    });
+
     // Maps each loggable step to the existing, already-built ticket endpoint
     // that actually persists it (repair/on-site/waiting-sparepart/close just
     // take a note; documentation/satisfaction have their own real payloads).
