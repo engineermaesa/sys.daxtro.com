@@ -118,7 +118,7 @@
 </div>
 
 <script>
-    $(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         let recomingSaving = false;
         function showTicketLogsRecoming(show) {
             $('#ticketLogsHistoryPanel').toggle(!show);

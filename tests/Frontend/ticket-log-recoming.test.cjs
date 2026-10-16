@@ -7,7 +7,7 @@ const source = fs.readFileSync(
     "utf8",
 );
 const code = source.slice(
-    source.indexOf("    $(function () {"),
+    source.indexOf("    document.addEventListener('DOMContentLoaded'"),
     source.indexOf("    // Maps each loggable step"),
 );
 
@@ -57,6 +57,7 @@ function setup() {
     };
     const context = {
         $,
+        document: { addEventListener(event, handler) { handler(); } },
         currentUpdateLogsTicketId: 28,
         Date,
         Swal: { fire: (options) => notices.push(options) },
