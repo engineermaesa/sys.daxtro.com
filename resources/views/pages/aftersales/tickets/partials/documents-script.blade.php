@@ -898,9 +898,106 @@
         }
     });
 
-    // ---- foto bukti via QR ----
+    // ---- inspection photo capture (camera on mobile, QR on desktop) ----
     let pollTimer = null;
     function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    function prefersCamera() {
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+            || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+    }
+
+    function cameraPhoto(file) {
+        return new Promise(function (resolve, reject) {
+            const image = new Image();
+            const source = URL.createObjectURL(file);
+            image.onload = function () {
+                URL.revokeObjectURL(source);
+                try {
+                    const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(image.width * scale);
+                    canvas.height = Math.round(image.height * scale);
+                    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob(function (blob) {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Unable to prepare this photo. Please retake it.'));
+                    }, 'image/jpeg', 0.8);
+                } catch (error) { reject(error); }
+            };
+            image.onerror = function () {
+                URL.revokeObjectURL(source);
+                reject(new Error('Unable to read this photo. Please retake it.'));
+            };
+            image.src = source;
+        });
+    }
+
+    function openCamera(itemNumber, key) {
+        
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.setAttribute('capture', 'environment');
+        input.style.display = 'none';
+        document.body.appendChild(input);
+        input.addEventListener('cancel', function () { input.remove(); });
+        input.addEventListener('change', async function () {
+            const file = input.files[0];
+            input.remove();
+            if (!file) return;
+            let blob;
+            try { blob = await cameraPhoto(file); }
+            catch (error) {
+                return Swal.fire({ title: 'Photo unavailable', text: error.message, icon: 'error', confirmButtonColor: '#115640' });
+            }
+            const preview = URL.createObjectURL(blob);
+            const ticketId = currentId();
+            const result = await Swal.fire({
+                title: hasPhoto(itemNumber, key) ? 'Replace photo evidence' : 'Photo evidence',
+                html: '<img src="' + esc(preview) + '" alt="Photo preview" style="width:100%;max-height:50vh;object-fit:contain;border-radius:10px;">',
+                confirmButtonText: 'Send to form',
+                confirmButtonColor: '#115640',
+                showDenyButton: true,
+                denyButtonText: 'Retake',
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
+                footer: '<button type="button" id="sfUseAnotherPhone" style="color:#115640;text-decoration:underline;">Use another phone (QR)</button>',
+                didOpen: function () {
+                    document.getElementById('sfUseAnotherPhone').addEventListener('click', function () {
+                        if (Swal.isLoading()) return;
+                        Swal.close();
+                        saveItem(itemNumber).done(function () { openQr(itemNumber, key); })
+                            .fail(function (xhr) { fail(xhr, 'Failed to save the value.'); });
+                    });
+                },
+                showLoaderOnConfirm: true,
+                allowOutsideClick: function () { return !Swal.isLoading(); },
+                allowEscapeKey: function () { return !Swal.isLoading(); },
+                preConfirm: async function () {
+                    try {
+                        await saveItem(itemNumber);
+                        const res = await call('POST', '/tickets/' + ticketId + '/service-form/photo-links', { item_number: itemNumber, field_key: key });
+                        const body = new FormData();
+                        body.append('photo', blob, 'evidence.jpg');
+                        await $.ajax({
+                            url: '/api/inspection-photo/' + encodeURIComponent(res.data.token),
+                            method: 'POST', data: body, processData: false, contentType: false,
+                            headers: { Accept: 'application/json' },
+                        });
+                        return true;
+                    } catch (xhr) {
+                        Swal.showValidationMessage(errMsg(xhr, 'Failed to send the photo. Please try again.'));
+                        return false;
+                    }
+                },
+            });
+            URL.revokeObjectURL(preview);
+            if (result.isDenied) openCamera(itemNumber, key);
+            if (result.isConfirmed) { loadForm(); toast('Photo sent to the form'); }
+        }, { once: true });
+        input.click();
+    }
 
     function hasPhoto(itemNumber, key) {
         const x = itemsFlat().find(function (y) { return y.item.number === itemNumber; });
@@ -947,11 +1044,17 @@
                         + '<p style="font-size:12px;">Scan the QR code with your phone camera. This link is valid for 15 minutes. Waiting for the photo...</p>',
                     confirmButtonText: 'Close',
                     confirmButtonColor: '#115640',
+                    showDenyButton: true,
+                    denyButtonText: 'Open camera on this device',
                     didOpen: onOpen,
                     onOpen: onOpen,
                     willClose: stopPoll,
                     onClose: stopPoll,
-                }).then(function () { stopPoll(); loadForm(); });
+                }).then(function (result) {
+                    stopPoll();
+                    if (result.isDenied) openCamera(itemNumber, key);
+                    else loadForm();
+                });
             })
             .fail(function (xhr) { fail(xhr, 'Failed to create the photo link.'); });
     }
@@ -965,6 +1068,9 @@
         if (typed === '') {
             return Swal.fire({ title: 'Enter the value first', text: 'A photo can only be attached to a saved value.', icon: 'info', confirmButtonColor: '#115640' });
         }
+
+        if (formReadOnly()) return;
+        if (prefersCamera()) return openCamera(itemNumber, key);
 
         // simpan poin ini dulu agar nilai tersimpan, baru minta link foto
         saveItem(itemNumber)
