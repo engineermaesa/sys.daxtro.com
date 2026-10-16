@@ -125,19 +125,18 @@
         </div>
 
         {{-- SATISFACTION SURVEY --}}
-        {{-- TODO: link survey dibuat otomatis oleh backend saat ticket dibuat --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
             <div class="flex items-start justify-between" style="gap: 12px;">
                 <div>
                     <h2 class="font-bold text-base">Satisfaction Survey</h2>
                     <p class="text-[#9CA3AF] text-xs" style="margin-top: 2px;">Secure customer feedback for this service visit</p>
                 </div>
-                <span class="rounded-full bg-[#E7F3EE] text-[#115640] font-semibold text-xs" style="padding: 3px 12px;">Active</span>
+                <span id="tdSurveyStatus" class="rounded-full bg-[#E7F3EE] text-[#115640] font-semibold text-xs" style="padding: 3px 12px;">Loading...</span>
             </div>
 
             <div class="flex items-center justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
-                <span id="tdSurveyUrl" class="text-[#4B5563] truncate"></span>
-                <button type="button" id="tdShareLink" class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer shrink-0" style="padding: 8px 16px;">Share Link</button>
+                <a id="tdSurveyUrl" class="text-[#4B5563] truncate underline" target="_blank" rel="noopener noreferrer"></a>
+                <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer shrink-0 disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
             </div>
         </div>
 

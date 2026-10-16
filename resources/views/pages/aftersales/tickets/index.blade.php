@@ -331,7 +331,6 @@
             const t = $(this).data('ticket') || {};
             currentTicket = t;
             const slaUnit = t.sla_unit === 'hour' ? 'hour(s)' : 'business day(s)';
-            const surveyUrl = 'survey.daxtro.id/s/' + String(t.ticket_code || '').toLowerCase();
             const woUrl = '/aftersales/tickets/' + t.id + '/work-order-pdf';
             const text = function (id, value) { $(id).text(value || '-'); };
 
@@ -345,9 +344,8 @@
             text('#tdSla', slaLabel(t, slaUnit));
             text('#tdPriority', t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : '');
             text('#tdDescription', t.description);
-            text('#tdSurveyUrl', surveyUrl);
+            loadTicketSurveyLink(t.id);
             $('#tdWoView, #tdWoDownload').attr('href', woUrl);
-            $('#tdShareLink').text('Share Link').data('url', 'https://' + surveyUrl);
 
             $('#ticketListView').addClass('hidden');
             $('#ticketDetailsView').removeClass('hidden');
@@ -388,20 +386,49 @@
 
         // Service Agreement, Service Form, tanda tangan, dan Supervisor Sign: lihat partials/documents-script.blade.php
 
+        function loadTicketSurveyLink(ticketId) {
+            $('#tdSurveyUrl').removeAttr('href').text('Loading survey link...');
+            $('#tdSurveyStatus').text('Loading...');
+            $('#tdShareLink').text('Share Link').prop('disabled', true).data('url', '');
+            $.ajax({ url: '/api/aftersales/tickets/' + ticketId + '/survey-link', headers: { Accept: 'application/json' } })
+                .done(function (res) {
+                    if (currentTicket?.id !== ticketId) return;
+                    const link = res.data || {};
+                    const labels = { active: 'Active', inactive: 'Inactive', used: 'Completed', expired: 'Expired', replaced: 'Replaced' };
+                    $('#tdSurveyStatus').text(labels[link.status] || 'Unavailable');
+                    if (link.url && link.can_share) {
+                        $('#tdSurveyUrl').attr('href', link.url).text(link.url);
+                        $('#tdShareLink').prop('disabled', false).data('url', link.url);
+                    } else {
+                        $('#tdSurveyUrl').text(link.status === 'used' ? 'This survey has already been completed.' : 'No active survey link is available.');
+                    }
+                })
+                .fail(function () {
+                    if (currentTicket?.id !== ticketId) return;
+                    $('#tdSurveyStatus').text('Unavailable');
+                    $('#tdSurveyUrl').text('Unable to load the survey link. Please reopen the ticket to retry.');
+                });
+        }
+
         $(document).on('click', '#tdShareLink', function () {
             const $btn = $(this);
             const url = $btn.data('url') || '';
+            if (!url) return;
             const done = function () {
                 $btn.text('Copied');
                 setTimeout(function () { $btn.text('Share Link'); }, 1500);
             };
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(done);
+                navigator.clipboard.writeText(url).then(done).catch(function () { showCopyLink(url); });
             } else {
-                done();
+                showCopyLink(url);
             }
         });
+
+        function showCopyLink(url) {
+            Swal.fire({ title: 'Copy survey link', input: 'text', inputValue: url, inputAttributes: { readonly: 'readonly' }, confirmButtonText: 'Close', confirmButtonColor: '#115640' });
+        }
 
         $(document).on('click', '.btn-ticket-update-logs', function () {
             openTicketUpdateLogs($(this).data('ticket'));

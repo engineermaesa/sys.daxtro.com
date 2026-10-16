@@ -354,6 +354,16 @@ class SurveyTemplatesTest extends TestCase
         $this->withHeader('X-Survey-Session', 'verified-session')->getJson('/api/survey/old-token/form')->assertOk()->assertJsonPath('data.template.version', 1)->assertJsonPath('data.template.sections.0.questions.0.label', 'Arrival punctuality');
     }
 
+    public function test_generated_survey_link_opens_the_public_customer_page_without_login(): void
+    {
+        $link = SatisfactionLink::firstOrFail();
+        $this->assertSame(url('/survey/old-token'), $link->url);
+        $this->get($link->url)->assertOk()
+            ->assertSee('data-token="old-token"', false)
+            ->assertSee('customer-survey.js')
+            ->assertSee('Verify your WhatsApp number');
+    }
+
     private function otp(): void
     {
         SatisfactionOtp::create(['link_id' => SatisfactionLink::first()->id, 'verified_at' => now()->subMinute(), 'session_hash' => hash('sha256', 'verified-session'), 'session_expires_at' => now()->addMinutes(20)]);

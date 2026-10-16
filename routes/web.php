@@ -42,6 +42,7 @@ Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name(
 
 // Halaman kamera HP untuk foto bukti Service Form (publik, token pendek di URL; API: /api/inspection-photo/{token})
 Route::view('capture/{token}', 'pages.aftersales.capture')->name('aftersales.capture');
+Route::view('survey/{token}', 'pages.aftersales.customer-survey')->name('aftersales.customer-survey');
 
 
 Route::middleware('auth')->group(function () {
