@@ -127,6 +127,31 @@ class AgreementTemplatesTest extends TestCase
         $this->assertSame(1, RefAgreementTemplate::active()->version);
     }
 
+    public function test_activation_accepts_current_draft_id_returned_as_a_string(): void
+    {
+        Schema::table('agreement_template_state', function (Blueprint $table) {
+            $table->string('draft_template_id')->nullable()->change();
+        });
+        $draft = $this->draft();
+        $this->assertSame((string) $draft['id'], DB::table('agreement_template_state')->value('draft_template_id'));
+        $url = $this->endpoint.'/'.$draft['id'];
+        $token = $this->postJson($url.'/preview', ['lock_version' => $draft['lock_version']])->assertOk()->json('preview_token');
+        $this->postJson($url.'/activate', ['lock_version' => $draft['lock_version'], 'confirmed' => true, 'preview_token' => $token])
+            ->assertOk()->assertJsonPath('data.status', 'active');
+    }
+
+    public function test_activation_rejects_a_draft_that_is_no_longer_current(): void
+    {
+        $draft = $this->draft();
+        $url = $this->endpoint.'/'.$draft['id'];
+        $token = $this->postJson($url.'/preview', ['lock_version' => $draft['lock_version']])->assertOk()->json('preview_token');
+        DB::table('agreement_template_state')->where('id', 1)->update(['draft_template_id' => null]);
+        $this->postJson($url.'/activate', ['lock_version' => $draft['lock_version'], 'confirmed' => true, 'preview_token' => $token])
+            ->assertStatus(409);
+        $this->assertSame('draft', RefAgreementTemplate::find($draft['id'])->status);
+        $this->assertSame(1, RefAgreementTemplate::active()->version);
+    }
+
     public function test_activation_keeps_historical_agreements_and_versions_immutable(): void
     {
         $old = RefAgreementTemplate::active();

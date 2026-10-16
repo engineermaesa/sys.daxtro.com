@@ -128,9 +128,10 @@ test("agreement editor loads real data and saves before preview and confirmed ac
         1,
         "Opening an active agreement must not create a draft",
     );
-    assert.match(element("dt-content").innerHTML, /Persisted clause/);
+    assert.match(element("dt-content").innerHTML, /Version history/);
     assert.doesNotMatch(element("dt-content").innerHTML, /Frontend demo/);
     await click("create");
+    assert.match(element("dt-content").innerHTML, /Persisted clause/);
     handlers["document-template-app:input"]({
         target: {
             dataset: { field: "text", item: "0" },

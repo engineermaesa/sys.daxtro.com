@@ -58,7 +58,7 @@ class AgreementTemplates
             $state = DB::table('agreement_template_state')->where('id', 1)->lockForUpdate()->first();
             $draft = RefAgreementTemplate::whereKey($id)->lockForUpdate()->firstOrFail();
             $this->assertDraft($draft, $revision);
-            abort_unless($state->draft_template_id === $draft->id, 409, 'This draft is no longer current. Reload the page.');
+            abort_unless((int) $state->draft_template_id === $draft->id, 409, 'This draft is no longer current. Reload the page.');
             $active = $draft->documentSections();
             if (! count($active)) {
                 throw ValidationException::withMessages(['sections' => 'At least one active section is required.']);
