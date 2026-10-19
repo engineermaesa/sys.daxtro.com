@@ -98,6 +98,25 @@
             </div>
         </div>
 
+        {{-- VISIT HISTORY (data statis dulu; di-render oleh loadVisitHistory() di documents-script) --}}
+        <div id="tdVisitHistoryCard" class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
+            <h2 class="font-bold tracking-wide">VISIT HISTORY</h2>
+            <div class="overflow-x-auto" style="margin-top: 12px;">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#D9D9D9] text-left text-xs text-[#757575]">
+                            <th class="p-2" style="width: 15%;">Visit</th>
+                            <th class="p-2" style="width: 25%;">Date</th>
+                            <th class="p-2">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tdVisitHistoryBody">
+                        <tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">No visit yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         {{-- SUPPORTING DOCUMENTS (status dokumen dari GET /api/aftersales/tickets/{id}/documents, dirender oleh documents-script) --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
             <h2 class="font-bold tracking-wide">SUPPORTING DOCUMENTS</h2>

@@ -290,6 +290,39 @@
         });
     }
 
+    // ---------- Visit History di Ticket Detail ----------
+    const VISIT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // "12 Jan 2025 · 09:30"; jam disembunyikan kalau 00:00 (recoming disimpan startOfDay)
+    function fmtVisitDate(v) {
+        const d = new Date(String(v).replace(' ', 'T'));
+        if (isNaN(d)) return '-';
+        const p = function (n) { return String(n).padStart(2, '0'); };
+        const date = p(d.getDate()) + ' ' + VISIT_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+        return d.getHours() || d.getMinutes() ? date + ' · ' + p(d.getHours()) + ':' + p(d.getMinutes()) : date;
+    }
+
+    function loadVisitHistory() {
+        // TODO(API): ganti data statis ini dengan
+        //   call('GET', '/tickets/' + currentId()).done(res => render(res.data.visit_history))
+        // bentuk item: { visit_no, scheduled_at, note }
+        const visits = [
+            { visit_no: 1, scheduled_at: '2025-01-12 09:30:00', note: 'Initial inspection, leak repair, vacuum process, and refrigerant recharge completed.' },
+            { visit_no: 2, scheduled_at: '2025-01-15 10:00:00', note: 'Recoming visit scheduled to verify cooling performance and target temperature stability.' }
+        ];
+
+        $('#tdVisitHistoryBody').html(visits.length ? visits.map(function (v) {
+            return '<tr class="border-t border-[#EDEDED]">'
+                + '<td class="p-2">Visit ' + esc(v.visit_no) + '</td>'
+                + '<td class="p-2">' + esc(fmtVisitDate(v.scheduled_at)) + '</td>'
+                + '<td class="p-2 text-[#4B5563]">' + esc(dash(v.note)) + '</td></tr>';
+        }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">No visit yet.</td></tr>');
+
+        // TODO(API): Visit Schedule terbaru = data.visit_date dari respons yang sama
+        // (saat ini #tdVisit diisi dari baris list di index.blade.php).
+        if (visits.length) $('#tdVisit').text(fmtVisitDate(visits[visits.length - 1].scheduled_at));
+    }
+
     // ---------- Supporting Documents card ----------
     function loadDocs() {
         const id = currentId();
@@ -384,6 +417,7 @@
             $('#tdDocsDynamic').html('<p class="text-[#9CA3AF] text-xs" style="padding: 14px 0;">Loading documents...</p>');
             loadDocs();
             loadFinalCost();
+            loadVisitHistory();
         });
     });
 
