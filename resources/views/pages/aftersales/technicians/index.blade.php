@@ -25,6 +25,11 @@
                 class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
                 </button>
+                <select id="technician-period" class="border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
+                    <option value="all">All time</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="year">This year</option>
+                </select>
             </div>
         </div>
 
@@ -33,21 +38,23 @@
             <table class="w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="p-3 text-left uppercase text-xs">Technician Name</th>
-                        <th class="p-3 text-left uppercase text-xs">Level</th>
-                        <th class="p-3 text-left uppercase text-xs">Refrigeration</th>
-                        <th class="p-3 text-left uppercase text-xs">Electrical</th>
-                        <th class="p-3 text-left uppercase text-xs">PLC Control</th>
-                        <th class="p-3 text-left uppercase text-xs">Water Treatment</th>
-                        <th class="p-3 text-left uppercase text-xs">Cold Storage</th>
-                        <th class="p-3 text-left uppercase text-xs">Area Coverage</th>
-                        <th class="p-3 text-left uppercase text-xs">Certification</th>
-                        <th class="p-3 text-left uppercase text-xs">Status</th>
-                        <th class="p-3 text-left uppercase text-xs">Total Ticket</th>
-                        <th class="p-3 text-left uppercase text-xs">Action</th>
+                        <th class="p-3 text-center uppercase text-xs">Technician Name</th>
+                        <th class="p-3 text-center uppercase text-xs">Level</th>
+                        <th class="p-3 text-center uppercase text-xs">Refrigeration</th>
+                        <th class="p-3 text-center uppercase text-xs">Electrical</th>
+                        <th class="p-3 text-center uppercase text-xs">PLC Control</th>
+                        <th class="p-3 text-center uppercase text-xs">Water Treatment</th>
+                        <th class="p-3 text-center uppercase text-xs">Cold Storage</th>
+                        <th class="p-3 text-center uppercase text-xs">Area Coverage</th>
+                        <th class="p-3 text-center uppercase text-xs">Certification</th>
+                        <th class="p-3 text-center uppercase text-xs">Status</th>
+                        <th class="p-3 text-center uppercase text-xs">Total Ticket</th>
+                        <th class="p-3 text-center uppercase text-xs">Rating</th>
+                        <th class="p-3 text-center uppercase text-xs">First Visit Completion</th>
+                        <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
-                <tbody id="technician-table-body" class="text-left"></tbody>
+                <tbody id="technician-table-body"></tbody>
             </table>
         </div>
 
@@ -67,6 +74,7 @@
         lastPage: 1,
         perPage: 10,
         search: '',
+        period: 'all',
     };
 
     const SKILL_COLUMNS = [
@@ -122,26 +130,29 @@
         const html = rows.map(row => {
             const user = row.user || {};
             const region = row.region || {};
-            const skillCells = SKILL_COLUMNS.map(col => `<td class="p-3">${skillCell(row.skills, col.key)}</td>`).join('');
+            const skillCells = SKILL_COLUMNS.map(col => `<td class="p-3 text-center">${skillCell(row.skills, col.key)}</td>`).join('');
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-technician-id="${row.id}">
-                <td class="p-3 font-semibold text-[#115640]">${escapeHtml(user.name)}</td>
-                <td class="p-3">${levelBadge(user.grade)}</td>
+                <td class="p-3 font-semibold text-[#115640] text-left">${escapeHtml(user.name)}</td>
+                <td class="p-3 text-center">${levelBadge(user.grade)}</td>
                 ${skillCells}
-                <td class="p-3">${escapeHtml(region.name || '-')}</td>
-                <td class="p-3">${escapeHtml(row.certification || '—')}</td>
-                <td class="p-3">${statusBadge(row.status)}</td>
-                <td class="p-3">${row.total_tickets ?? 0}</td>
-                <td class="p-3">
+                <td class="p-3 text-center">${escapeHtml(region.name || '-')}</td>
+                <td class="p-3 text-center">${escapeHtml(row.certification || '—')}</td>
+                <td class="p-3 text-center">${statusBadge(row.status)}</td>
+                <td class="p-3 text-center">${row.total_tickets ?? 0}</td>
+                {{-- TODO(API): rating & first-visit per periode dari respons (rating, first_visit_completion) --}}
+                <td class="p-3 text-center">4.4/5</td>
+                <td class="p-3 text-center">67%</td>
+                <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="btn-technician-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-three-dots"></i>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-right">
                             <li>
-                                <a class="dropdown-item d-flex align-items-center gap-2" href="/aftersales/technicians/${row.id}/work-orders">
-                                    <i class="bi bi-copy"></i> Work Order
+                                <a class="dropdown-item d-flex align-items-center gap-2" href="/aftersales/technicians/${row.id}/details">
+                                    <i class="bi bi-eye"></i> See Detail
                                 </a>
                             </li>
                         </ul>
@@ -189,6 +200,8 @@
                 page: technicianState.page,
                 per_page: technicianState.perPage,
                 search: technicianState.search,
+                // TODO(API): kirim period: technicianState.period ('all' | '30d' | 'year');
+                // BE memfilter Total Ticket, Rating, First Visit per periode
             },
             success: function (response) {
                 renderTechnicianRows(response.data);
@@ -216,6 +229,12 @@
 
         $('#btn-search-technician').on('click', function () {
             technicianState.search = $('#technician-search').val();
+            technicianState.page = 1;
+            loadTechnicians();
+        });
+
+        $('#technician-period').on('change', function () {
+            technicianState.period = this.value;
             technicianState.page = 1;
             loadTechnicians();
         });

@@ -33,14 +33,14 @@ class TechnicianController extends Controller
         return $this->render('pages.aftersales.technicians.create');
     }
 
-    public function workOrdersPage(Request $request, TechnicianProfile $technician)
+    public function detailsPage(Request $request, TechnicianProfile $technician)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
 
         $technician->load('user');
-        $this->pageTitle = $technician->user->name . ' — Work Order';
+        $this->pageTitle = $technician->user->name . ' — Detail';
 
-        return $this->render('pages.aftersales.technicians.work-orders', ['technician' => $technician]);
+        return $this->render('pages.aftersales.technicians.details', ['technician' => $technician]);
     }
 
     public function index(Request $request)

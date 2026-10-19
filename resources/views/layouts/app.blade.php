@@ -199,6 +199,7 @@
         });
     </script>
     @yield('scripts')
+    @stack('scripts')
 
     @if(auth()->check() && (hasRole(auth()->user(), 'branch_manager') || hasRole(auth()->user(), 'sales') || hasRole(auth()->user(), 'finance')))
     <script>

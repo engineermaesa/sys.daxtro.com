@@ -618,7 +618,7 @@ Route::get('/debug/expense-realizations', function () {
         Route::name('technicians.')->prefix('technicians')->group(function () {
             Route::get('/', [DatsTechnicianController::class, 'page'])->name('index');
             Route::get('/create', [DatsTechnicianController::class, 'createPage'])->name('create');
-            Route::get('/{technician}/work-orders', [DatsTechnicianController::class, 'workOrdersPage'])->name('work-orders');
+            Route::get('/{technician}/details', [DatsTechnicianController::class, 'detailsPage'])->name('details');
         });
 
         Route::name('spareparts.')->prefix('spareparts')->group(function () {
