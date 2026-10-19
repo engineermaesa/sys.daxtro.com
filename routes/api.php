@@ -574,6 +574,10 @@ Route::group([
         Route::get('/supervisors', [DatsTicketController::class, 'supervisors'])->name('supervisors');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
         Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');
+        Route::delete('/{ticket}', [DatsTicketController::class, 'destroy'])->name('destroy');
+        Route::post('/{ticket}/recoming/reschedule', [DatsTicketController::class, 'reschedule'])->name('recoming.reschedule');
+        Route::post('/{ticket}/parts', [DatsTicketController::class, 'addPart'])->name('parts.store');
+        Route::put('/{ticket}/parts/{part}', [DatsTicketController::class, 'updatePart'])->name('parts.update');
         Route::post('/{ticket}/assign', [DatsTicketController::class, 'assign'])->name('assign');
         Route::post('/{ticket}/on-site', [DatsTicketController::class, 'onSite'])->name('on-site');
         Route::post('/{ticket}/repair', [DatsTicketController::class, 'repair'])->name('repair');

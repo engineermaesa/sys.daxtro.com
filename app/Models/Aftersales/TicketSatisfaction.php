@@ -19,6 +19,7 @@ class TicketSatisfaction extends Model
     public const REVIEW_NORMAL = 'normal';
     public const REVIEW_NEEDS_REVIEW = 'needs_review';
     public const REVIEW_REVIEWED = 'reviewed';
+    public const REVIEW_REJECTED = 'rejected';
 
     public const ASPECTS = [
         'timeliness' => 'Arrival punctuality',
@@ -55,6 +56,7 @@ class TicketSatisfaction extends Model
         'admin_input_reason',
         'reviewed_by_user_id',
         'reviewed_at',
+        'review_note',
         'otp_verified_at',
         'otp_phone_masked',
         'link_created_by_user_id',
@@ -115,6 +117,21 @@ class TicketSatisfaction extends Model
     public function linkCreatedBy()
     {
         return $this->belongsTo(User::class, 'link_created_by_user_id');
+    }
+
+    public function ratingItems(): array
+    {
+        if ($this->ref_survey_template_id && $this->template) {
+            $answers = $this->answers->keyBy('question_key');
+
+            return collect($this->template->questions())->where('type', 'rating')
+                ->map(fn ($q) => ['key' => $q['question_key'], 'label' => $q['label'], 'score' => $answers->get($q['question_key'])?->value_number])
+                ->filter(fn ($r) => $r['score'] !== null)->values()->all();
+        }
+
+        return collect(self::ASPECTS)
+            ->map(fn ($label, $key) => ['key' => $key, 'label' => $label, 'score' => $this->{$key} === null ? null : (int) $this->{$key}])
+            ->filter(fn ($r) => $r['score'] !== null)->values()->all();
     }
 
     public function getAverageScoreAttribute(): ?float

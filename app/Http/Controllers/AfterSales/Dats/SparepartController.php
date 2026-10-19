@@ -160,7 +160,8 @@ class SparepartController extends Controller
             $delta = $validated['type'] === 'out' ? -$validated['qty'] : $validated['qty'];
 
             $locked = RefSparepart::query()->whereKey($sparepart->id)->lockForUpdate()->first();
-            $locked->stock = max(0, $locked->stock + $delta);
+            abort_if($locked->stock + $delta < 0, 422, "Not enough stock: {$locked->name} available {$locked->stock}.");
+            $locked->stock += $delta;
             $locked->updated_by = $request->user()->id;
             $locked->save();
 

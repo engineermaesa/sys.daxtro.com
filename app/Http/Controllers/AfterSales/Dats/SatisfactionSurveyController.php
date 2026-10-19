@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\AfterSales\Dats;
 
 use App\Http\Controllers\Controller;
+use App\Http\Classes\ActivityLogger;
+use App\Models\Aftersales\SatisfactionLink;
+use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SatisfactionSurveyController extends Controller
@@ -27,11 +31,12 @@ class SatisfactionSurveyController extends Controller
                 TicketSatisfaction::REVIEW_NORMAL,
                 TicketSatisfaction::REVIEW_NEEDS_REVIEW,
                 TicketSatisfaction::REVIEW_REVIEWED,
+                TicketSatisfaction::REVIEW_REJECTED,
             ]),
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = TicketSatisfaction::with(self::WITH);
+        $query = TicketSatisfaction::with(array_merge(self::WITH, ['reviewedBy']))->whereHas('ticket');
 
         if ($request->filled('review_status')) {
             $query->where('review_status', $request->input('review_status'));
@@ -63,6 +68,9 @@ class SatisfactionSurveyController extends Controller
                 'source' => $s->source,
                 'source_label' => self::SOURCE_LABELS[$s->source] ?? $s->source,
                 'review_status' => $s->review_status,
+                'review_reasons' => $s->review_reasons ?? [],
+                'reviewed_by' => $s->reviewedBy?->name,
+                'is_current' => $s->ticket->satisfactions()->max('id') === $s->id,
             ]),
             'total' => $paginated->total(),
             'current_page' => $paginated->currentPage(),
@@ -74,7 +82,9 @@ class SatisfactionSurveyController extends Controller
     {
         abort_unless($request->user()?->hasPermission('satisfaction-survey.view'), 403);
 
-        $satisfaction->load(array_merge(self::WITH, ['linkCreatedBy', 'reviewedBy']));
+        abort_unless($satisfaction->ticket, 404);
+        $satisfaction->load(array_merge(self::WITH, ['linkCreatedBy', 'reviewedBy', 'ticket.satisfactions.reviewedBy']));
+        $all = $satisfaction->ticket->satisfactions->sortByDesc('id')->values();
 
         return response()->json([
             'status' => 'success',
@@ -105,6 +115,17 @@ class SatisfactionSurveyController extends Controller
                 ],
                 'reviewed_by' => $satisfaction->reviewedBy?->name,
                 'reviewed_at' => $satisfaction->reviewed_at,
+                'review_note' => $satisfaction->review_note,
+                'is_current' => $all->first()?->id === $satisfaction->id,
+                'responses' => $all->map(fn (TicketSatisfaction $s, $i) => [
+                    'id' => $s->id,
+                    'submitted_at' => $s->filled_at,
+                    'average_score' => $s->average_score,
+                    'review_status' => $s->review_status,
+                    'review_note' => $s->review_note,
+                    'reviewed_by' => $s->reviewedBy?->name,
+                    'current' => $i === 0,
+                ]),
             ],
         ]);
     }
@@ -112,6 +133,7 @@ class SatisfactionSurveyController extends Controller
     public function form(Request $request, TicketSatisfaction $satisfaction)
     {
         abort_unless($request->user()?->hasPermission('satisfaction-survey.view'), 403);
+        abort_unless($satisfaction->ticket, 404);
 
         $satisfaction->load(self::WITH);
         $ticket = $satisfaction->ticket;
@@ -153,18 +175,52 @@ class SatisfactionSurveyController extends Controller
     public function review(Request $request, TicketSatisfaction $satisfaction)
     {
         abort_unless($request->user()?->hasPermission('satisfaction-survey.review'), 403);
+        abort_unless($satisfaction->ticket, 404);
 
-        if ($satisfaction->review_status !== TicketSatisfaction::REVIEW_NEEDS_REVIEW) {
-            abort(422, 'Only responses that need review can be marked as reviewed.');
-        }
-
-        $satisfaction->update([
-            'review_status' => TicketSatisfaction::REVIEW_REVIEWED,
-            'reviewed_by_user_id' => $request->user()->id,
-            'reviewed_at' => Carbon::now('Asia/Jakarta'),
+        $validated = $request->validate([
+            'decision' => 'nullable|in:approve,reject',
+            'note' => 'required_if:decision,reject|nullable|string|max:2000',
         ]);
+        $decision = $validated['decision'] ?? 'approve';
+        $user = $request->user();
 
-        return $this->setJsonResponse('Survey response marked as reviewed', ['data' => $satisfaction->fresh()]);
+        DB::transaction(function () use ($satisfaction, $decision, $validated, $user) {
+            $locked = TicketSatisfaction::whereKey($satisfaction->id)->lockForUpdate()->firstOrFail();
+            abort_unless($locked->review_status === TicketSatisfaction::REVIEW_NEEDS_REVIEW, 422, 'Only responses that need review can be reviewed.');
+
+            $ticket = $satisfaction->ticket;
+            if ($decision === 'reject') {
+                abort_unless($ticket->satisfactions()->max('id') === $satisfaction->id, 422, 'Only the current response can be rejected.');
+                abort_unless(in_array($ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 422, 'A new survey link can only be issued after Documentation Published.');
+            }
+
+            $locked->update([
+                'review_status' => $decision === 'reject' ? TicketSatisfaction::REVIEW_REJECTED : TicketSatisfaction::REVIEW_REVIEWED,
+                'review_note' => $validated['note'] ?? null,
+                'reviewed_by_user_id' => $user->id,
+                'reviewed_at' => Carbon::now('Asia/Jakarta'),
+            ]);
+
+           
+            if ($decision === 'reject') {
+                SatisfactionLink::where('ticket_id', $ticket->id)->where('status', SatisfactionLink::STATUS_ACTIVE)
+                    ->update(['status' => SatisfactionLink::STATUS_REPLACED]);
+                SatisfactionLink::issue($ticket, $user->id);
+            }
+
+            ActivityLogger::writeLog('response_reviewed', "Survey response {$ticket->ticket_code}: {$decision}", $locked, [
+                'decision' => $decision,
+                'note' => $validated['note'] ?? null,
+                'reviewer' => $user->name,
+            ]);
+        });
+
+        return $this->setJsonResponse($decision === 'reject' ? 'Response rejected; a new survey link was issued' : 'Response approved', ['data' => $satisfaction->fresh()]);
+    }
+
+    public static function needsReview(): int
+    {
+        return TicketSatisfaction::where('review_status', TicketSatisfaction::REVIEW_NEEDS_REVIEW)->whereHas('ticket')->count();
     }
 
     private function feedback(TicketSatisfaction $s): array
@@ -189,18 +245,7 @@ class SatisfactionSurveyController extends Controller
 
     private function ratings(TicketSatisfaction $s): array
     {
-        if ($s->ref_survey_template_id) {
-            return collect($this->answerData($s))->where('type', 'rating')->filter(fn ($a) => $a['value'] !== null)->map(fn ($a) => ['key' => $a['question_key'], 'label' => $a['label'], 'score' => (int) $a['value']])->values()->all();
-        }
-        $ratings = [];
-        foreach (TicketSatisfaction::ASPECTS as $key => $label) {
-            
-            if ($s->{$key} !== null) {
-                $ratings[] = ['key' => $key, 'label' => $label, 'score' => (int) $s->{$key}];
-            }
-        }
-
-        return $ratings;
+        return $s->ratingItems();
     }
 
     private function templateData(TicketSatisfaction $s): ?array

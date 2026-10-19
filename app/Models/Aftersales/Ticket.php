@@ -94,6 +94,11 @@ class Ticket extends Model
         return $this->hasOne(TicketSatisfaction::class, 'ticket_id')->latestOfMany();
     }
 
+    public function satisfactions()
+    {
+        return $this->hasMany(TicketSatisfaction::class, 'ticket_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

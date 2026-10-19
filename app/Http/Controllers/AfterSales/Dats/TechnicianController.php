@@ -10,6 +10,7 @@ use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\Aftersales\TechnicianScore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -46,6 +47,7 @@ class TechnicianController extends Controller
     public function index(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+        $request->validate(['period' => 'nullable|in:' . implode(',', array_keys(TechnicianScore::PERIODS))]);
 
         $query = TechnicianProfile::with(['user', 'region', 'skills']);
 
@@ -60,11 +62,13 @@ class TechnicianController extends Controller
         $perPage = (int) $request->input('per_page', 15);
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
-        $items = collect($paginated->items())->map(function (TechnicianProfile $profile) {
+        $scores = TechnicianScore::summaries(collect($paginated->items())->pluck('user_id')->all(), TechnicianScore::since($request->input('period')));
+
+        $items = collect($paginated->items())->map(function (TechnicianProfile $profile) use ($scores) {
             return array_merge($profile->toArray(), [
                 'status' => $profile->status,
                 'total_tickets' => Ticket::where('assigned_technician_id', $profile->user_id)->count(),
-            ]);
+            ], $scores[$profile->user_id] ?? []);
         });
 
         return response()->json([
@@ -79,6 +83,7 @@ class TechnicianController extends Controller
     public function show(Request $request, TechnicianProfile $technician)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+        $request->validate(['period' => 'nullable|in:' . implode(',', array_keys(TechnicianScore::PERIODS))]);
 
         $technician->load(['user', 'region', 'skills']);
 
@@ -87,6 +92,7 @@ class TechnicianController extends Controller
             'data' => array_merge($technician->toArray(), [
                 'status' => $technician->status,
                 'kpi' => $this->kpiFor($technician->user_id),
+                'score' => TechnicianScore::detail($technician->user_id, TechnicianScore::since($request->input('period'))),
             ]),
         ]);
     }
