@@ -8,14 +8,23 @@
         </button>
     </div>
 
+    {{-- ALERT STOK TIDAK CUKUP: dikontrol checkSparepartStock() / showSparepartStockAlert() di bawah --}}
+    <div id="sparepart-stock-alert" class="hidden items-start gap-3 rounded-lg mb-4" style="padding: 12px 16px; background-color: #FFF3CD; border: 1px solid #F5DDB3; color: #8A6D00;">
+        <i class="bi bi-exclamation-triangle text-lg" style="color: #8A6D00;"></i>
+        <div>
+            <p class="font-bold text-xs mb-1" style="color: #8A6D00;">Insufficient sparepart stock</p>
+            <p id="sparepart-stock-alert-message" class="text-xs mb-0" style="color: #8A6D00;"></p>
+        </div>
+    </div>
+
     <div class="overflow-x-auto">
         <table class="w-full">
             <thead>
                 <tr class="border-b border-[#D9D9D9] text-left text-xs uppercase text-[#757575]">
-                    <th class="p-2 w-10">No</th>
+                    <th class="p-2" style="width: 110px;">No</th>
                     <th class="p-2">Item Name</th>
                     <th class="p-2">Part Code</th>
-                    <th class="p-2 w-24">Qty</th>
+                    <th class="p-2" style="width: 140px;">Qty</th>
                     <th class="p-2 w-32">Unit</th>
                     <th class="p-2 w-36 text-right">Unit Price</th>
                     <th class="p-2 w-10"></th>
@@ -30,10 +39,69 @@
     let sparepartRowCount = 0;
     let sparepartsCache = [];
 
+    const SPAREPART_STOCK_MESSAGE = 'One or more requested items cannot be provided by Aftersales. Update the quantity or select another item before continuing.';
+
     function sparepartOptionsHtml() {
         return sparepartsCache.map(sp =>
             `<option value="${sp.id}" data-code="${escapeHtml(sp.part_number || '')}" data-price="${Number(sp.price || 0)}">${escapeHtml(sp.name)}</option>`
         ).join('');
+    }
+
+    function showSparepartStockAlert(message) {
+        $('#sparepart-stock-alert-message').text(message || SPAREPART_STOCK_MESSAGE);
+        $('#sparepart-stock-alert').removeClass('hidden').css('display', 'flex');
+    }
+
+    function hideSparepartStockAlert() {
+        $('#sparepart-stock-alert').addClass('hidden').css('display', '');
+    }
+
+    // stok yang boleh diminta untuk satu sparepart; null = belum diketahui
+    // TODO(API): saat edit tiket, BE akan memotong stok saat tiket dibuat, jadi stok tersedia
+    // = stok + qty estimasi tiket ini sendiri (EDIT_TICKET.parts, type 'estimated'). Sementara hanya stok master.
+    function sparepartAvailableStock(id) {
+        const sp = sparepartsCache.find(x => String(x.id) === String(id));
+        return sp ? Number(sp.stock || 0) : null;
+    }
+
+    function markSparepartRowOver($row, available) {
+        $row.find('.sparepart-qty').css('border-color', '#EC221F');
+        $row.find('.sparepart-stock-hint').removeClass('hidden').text(`Stock available: ${available}`);
+    }
+
+    // cek qty (dijumlahkan per sparepart) terhadap stok; true bila semua cukup
+    function checkSparepartStock() {
+        const requested = {};
+        $('#sparepart-rows tr').each(function () {
+            const id = $(this).find('.sparepart-item').val();
+            if (id) requested[id] = (requested[id] || 0) + Number($(this).find('.sparepart-qty').val() || 0);
+        });
+
+        let ok = true;
+        $('#sparepart-rows tr').each(function () {
+            const id = $(this).find('.sparepart-item').val();
+            const available = id ? sparepartAvailableStock(id) : null;
+            const over = available !== null && requested[id] > available;
+
+            $(this).find('.sparepart-qty').css('border-color', over ? '#EC221F' : '');
+            $(this).find('.sparepart-stock-hint').toggleClass('hidden', !over).text(over ? `Stock available: ${available}` : '');
+            if (over) ok = false;
+        });
+
+        if (ok) hideSparepartStockAlert(); else showSparepartStockAlert();
+        return ok;
+    }
+
+    // dipakai saat BE menolak submit: items = [{ ref_sparepart_id, requested, available }]
+    function applySparepartStockErrors(items, message) {
+        (items || []).forEach(item => {
+            $('#sparepart-rows tr').each(function () {
+                if (String($(this).find('.sparepart-item').val()) === String(item.ref_sparepart_id)) {
+                    markSparepartRowOver($(this), item.available);
+                }
+            });
+        });
+        showSparepartStockAlert(message);
     }
 
     // harga satuan (IDR) sebagai teks, tidak bisa diedit
@@ -72,20 +140,21 @@
 
         const html = `
             <tr class="border-t border-[#D9D9D9]" data-sparepart-row="${rowNumber}">
-                <td class="p-2 sparepart-row-label">Sparepart ${rowNumber}</td>
-                <td class="p-2">
+                <td class="px-2 py-4 sparepart-row-label whitespace-nowrap">Sparepart ${rowNumber}</td>
+                <td class="px-2 py-4">
                     <select class="sparepart-item w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                         <option value="">Select Item</option>
                         ${sparepartOptionsHtml()}
                     </select>
                 </td>
-                <td class="p-2">
+                <td class="px-2 py-4">
                     <input type="text" readonly placeholder="PRT-XXX-000" class="sparepart-code w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 bg-[#F5F5F5] focus:outline-none!">
                 </td>
-                <td class="p-2">
+                <td class="px-2 py-4" style="position: relative;">
                     <input type="number" min="0" value="0" class="sparepart-qty w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
+                    <p class="sparepart-stock-hint hidden mb-0 whitespace-nowrap" style="position: absolute; left: 8px; top: calc(100% - 14px); font-size: 11px; line-height: 14px; color: #8A6D00;"></p>
                 </td>
-                <td class="p-2">
+                <td class="px-2 py-4">
                     <select class="sparepart-unit w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                         <option value="">Select</option>
                         <option value="pieces">Pieces</option>
@@ -94,8 +163,8 @@
                         <option value="kilogram">Kilogram</option>
                     </select>
                 </td>
-                <td class="p-2 text-right text-[#4B5563] sparepart-price">-</td>
-                <td class="p-2 text-center">
+                <td class="px-2 py-4 text-right text-[#4B5563] sparepart-price">-</td>
+                <td class="px-2 py-4 text-center">
                     <button type="button" class="btn-remove-sparepart text-[#900B09] cursor-pointer" title="Remove row">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -144,6 +213,7 @@
                     }
                 });
                 if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
+                checkSparepartStock();
             },
             error: function (xhr) {
                 console.error('Failed to load spareparts', xhr.responseJSON?.message || xhr.statusText);
@@ -178,6 +248,7 @@
         });
 
         recalculateCostTotal();
+        checkSparepartStock();
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -187,10 +258,12 @@
             $row.find('.sparepart-code').val(code);
             setSparepartRowPrice($row, $(this).find('option:selected').data('price') || 0);
             if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
+            checkSparepartStock();
         });
 
         $(document).on('input change', '.sparepart-qty, .sparepart-unit', function () {
             if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
+            checkSparepartStock();
         });
 
         $('#btn-add-sparepart').on('click', function () {
@@ -201,6 +274,7 @@
             $(this).closest('tr').remove();
             renumberSparepartRows();
             if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
+            checkSparepartStock();
         });
     });
 </script>

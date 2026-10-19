@@ -34,14 +34,14 @@
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Sparepart Name</th>
-                        <th class="p-3 text-left uppercase text-xs">Brand</th>
-                        <th class="p-3 text-left uppercase text-xs">Supplier</th>
-                        <th class="p-3 text-left uppercase text-xs">Price (IDR)</th>
-                        <th class="p-3 text-left uppercase text-xs">Stock</th>
-                        <th class="p-3 text-left uppercase text-xs">Min Stock</th>
-                        <th class="p-3 text-left uppercase text-xs">Rack Location</th>
-                        <th class="p-3 text-left uppercase text-xs">Stock Status</th>
-                        <th class="p-3 text-left uppercase text-xs">Action</th>
+                        <th class="p-3 text-center uppercase text-xs">Brand</th>
+                        <th class="p-3 text-center uppercase text-xs">Supplier</th>
+                        <th class="p-3 text-center uppercase text-xs">Price (IDR)</th>
+                        <th class="p-3 text-center uppercase text-xs">Stock</th>
+                        <th class="p-3 text-center uppercase text-xs">Min Stock</th>
+                        <th class="p-3 text-center uppercase text-xs">Rack Location</th>
+                        <th class="p-3 text-center uppercase text-xs">Stock Status</th>
+                        <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
                 <tbody id="sparepart-table-body" class="text-left"></tbody>
@@ -97,15 +97,15 @@
 
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-sparepart-id="${row.id}">
-                <td class="p-3 font-semibold text-[#1E1E1E]">${escapeHtml(row.name)}</td>
-                <td class="p-3">${escapeHtml(row.brand || '-')}</td>
-                <td class="p-3">${escapeHtml(row.supplier || '-')}</td>
-                <td class="p-3 font-semibold">${formatCurrency(row.price)}</td>
-                <td class="p-3 font-semibold">${row.stock ?? 0}</td>
-                <td class="p-3">${row.min_stock ?? 0}</td>
-                <td class="p-3">${escapeHtml(row.rack_location || '-')}</td>
-                <td class="p-3">${stockStatusBadge(row.stock_status)}</td>
-                <td class="p-3">
+                <td class="p-3">${escapeHtml(row.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(row.brand || '-')}</td>
+                <td class="p-3 text-center">${escapeHtml(row.supplier || '-')}</td>
+                <td class="p-3 text-center">${formatCurrency(row.price)}</td>
+                <td class="p-3 text-center">${row.stock ?? 0}</td>
+                <td class="p-3 text-center">${row.min_stock ?? 0}</td>
+                <td class="p-3 text-center">${escapeHtml(row.rack_location || '-')}</td>
+                <td class="p-3 text-center">${stockStatusBadge(row.stock_status)}</td>
+                <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="btn-sparepart-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-three-dots"></i>

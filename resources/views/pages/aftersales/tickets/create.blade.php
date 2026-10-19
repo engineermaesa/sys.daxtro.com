@@ -162,6 +162,11 @@
             return false;
         }
 
+        // banner stok sudah ditampilkan checkSparepartStock(), tidak perlu Swal tambahan
+        if (currentStep === 4 && !checkSparepartStock()) {
+            return false;
+        }
+
         if (currentStep === 5) {
             let totalCost = 0;
             $('#cost-rows tr[data-cost-category] .cost-amount').each(function () {
@@ -368,6 +373,15 @@
                     );
                 },
                 error: function (xhr) {
+                    // TODO(API): kontrak BE saat stok kurang: HTTP 422
+                    //   { error_code: 'insufficient_stock', message, items: [{ ref_sparepart_id, requested, available }] }
+                    if (xhr.status === 422 && xhr.responseJSON?.error_code === 'insufficient_stock') {
+                        currentStep = 4;
+                        updateStepper();
+                        applySparepartStockErrors(xhr.responseJSON.items, xhr.responseJSON.message);
+                        return;
+                    }
+
                     Swal.fire({
                         title: isEdit ? 'Failed to update ticket' : 'Failed to save ticket',
                         text: formatApiErrors(xhr),
