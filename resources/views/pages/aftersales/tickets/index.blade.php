@@ -22,6 +22,13 @@
                     <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or machine"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
+                <select id="ticket-priority" class="border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
+                    <option value="">All Priorities</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
                 <button type="button" id="btn-search-ticket"
                 class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
@@ -31,24 +38,23 @@
 
         {{--TABLE--}}
         <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full whitespace-nowrap text-xs">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Ticket ID</th>
-                        <th class="p-3 text-left uppercase text-xs">Customer</th>
-                        <th class="p-3 text-left uppercase text-xs">Machine</th>
-                        <th class="p-3 text-left uppercase text-xs">Technician</th>
-                        <th class="p-3 text-left uppercase text-xs">Province</th>
-                        <th class="p-3 text-left uppercase text-xs">Region</th>
-                        <th class="p-3 text-left uppercase text-xs">Desc.</th>
-                        <th class="p-3 text-left uppercase text-xs">Problem</th>
-                        <th class="p-3 text-left uppercase text-xs">Open Date</th>
-                        <th class="p-3 text-left uppercase text-xs">Visit Date</th>
-                        <th class="p-3 text-left uppercase text-xs">Close Date</th>
-                        <th class="p-3 text-left uppercase text-xs">SLA</th>
-                        <th class="p-3 text-left uppercase text-xs">Aging</th>
-                        <th class="p-3 text-left uppercase text-xs">Priority</th>
-                        <th class="p-3 text-left uppercase text-xs">Steps</th>
+                        <th class="p-3 text-center uppercase text-xs">Customer</th>
+                        <th class="p-3 text-center uppercase text-xs">Machine</th>
+                        <th class="p-3 text-center uppercase text-xs">Technician</th>
+                        <th class="p-3 text-center uppercase text-xs">Province</th>
+                        <th class="p-3 text-center uppercase text-xs">Region</th>
+                        <th class="p-3 text-center uppercase text-xs">Problem</th>
+                        <th class="p-3 text-center uppercase text-xs">Open Date</th>
+                        <th class="p-3 text-center uppercase text-xs">Visit Date</th>
+                        <th class="p-3 text-center uppercase text-xs">Close Date</th>
+                        <th class="p-3 text-center uppercase text-xs">SLA</th>
+                        <th class="p-3 text-center uppercase text-xs">Aging</th>
+                        <th class="p-3 text-center uppercase text-xs">Priority</th>
+                        <th class="p-3 text-center uppercase text-xs">Steps</th>
                         <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
@@ -87,6 +93,7 @@
         lastPage: 1,
         perPage: 10,
         search: '',
+        priority: '',
     };
 
     // Step name -> display percent. Backend hanya expose nama step (lihat Ticket::getProgressAttribute),
@@ -156,7 +163,7 @@
         const $body = $('#ticket-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="16" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
+            $body.html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
             return;
         }
 
@@ -168,24 +175,19 @@
             return `
             <tr class="border-t border-t-[#D9D9D9] align-top">
                 <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
-                <td class="p-3">${escapeHtml(customer.name)}</td>
-                <td class="p-3">${escapeHtml(machine.product?.name)}</td>
-                <td class="p-3">${escapeHtml(technician.name)}</td>
-                <td class="p-3">${escapeHtml(customer.province?.name)}</td>
-                <td class="p-3">${escapeHtml(customer.region?.name)}</td>
-                <td class="p-3 max-w-[160px]">
-                    <span class="line-clamp-2">${escapeHtml(row.description)}</span>
-                    <button type="button" class="btn-ticket-detail text-[#115640] text-xs underline cursor-pointer"
-                        data-ticket='@json([])'>- View Detail</button>
-                </td>
-                <td class="p-3">${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
-                <td class="p-3">${formatDate(row.created_at)}</td>
-                <td class="p-3">${formatDate(row.visit_date)}</td>
-                <td class="p-3">${formatDate(row.closed_at)}</td>
-                <td class="p-3">${slaBadge(row.sla_status)}</td>
-                <td class="p-3">${row.aging_days ?? 0}</td>
-                <td class="p-3">${priorityBadge(row.priority)}</td>
-                <td class="p-3">${stepBadge(row.progress)}</td>
+                <td class="p-3 text-center">${escapeHtml(customer.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(machine.product?.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(technician.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(customer.province?.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(customer.region?.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
+                <td class="p-3 text-center">${formatDate(row.created_at)}</td>
+                <td class="p-3 text-center">${formatDate(row.visit_date)}</td>
+                <td class="p-3 text-center">${formatDate(row.closed_at)}</td>
+                <td class="p-3 text-center">${slaBadge(row.sla_status)}</td>
+                <td class="p-3 text-center">${row.aging_days ?? 0}</td>
+                <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
+                <td class="p-3 text-center">${stepBadge(row.progress)}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -252,7 +254,7 @@
     }
 
     function loadTickets() {
-        $('#ticket-table-body').html('<tr><td colspan="16" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#ticket-table-body').html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/tickets',
@@ -261,6 +263,7 @@
                 page: ticketState.page,
                 per_page: ticketState.perPage,
                 search: ticketState.search,
+                priority: ticketState.priority || undefined,
             },
             success: function (response) {
                 renderTicketRows(response.data);
@@ -268,7 +271,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load tickets';
-                $('#ticket-table-body').html(`<tr><td colspan="16" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#ticket-table-body').html(`<tr><td colspan="15" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }
@@ -297,6 +300,12 @@
             }, 400);
         });
 
+
+        $('#ticket-priority').on('change', function () {
+            ticketState.priority = this.value;
+            ticketState.page = 1;
+            loadTickets();
+        });
 
         $('#btn-search-ticket').on('click', function () {
             ticketState.search = $('#ticket-search').val();
