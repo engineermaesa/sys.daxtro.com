@@ -79,6 +79,7 @@
         const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed' };
         const REVIEW_REASON_TEXT = {
             fast_completion: 'Completed in under 30 seconds',
+            same_browser_as_technician: 'Browser/device signature matches a technician login within 24 hours',
             same_network_as_technician: 'Same network as the technician',
             phone_changed_recently: 'Customer WhatsApp number changed in the last 24 hours',
             admin_input: 'Entered by admin',

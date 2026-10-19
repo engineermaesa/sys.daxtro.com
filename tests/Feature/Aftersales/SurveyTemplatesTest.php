@@ -29,6 +29,7 @@ class SurveyTemplatesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        (require database_path('migrations/2026_10_21_000000_create_user_login_audits_table.php'))->up();
         config(['app.locked' => false]);
         Storage::fake('local');
         Schema::create('users', function (Blueprint $t) {
@@ -341,6 +342,64 @@ class SurveyTemplatesTest extends TestCase
         $input['answers']['timeliness'] = 3;
         $this->expectException(ValidationException::class);
         $this->validated($template, $input);
+    }
+
+    public function test_recent_technician_login_is_recorded_with_file_sessions_and_flags_same_ip(): void
+    {
+        config(['session.driver' => 'file']);
+        $request = Request::create('/login', 'POST', ['email' => 'technician@example.test', 'password' => 'test-password'], [], [], ['REMOTE_ADDR' => '192.0.2.10', 'HTTP_USER_AGENT' => 'Technician browser', 'HTTP_ACCEPT' => 'application/json']);
+        $request->setLaravelSession(app('session')->driver('array'));
+        $authManager = \Illuminate\Support\Facades\Auth::getFacadeRoot();
+        \Illuminate\Support\Facades\Auth::shouldReceive('check')->andReturn(true);
+        \Illuminate\Support\Facades\Auth::shouldReceive('attempt')->once()->with(['email' => 'technician@example.test', 'password' => 'test-password'], false)->andReturn(true);
+        \Illuminate\Support\Facades\Auth::shouldReceive('user')->andReturn(User::find(1));
+        $login = app(\App\Http\Controllers\Auth\AuthenticatedSessionController::class)->store($request);
+        $this->assertSame(200, $login->getStatusCode());
+        \Illuminate\Support\Facades\Auth::swap($authManager);
+        $this->assertSame(1, DB::table('user_login_audits')->count());
+        $this->otp();
+        $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.10'])->withHeader('X-Survey-Session', 'verified-session')
+            ->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertSame('needs_review', $response->review_status);
+        $this->assertContains('same_network_as_technician', $response->review_reasons);
+    }
+
+    public function test_recent_matching_browser_flags_review_even_when_ip_changes(): void
+    {
+        DB::table('user_login_audits')->insert(['user_id' => 1, 'ip_address' => '192.0.2.10', 'user_agent_hash' => hash('sha256', 'Same browser'), 'logged_in_at' => now()->subHour()]);
+        $this->otp();
+        $this->withHeader('User-Agent', 'Same browser')->withHeader('X-Survey-Session', 'verified-session')
+            ->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertSame('needs_review', $response->review_status);
+        $this->assertContains('same_browser_as_technician', $response->review_reasons);
+    }
+
+    public function test_fast_completion_flags_review_without_matching_login(): void
+    {
+        $this->otp();
+        SatisfactionOtp::query()->update(['verified_at' => now()->subSeconds(10)]);
+        $this->withHeader('X-Survey-Session', 'verified-session')
+            ->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertSame('needs_review', $response->review_status);
+        $this->assertContains('fast_completion', $response->review_reasons);
+    }
+
+    public function test_old_or_other_users_login_does_not_flag_a_normal_response(): void
+    {
+        DB::table('users')->insert(['id' => 2, 'name' => 'Other technician']);
+        DB::table('user_login_audits')->insert([
+            ['user_id' => 1, 'ip_address' => '127.0.0.1', 'user_agent_hash' => hash('sha256', 'Same browser'), 'logged_in_at' => now()->subHours(25)],
+            ['user_id' => 2, 'ip_address' => '127.0.0.1', 'user_agent_hash' => hash('sha256', 'Same browser'), 'logged_in_at' => now()],
+        ]);
+        $this->otp();
+        $this->withHeader('User-Agent', 'Same browser')->withHeader('X-Survey-Session', 'verified-session')
+            ->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertSame('normal', $response->review_status);
+        $this->assertEmpty($response->review_reasons);
     }
 
     public function test_customer_form_requires_otp_and_uses_the_pinned_template(): void

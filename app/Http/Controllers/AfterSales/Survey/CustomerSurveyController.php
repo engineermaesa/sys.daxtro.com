@@ -261,12 +261,21 @@ class CustomerSurveyController extends Controller
             $reasons[] = 'fast_completion';
         }
 
-        if ($ticket->assigned_technician_id && DB::table('sessions')
+        $recentLogins = DB::table('user_login_audits')
+            ->where('user_id', $ticket->assigned_technician_id)
+            ->where('logged_in_at', '>=', now()->subHours(24));
+        if ($ticket->assigned_technician_id && (
+            ($request->ip() && (clone $recentLogins)->where('ip_address', $request->ip())->exists())
+            || DB::table('sessions')
             ->where('user_id', $ticket->assigned_technician_id)
             ->where('ip_address', $request->ip())
             ->where('last_activity', '>=', Carbon::now('Asia/Jakarta')->subDay()->timestamp)
-            ->exists()) {
+            ->exists())) {
             $reasons[] = 'same_network_as_technician';
+        }
+        if ($ticket->assigned_technician_id && $request->userAgent()
+            && (clone $recentLogins)->where('user_agent_hash', hash('sha256', $request->userAgent()))->exists()) {
+            $reasons[] = 'same_browser_as_technician';
         }
 
         if (ServiceCustomerPhoneChange::where('customer_id', $ticket->customer_id)
