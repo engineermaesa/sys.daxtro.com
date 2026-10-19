@@ -213,14 +213,18 @@ class CustomerSurveyController extends Controller
         $link = $this->findLink($token);
         abort_if($link->display_status !== SatisfactionLink::STATUS_ACTIVE, 410, 'This survey link can no longer be used.');
         $link->load('ticket.customer');
-        abort_if($link->ticket->progress !== TicketLog::STEP_DOCUMENTATION_PUBLISHED, 410, 'This survey link is not active yet.');
+       
+        abort_unless(in_array($link->ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 410, 'This survey link is not active yet.');
 
         return $link;
     }
 
     private function findLink(string $token): SatisfactionLink
     {
-        return SatisfactionLink::where('token_hash', hash('sha256', $token))->firstOrFail();
+        $link = SatisfactionLink::where('token_hash', hash('sha256', $token))->firstOrFail();
+        abort_unless($link->ticket, 410, 'This survey link can no longer be used.');
+
+        return $link;
     }
 
     private function lockedUntil(SatisfactionLink $link): ?Carbon

@@ -11,6 +11,8 @@ use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCost;
 use App\Models\Aftersales\SatisfactionLink;
 use App\Services\Aftersales\TicketDocuments;
+use App\Services\Aftersales\TicketStock;
+use App\Http\Classes\ActivityLogger;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketPart;
 use App\Models\Aftersales\TicketPhoto;
@@ -140,7 +142,7 @@ class TicketController extends Controller
     {
         $user = $request->user();
         $isManager = (bool) $user?->hasPermission('aftersales.tickets.manage');
-        // technician menu "Ticket": only their own tickets (PRD FR-04)
+        
         $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
         abort_unless($isManager || $ownOnly, 403);
 
@@ -160,7 +162,7 @@ class TicketController extends Controller
         }
 
         if ($request->filled('priority')) {
-            $query->where('priority', $request->input('priority'));
+            $query->whereIn('priority', (array) $request->input('priority'));
         }
 
         if ($request->filled('assigned_technician_id')) {
@@ -175,7 +177,8 @@ class TicketController extends Controller
             $search = trim((string) $request->input('search'));
             $query->where(function ($q) use ($search) {
                 $q->where('ticket_code', 'like', "%{$search}%")
-                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('technician', fn ($u) => $u->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -192,6 +195,7 @@ class TicketController extends Controller
                 'aging_days' => $t->aging_days,
                 'sla_status' => $t->sla_status,
                 'visit_date' => $latestVisit?->scheduled_at,
+                'visit_no' => $t->visits->count(),
                 'closed_at' => $closedLog?->created_at,
             ]);
         });
@@ -226,11 +230,32 @@ class TicketController extends Controller
             'logs' => fn ($q) => $q->orderBy('id'),
             'logs.actor',
             'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings', 'serviceForm', 'agreement',
+            'satisfactions' => fn ($q) => $q->orderByDesc('id'),
         ]);
+
+        $isManager = (bool) $user->hasPermission('aftersales.tickets.manage');
+        $data = $ticket->toArray();
+        unset($data['satisfactions']);
+        if (! $isManager) {
+            unset($data['satisfaction']);
+        }
 
         return response()->json([
             'status' => 'success',
-            'data' => array_merge($ticket->toArray(), [
+            'data' => array_merge($data, [
+                'survey_responses' => $isManager ? $ticket->satisfactions->map(fn (TicketSatisfaction $s) => [
+                    'id' => $s->id,
+                    'submitted_at' => $s->filled_at,
+                    'average_score' => $s->average_score,
+                    'machine_ok' => $s->machine_ok,
+                    'source' => $s->source,
+                    'review_status' => $s->review_status,
+                    'review_note' => $s->review_note,
+                ])->values() : null,
+                'survey_filled' => $ticket->satisfactions->isNotEmpty(),
+                'visit_history' => $this->visitHistory($ticket),
+                'stock_held' => TicketStock::held($ticket),
+                'can_reschedule' => $this->canReschedule($ticket),
                 'documents' => [
                     'service_form' => $ticket->serviceForm?->status,
                     'agreement' => $ticket->agreement?->status,
@@ -284,7 +309,7 @@ class TicketController extends Controller
             'supervisor_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
             'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
-            'parts.*.qty' => 'required_with:parts|numeric|min:0.01',
+            'parts.*.qty' => 'required_with:parts|integer|min:1',
             'parts.*.unit' => 'required_with:parts|in:' . implode(',', TicketPart::UNITS),
             'costs' => 'nullable|array',
             'costs.*.category' => 'required_with:costs|in:' . implode(',', TicketCost::CATEGORIES),
@@ -328,17 +353,9 @@ class TicketController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
-            foreach ($validated['parts'] ?? [] as $part) {
-                $sparepart = \App\Models\Aftersales\RefSparepart::find($part['ref_sparepart_id']);
-                TicketPart::create([
-                    'ticket_id' => $ticket->id,
-                    'ref_sparepart_id' => $part['ref_sparepart_id'],
-                    'qty' => $part['qty'],
-                    'unit' => $part['unit'],
-                    'unit_price' => $sparepart->price,
-                    'type' => TicketPart::TYPE_ESTIMATED,
-                    'created_by' => $request->user()->id,
-                ]);
+            
+            foreach (collect($validated['parts'] ?? [])->groupBy('ref_sparepart_id')->sortKeys() as $sparepartId => $rows) {
+                TicketStock::add($ticket, (int) $sparepartId, (int) $rows->sum('qty'), $rows[0]['unit'], $request->user()->id, true);
             }
 
             foreach ($validated['costs'] ?? [] as $cost) {
@@ -392,7 +409,7 @@ class TicketController extends Controller
             'assigned_technician_id' => 'nullable|integer|exists:users,id',
             'parts' => 'nullable|array',
             'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
-            'parts.*.qty' => 'required_with:parts|numeric|min:0.01',
+            'parts.*.qty' => 'required_with:parts|integer|min:0',
             'parts.*.unit' => 'required_with:parts|in:' . implode(',', TicketPart::UNITS),
             'costs' => 'nullable|array',
             'costs.*.category' => 'required_with:costs|in:' . implode(',', TicketCost::CATEGORIES),
@@ -454,19 +471,26 @@ class TicketController extends Controller
             }
 
             if ($request->has('parts')) {
-                $ticket->parts()->where('type', TicketPart::TYPE_ESTIMATED)->delete();
+                $submitted = collect($validated['parts'] ?? [])->groupBy('ref_sparepart_id');
+                $existing = $ticket->parts()->where('type', TicketPart::TYPE_ESTIMATED)->get()->keyBy('ref_sparepart_id');
+                $changed = $existing->contains(fn ($p, $id) => (int) $p->qty !== (int) ($submitted->get($id)?->sum('qty') ?? 0))
+                    || $submitted->keys()->diff($existing->keys())->isNotEmpty();
+                if ($changed) {
+                    $this->guardPartsEditable($ticket);
+                }
 
-                foreach ($validated['parts'] ?? [] as $part) {
-                    $sparepart = RefSparepart::find($part['ref_sparepart_id']);
-                    TicketPart::create([
-                        'ticket_id' => $ticket->id,
-                        'ref_sparepart_id' => $part['ref_sparepart_id'],
-                        'qty' => $part['qty'],
-                        'unit' => $part['unit'],
-                        'unit_price' => $sparepart->price,
-                        'type' => TicketPart::TYPE_ESTIMATED,
-                        'created_by' => $request->user()->id,
-                    ]);
+                $ids = $existing->keys()->merge($submitted->keys())->map(fn ($id) => (int) $id)->unique()->sort();
+                foreach ($ids as $sparepartId) {
+                    $rows = $submitted->get($sparepartId);
+                    $part = $existing->get($sparepartId);
+                    if (! $part) {
+                        TicketStock::add($ticket, $sparepartId, (int) $rows->sum('qty'), $rows[0]['unit'], $request->user()->id);
+                        continue;
+                    }
+                    if ($rows) {
+                        $part->update(['unit' => $rows[0]['unit']]);
+                    }
+                    TicketStock::setUsed($part, $rows ? (int) $rows->sum('qty') : 0, $request->user()->id);
                 }
             }
         });
@@ -555,6 +579,12 @@ class TicketController extends Controller
             'scheduled_at' => 'required|date',
         ]);
 
+        if ($ticket->progress === TicketLog::STEP_RECOMING) {
+            $this->moveFollowUpVisit($request, $ticket, Carbon::parse($validated['scheduled_at'], 'Asia/Jakarta'), null);
+
+            return $this->setJsonResponse('Follow-up visit updated successfully', ['data' => $ticket->visits()->latest('id')->first()]);
+        }
+
         $visit = TicketVisit::create([
             'ticket_id' => $ticket->id,
             'scheduled_at' => $validated['scheduled_at'],
@@ -639,11 +669,6 @@ class TicketController extends Controller
         return $this->setJsonResponse('Recoming scheduled successfully', ['data' => $recoming], 201);
     }
 
-    /**
-     * Documentation Published (PRD §5.1 step 5a, actor Technician). Submits the
-     * repair narrative, actual sparepart usage, and site photos in one go.
-     * Actual parts automatically create an `out` stock movement (PRD §9 rule 4).
-     */
     public function storeDocumentation(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.documentation.submit'), 403);
@@ -655,7 +680,7 @@ class TicketController extends Controller
             'note' => 'required|string',
             'parts' => 'nullable|array',
             'parts.*.ref_sparepart_id' => 'required_with:parts|integer|exists:ref_spareparts,id',
-            'parts.*.qty' => 'required_with:parts|numeric|min:0.01',
+            'parts.*.qty' => 'required_with:parts|integer|min:1',
             'parts.*.unit' => 'required_with:parts|in:' . implode(',', TicketPart::UNITS),
             'photos' => 'nullable|array',
             'photos.*.category' => 'required_with:photos|in:' . implode(',', [
@@ -666,7 +691,7 @@ class TicketController extends Controller
 
         $log = DB::transaction(function () use ($validated, $ticket, $request) {
             foreach ($validated['parts'] ?? [] as $part) {
-                $sparepart = RefSparepart::query()->whereKey($part['ref_sparepart_id'])->lockForUpdate()->first();
+                $sparepart = RefSparepart::findOrFail($part['ref_sparepart_id']);
 
                 TicketPart::create([
                     'ticket_id' => $ticket->id,
@@ -675,20 +700,6 @@ class TicketController extends Controller
                     'unit' => $part['unit'],
                     'unit_price' => $sparepart->price,
                     'type' => TicketPart::TYPE_ACTUAL,
-                    'created_by' => $request->user()->id,
-                ]);
-
-                $qty = (int) round((float) $part['qty']);
-                $sparepart->stock = max(0, $sparepart->stock - $qty);
-                $sparepart->updated_by = $request->user()->id;
-                $sparepart->save();
-
-                PartStockMovement::create([
-                    'ref_sparepart_id' => $sparepart->id,
-                    'type' => PartStockMovement::TYPE_OUT,
-                    'qty' => $qty,
-                    'ticket_id' => $ticket->id,
-                    'note' => 'Actual usage on ticket ' . $ticket->ticket_code,
                     'created_by' => $request->user()->id,
                 ]);
             }
@@ -763,8 +774,19 @@ class TicketController extends Controller
         $this->guardNotClosed($ticket);
 
         $steps = $this->cycleLogs($ticket)->pluck('step');
-        if (! $steps->contains(TicketLog::STEP_DOCUMENTATION_PUBLISHED) || ! $steps->contains(TicketLog::STEP_SATISFACTION_SUBMITTED)) {
-            abort(422, 'This ticket cannot be closed until documentation and satisfaction assessment are both submitted.');
+        if (! $steps->contains(TicketLog::STEP_DOCUMENTATION_PUBLISHED)) {
+            abort(422, 'This ticket cannot be closed until documentation is published.');
+        }
+
+        $current = $ticket->satisfactions()->latest('id')->first();
+        if ($current && in_array($current->review_status, [TicketSatisfaction::REVIEW_NEEDS_REVIEW, TicketSatisfaction::REVIEW_REJECTED], true)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $current->review_status === TicketSatisfaction::REVIEW_REJECTED
+                    ? 'Cannot set to Closed. The latest survey response was rejected; waiting for the customer to submit a new response.'
+                    : 'Cannot set to Closed. The latest survey response is Needs review. Review it first.',
+                'satisfaction_id' => $current->id,
+            ], 422);
         }
 
         $validated = $request->validate(['note' => 'nullable|string']);
@@ -780,6 +802,74 @@ class TicketController extends Controller
         });
 
         return $this->setJsonResponse('Ticket closed successfully', ['data' => $log], 201);
+    }
+
+    public function destroy(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $validated = $request->validate(['reason' => 'required|string|max:1000']);
+        $userId = $request->user()->id;
+
+        DB::transaction(function () use ($ticket, $validated, $userId) {
+            $returned = TicketStock::returnAll($ticket, $userId);
+            SatisfactionLink::deactivateFor($ticket);
+            ActivityLogger::writeLog('ticket_deleted', "Ticket {$ticket->ticket_code} deleted: {$validated['reason']}", $ticket, [
+                'reason' => $validated['reason'],
+                'stock_returned' => $returned,
+            ]);
+            $ticket->update(['deleted_by' => $userId, 'is_deleted' => true]);
+            $ticket->delete();
+        });
+
+        return $this->setJsonResponse('Ticket deleted successfully');
+    }
+
+    public function reschedule(Request $request, Ticket $ticket)
+    {
+        $user = $request->user();
+        abort_unless(
+            $user?->hasPermission('aftersales.tickets.manage')
+            || ($user?->hasPermission('aftersales.tickets.recoming') && $ticket->assigned_technician_id === $user->id),
+            403
+        );
+        abort_unless($this->canReschedule($ticket), 422, 'Reschedule is only available before the follow-up visit date arrives.');
+
+        $validated = $request->validate([
+            'planned_visit_at' => 'required|date|after_or_equal:' . Carbon::now('Asia/Jakarta')->toDateString(),
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $this->moveFollowUpVisit($request, $ticket, Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(), $validated['note'] ?? null);
+
+        return $this->setJsonResponse('Follow-up visit rescheduled successfully');
+    }
+
+    public function addPart(Request $request, Ticket $ticket)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        $this->guardPartsEditable($ticket);
+
+        $validated = $request->validate([
+            'ref_sparepart_id' => 'required|integer|exists:ref_spareparts,id',
+            'qty' => 'required|integer|min:1',
+            'unit' => 'nullable|in:' . implode(',', TicketPart::UNITS),
+        ]);
+
+        $part = TicketStock::add($ticket, (int) $validated['ref_sparepart_id'], (int) $validated['qty'], $validated['unit'] ?? 'pieces', $request->user()->id);
+
+        return $this->setJsonResponse('Part added successfully', ['data' => $part->fresh('sparepart')], 201);
+    }
+
+    public function updatePart(Request $request, Ticket $ticket, TicketPart $part)
+    {
+        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        abort_unless($part->ticket_id === $ticket->id && $part->type === TicketPart::TYPE_ESTIMATED, 404);
+        $this->guardPartsEditable($ticket);
+
+        $validated = $request->validate(['qty' => 'required|integer|min:0']);
+        TicketStock::setUsed($part, (int) $validated['qty'], $request->user()->id);
+
+        return $this->setJsonResponse('Part updated successfully', ['data' => $part->fresh('sparepart')]);
     }
 
     /**
@@ -839,6 +929,56 @@ class TicketController extends Controller
         ]);
 
         return $this->setJsonResponse('Work order confirmed successfully', ['data' => $workOrder->fresh()]);
+    }
+
+    private function guardPartsEditable(Ticket $ticket): void
+    {
+        abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'Spareparts are locked after the ticket is Closed.');
+    }
+
+    private function canReschedule(Ticket $ticket): bool
+    {
+        $recoming = $ticket->recomings()->latest('id')->first();
+
+        return $ticket->progress === TicketLog::STEP_RECOMING
+            && $recoming
+            && $recoming->planned_visit_at->gt(Carbon::now('Asia/Jakarta')->endOfDay());
+    }
+
+    private function moveFollowUpVisit(Request $request, Ticket $ticket, Carbon $date, ?string $note): void
+    {
+        DB::transaction(function () use ($request, $ticket, $date, $note) {
+            $recoming = $ticket->recomings()->latest('id')->lockForUpdate()->firstOrFail();
+            $visit = $ticket->visits()->latest('id')->firstOrFail();
+            $from = $recoming->planned_visit_at;
+
+            $recoming->update(['planned_visit_at' => $date]);
+            $visit->update(['scheduled_at' => $date]);
+
+            ActivityLogger::writeLog('recoming_rescheduled', "Follow-up visit for {$ticket->ticket_code} moved to {$date->toDateString()}", $ticket, [
+                'from' => $from?->toDateString(),
+                'to' => $date->toDateString(),
+                'note' => $note,
+            ]);
+        });
+    }
+
+    private function visitHistory(Ticket $ticket): array
+    {
+        $recomings = $ticket->recomings->keyBy('visit_no');
+        $reasons = ['sparepart_unavailable' => 'Part unavailable', 'further_work_needed' => 'Further work needed', 'site_access' => 'Site access or condition', 'other' => 'Other'];
+        $count = $ticket->visits->count();
+
+        return $ticket->visits->sortBy('id')->values()->map(function (TicketVisit $v, int $i) use ($recomings, $reasons, $count) {
+            $r = $recomings->get($i + 1);
+
+            return [
+                'visit_no' => $i + 1,
+                'scheduled_at' => $v->scheduled_at,
+                'note' => $r ? 'Recoming: ' . ($reasons[$r->reason] ?? $r->reason) . ($r->notes ? ' - ' . $r->notes : '') : null,
+                'current' => $i + 1 === $count,
+            ];
+        })->all();
     }
 
     /** Latest recoming (visit_no, planned_visit_at, reason) while the ticket is in Recoming, else null. */
