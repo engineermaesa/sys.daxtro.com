@@ -159,8 +159,6 @@
             } else {
                 tbody.innerHTML = rows.map(function (r) {
                     const needsReview = r.review_status === 'needs_review';
-                    const reasons = (r.review_reasons || []).map(function (c) { return REVIEW_REASON_TEXT[c] || c; });
-                    const by = r.reviewed_by ? (r.review_status === 'rejected' ? 'Rejected by ' : 'Approved by ') + r.reviewed_by : '';
                     const history = r.is_current === false
                         ? ' <span class="px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#757575] text-[10px] font-semibold">History</span>' : '';
                     const action = (needsReview && canReview)
@@ -178,8 +176,6 @@
                         <td class="p-3 text-center text-[#757575]">${esc(dash(r.source_label))}</td>
                         <td class="p-3 text-center">
                             <span class="font-semibold ${reviewColor(r)}">${esc(reviewText(r))}</span>
-                            ${reasons.length ? `<div class="text-[11px] text-[#757575] whitespace-normal" style="max-width:240px;margin:2px auto 0;">${esc(reasons.join(', '))}</div>` : ''}
-                            ${by ? `<div class="text-[11px] text-[#757575]">${esc(by)}</div>` : ''}
                         </td>
                         <td class="p-3 text-center">${action}</td>
                     </tr>`;

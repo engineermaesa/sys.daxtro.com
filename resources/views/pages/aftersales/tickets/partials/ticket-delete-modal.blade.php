@@ -102,6 +102,9 @@
                 headers: { Accept: 'application/json' },
                 data: JSON.stringify({ reason: reason }),
                 success: function (response) {
+                    // lepas flag dulu, kalau tidak hide.bs.modal membatalkan penutupan modal
+                    saving = false;
+                    ticketId = null;
                     $('#ticketDeleteModal').modal('hide');
                     Swal.fire({ title: response.message || 'Ticket deleted successfully', icon: 'success', timer: 1500, showConfirmButton: false });
                     loadTickets();
