@@ -103,8 +103,8 @@
                         @endforeach
                     </div>
                 </fieldset>
-                <label for="ticketLogsRecomingDate" class="block" style="margin-bottom:8px;">Follow-up visit date <span style="color:#EC221F;">*</span></label>
-                <input type="date" id="ticketLogsRecomingDate" required class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;">
+                <label for="ticketLogsRecomingDate" class="block" style="margin-bottom:8px;">Follow-up visit date &amp; time <span style="color:#EC221F;">*</span></label>
+                <input type="datetime-local" id="ticketLogsRecomingDate" required class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;">
                 <label for="ticketLogsRecomingNotes" class="block" style="margin-bottom:8px;">Notes</label>
                 <textarea id="ticketLogsRecomingNotes" rows="3" maxlength="5000" placeholder="Details of the remaining work..." class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;"></textarea>
                 <div style="padding:16px;background:#EEF4FF;color:#2F5BD3;border-radius:8px;font-size:13px;">
@@ -133,7 +133,7 @@
             $('#ticketLogsHistoryPanel').toggle(!show);
             $('#ticketLogsRecomingForm').toggle(show);
             if (show) {
-                $('#ticketLogsRecomingDate').attr('min', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })).trigger('focus');
+                $('#ticketLogsRecomingDate').attr('min', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) + 'T00:00').trigger('focus');
             }
         }
         $('#ticketLogsScheduleRecoming').on('click', function () { showTicketLogsRecoming(true); });

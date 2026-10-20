@@ -645,7 +645,7 @@ class TicketController extends Controller
             $visitNo = $ticket->visits()->count() + 1;
 
             $ticket->visits()->create([
-                'scheduled_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(),
+                'scheduled_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta'),
                 'created_by' => $user->id,
             ]);
 
@@ -654,7 +654,7 @@ class TicketController extends Controller
                 'visit_no' => $visitNo,
                 'reason' => $validated['reason'],
                 'notes' => $validated['notes'] ?? null,
-                'planned_visit_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(),
+                'planned_visit_at' => Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta'),
                 'from_step' => $fromStep,
                 'created_by_user_id' => $user->id,
                 'created_by' => $user->id,
@@ -846,7 +846,7 @@ class TicketController extends Controller
             'note' => 'nullable|string|max:1000',
         ]);
 
-        $this->moveFollowUpVisit($request, $ticket, Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta')->startOfDay(), $validated['note'] ?? null);
+        $this->moveFollowUpVisit($request, $ticket, Carbon::parse($validated['planned_visit_at'], 'Asia/Jakarta'), $validated['note'] ?? null);
 
         return $this->setJsonResponse('Follow-up visit rescheduled successfully');
     }

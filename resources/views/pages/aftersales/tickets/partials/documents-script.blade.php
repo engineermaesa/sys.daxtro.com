@@ -347,14 +347,14 @@
         const t = S.ticket || {};
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
         const planned = t.current_recoming && t.current_recoming.planned_visit_at
-            ? new Date(t.current_recoming.planned_visit_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
-            : today;
+            ? new Date(t.current_recoming.planned_visit_at).toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(' ', 'T')
+            : today + 'T00:00';
 
         Swal.fire({
             title: 'Reschedule follow-up visit',
             html: '<div style="text-align:left;">'
-                + '<label for="swRescheduleDate" class="text-xs font-semibold">New visit date</label>'
-                + '<input id="swRescheduleDate" type="date" class="swal2-input" style="margin: 6px 0 12px; width: 100%;" min="' + today + '" value="' + planned + '">'
+                + '<label for="swRescheduleDate" class="text-xs font-semibold">New visit date &amp; time</label>'
+                + '<input id="swRescheduleDate" type="datetime-local" class="swal2-input" style="margin: 6px 0 12px; width: 100%;" min="' + today + 'T00:00" value="' + planned + '">'
                 + '<label for="swRescheduleNote" class="text-xs font-semibold">Note (optional)</label>'
                 + '<textarea id="swRescheduleNote" class="swal2-textarea" maxlength="1000" style="margin: 6px 0 0; width: 100%;" placeholder="Reason for rescheduling"></textarea>'
                 + '</div>',
@@ -366,7 +366,7 @@
                 const date = document.getElementById('swRescheduleDate').value;
                 const note = document.getElementById('swRescheduleNote').value.trim();
                 if (!date) { Swal.showValidationMessage('Choose a visit date.'); return false; }
-                if (date < today) { Swal.showValidationMessage('The date cannot be before today.'); return false; }
+                if (date < today + 'T00:00') { Swal.showValidationMessage('The date cannot be before today.'); return false; }
                 return call('POST', '/tickets/' + id + '/recoming/reschedule', { planned_visit_at: date, note: note || null })
                     .then(function (res) { return res; }, function (xhr) {
                         Swal.showValidationMessage(errMsg(xhr, 'Failed to reschedule.'));
