@@ -1,12 +1,15 @@
 {{-- D12 REVIEW RESPONSE (partial; di-include dari index.blade.php, diisi oleh JS dari API) --}}
 <div id="surveyReviewView" class="hidden">
-    <div class="pt-4">
-        <h1 class="font-bold text-xl lg:text-2xl text-[#115640]">Review Response</h1>
-        <p class="text-[#757575] mt-1 flex items-center gap-2">
-            <button type="button" class="back-to-list cursor-pointer">Satisfaction Survey</button>
-            <i class="fas fa-chevron-right text-[9px]"></i>
-            <span id="rvTicketCrumb" class="text-[#115640] font-semibold underline"></span>
-        </p>
+    <div class="pt-4 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="font-bold text-xl lg:text-2xl text-[#115640]">Review Response</h1>
+            <p class="text-[#757575] mt-1 flex items-center gap-2">
+                <button type="button" class="back-to-list cursor-pointer">Satisfaction Survey</button>
+                <i class="fas fa-chevron-right text-[9px]"></i>
+                <span id="rvTicketCrumb" class="text-[#115640] font-semibold underline"></span>
+            </p>
+        </div>
+        <button type="button" id="rvStartReview" class="hidden px-4 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer shrink-0" style="margin-top: 14px;">Review Response</button>
     </div>
 
     <div class="mt-4 rounded-lg" style="padding: 12px 16px; background:#FFF3CD; color:#8A6D00;">
@@ -71,7 +74,7 @@
     </div>
 
     {{-- DECISION --}}
-    <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
+    <div id="rvDecisionCard" class="hidden mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
         <h2 class="font-bold tracking-wide">DECISION</h2>
         <p id="rvDecisionLocked" class="hidden mt-3 text-[#757575]"></p>
         <div id="rvDecisionForm" class="mt-3">

@@ -307,11 +307,11 @@
             document.getElementById('dBreakdown').innerHTML = (f.ratings || []).map(function (item) {
                 const width = item.score / 5 * 100;
                 return `<li class="flex items-center gap-4">
-                    <span class="w-48 shrink-0">${esc(item.label)}</span>
-                    <span class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
+                    <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
+                    <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
                         <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreColor(item.score)}"></span>
                     </span>
-                    <span class="w-8 text-right font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                    <span style="flex:0 0 40px; width:40px; text-align:right;" class="font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
                 </li>`;
             }).join('');
 
@@ -405,11 +405,11 @@
             set('rvAvg', s.average_score === null || s.average_score === undefined ? '-' : Number(s.average_score).toFixed(1));
             document.getElementById('rvRatings').innerHTML = (f.ratings || []).map(function (item) {
                 return `<li class="flex items-center gap-4">
-                    <span class="w-48 shrink-0">${esc(item.label)}</span>
-                    <span class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
+                    <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
+                    <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
                         <span class="block h-full rounded-full" style="width:${item.score / 5 * 100}%; background-color:${scoreColor(item.score)}"></span>
                     </span>
-                    <span class="w-8 text-right font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                    <span style="flex:0 0 40px; width:40px; text-align:right;" class="font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
                 </li>`;
             }).join('');
 
@@ -438,13 +438,24 @@
             locked.textContent = ! canReview ? 'You do not have permission to review responses.'
                 : 'This response is ' + (REVIEW_LABEL[status] || status || 'not available').toLowerCase() + ' and cannot be reviewed again.';
             document.getElementById('rvDecisionForm').classList.toggle('hidden', ! canDecide);
-            document.getElementById('rvSubmit').classList.toggle('hidden', ! canDecide);
+            // card Decision baru tampil setelah klik Review Response (kalau tidak bisa memutuskan, langsung tampil sebagai info)
+            document.getElementById('rvSubmit').classList.add('hidden');
+            document.getElementById('rvStartReview').classList.toggle('hidden', ! canDecide);
+            document.getElementById('rvDecisionCard').classList.toggle('hidden', canDecide);
 
             document.querySelectorAll('input[name="rvDecision"]').forEach(function (r) { r.checked = false; });
             rvNote.value = '';
             rvFeedback.textContent = '';
             document.getElementById('rvNoteRequired').classList.add('hidden');
         }
+
+        document.getElementById('rvStartReview').addEventListener('click', function () {
+            this.classList.add('hidden');
+            const card = document.getElementById('rvDecisionCard');
+            card.classList.remove('hidden');
+            document.getElementById('rvSubmit').classList.remove('hidden');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
 
         document.querySelectorAll('input[name="rvDecision"]').forEach(function (radio) {
             radio.addEventListener('change', function () {
