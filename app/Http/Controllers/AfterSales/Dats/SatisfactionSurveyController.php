@@ -190,7 +190,7 @@ class SatisfactionSurveyController extends Controller
 
             $ticket = $satisfaction->ticket;
             if ($decision === 'reject') {
-                abort_unless($ticket->satisfactions()->max('id') === $satisfaction->id, 422, 'Only the current response can be rejected.');
+                abort_unless($ticket->satisfactions()->max('id') == $satisfaction->id, 422, 'Only the current response can be rejected.');
                 abort_unless(in_array($ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 422, 'A new survey link can only be issued after Documentation Published.');
             }
 
