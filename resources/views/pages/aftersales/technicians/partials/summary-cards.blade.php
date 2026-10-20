@@ -20,29 +20,58 @@
 @push('scripts')
 <script>
     (function () {
-        // TODO(API): ganti data statis ini dengan
-        //   GET /api/aftersales/technicians/{id}/performance?period=<#td-period>
-        // bentuk: { avg_rating, rating_count, first_visit: {done, total}, total_tickets }
-        const summary = {
-            avg_rating: 4.4,
-            rating_count: 3,
-            first_visit: { done: 8, total: 12 },
-            total_tickets: 24,
-        };
+        const TECHNICIAN_ID = Number('{{ $technician->id }}'); // id profil teknisi, bukan user_id
+        const dash = '—';
+
+        function errMsg(xhr, fallback) {
+            const body = xhr.responseJSON || {};
+            return Object.values(body.errors || {}).flat()[0] || body.message || fallback;
+        }
 
         function render(data) {
-            const fv = data.first_visit || {};
-            $('#td-avg-rating').text(data.avg_rating != null ? Number(data.avg_rating).toFixed(1) : '-');
-            $('#td-avg-rating-note').text(`${data.rating_count || 0} counted responses`);
-            $('#td-first-visit').text(fv.total ? Math.round((fv.done / fv.total) * 100) + '%' : '-');
-            $('#td-first-visit-note').text(`${fv.done || 0} of ${fv.total || 0} completed on first visit`);
-            $('#td-total-tickets').text(data.total_tickets ?? '-');
+            const score = data.score || {};
+            const kpi = data.kpi || {};
+            const rating = score.rating;
+            const uncounted = (score.responses || []).filter(r => !r.counted).length;
+
+            $('#td-avg-rating').text(rating === null || rating === undefined ? dash : Number(rating).toFixed(1));
+            $('#td-avg-rating-note').text(`${score.rating_count || 0} counted responses` + (uncounted ? ` · ${uncounted} not counted` : ''));
+
+            if (score.completion === null || score.completion === undefined) {
+                $('#td-first-visit').text(dash);
+                $('#td-first-visit-note').text('No completed or recoming ticket yet');
+            } else {
+                $('#td-first-visit').text(`${score.completion}%`);
+                $('#td-first-visit-note').text(`${score.completion_closed} of ${score.completion_total} completed on first visit`);
+            }
+
+            $('#td-total-tickets').text(kpi.total_tickets ?? dash);
+        }
+
+        // satu request, hasilnya dibagikan ke card lain lewat event technician:score
+        function load(period) {
+            $.ajax({
+                url: `/api/aftersales/technicians/${TECHNICIAN_ID}`,
+                method: 'GET',
+                dataType: 'json',
+                headers: { Accept: 'application/json' },
+                data: { period: period || 'all' },
+                success: function (response) {
+                    const data = response.data || {};
+                    render(data);
+                    $(document).trigger('technician:score', [data.score || {}]);
+                },
+                error: function (xhr) {
+                    const message = errMsg(xhr, 'Failed to load technician performance.');
+                    $('#td-avg-rating-note, #td-first-visit-note').text(message);
+                    $(document).trigger('technician:score:error', [message]);
+                }
+            });
         }
 
         $(function () {
-            render(summary);
-            // TODO(API): muat ulang dengan period dari event
-            $(document).on('technician:period', function (e, period) { render(summary); });
+            load($('#td-period').val());
+            $(document).on('technician:period', function (e, period) { load(period); });
         });
     })();
 </script>

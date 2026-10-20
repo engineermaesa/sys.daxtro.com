@@ -56,17 +56,16 @@
         $('#sparepart-stock-alert').addClass('hidden').css('display', '');
     }
 
-    // stok yang boleh diminta untuk satu sparepart; null = belum diketahui
-    // TODO(API): saat edit tiket, BE akan memotong stok saat tiket dibuat, jadi stok tersedia
-    // = stok + qty estimasi tiket ini sendiri (EDIT_TICKET.parts, type 'estimated'). Sementara hanya stok master.
+    // stok yang boleh diminta untuk satu sparepart; null = belum diketahui.
+    // BE memotong stok saat Save Ticket, jadi saat edit stok tersedia = stok gudang + qty yang
+    // sudah dipegang tiket ini (part type 'estimated').
     function sparepartAvailableStock(id) {
         const sp = sparepartsCache.find(x => String(x.id) === String(id));
-        return sp ? Number(sp.stock || 0) : null;
-    }
-
-    function markSparepartRowOver($row, available) {
-        $row.find('.sparepart-qty').css('border-color', '#EC221F');
-        $row.find('.sparepart-stock-hint').removeClass('hidden').text(`Stock available: ${available}`);
+        if (!sp) return null;
+        const held = (typeof EDIT_TICKET !== 'undefined' && EDIT_TICKET?.parts || [])
+            .filter(p => p.type === 'estimated' && String(p.ref_sparepart_id) === String(id))
+            .reduce((sum, p) => sum + Number(p.qty || 0), 0);
+        return Number(sp.stock || 0) + held;
     }
 
     // cek qty (dijumlahkan per sparepart) terhadap stok; true bila semua cukup
@@ -92,17 +91,6 @@
         return ok;
     }
 
-    // dipakai saat BE menolak submit: items = [{ ref_sparepart_id, requested, available }]
-    function applySparepartStockErrors(items, message) {
-        (items || []).forEach(item => {
-            $('#sparepart-rows tr').each(function () {
-                if (String($(this).find('.sparepart-item').val()) === String(item.ref_sparepart_id)) {
-                    markSparepartRowOver($(this), item.available);
-                }
-            });
-        });
-        showSparepartStockAlert(message);
-    }
 
     // harga satuan (IDR) sebagai teks, tidak bisa diedit
     // (nilai tetap IDR di data-unit-price; hanya tampilan yang ikut Total Currency)
@@ -151,7 +139,7 @@
                     <input type="text" readonly placeholder="PRT-XXX-000" class="sparepart-code w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 bg-[#F5F5F5] focus:outline-none!">
                 </td>
                 <td class="px-2 py-4" style="position: relative;">
-                    <input type="number" min="0" value="0" class="sparepart-qty w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
+                    <input type="number" min="1" step="1" value="1" class="sparepart-qty w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                     <p class="sparepart-stock-hint hidden mb-0 whitespace-nowrap" style="position: absolute; left: 8px; top: calc(100% - 14px); font-size: 11px; line-height: 14px; color: #8A6D00;"></p>
                 </td>
                 <td class="px-2 py-4">
@@ -226,7 +214,7 @@
         if (EDIT_TICKET?.cost_display_currency) {
             $('#cost-total-currency').val(EDIT_TICKET.cost_display_currency);
         }
-        const parts = (EDIT_TICKET?.parts || []).filter(p => p.type === 'estimated');
+        const parts = (EDIT_TICKET?.parts || []).filter(p => p.type === 'estimated' && Number(p.qty) > 0);
 
         if (parts.length > 0) {
             parts.forEach(part => addSparepartRow({

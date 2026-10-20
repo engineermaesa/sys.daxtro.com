@@ -18,18 +18,10 @@
 @push('scripts')
 <script>
     (function () {
-        // TODO(API): ganti data statis ini dengan
-        //   GET /api/aftersales/technicians/{id}/performance?period=<#td-period>
-        // bentuk: recoming_reasons: [{ reason, tickets, counted }]
-        const reasons = [
-            { reason: 'Waiting sparepart', tickets: 2, counted: false },
-            { reason: 'Issue recurred', tickets: 1, counted: true },
-        ];
-
         function render(rows) {
             $('#td-recoming-body').html((rows || []).map(r => `
                 <tr class="border-t border-t-[#D9D9D9]">
-                    <td class="p-3 text-left">${escapeHtml(r.reason)}</td>
+                    <td class="p-3 text-left">${escapeHtml(r.label || r.reason)}</td>
                     <td class="p-3">${escapeHtml(r.tickets)}</td>
                     <td class="p-3">${r.counted ? 'Counted' : 'Not counted'}</td>
                 </tr>
@@ -37,9 +29,11 @@
         }
 
         $(function () {
-            render(reasons);
-            // TODO(API): muat ulang dengan period dari event
-            $(document).on('technician:period', function (e, period) { render(reasons); });
+            $('#td-recoming-body').html('<tr class="border-t border-t-[#D9D9D9]"><td colspan="3" class="p-3 text-[#9CA3AF]">Loading...</td></tr>');
+            $(document).on('technician:score', function (e, score) { render(score.recoming_reasons); });
+            $(document).on('technician:score:error', function (e, message) {
+                $('#td-recoming-body').html(`<tr class="border-t border-t-[#D9D9D9]"><td colspan="3" class="p-3 text-[#EC221F]">${escapeHtml(message)}</td></tr>`);
+            });
         });
     })();
 </script>

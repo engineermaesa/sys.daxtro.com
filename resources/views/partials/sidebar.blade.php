@@ -256,8 +256,11 @@
 
         {{-- SATISFACTION SURVEY MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
+        @php
+            $needsReview = \App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController::needsReview();
+        @endphp
         <li
-            class="{{ request()->routeIs('satisfaction-survey.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            class="{{ request()->routeIs('satisfaction-survey.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3 relative">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
                 href="{{ route('satisfaction-survey.index') }}">
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -267,6 +270,10 @@
                 </svg>
                 <span
                     class="sidebar-label {{ request()->routeIs('satisfaction-survey.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Satisfaction Survey</span>
+                @if ($needsReview > 0)
+                    <span class="rounded-full font-bold text-white" title="{{ $needsReview }} response(s) need review"
+                        style="position:absolute; top:4px; right:6px; min-width:18px; padding:0 5px; font-size:10px; line-height:18px; text-align:center; background:#D97706;">{{ $needsReview }}</span>
+                @endif
             </a>
         </li>
         @endif

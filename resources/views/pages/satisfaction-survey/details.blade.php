@@ -63,6 +63,25 @@
         </div>
     </div>
 
+    {{-- REVIEW --}}
+    <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
+        <h2 class="font-bold tracking-wide">REVIEW</h2>
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div>
+                <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Status</p>
+                <p id="dReviewStatus" class="mt-1 font-semibold"></p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Reviewed by</p>
+                <p id="dReviewedBy" class="mt-1 font-semibold"></p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Note</p>
+                <p id="dReviewNote" class="mt-1"></p>
+            </div>
+        </div>
+    </div>
+
     {{-- SECURITY TRAIL --}}
     <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
         <h2 class="font-bold tracking-wide">SECURITY TRAIL</h2>
@@ -76,6 +95,25 @@
         </div>
     </div>
 
+    {{-- RESPONSES ON THIS TICKET --}}
+    <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
+        <h2 class="font-bold tracking-wide">RESPONSES ON THIS TICKET</h2>
+        <div class="overflow-x-auto mt-3">
+            <table class="w-full whitespace-nowrap">
+                <thead>
+                    <tr class="border-b border-[#D9D9D9] text-left text-xs text-[#757575]">
+                        <th class="p-2">Response</th>
+                        <th class="p-2">Submitted</th>
+                        <th class="p-2 text-center">Average</th>
+                        <th class="p-2">Review</th>
+                        <th class="p-2">Reviewed by / note</th>
+                    </tr>
+                </thead>
+                <tbody id="dResponsesBody"></tbody>
+            </table>
+        </div>
+    </div>
+
     {{-- FOOTER ACTIONS --}}
     <div class="mt-4 pb-6 flex flex-wrap items-center justify-between gap-3">
         <button type="button" class="back-to-list px-4 py-2 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">
@@ -83,7 +121,7 @@
         </button>
         <div class="flex flex-wrap gap-2">
             <button type="button" id="btnViewForm" class="px-4 py-2 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">View form (read-only)</button>
-            <button type="button" id="btnMarkReviewed" class="px-4 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Mark as reviewed</button>
+            <button type="button" id="btnReview" class="hidden px-4 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Review</button>
             <button type="button" id="btnScheduleRecoming" class="px-4 py-2 bg-[#FBF3D5] text-[#8A6D0B] font-semibold rounded-lg cursor-pointer">Schedule Recoming</button>
         </div>
     </div>

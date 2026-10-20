@@ -73,6 +73,12 @@
                         <div id="ticketLogPhotoRows" class="space-y-2"></div>
                     </div>
 
+                    {{-- Gate Closed (kontrak 6.5): respons current Needs review / Rejected --}}
+                    <div id="ticketLogGateBox" class="hidden rounded-md mb-2" style="padding: 10px 14px; background:#FBEAEA; color:#900B09; font-size: 13px;">
+                        <p id="ticketLogGateMessage" class="mb-2"></p>
+                        <a id="ticketLogGateLink" href="#" class="inline-block border rounded-md font-semibold" style="padding: 6px 12px; border-color:#900B09; color:#900B09;">Open Review Response</a>
+                    </div>
+
                     <button type="button" id="btn-add-ticket-log"
                         class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors cursor-pointer">
                         <i class="bi bi-plus-lg"></i> Activity
@@ -252,6 +258,7 @@
     }
 
     function resetTicketLogForm() {
+        $('#ticketLogGateBox').addClass('hidden');
         $('#ticketLogStep').val('on_site');
         $('#ticketLogNote').val('');
         $('.ticket-log-satisfaction-field').val('');
@@ -284,6 +291,7 @@
     function submitTicketLog() {
         if (!currentUpdateLogsTicketId) return;
 
+        $('#ticketLogGateBox').addClass('hidden');
         const step = $('#ticketLogStep').val();
         const endpoint = STEP_ENDPOINT[step];
         let data = { note: $('#ticketLogNote').val() || null };
@@ -345,6 +353,15 @@
                 loadTickets();
             },
             error: function (xhr) {
+                // gate Closed: 422 dengan satisfaction_id -> kotak merah + tombol menuju Review Response
+                const gateId = xhr.status === 422 ? xhr.responseJSON?.satisfaction_id : null;
+                if (gateId) {
+                    $('#ticketLogGateMessage').text(xhr.responseJSON.message || 'Cannot set to Closed.');
+                    $('#ticketLogGateLink').attr('href', `/satisfaction-survey#${gateId}/review`);
+                    $('#ticketLogGateBox').removeClass('hidden');
+                    return;
+                }
+
                 Swal.fire({
                     title: 'Failed to add activity',
                     text: xhr.responseJSON?.message || 'An error occurred, please try again.',

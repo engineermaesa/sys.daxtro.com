@@ -20,18 +20,18 @@
 @push('scripts')
 <script>
     (function () {
-        // TODO(API): ganti data statis ini dengan
-        //   GET /api/aftersales/technicians/{id}/performance?period=<#td-period>
-        // bentuk: survey_responses: [{ ticket_code, submitted_at, score, review, in_rating }]
-        const responses = [
-            { ticket_code: 'TKT-2024-001', submitted_at: '2025-01-12', score: 4.7, review: 'Approved', in_rating: true },
-            { ticket_code: 'TKT-2024-014', submitted_at: '2025-02-03', score: 2.1, review: 'Needs review', in_rating: false },
-        ];
+        const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed', rejected: 'Rejected' };
 
+        // tanggal selalu WIB (kontrak: jangan pakai toISOString)
         function formatLongDate(value) {
             const d = new Date(value);
-            if (isNaN(d)) return '—';
-            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            if (!value || isNaN(d)) return '—';
+            return d.toLocaleDateString('en-GB', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function inRating(r) {
+            if (r.counted) return 'Counted';
+            return 'Not counted' + (r.not_counted_reason ? ` · ${escapeHtml(r.not_counted_reason)}` : '');
         }
 
         function render(rows) {
@@ -40,16 +40,18 @@
                     <td class="p-3">${escapeHtml(s.ticket_code)}</td>
                     <td class="p-3 text-center">${formatLongDate(s.submitted_at)}</td>
                     <td class="p-3 text-center">${Number(s.score).toFixed(1)}</td>
-                    <td class="p-3 text-center">${escapeHtml(s.review)}</td>
-                    <td class="p-3 text-center">${s.in_rating ? 'Yes' : 'No'}</td>
+                    <td class="p-3 text-center">${escapeHtml(REVIEW_LABEL[s.review_status] || s.review_status)}</td>
+                    <td class="p-3 text-center">${inRating(s)}</td>
                 </tr>
             `).join('') || '<tr class="border-t border-t-[#D9D9D9]"><td colspan="5" class="p-3 text-[#9CA3AF]">No survey response.</td></tr>');
         }
 
         $(function () {
-            render(responses);
-            // TODO(API): muat ulang dengan period dari event
-            $(document).on('technician:period', function (e, period) { render(responses); });
+            $('#td-survey-body').html('<tr class="border-t border-t-[#D9D9D9]"><td colspan="5" class="p-3 text-[#9CA3AF]">Loading...</td></tr>');
+            $(document).on('technician:score', function (e, score) { render(score.responses); });
+            $(document).on('technician:score:error', function (e, message) {
+                $('#td-survey-body').html(`<tr class="border-t border-t-[#D9D9D9]"><td colspan="5" class="p-3 text-[#EC221F]">${escapeHtml(message)}</td></tr>`);
+            });
         });
     })();
 </script>

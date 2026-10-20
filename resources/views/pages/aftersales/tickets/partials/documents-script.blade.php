@@ -233,18 +233,8 @@
         return (cur === 'usd' ? '$' : '\u00A5') + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function loadFinalCost() {
-        const id = currentId();
-        if (!id) return;
-
-        $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#9CA3AF]" colspan="6">Loading...</td></tr>');
-
-        $.when(
-            call('GET', '/tickets/' + id),
-            call('GET', '/tickets/exchange-rates')
-        ).done(function (tRes, rRes) {
-            const t = tRes[0].data || {};
-            const r = (rRes[0] && rRes[0].data) || {};
+    function renderFinalCost(t, r) {
+        (function () {
             const rates = { usd: Number(r.idr_per_usd || 0), cny: Number(r.idr_per_cny || 0) };
             const cur = ['idr', 'usd', 'cny'].indexOf(t.cost_display_currency) >= 0 ? t.cost_display_currency : 'idr';
 
@@ -285,42 +275,169 @@
             $('#tdFinalCostChips').html('<div class="rounded-md border text-center" style="padding: 6px 12px; border-color:#115640; background:#E7F3EE;">'
                 + '<p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Total Currency</p>'
                 + '<p class="font-bold text-[#115640] text-xs">' + cur.toUpperCase() + '</p></div>');
+        })();
+    }
+
+    // ---------- Satu GET /tickets/{id} dibagikan ke semua kartu ----------
+    function loadTicketDetail() {
+        const id = currentId();
+        if (!id) return;
+
+        $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#9CA3AF]" colspan="6">Loading...</td></tr>');
+        $('#tdVisitHistoryBody').html('<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">Loading...</td></tr>');
+
+        call('GET', '/tickets/' + id).done(function (res) {
+            if (currentId() !== id) return; // user sudah pindah tiket
+            const t = res.data || {};
+            S.ticket = t;
+            renderVisitHistory(t);
+            renderSurveyCard(t);
+
+            call('GET', '/tickets/exchange-rates')
+                .done(function (r) { if (currentId() === id) renderFinalCost(t, (r && r.data) || {}); })
+                .fail(function () { if (currentId() === id) renderFinalCost(t, {}); });
         }).fail(function (xhr) {
-            $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#EC221F]" colspan="6">' + esc(errMsg(xhr, 'Failed to load cost details.')) + '</td></tr>');
+            const msg = esc(errMsg(xhr, 'Failed to load ticket details.'));
+            $('#tdFcParts, #tdFcCosts').html('<tr><td class="p-2 text-[#EC221F]" colspan="6">' + msg + '</td></tr>');
+            $('#tdVisitHistoryBody').html('<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#EC221F]" colspan="3">' + msg + '</td></tr>');
         });
     }
 
-    // ---------- Visit History di Ticket Detail ----------
-    const VISIT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // "12 Jan 2025 · 09:30"; jam disembunyikan kalau 00:00 (recoming disimpan startOfDay)
+    // ---------- Visit History + Reschedule ----------
+    // "12 Jan 2025 · 09:30" (WIB); jam disembunyikan kalau 00:00 (recoming disimpan startOfDay)
     function fmtVisitDate(v) {
-        const d = new Date(String(v).replace(' ', 'T'));
-        if (isNaN(d)) return '-';
-        const p = function (n) { return String(n).padStart(2, '0'); };
-        const date = p(d.getDate()) + ' ' + VISIT_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
-        return d.getHours() || d.getMinutes() ? date + ' · ' + p(d.getHours()) + ':' + p(d.getMinutes()) : date;
+        const d = new Date(v);
+        if (!v || isNaN(d)) return '-';
+        const parts = {};
+        new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(d).forEach(function (p) { parts[p.type] = p.value; });
+        const date = parts.day + ' ' + parts.month + ' ' + parts.year;
+        const hour = parts.hour === '24' ? '00' : parts.hour;
+        return (hour !== '00' || parts.minute !== '00') ? date + ' \u00B7 ' + hour + ':' + parts.minute : date;
     }
 
-    function loadVisitHistory() {
-        // TODO(API): ganti data statis ini dengan
-        //   call('GET', '/tickets/' + currentId()).done(res => render(res.data.visit_history))
-        // bentuk item: { visit_no, scheduled_at, note }
-        const visits = [
-            { visit_no: 1, scheduled_at: '2025-01-12 09:30:00', note: 'Initial inspection, leak repair, vacuum process, and refrigerant recharge completed.' },
-            { visit_no: 2, scheduled_at: '2025-01-15 10:00:00', note: 'Recoming visit scheduled to verify cooling performance and target temperature stability.' }
-        ];
+    function renderVisitHistory(t) {
+        const visits = t.visit_history || [];
 
         $('#tdVisitHistoryBody').html(visits.length ? visits.map(function (v) {
+            const badge = v.current
+                ? ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current</span>'
+                : '';
             return '<tr class="border-t border-[#EDEDED]">'
-                + '<td class="p-2">Visit ' + esc(v.visit_no) + '</td>'
+                + '<td class="p-2">Visit ' + esc(v.visit_no) + badge + '</td>'
                 + '<td class="p-2">' + esc(fmtVisitDate(v.scheduled_at)) + '</td>'
                 + '<td class="p-2 text-[#4B5563]">' + esc(dash(v.note)) + '</td></tr>';
         }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">No visit yet.</td></tr>');
 
-        // TODO(API): Visit Schedule terbaru = data.visit_date dari respons yang sama
-        // (saat ini #tdVisit diisi dari baris list di index.blade.php).
-        if (visits.length) $('#tdVisit').text(fmtVisitDate(visits[visits.length - 1].scheduled_at));
+        // Visit Schedule di header = visit terbaru (current); visit lanjutan diberi label follow-up
+        const current = visits.filter(function (v) { return v.current; })[0];
+        if (current) {
+            $('#tdVisit').html(esc(fmtVisitDate(current.scheduled_at))
+                + (Number(current.visit_no) > 1 ? ' <span class="text-[#9CA3AF] text-xs font-normal">(follow-up visit)</span>' : ''));
+        }
+
+        // FR-E20: tombol hanya bila BE bilang boleh
+        $('#tdRescheduleBtn').toggleClass('hidden', t.can_reschedule !== true);
+    }
+
+    $(document).on('click', '#tdRescheduleBtn', function () {
+        const id = currentId();
+        const t = S.ticket || {};
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+        const planned = t.current_recoming && t.current_recoming.planned_visit_at
+            ? new Date(t.current_recoming.planned_visit_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+            : today;
+
+        Swal.fire({
+            title: 'Reschedule follow-up visit',
+            html: '<div style="text-align:left;">'
+                + '<label for="swRescheduleDate" class="text-xs font-semibold">New visit date</label>'
+                + '<input id="swRescheduleDate" type="date" class="swal2-input" style="margin: 6px 0 12px; width: 100%;" min="' + today + '" value="' + planned + '">'
+                + '<label for="swRescheduleNote" class="text-xs font-semibold">Note (optional)</label>'
+                + '<textarea id="swRescheduleNote" class="swal2-textarea" maxlength="1000" style="margin: 6px 0 0; width: 100%;" placeholder="Reason for rescheduling"></textarea>'
+                + '</div>',
+            showCancelButton: true,
+            confirmButtonText: 'Reschedule',
+            confirmButtonColor: '#115640',
+            allowOutsideClick: function () { return !Swal.isLoading(); },
+            preConfirm: function () {
+                const date = document.getElementById('swRescheduleDate').value;
+                const note = document.getElementById('swRescheduleNote').value.trim();
+                if (!date) { Swal.showValidationMessage('Choose a visit date.'); return false; }
+                if (date < today) { Swal.showValidationMessage('The date cannot be before today.'); return false; }
+                return call('POST', '/tickets/' + id + '/recoming/reschedule', { planned_visit_at: date, note: note || null })
+                    .then(function (res) { return res; }, function (xhr) {
+                        Swal.showValidationMessage(errMsg(xhr, 'Failed to reschedule.'));
+                        return false;
+                    });
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            toast('Follow-up visit rescheduled');
+            loadTicketDetail();
+        });
+    });
+
+    // ---------- Satisfaction Survey card (kontrak 3.2 + 6.4) ----------
+    const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed', rejected: 'Rejected' };
+    const REVIEW_STYLE = {
+        normal: 'background:#F0F0F0;color:#4B5563;',
+        needs_review: 'background:#FFF3CD;color:#8A6D00;',
+        reviewed: 'background:#E7F3EE;color:#115640;',
+        rejected: 'background:#FBEAEA;color:#900B09;',
+    };
+
+    function renderSurveyCard(t) {
+        const responses = t.survey_responses;
+
+        if (Array.isArray(responses)) {
+            // After Sales: index 0 = current, sisanya History (FR-E37)
+            $('#tdSurveyFilled').addClass('hidden');
+            $('#tdSurveyResponsesWrap').removeClass('hidden');
+            $('#tdSurveyResponsesBody').html(responses.length ? responses.map(function (r, i) {
+                const style = REVIEW_STYLE[r.review_status] || REVIEW_STYLE.normal;
+                const tag = i === 0
+                    ? '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current</span>'
+                    : '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">History</span>';
+                const machine = r.machine_ok === null || r.machine_ok === undefined ? '\u2014' : (r.machine_ok ? 'Yes' : 'No');
+                return '<tr class="border-t border-[#EDEDED]">'
+                    + '<td class="p-2">' + tag + '</td>'
+                    + '<td class="p-2">' + esc(fmtDateTime(r.submitted_at)) + '</td>'
+                    + '<td class="p-2 text-center">' + (r.average_score === null || r.average_score === undefined ? '\u2014' : Number(r.average_score).toFixed(1)) + '</td>'
+                    + '<td class="p-2 text-center">' + machine + '</td>'
+                    + '<td class="p-2"><span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; ' + style + '">' + esc(REVIEW_LABEL[r.review_status] || r.review_status) + '</span>'
+                    + (r.review_note ? '<div class="text-[#757575] text-xs" style="margin-top: 2px;">' + esc(r.review_note) + '</div>' : '') + '</td></tr>';
+            }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="5">No survey response yet.</td></tr>');
+        } else {
+            // Teknisi (BR-S6): hanya Filled / belum, tanpa skor
+            $('#tdSurveyResponsesWrap').addClass('hidden');
+            $('#tdSurveyFilled').removeClass('hidden').text(t.survey_filled ? 'Survey: Filled' : 'Survey: not filled yet');
+        }
+
+        renderResubmission();
+    }
+
+    // link survey hanya diketahui lewat GET /tickets/{id}/survey-link (dimuat index.blade.php)
+    $(document).on('ticket:survey-link', function (e, ticketId, link) {
+        S.link = { ticketId: ticketId, status: (link || {}).status };
+        renderResubmission();
+    });
+
+    // banner D10: respons current ditolak DAN link baru berstatus Active
+    function renderResubmission() {
+        const t = S.ticket;
+        const link = S.link;
+        const current = t && Array.isArray(t.survey_responses) ? t.survey_responses[0] : null;
+        const show = current && current.review_status === 'rejected'
+            && link && link.ticketId === t.id && link.status === 'active';
+
+        $('#tdResubmitBanner').toggleClass('hidden', !show);
+        if (show) {
+            $('#tdResubmitBanner').text('The response of ' + fmtDateTime(current.submitted_at)
+                + ' was rejected. Share this new link with the customer.');
+        }
     }
 
     // ---------- Supporting Documents card ----------
@@ -416,8 +533,7 @@
             S.ticketId = (currentTicket || {}).id;
             $('#tdDocsDynamic').html('<p class="text-[#9CA3AF] text-xs" style="padding: 14px 0;">Loading documents...</p>');
             loadDocs();
-            loadFinalCost();
-            loadVisitHistory();
+            loadTicketDetail();
         });
     });
 

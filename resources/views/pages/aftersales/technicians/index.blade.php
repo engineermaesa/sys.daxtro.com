@@ -27,8 +27,9 @@
                 </button>
                 <select id="technician-period" class="border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
                     <option value="all">All time</option>
-                    <option value="30d">Last 30 days</option>
-                    <option value="year">This year</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last 12 months</option>
                 </select>
             </div>
         </div>
@@ -49,8 +50,10 @@
                         <th class="p-3 text-center uppercase text-xs">Certification</th>
                         <th class="p-3 text-center uppercase text-xs">Status</th>
                         <th class="p-3 text-center uppercase text-xs">Total Ticket</th>
+                        @if (hasPermission(auth()->user(), 'aftersales.tickets.manage'))
                         <th class="p-3 text-center uppercase text-xs">Rating</th>
                         <th class="p-3 text-center uppercase text-xs">First Visit Completion</th>
+                        @endif
                         <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
@@ -69,6 +72,10 @@
 
 @section('scripts')
 <script>
+    // Rating & First-Visit Completion hanya untuk After Sales (FR-E05)
+    const CAN_SEE_SCORE = @json(hasPermission(auth()->user(), 'aftersales.tickets.manage'));
+    const TECHNICIAN_COLSPAN = CAN_SEE_SCORE ? 14 : 12;
+
     const technicianState = {
         page: 1,
         lastPage: 1,
@@ -119,11 +126,20 @@
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium ${cls}">${escapeHtml(status || '-')}</span>`;
     }
 
+    function scoreCells(row) {
+        if (!CAN_SEE_SCORE) return '';
+        const rating = row.rating === null || row.rating === undefined ? '—' : `${row.rating} (${row.rating_count})`;
+        const completion = row.completion === null || row.completion === undefined
+            ? '—'
+            : `${row.completion}% (${row.completion_closed}/${row.completion_total})`;
+        return `<td class="p-3 text-center">${rating}</td><td class="p-3 text-center">${completion}</td>`;
+    }
+
     function renderTechnicianRows(rows) {
         const $body = $('#technician-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No technicians found</td></tr>');
+            $body.html(`<tr><td colspan="${TECHNICIAN_COLSPAN}" class="text-center p-4 text-[#757575]">No technicians found</td></tr>`);
             return;
         }
 
@@ -141,9 +157,7 @@
                 <td class="p-3 text-center">${escapeHtml(row.certification || '—')}</td>
                 <td class="p-3 text-center">${statusBadge(row.status)}</td>
                 <td class="p-3 text-center">${row.total_tickets ?? 0}</td>
-                {{-- TODO(API): rating & first-visit per periode dari respons (rating, first_visit_completion) --}}
-                <td class="p-3 text-center">4.4/5</td>
-                <td class="p-3 text-center">67%</td>
+                ${scoreCells(row)}
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="btn-technician-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
@@ -191,7 +205,7 @@
     }
 
     function loadTechnicians() {
-        $('#technician-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#technician-table-body').html(`<tr><td colspan="${TECHNICIAN_COLSPAN}" class="text-center p-4 text-[#757575]">Loading...</td></tr>`);
 
         $.ajax({
             url: '/api/aftersales/technicians',
@@ -200,8 +214,7 @@
                 page: technicianState.page,
                 per_page: technicianState.perPage,
                 search: technicianState.search,
-                // TODO(API): kirim period: technicianState.period ('all' | '30d' | 'year');
-                // BE memfilter Total Ticket, Rating, First Visit per periode
+                period: technicianState.period,
             },
             success: function (response) {
                 renderTechnicianRows(response.data);
@@ -209,7 +222,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load technicians';
-                $('#technician-table-body').html(`<tr><td colspan="12" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#technician-table-body').html(`<tr><td colspan="${TECHNICIAN_COLSPAN}" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }

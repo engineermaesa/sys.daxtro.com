@@ -193,8 +193,8 @@
             const itemId = $(this).find('.sparepart-item').val();
             const qty = $(this).find('.sparepart-qty').val();
             const unit = $(this).find('.sparepart-unit').val();
-            if (itemId && qty && unit) {
-                parts.push({ ref_sparepart_id: itemId, qty: qty, unit: unit });
+            if (itemId && Number(qty) > 0 && unit) {
+                parts.push({ ref_sparepart_id: itemId, qty: Number(qty), unit: unit });
             }
         });
 
@@ -322,7 +322,9 @@
             $.ajax({
                 url: isEdit ? `/api/aftersales/tickets/${EDIT_TICKET_ID}` : '/api/aftersales/tickets',
                 method: isEdit ? 'PUT' : 'POST',
-                data: ajaxData,
+                // JSON: jQuery tidak mengirim array kosong, padahal parts: [] berarti semua part dihapus
+                contentType: 'application/json',
+                data: JSON.stringify(ajaxData),
                 success: function (response) {
                     const ticketId = isEdit ? EDIT_TICKET_ID : response.data?.data?.id;
                     const ticketCode = response.data?.data?.ticket_code ?? EDIT_TICKET?.ticket_code;
@@ -373,12 +375,12 @@
                     );
                 },
                 error: function (xhr) {
-                    // TODO(API): kontrak BE saat stok kurang: HTTP 422
-                    //   { error_code: 'insufficient_stock', message, items: [{ ref_sparepart_id, requested, available }] }
-                    if (xhr.status === 422 && xhr.responseJSON?.error_code === 'insufficient_stock') {
+                    // stok kurang: 422 { message, errors: { parts: ["Not enough stock: ..."] } }, tiket tidak tersimpan
+                    const stockError = xhr.status === 422 ? xhr.responseJSON?.errors?.parts?.[0] : null;
+                    if (stockError) {
                         currentStep = 4;
                         updateStepper();
-                        applySparepartStockErrors(xhr.responseJSON.items, xhr.responseJSON.message);
+                        showSparepartStockAlert('Ticket was not saved. ' + stockError);
                         return;
                     }
 

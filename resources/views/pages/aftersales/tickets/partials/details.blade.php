@@ -98,9 +98,14 @@
             </div>
         </div>
 
-        {{-- VISIT HISTORY (data statis dulu; di-render oleh loadVisitHistory() di documents-script) --}}
+        {{-- VISIT HISTORY (di-render renderVisitHistory() di documents-script dari GET /tickets/{id} -> visit_history) --}}
         <div id="tdVisitHistoryCard" class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
-            <h2 class="font-bold tracking-wide">VISIT HISTORY</h2>
+            <div class="flex items-center justify-between flex-wrap" style="gap: 12px;">
+                <h2 class="font-bold tracking-wide">VISIT HISTORY</h2>
+                <button type="button" id="tdRescheduleBtn" class="hidden border border-[#115640] text-[#115640] rounded-lg cursor-pointer" style="padding: 6px 12px;">
+                    <i class="bi bi-calendar-event"></i> Reschedule
+                </button>
+            </div>
             <div class="overflow-x-auto" style="margin-top: 12px;">
                 <table class="w-full">
                     <thead>
@@ -153,9 +158,38 @@
                 <span id="tdSurveyStatus" class="rounded-full bg-[#E7F3EE] text-[#115640] font-semibold text-xs" style="padding: 3px 12px;">Loading...</span>
             </div>
 
+            {{-- Resubmission link (FR-E32): respons current ditolak dan link baru Active --}}
+            <div id="tdResubmitBanner" class="hidden rounded-md text-xs" style="margin-top: 16px; padding: 10px 14px; background:#FFF3CD; color:#8A6D00;"></div>
+
             <div class="flex items-center justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
                 <a id="tdSurveyUrl" class="text-[#4B5563] truncate underline" target="_blank" rel="noopener noreferrer"></a>
-                <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer shrink-0 disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
+                <div class="flex items-center shrink-0" style="gap: 8px;">
+                    <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
+                    <button type="button" id="tdShareWhatsapp" disabled class="bg-white border border-[#115640] text-[#115640] font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">
+                        <i class="bi bi-whatsapp"></i> WhatsApp
+                    </button>
+                </div>
+            </div>
+
+            {{-- Teknisi: hanya status Filled (BR-S6, tanpa skor) --}}
+            <p id="tdSurveyFilled" class="hidden text-xs" style="margin-top: 14px;"></p>
+
+            {{-- After Sales: respons current + History (kontrak 3.2 survey_responses) --}}
+            <div id="tdSurveyResponsesWrap" class="hidden" style="margin-top: 16px;">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#D9D9D9] text-left text-xs text-[#757575]">
+                                <th class="p-2">Response</th>
+                                <th class="p-2">Submitted</th>
+                                <th class="p-2 text-center">Average</th>
+                                <th class="p-2 text-center">Machine OK</th>
+                                <th class="p-2">Review</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tdSurveyResponsesBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 

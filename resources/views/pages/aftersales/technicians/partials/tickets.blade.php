@@ -10,7 +10,6 @@
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-                <option value="critical">Critical</option>
             </select>
         </div>
     </div>
@@ -69,18 +68,19 @@
             documentation_published: 'Documentation Published',
             satisfaction_submitted: 'Satisfaction Submitted',
             closed: 'Closed',
+            recoming: 'Recoming',
         };
 
         const PRIORITY_BADGE = {
             low: 'bg-[#F0F0F0] text-[#757575]',
             medium: 'bg-[#E7ECFB] text-[#3B4FA6]',
             high: 'bg-[#FFF3CD] text-[#8A6D00]',
-            critical: 'bg-[#FBEAEA] text-[#900B09]',
         };
 
+        // tanggal selalu WIB (kontrak: jangan pakai toISOString)
         function formatDate(value) {
             if (!value) return '—';
-            return new Date(value).toISOString().slice(0, 10);
+            return new Date(value).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
         }
 
         function priorityBadge(priority) {
@@ -88,12 +88,15 @@
             return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium ${cls}">${escapeHtml(priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : '-')}</span>`;
         }
 
-        function stepBadge(step) {
+        function stepBadge(step, currentRecoming) {
             const percent = PROGRESS_PERCENT[step] ?? 0;
             let cls = 'bg-[#FBEAEA] text-[#900B09]';
             if (percent >= 100) cls = 'bg-[#E6F4EF] text-[#115640]';
             else if (percent >= 50) cls = 'bg-[#FFF3CD] text-[#8A6D00]';
-            const label = STEP_LABEL[step] || step || '-';
+            let label = STEP_LABEL[step] || step || '-';
+            if (step === 'recoming' && currentRecoming) {
+                label = `Recoming · visit ${currentRecoming.visit_no} · ${formatDate(currentRecoming.planned_visit_at)}`;
+            }
             return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${escapeHtml(label)}</span>`;
         }
 
@@ -110,7 +113,7 @@
                     <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
                     <td class="p-3 text-center">${escapeHtml((row.customer || {}).name)}</td>
                     <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
-                    <td class="p-3 text-center">${stepBadge(row.progress)}</td>
+                    <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}</td>
                     <td class="p-3 text-center">${formatDate(row.visit_date)}</td>
                     <td class="p-3 text-center">
                         <a href="/aftersales/tickets/${row.id}/work-order-pdf" target="_blank"

@@ -18,9 +18,14 @@
                 <option value="normal">Normal</option>
                 <option value="needs_review">Needs review</option>
                 <option value="reviewed">Reviewed</option>
+                <option value="rejected">Rejected</option>
             </select>
             <button type="submit" class="px-5 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Search</button>
         </form>
+
+        <div class="mt-4 rounded-lg" style="padding: 12px 16px; background:#FFF3CD; color:#8A6D00;">
+            A ticket cannot be set to Closed while its latest response is Needs review or Rejected. Responses that are not Normal or Reviewed are left out of the technician rating.
+        </div>
 
         <div class="mt-4 bg-white border border-[#D9D9D9] rounded-lg">
             <div class="overflow-x-auto">
@@ -55,6 +60,7 @@
     </div>
 
     @include('pages.satisfaction-survey.details')
+    @include('pages.satisfaction-survey.review')
     @include('pages.satisfaction-survey.view-form')
     @include('pages.satisfaction-survey.recoming')
 </section>
@@ -69,6 +75,7 @@
         const listView = document.getElementById('surveyListView');
         const detailView = document.getElementById('surveyDetailView');
         const formView = document.getElementById('surveyFormView');
+        const reviewView = document.getElementById('surveyReviewView');
         const tbody = document.getElementById('surveyTableBody');
 
         const state = { page: 1, lastPage: 1, search: '', review: '' };
@@ -76,7 +83,7 @@
         let current = null;     // { id, row, detail }
         const recomingIds = {}; // response ids that were scheduled for Recoming in this session
 
-        const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed' };
+        const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed', rejected: 'Rejected' };
         const REVIEW_REASON_TEXT = {
             fast_completion: 'Completed in under 30 seconds',
             same_browser_as_technician: 'Browser/device signature matches a technician login within 24 hours',
@@ -131,6 +138,7 @@
             return recomingIds[row.id] ? 'Recoming' : (REVIEW_LABEL[row.review_status] || '-');
         }
         function reviewColor(row) {
+            if (row.review_status === 'rejected') return 'text-[#EC221F]';
             return (row.review_status === 'reviewed' && ! recomingIds[row.id]) ? 'text-[#115640]'
                 : (row.review_status === 'normal' ? 'text-[#757575]' : 'text-[#D97706]');
         }
@@ -150,8 +158,17 @@
                 tbody.innerHTML = '<tr><td class="p-10 text-center text-[#757575]" colspan="10">No survey responses found.</td></tr>';
             } else {
                 tbody.innerHTML = rows.map(function (r) {
-                    return `<tr class="border-b border-[#D9D9D9] last:border-b-0">
-                        <td class="p-3 font-semibold text-[#115640] text-center">${esc(r.ticket_code)}</td>
+                    const needsReview = r.review_status === 'needs_review';
+                    const reasons = (r.review_reasons || []).map(function (c) { return REVIEW_REASON_TEXT[c] || c; });
+                    const by = r.reviewed_by ? (r.review_status === 'rejected' ? 'Rejected by ' : 'Approved by ') + r.reviewed_by : '';
+                    const history = r.is_current === false
+                        ? ' <span class="px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#757575] text-[10px] font-semibold">History</span>' : '';
+                    const action = (needsReview && canReview)
+                        ? `<button type="button" data-id="${r.id}" class="review-response px-3 py-1.5 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Review</button>`
+                        : `<button type="button" data-id="${r.id}" class="view-detail px-3 py-1.5 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">View</button>`;
+
+                    return `<tr class="border-b border-[#D9D9D9] last:border-b-0 ${r.is_current === false ? 'bg-[#FAFAFA]' : ''}">
+                        <td class="p-3 font-semibold text-[#115640] text-center">${esc(r.ticket_code)}${history}</td>
                         <td class="p-3 font-semibold text-center">${esc(r.customer)}</td>
                         <td class="text-center p-3 text-[#757575]">${esc(dash(r.technician))}</td>
                         <td class="p-3 text-center text-[#757575]">${esc(dash(r.service_date))}</td>
@@ -159,19 +176,12 @@
                         <td class="p-3 font-semibold text-[#115640] text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / 5'}</td>
                         <td class="p-3 text-center">${machineBadge(r.machine_ok)}</td>
                         <td class="p-3 text-center text-[#757575]">${esc(dash(r.source_label))}</td>
-                        <td class="p-3 text-center font-semibold ${reviewColor(r)}">${esc(reviewText(r))}</td>
                         <td class="p-3 text-center">
-                            <div class="relative inline-block">
-                                <button type="button" class="action-toggle w-9 h-9 flex items-center justify-center rounded-lg border border-[#D9D9D9] bg-[#F5F5F5] text-[#757575] cursor-pointer">
-                                    <i class="fas fa-ellipsis-h"></i>
-                                </button>
-                                <div class="action-menu hidden fixed w-52 bg-white border border-[#D9D9D9] rounded-lg shadow-lg z-50 p-1">
-                                    <button type="button" data-id="${r.id}" class="view-detail w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-[#F5F5F5] text-left cursor-pointer">
-                                        <i class="far fa-copy text-[#757575]"></i><span>View Detail</span>
-                                    </button>
-                                </div>
-                            </div>
+                            <span class="font-semibold ${reviewColor(r)}">${esc(reviewText(r))}</span>
+                            ${reasons.length ? `<div class="text-[11px] text-[#757575] whitespace-normal" style="max-width:240px;margin:2px auto 0;">${esc(reasons.join(', '))}</div>` : ''}
+                            ${by ? `<div class="text-[11px] text-[#757575]">${esc(by)}</div>` : ''}
                         </td>
+                        <td class="p-3 text-center">${action}</td>
                     </tr>`;
                 }).join('');
             }
@@ -218,40 +228,21 @@
             if (state.page < state.lastPage) { state.page++; loadList(); }
         });
 
-        // ---------- ACTION MENU (delegated; rows are rendered dynamically) ----------
-        function closeMenus() {
-            document.querySelectorAll('.action-menu').forEach(function (m) { m.classList.add('hidden'); });
-        }
+        // ---------- ROW ACTIONS (delegated; rows are rendered dynamically) ----------
+        // buka lewat hash supaya hashchange yang memuat layar (satu request, back/forward ikut jalan)
         tbody.addEventListener('click', function (e) {
-            const toggle = e.target.closest('.action-toggle');
+            const review = e.target.closest('.review-response');
             const view = e.target.closest('.view-detail');
-            if (toggle) {
-                e.stopPropagation();
-                const menu = toggle.nextElementSibling;
-                const wasHidden = menu.classList.contains('hidden');
-                closeMenus();
-                if (wasHidden) {
-                    const rect = toggle.getBoundingClientRect();
-                    menu.style.top = (rect.bottom + 4) + 'px';
-                    // anchor by the right edge so it does not depend on the menu's rendered width
-                    menu.style.left = 'auto';
-                    menu.style.right = (document.documentElement.clientWidth - rect.right) + 'px';
-                    menu.classList.remove('hidden');
-                }
-            } else if (view) {
-                location.hash = view.dataset.id;
-                showDetail(view.dataset.id);
-            }
+            if (review) location.hash = review.dataset.id + '/review';
+            else if (view) location.hash = view.dataset.id;
         });
-        document.addEventListener('click', closeMenus);
-        window.addEventListener('scroll', closeMenus, true);
-        window.addEventListener('resize', closeMenus);
 
         // ---------- DETAIL ----------
         function showView(which) {
             listView.classList.toggle('hidden', which !== 'list');
             detailView.classList.toggle('hidden', which !== 'detail');
             formView.classList.toggle('hidden', which !== 'form');
+            reviewView.classList.toggle('hidden', which !== 'review');
             window.scrollTo(0, 0);
         }
 
@@ -328,19 +319,37 @@
                 </li>`;
             }).join('');
 
+            // review (D9): status, reviewer, note, dan semua respons pada tiket ini
+            set('dReviewStatus', REVIEW_LABEL[t.review_status] || '-');
+            set('dReviewedBy', dash(d.reviewed_by));
+            set('dReviewNote', dash(d.review_note));
+            document.getElementById('dResponsesBody').innerHTML = (d.responses || []).map(function (r) {
+                const tag = r.current
+                    ? '<span class="px-2 py-0.5 rounded-full bg-[#E7F3EE] text-[#115640] text-[10px] font-semibold">Current</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#757575] text-[10px] font-semibold">History</span>';
+                const sub = [r.reviewed_by, r.review_note].filter(Boolean).join(' · ');
+                return `<tr class="border-t border-[#EDEDED] ${r.id === d.id ? 'bg-[#F5FAF8]' : ''}">
+                    <td class="p-2">${r.id === d.id ? tag : `<button type="button" class="response-link underline text-[#115640] cursor-pointer" data-id="${r.id}">${tag.replace(/<[^>]+>/g, '')}</button>`}</td>
+                    <td class="p-2">${esc(fmtDateTime(r.submitted_at))}</td>
+                    <td class="p-2 text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1)}</td>
+                    <td class="p-2 font-semibold">${esc(REVIEW_LABEL[r.review_status] || r.review_status)}</td>
+                    <td class="p-2 text-[#757575]">${esc(dash(sub))}</td>
+                </tr>`;
+            }).join('') || '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="5">No other responses.</td></tr>';
+
             renderActions();
         }
+
+        document.getElementById('dResponsesBody').addEventListener('click', function (e) {
+            const link = e.target.closest('.response-link');
+            if (link) location.hash = link.dataset.id;
+        });
 
         function renderActions() {
             const d = current.detail;
             const status = d.security_trail ? d.security_trail.review_status : null;
-            const reviewBtn = document.getElementById('btnMarkReviewed');
-            const needs = status === 'needs_review';
-            reviewBtn.classList.toggle('hidden', ! canReview);
-            reviewBtn.textContent = status === 'reviewed' ? 'Reviewed' : 'Mark as reviewed';
-            reviewBtn.disabled = ! needs;
-            reviewBtn.classList.toggle('opacity-60', ! needs);
-            reviewBtn.classList.toggle('cursor-not-allowed', ! needs);
+            // tombol Review hanya untuk respons Needs review dan user yang boleh mereview
+            document.getElementById('btnReview').classList.toggle('hidden', ! (canReview && status === 'needs_review'));
 
             const done = !! recomingIds[d.id];
             const rcBtn = document.getElementById('btnScheduleRecoming');
@@ -350,26 +359,129 @@
             rcBtn.classList.toggle('cursor-not-allowed', done);
         }
 
-        // ---------- MARK AS REVIEWED ----------
-        document.getElementById('btnMarkReviewed').addEventListener('click', function () {
+        document.getElementById('btnReview').addEventListener('click', function () {
+            if (current) location.hash = current.id + '/review';
+        });
+
+        // ---------- D12 REVIEW RESPONSE ----------
+        const rvNote = document.getElementById('rvNote');
+        const rvFeedback = document.getElementById('rvFeedback');
+
+        function showReview(id) {
+            id = parseInt(id, 10);
+            if (! id) return showList();
+
+            const loadForm = function (detail) {
+                $.ajax({
+                    url: API + '/satisfaction-surveys/' + id + '/form',
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                    success: function (res) { renderReview(detail, res.data || {}); showView('review'); },
+                    error: function (xhr) { fail(xhr, 'Failed to load survey form.'); showList(); },
+                });
+            };
+
+            if (current && current.id === id) return loadForm(current.detail);
+
+            $.ajax({
+                url: API + '/satisfaction-surveys/' + id,
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                success: function (res) {
+                    const d = res.data;
+                    current = { id: d.id, row: rows.find(function (r) { return r.id === d.id; }) || {}, detail: d };
+                    loadForm(d);
+                },
+                error: function (xhr) { fail(xhr, 'Failed to load survey response.'); showList(); },
+            });
+        }
+
+        function renderReview(d, form) {
+            const f = d.feedback || {}, s = d.summary || {}, t = d.security_trail || {}, job = form.job_information || {};
+            const status = t.review_status;
+
+            set('rvTicketCrumb', d.ticket_code);
+            set('rvTicket', dash(job.ticket_code || d.ticket_code));
+            set('rvCustomer', dash(job.customer || s.customer));
+            set('rvTechnician', dash(job.technician));
+            set('rvServiceDate', dash(job.service_date));
+
+            set('rvAvg', s.average_score === null || s.average_score === undefined ? '-' : Number(s.average_score).toFixed(1));
+            document.getElementById('rvRatings').innerHTML = (f.ratings || []).map(function (item) {
+                return `<li class="flex items-center gap-4">
+                    <span class="w-48 shrink-0">${esc(item.label)}</span>
+                    <span class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
+                        <span class="block h-full rounded-full" style="width:${item.score / 5 * 100}%; background-color:${scoreColor(item.score)}"></span>
+                    </span>
+                    <span class="w-8 text-right font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                </li>`;
+            }).join('');
+
+            set('rvMachine', machineText(f.machine_ok, true));
+            document.getElementById('rvMachine').style.color = machineColor(f.machine_ok);
+            document.getElementById('rvMachineNoteWrap').classList.toggle('hidden', ! f.machine_issue_note);
+            set('rvMachineNote', f.machine_issue_note || '');
+            set('rvComments', dash(f.comments));
+
+            const reasons = t.review_reasons || [];
+            document.getElementById('rvFlagged').innerHTML = reasons.length
+                ? reasons.map(function (c) { return '<li>' + esc(REVIEW_REASON_TEXT[c] || c) + '</li>'; }).join('')
+                : '<li>No specific reason recorded.</li>';
+
+            set('rvOtp', t.otp_verified === null || t.otp_verified === undefined ? '-'
+                : (t.otp_verified ? 'Yes' : 'No') + (t.otp_phone_masked ? ' · ' + t.otp_phone_masked : ''));
+            set('rvLinkBy', dash(t.link_created_by));
+            set('rvSharedVia', t.shared_via === 'copy' ? 'Copied link' : (t.shared_via === 'whatsapp' ? 'WhatsApp' : '-'));
+            set('rvDevice', [t.ip_address, parseBrowser(t.user_agent)].filter(Boolean).join(' · ') || '-');
+            set('rvDuration', fmtDuration(t.duration_seconds));
+
+            // decision panel: hanya respons Needs review dan user dengan izin review
+            const canDecide = canReview && status === 'needs_review';
+            const locked = document.getElementById('rvDecisionLocked');
+            locked.classList.toggle('hidden', canDecide);
+            locked.textContent = ! canReview ? 'You do not have permission to review responses.'
+                : 'This response is ' + (REVIEW_LABEL[status] || status || 'not available').toLowerCase() + ' and cannot be reviewed again.';
+            document.getElementById('rvDecisionForm').classList.toggle('hidden', ! canDecide);
+            document.getElementById('rvSubmit').classList.toggle('hidden', ! canDecide);
+
+            document.querySelectorAll('input[name="rvDecision"]').forEach(function (r) { r.checked = false; });
+            rvNote.value = '';
+            rvFeedback.textContent = '';
+            document.getElementById('rvNoteRequired').classList.add('hidden');
+        }
+
+        document.querySelectorAll('input[name="rvDecision"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                document.getElementById('rvNoteRequired').classList.toggle('hidden', this.value !== 'reject');
+            });
+        });
+
+        document.getElementById('rvSubmit').addEventListener('click', function () {
             if (! current) return;
+            const picked = document.querySelector('input[name="rvDecision"]:checked');
+            const note = rvNote.value.trim();
+
+            if (! picked) { rvFeedback.textContent = 'Choose Approve or Reject.'; return; }
+            if (picked.value === 'reject' && ! note) { rvFeedback.textContent = 'A note is required when rejecting.'; rvNote.focus(); return; }
+
             const btn = this;
             btn.disabled = true;
+            rvFeedback.textContent = '';
             $.ajax({
                 url: API + '/satisfaction-surveys/' + current.id + '/review',
                 method: 'POST',
+                contentType: 'application/json',
                 headers: { Accept: 'application/json' },
-                success: function () {
-                    if (current.detail.security_trail) current.detail.security_trail.review_status = 'reviewed';
-                    if (current.row) current.row.review_status = 'reviewed';
-                    renderActions();
+                data: JSON.stringify({ decision: picked.value, note: note || null }),
+                success: function (res) {
+                    const id = current.id;
+                    current = null; // paksa muat ulang detail dengan status baru
+                    Swal.fire({ title: res.message || 'Decision saved', icon: 'success', confirmButtonColor: '#115640', timer: 2000 });
                     loadList();
-                    Swal.fire({ title: 'Reviewed', icon: 'success', confirmButtonColor: '#115640', timer: 1500 });
+                    location.hash = String(id);
                 },
-                error: function (xhr) {
-                    fail(xhr, 'Failed to mark as reviewed.');
-                    renderActions();
-                },
+                error: function (xhr) { rvFeedback.textContent = errMsg(xhr, 'Failed to save the decision.'); },
+                complete: function () { btn.disabled = false; },
             });
         });
 
@@ -483,23 +595,28 @@
         }
 
         document.querySelectorAll('.back-to-response').forEach(function (btn) {
-            btn.addEventListener('click', function () { showView('detail'); });
+            btn.addEventListener('click', function () {
+                if (current && /\/review$/.test(location.hash)) location.hash = String(current.id);
+                else showView('detail');
+            });
         });
         document.querySelectorAll('.back-to-list').forEach(function (btn) {
             btn.addEventListener('click', showList);
         });
 
-        // browser back/forward: keep the visible view in sync with the URL hash (#id)
-        window.addEventListener('hashchange', function () {
-            if (location.hash) showDetail(location.hash.slice(1));
-            else showList();
-        });
+        // hash: #id = detail (D9), #id/review = Review Response (D12); back/forward ikut sinkron
+        function route() {
+            const m = /^#(\d+)(\/review)?$/.exec(location.hash);
+            if (! m) return showList();
+            return m[2] ? showReview(m[1]) : showDetail(m[1]);
+        }
+        window.addEventListener('hashchange', route);
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closeRecoming();
         });
 
         loadList();
-        if (location.hash) showDetail(location.hash.slice(1));
+        if (location.hash) route();
     })();
 </script>
 @endsection

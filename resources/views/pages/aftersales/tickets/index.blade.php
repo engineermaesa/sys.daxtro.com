@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    .ticket-filter-chip { padding: 6px 14px; border: 1px solid #D9D9D9; border-radius: 9999px; background: #fff; color: #1E1E1E; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .ticket-filter-chip.is-active { border-color: #115640; background: #E7F3EE; color: #115640; }
+</style>
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div id="ticketListView">
     <div class="pt-4">
@@ -19,19 +23,21 @@
             <div class="flex items-stretch gap-3">
                 <div class="flex-1 relative">
                     <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#757575] text-base pointer-events-none"></i>
-                    <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or machine"
+                    <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or technician"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
-                <select id="ticket-priority" class="border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
-                    <option value="">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                </select>
+                <div id="ticket-priority-chips" class="flex items-center gap-2">
+                    <button type="button" class="ticket-filter-chip" data-priority="low">Low</button>
+                    <button type="button" class="ticket-filter-chip" data-priority="medium">Medium</button>
+                    <button type="button" class="ticket-filter-chip" data-priority="high">High</button>
+                </div>
                 <button type="button" id="btn-search-ticket"
                 class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
+                </button>
+                <button type="button" id="btn-reset-ticket"
+                class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-5 rounded-lg hover:bg-[#F5F5F5] transition-colors">
+                    Reset
                 </button>
             </div>
         </div>
@@ -82,19 +88,48 @@
 @include('pages.aftersales.tickets.partials.ticket-update-logs-modal')
 
 @include('pages.aftersales.tickets.partials.ticket-log-preview-modal')
+
+@include('pages.aftersales.tickets.partials.ticket-delete-modal')
 @endsection
 
 @section('scripts')
 <script>
     let currentTicket = null;
 
+    // hak akses (kontrak bagian 1): sembunyikan tombol yang tidak boleh, BE tetap menolak dengan 403
+    const CAN_MANAGE = @json(hasPermission(auth()->user(), 'aftersales.tickets.manage'));
+
     const ticketState = {
         page: 1,
         lastPage: 1,
         perPage: 10,
         search: '',
-        priority: '',
+        priority: [],      // multi-select: low | medium | high
     };
+
+    // filter disimpan di URL query (FR-E24): ?search=..&priority=high,medium
+    function syncTicketUrl() {
+        const params = new URLSearchParams();
+        if (ticketState.search) params.set('search', ticketState.search);
+        if (ticketState.priority.length) params.set('priority', ticketState.priority.join(','));
+        const query = params.toString();
+        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+    }
+
+    function paintTicketFilters() {
+        $('#ticket-search').val(ticketState.search);
+        $('#ticket-priority-chips .ticket-filter-chip').each(function () {
+            $(this).toggleClass('is-active', ticketState.priority.includes($(this).data('priority')));
+        });
+    }
+
+    function readTicketUrl() {
+        const params = new URLSearchParams(location.search);
+        const allowed = ['low', 'medium', 'high'];
+        ticketState.search = params.get('search') || '';
+        ticketState.priority = (params.get('priority') || '').split(',').filter(v => allowed.includes(v));
+        paintTicketFilters();
+    }
 
     // Step name -> display percent. Backend hanya expose nama step (lihat Ticket::getProgressAttribute),
     // jadi mapping persen dibuat di frontend supaya cocok dengan tampilan mockup.
@@ -113,7 +148,6 @@
         low: 'bg-[#F0F0F0] text-[#757575]',
         medium: 'bg-[#E7ECFB] text-[#3B4FA6]',
         high: 'bg-[#FFF3CD] text-[#8A6D00]',
-        critical: 'bg-[#FBEAEA] text-[#900B09]',
     };
 
     const CATEGORY_LABEL = {
@@ -132,9 +166,10 @@
             .replace(/'/g, '&#039;');
     }
 
+    // tanggal selalu WIB (kontrak: jangan pakai toISOString, tanggal bisa mundur sehari)
     function formatDate(value) {
         if (!value) return '—';
-        return new Date(value).toISOString().slice(0, 10);
+        return new Date(value).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
     }
 
     function priorityBadge(priority) {
@@ -150,12 +185,16 @@
         return `<span class="font-semibold ${cls}">${escapeHtml(slaStatus)}</span>`;
     }
 
-    function stepBadge(step) {
+    function stepBadge(step, currentRecoming) {
         const percent = PROGRESS_PERCENT[step] ?? 0;
         let cls = 'bg-[#FBEAEA] text-[#900B09]';
         if (percent >= 100) cls = 'bg-[#E6F4EF] text-[#115640]';
         else if (percent >= 50) cls = 'bg-[#FFF3CD] text-[#8A6D00]';
-        const label = STEP_LABEL[step] || step || '-';
+        let label = STEP_LABEL[step] || step || '-';
+        // RC-09: "Recoming · visit {visit_no} · {tanggal}"
+        if (step === 'recoming' && currentRecoming) {
+            label = `Recoming · visit ${currentRecoming.visit_no} · ${formatDate(currentRecoming.planned_visit_at)}`;
+        }
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${escapeHtml(label)}</span>`;
     }
 
@@ -187,7 +226,7 @@
                 <td class="p-3 text-center">${slaBadge(row.sla_status)}</td>
                 <td class="p-3 text-center">${row.aging_days ?? 0}</td>
                 <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
-                <td class="p-3 text-center">${stepBadge(row.progress)}</td>
+                <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -205,6 +244,10 @@
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer btn-ticket-update-logs">
                                 <i class="bi bi-clock-history"></i> Update Logs
                             </a>
+                            ${CAN_MANAGE ? `
+                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer btn-ticket-delete text-[#900B09]">
+                                <i class="bi bi-trash"></i> Delete
+                            </a>` : ''}
                         </div>
                     </div>
                 </td>
@@ -225,6 +268,10 @@
 
         $body.find('.btn-ticket-details').each(function (index) {
             $(this).data('ticket', rows[index]);
+        });
+
+        $body.find('.btn-ticket-delete').each(function () {
+            $(this).data('ticket', rows[$(this).closest('tr').index()]);
         });
     }
 
@@ -254,6 +301,7 @@
     }
 
     function loadTickets() {
+        syncTicketUrl();
         $('#ticket-table-body').html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
@@ -263,7 +311,7 @@
                 page: ticketState.page,
                 per_page: ticketState.perPage,
                 search: ticketState.search,
-                priority: ticketState.priority || undefined,
+                priority: ticketState.priority.length ? ticketState.priority : undefined, // jadi priority[]=..
             },
             success: function (response) {
                 renderTicketRows(response.data);
@@ -285,9 +333,11 @@
         documentation_published: 'Documentation Published',
         satisfaction_submitted: 'Satisfaction Submitted',
         closed: 'Closed',
+        recoming: 'Recoming',
     };
 
     $(function () {
+        readTicketUrl();
         loadTickets();
 
         let searchTimer = null;
@@ -301,9 +351,22 @@
         });
 
 
-        $('#ticket-priority').on('change', function () {
-            ticketState.priority = this.value;
+        $('#ticket-priority-chips').on('click', '.ticket-filter-chip', function () {
+            const value = $(this).data('priority');
+            ticketState.priority = ticketState.priority.includes(value)
+                ? ticketState.priority.filter(v => v !== value)
+                : ticketState.priority.concat(value);
+            paintTicketFilters();
             ticketState.page = 1;
+            loadTickets();
+        });
+
+        // Reset: kosongkan search dan priority (dan URL-nya)
+        $('#btn-reset-ticket').on('click', function () {
+            ticketState.search = '';
+            ticketState.priority = [];
+            ticketState.page = 1;
+            paintTicketFilters();
             loadTickets();
         });
 
@@ -364,6 +427,7 @@
         $(document).on('click', '.btn-ticket-details-back', function () {
             $('#ticketDetailsView').addClass('hidden');
             $('#ticketListView').removeClass('hidden');
+            loadTickets();
         });
 
         // WORK ORDER (frontend only)
@@ -399,15 +463,17 @@
             $('#tdSurveyUrl').removeAttr('href').text('Loading survey link...');
             $('#tdSurveyStatus').text('Loading...');
             $('#tdShareLink').text('Share Link').prop('disabled', true).data('url', '');
+            $('#tdShareWhatsapp').prop('disabled', true).data('url', '');
             $.ajax({ url: '/api/aftersales/tickets/' + ticketId + '/survey-link', headers: { Accept: 'application/json' } })
                 .done(function (res) {
                     if (currentTicket?.id !== ticketId) return;
                     const link = res.data || {};
                     const labels = { active: 'Active', inactive: 'Inactive', used: 'Completed', expired: 'Expired', replaced: 'Replaced' };
                     $('#tdSurveyStatus').text(labels[link.status] || 'Unavailable');
+                    $(document).trigger('ticket:survey-link', [ticketId, link]); // banner Resubmission di documents-script
                     if (link.url && link.can_share) {
                         $('#tdSurveyUrl').attr('href', link.url).text(link.url);
-                        $('#tdShareLink').prop('disabled', false).data('url', link.url);
+                        $('#tdShareLink, #tdShareWhatsapp').prop('disabled', false).data('url', link.url);
                     } else {
                         $('#tdSurveyUrl').text(link.status === 'used' ? 'This survey has already been completed.' : 'No active survey link is available.');
                     }
@@ -426,6 +492,7 @@
             const done = function () {
                 $btn.text('Copied');
                 setTimeout(function () { $btn.text('Share Link'); }, 1500);
+                logSurveyShare('copy');
             };
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -434,6 +501,26 @@
                 showCopyLink(url);
             }
         });
+
+        $(document).on('click', '#tdShareWhatsapp', function () {
+            const url = $(this).data('url') || '';
+            if (!url) return;
+            window.open('https://wa.me/?text=' + encodeURIComponent('Please complete our service satisfaction survey: ' + url), '_blank', 'noopener');
+            logSurveyShare('whatsapp');
+        });
+
+        // catat pembagian link (kontrak 6.4): via = copy | whatsapp
+        function logSurveyShare(via) {
+            const id = currentTicket?.id;
+            if (!id) return;
+            $.ajax({
+                url: '/api/aftersales/tickets/' + id + '/survey-link/share',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: { Accept: 'application/json' },
+                data: JSON.stringify({ via: via }),
+            });
+        }
 
         function showCopyLink(url) {
             Swal.fire({ title: 'Copy survey link', input: 'text', inputValue: url, inputAttributes: { readonly: 'readonly' }, confirmButtonText: 'Close', confirmButtonColor: '#115640' });
