@@ -74,9 +74,12 @@
                     </div>
 
                     {{-- Gate Closed (kontrak 6.5): respons current Needs review / Rejected --}}
-                    <div id="ticketLogGateBox" class="hidden rounded-md mb-2" style="padding: 10px 14px; background:#FBEAEA; color:#900B09; font-size: 13px;">
-                        <p id="ticketLogGateMessage" class="mb-2"></p>
-                        <a id="ticketLogGateLink" href="#" class="inline-block border rounded-md font-semibold" style="padding: 6px 12px; border-color:#900B09; color:#900B09;">Open Review Response</a>
+                    <div id="ticketLogGateBox" class="hidden items-center justify-between rounded-lg mb-2" style="gap: 12px; padding: 14px 18px; background:#FFF8EC; border:1px solid #F5DDB3; color:#8A6D00; font-size: 13px;">
+                        <div>
+                            <p id="ticketLogGateTitle" class="font-bold mb-1" style="font-size: 14px;">Ticket cannot be closed</p>
+                            <p id="ticketLogGateMessage" class="mb-0"></p>
+                        </div>
+                        <a id="ticketLogGateLink" href="#" class="hidden rounded-md font-semibold shrink-0" style="padding: 8px 14px; border: 1px solid #8A6D00; color:#8A6D00; background:#fff;">Open Review Response</a>
                     </div>
 
                     <button type="button" id="btn-add-ticket-log"
@@ -206,6 +209,68 @@
     let ticketLogPhotoRowCount = 0;
     let currentTicketPhotos = [];
     let currentTicketSatisfaction = null;
+    // survey tiket (dari GET /tickets/{id}): dipakai untuk gate Closed
+    let currentTicketSurvey = { loaded: false, responses: null, filled: false };
+    let closeGateActive = false;
+
+    function showCloseGate(message, linkText, linkHref) {
+        $('#ticketLogGateMessage').text(message);
+        $('#ticketLogGateLink').toggleClass('hidden', !linkHref).attr('href', linkHref || '#').text(linkText || '');
+        $('#ticketLogGateBox').removeClass('hidden').css('display', 'flex');
+    }
+
+    function hideCloseGate() {
+        $('#ticketLogGateBox').addClass('hidden').css('display', '');
+    }
+
+    // Closed hanya boleh bila survey sudah disubmit dan tidak Needs review / Rejected
+    function evaluateCloseGate() {
+        const survey = currentTicketSurvey;
+        if (!survey.loaded) return { blocked: true, silent: true };
+
+        if (Array.isArray(survey.responses)) {
+            const current = survey.responses[0];
+            if (!current) {
+                return { blocked: true, message: 'The satisfaction survey has not been submitted yet. Share the survey link with the customer first.' };
+            }
+            if (current.review_status === 'needs_review') {
+                return {
+                    blocked: true,
+                    message: 'The latest Satisfaction Survey response is marked Needs review. Approve or reject it first.',
+                    linkText: 'Open Review Response',
+                    linkHref: `/satisfaction-survey#${current.id}/review`,
+                };
+            }
+            if (current.review_status === 'rejected') {
+                return {
+                    blocked: true,
+                    message: 'The latest response was rejected. Wait for the customer to submit a new response.',
+                    linkText: 'Open Response',
+                    linkHref: `/satisfaction-survey#${current.id}`,
+                };
+            }
+            return { blocked: false };
+        }
+
+        // teknisi: hanya tahu sudah diisi atau belum (tanpa skor)
+        return survey.filled
+            ? { blocked: false }
+            : { blocked: true, message: 'The satisfaction survey has not been submitted yet. Share the survey link with the customer first.' };
+    }
+
+    function updateCloseGate() {
+        const isClosed = $('#ticketLogStep').val() === 'closed';
+        const gate = isClosed ? evaluateCloseGate() : { blocked: false };
+        closeGateActive = gate.blocked;
+
+        if (gate.blocked && !gate.silent) {
+            showCloseGate(gate.message, gate.linkText, gate.linkHref);
+        } else {
+            hideCloseGate();
+        }
+
+        $('#btn-add-ticket-log').prop('disabled', gate.blocked).css({ opacity: gate.blocked ? 0.5 : '', cursor: gate.blocked ? 'not-allowed' : '' });
+    }
 
     const PREVIEWABLE_STEPS = ['documentation_published', 'satisfaction_submitted'];
 
@@ -258,7 +323,6 @@
     }
 
     function resetTicketLogForm() {
-        $('#ticketLogGateBox').addClass('hidden');
         $('#ticketLogStep').val('on_site');
         $('#ticketLogNote').val('');
         $('.ticket-log-satisfaction-field').val('');
@@ -266,12 +330,14 @@
         $('#ticketLogPhotoFields').addClass('hidden');
         $('#ticketLogPhotoRows').empty();
         $('#ticketLogNote').removeClass('hidden');
+        updateCloseGate();
     }
 
     function openTicketUpdateLogs(ticket) {
         currentUpdateLogsTicketId = ticket.id;
         currentTicketPhotos = [];
         currentTicketSatisfaction = null;
+        currentTicketSurvey = { loaded: false, responses: null, filled: false };
         $('#ticketUpdateLogsCode').text(ticket.ticket_code || 'Update Logs');
         renderTicketUpdateLogsRows(ticket.logs);
         resetTicketLogForm();
@@ -283,7 +349,18 @@
             success: function (response) {
                 currentTicketPhotos = response.data?.photos || [];
                 currentTicketSatisfaction = response.data?.satisfaction || null;
+                currentTicketSurvey = {
+                    loaded: true,
+                    responses: response.data?.survey_responses ?? null,
+                    filled: !!response.data?.survey_filled,
+                };
                 renderTicketUpdateLogsRows(response.data?.logs || ticket.logs);
+                updateCloseGate();
+            },
+            error: function () {
+                // gagal memuat: jangan blokir selamanya, BE tetap menjaga gate Closed
+                currentTicketSurvey = { loaded: true, responses: [], filled: true };
+                updateCloseGate();
             }
         });
     }
@@ -291,8 +368,8 @@
     function submitTicketLog() {
         if (!currentUpdateLogsTicketId) return;
 
-        $('#ticketLogGateBox').addClass('hidden');
         const step = $('#ticketLogStep').val();
+        if (step === 'closed' && closeGateActive) return;
         const endpoint = STEP_ENDPOINT[step];
         let data = { note: $('#ticketLogNote').val() || null };
         let ajaxOptions = { data: data };
@@ -356,9 +433,7 @@
                 // gate Closed: 422 dengan satisfaction_id -> kotak merah + tombol menuju Review Response
                 const gateId = xhr.status === 422 ? xhr.responseJSON?.satisfaction_id : null;
                 if (gateId) {
-                    $('#ticketLogGateMessage').text(xhr.responseJSON.message || 'Cannot set to Closed.');
-                    $('#ticketLogGateLink').attr('href', `/satisfaction-survey#${gateId}/review`);
-                    $('#ticketLogGateBox').removeClass('hidden');
+                    showCloseGate(xhr.responseJSON.message || 'Cannot set to Closed.', 'Open Review Response', `/satisfaction-survey#${gateId}/review`);
                     return;
                 }
 
@@ -381,6 +456,7 @@
             $('#ticketLogSatisfactionFields').toggleClass('hidden', !isSatisfaction);
             $('#ticketLogNote').toggleClass('hidden', isSatisfaction);
             $('#ticketLogPhotoFields').toggleClass('hidden', !isDocumentation);
+            updateCloseGate();
 
             if (isDocumentation && $('#ticketLogPhotoRows [data-photo-row]').length === 0) {
                 addTicketLogPhotoRow();
