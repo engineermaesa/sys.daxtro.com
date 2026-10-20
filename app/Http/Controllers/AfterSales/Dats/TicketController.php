@@ -585,6 +585,13 @@ class TicketController extends Controller
             return $this->setJsonResponse('Follow-up visit updated successfully', ['data' => $ticket->visits()->latest('id')->first()]);
         }
 
+        $pending = $ticket->visits()->whereNull('actual_start')->latest('id')->first();
+        if ($pending) {
+            $pending->update(['scheduled_at' => $validated['scheduled_at']]);
+
+            return $this->setJsonResponse('Visit rescheduled successfully', ['data' => $pending->fresh()]);
+        }
+
         $visit = TicketVisit::create([
             'ticket_id' => $ticket->id,
             'scheduled_at' => $validated['scheduled_at'],

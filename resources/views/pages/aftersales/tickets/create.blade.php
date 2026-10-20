@@ -340,7 +340,7 @@
                         });
                     }
 
-                    if (payload.scheduled_at && (!isEdit || payload.scheduled_at !== originalVisitDate)) {
+                    if (payload.scheduled_at && (!isEdit || (!originalVisitDate && payload.scheduled_at))) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/visits`,
@@ -459,7 +459,7 @@
                     slaTouched = true;
                 }
 
-                const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at))[0];
+                const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => b.id - a.id)[0];
                 if (latestVisit) {
                     originalVisitDate = String(latestVisit.scheduled_at).slice(0, 16).replace(' ', 'T');
                     $('#field-visit-date').val(originalVisitDate);
