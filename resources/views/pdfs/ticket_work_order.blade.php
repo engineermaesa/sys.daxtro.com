@@ -3,7 +3,31 @@
 
 <head>
   <meta charset="UTF-8">
+  @php
+    // Skala otomatis agar seluruh isi selalu muat di 1 halaman A4
+    $descLines = 0;
+    foreach (explode("
+", (string) ($ticket->description ?: '-')) as $line) {
+        $descLines += max(1, (int) ceil(mb_strlen($line) / 95));
+    }
+    $rowCount = max(1, $partsEstimated->count()) + max(1, $costs->count());
+    $neededMm = 215 + $rowCount * 10 + max(0, $descLines - 1) * 5;
+    $k = max(0.45, min(1, 265 / $neededMm));
+    $px = fn (float $v) => round($v * $k, 2);
+  @endphp
   <style>
+    @font-face {
+      font-family: 'Montserrat';
+      font-weight: normal;
+      src: url('{{ public_path("assets/fonts/Montserrat-Regular.ttf") }}') format("truetype");
+    }
+
+    @font-face {
+      font-family: 'Montserrat';
+      font-weight: bold;
+      src: url('{{ public_path("assets/fonts/Montserrat-Bold.ttf") }}') format("truetype");
+    }
+
     @page {
       size: 210mm 297mm;
       margin: 0;
@@ -11,40 +35,40 @@
 
     body {
       margin: 0;
-      font-family: 'DejaVu Sans', sans-serif;
-      font-size: 10pt;
-      line-height: 1.4;
+      font-family: 'Montserrat', 'DejaVu Sans', sans-serif;
+      font-size: {{ $px(9) }}pt;
+      line-height: 1.3;
       color: #1E1E1E;
     }
 
     .content {
-      padding: 15mm 15mm;
+      padding: {{ $px(10) }}mm 15mm;
     }
 
     h1 {
       text-align: center;
-      font-size: 16pt;
+      font-size: {{ $px(16) }}pt;
       font-weight: bold;
       color: #115640;
-      margin: 0 0 4px;
+      margin: 0 0 {{ $px(4) }}px;
     }
 
     .subtitle {
       text-align: center;
-      font-size: 10pt;
+      font-size: {{ $px(9.5) }}pt;
       font-style: italic;
       color: #757575;
-      margin: 0 0 15px;
+      margin: 0 0 {{ $px(12) }}px;
     }
 
     .meta {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 15px;
+      margin-bottom: {{ $px(10) }}px;
     }
 
     .meta td {
-      padding: 3px 4px;
+      padding: {{ $px(2) }}px 4px;
       vertical-align: top;
     }
 
@@ -65,35 +89,41 @@
       background: #115640;
       color: #fff;
       font-weight: bold;
-      padding: 5px 8px;
-      font-size: 9pt;
+      padding: {{ $px(8) }}px 8px;
+      font-size: {{ $px(8.5) }}pt;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
-      margin: 12px 0 6px;
+      margin: {{ $px(8) }}px 0 {{ $px(5) }}px;
     }
 
     .description {
       padding: 0 2px;
+      margin: 0 0 {{ $px(4) }}px;
       white-space: pre-line;
     }
 
     table.items {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 10px;
+      margin-bottom: {{ $px(8) }}px;
     }
 
     table.items th,
     table.items td {
       border: 1px solid #D9D9D9;
-      padding: 4px 6px;
-      font-size: 9pt;
+      padding: {{ $px(3) }}px 6px;
+      font-size: {{ $px(8.5) }}pt;
     }
 
     table.items th {
       background: #E6F4EF;
       color: #115640;
       font-weight: bold;
-      text-align: left;
+      text-align: center;
+    }
+
+    .center {
+      text-align: center;
     }
 
     .text-right {
@@ -106,16 +136,21 @@
       vertical-align: middle;
     }
 
+    .final-row td {
+      background: #D9D9D9;
+    }
+
     .signatures {
       width: 100%;
-      margin-top: 40px;
+      margin-top: {{ $px(30) }}px;
+      page-break-inside: avoid;
     }
 
     .signatures td {
       width: 50%;
       text-align: center;
       vertical-align: top;
-      padding-top: 60px;
+      padding-top: {{ $px(75) }}px;
     }
 
     .signatures .sign-label {
@@ -228,10 +263,10 @@
       <tbody>
         @forelse($partsEstimated as $part)
         <tr>
-          <td>{{ $part->sparepart->part_number ?? '-' }}</td>
+          <td class="center">{{ $part->sparepart->part_number ?? '-' }}</td>
           <td>{{ $part->sparepart->name ?? '-' }}</td>
-          <td>{{ rtrim(rtrim(number_format((float) $part->qty, 2, '.', ''), '0'), '.') }}</td>
-          <td>{{ ucfirst($part->unit ?? '-') }}</td>
+          <td class="center">{{ rtrim(rtrim(number_format((float) $part->qty, 2, '.', ''), '0'), '.') }}</td>
+          <td class="center">{{ ucfirst($part->unit ?? '-') }}</td>
           <td class="text-right">{{ (float) $part->unit_price > 0 ? $fmtNum((float) $part->unit_price, 'idr') : '-' }}</td>
           <td class="text-right">{{ (float) $part->unit_price > 0 ? $fmtNum((float) $part->qty * (float) $part->unit_price, 'idr') : '-' }}</td>
         </tr>
@@ -264,7 +299,7 @@
         <tr>
           <td>{{ ucfirst($cost->category ?? '-') }}</td>
           <td class="text-right">{{ number_format((float) $cost->amount, 0, ',', '.') }}</td>
-          <td>{{ strtoupper($cost->currency ?? '-') }}</td>
+          <td class="center">{{ strtoupper($cost->currency ?? '-') }}</td>
           <td>{{ $cost->remarks ?: '-' }}</td>
         </tr>
         @empty
@@ -275,19 +310,19 @@
         <tr class="total-row">
           <td>TOTAL SPAREPART</td>
           <td class="text-right">{{ $fmtNum($totalSparepartIdr, $displayCurrency) }}</td>
-          <td>{{ strtoupper($displayCurrency) }}</td>
+          <td class="center">{{ strtoupper($displayCurrency) }}</td>
           <td></td>
         </tr>
         <tr class="total-row">
           <td>TOTAL CATEGORY</td>
           <td class="text-right">{{ $fmtNum($totalIdr, $displayCurrency) }}</td>
-          <td>{{ strtoupper($displayCurrency) }}</td>
+          <td class="center">{{ strtoupper($displayCurrency) }}</td>
           <td></td>
         </tr>
-        <tr class="total-row">
+        <tr class="total-row final-row">
           <td><strong>FINAL COST</strong></td>
           <td class="text-right"><strong>{{ $fmtNum($finalCostIdr, $displayCurrency) }}</strong></td>
-          <td>{{ strtoupper($displayCurrency) }}</td>
+          <td class="center">{{ strtoupper($displayCurrency) }}</td>
           <td>Total category + total sparepart</td>
         </tr>
       </tbody>
