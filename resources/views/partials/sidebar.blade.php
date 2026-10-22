@@ -13,7 +13,7 @@
             class="transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">
             <img
                 id="sidebarLogo"
-                src="{{ asset('assets/images/favicon-newer.png') }}"
+                src="{{ asset('assets/images/Logo Daxtro Ice Machine.png') }}"
                 alt="DAXTRO Logo"
                 class="max-lg:hidden h-10 transition-all duration-300 ease-in-out">
         </a>
@@ -543,7 +543,7 @@
         const ticketingSpan = document.getElementById('ticketingSpan');
         const chevronTicketingMenu = document.getElementById('chevronTicketingMenu');
 
-        const isActive = @json($isTicketingActive);
+        const isActive = Boolean(Number("{{ $isTicketingActive }}"));
         function openTicketing() {
             ticketingMenu.classList.remove('max-h-0');
             ticketingMenu.classList.add('max-h-[500px]');

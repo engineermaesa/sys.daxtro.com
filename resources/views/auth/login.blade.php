@@ -15,7 +15,7 @@
 
         {{-- LOGO DAXTRO --}}
         <div class="flex justify-center">
-            <img src="{{ asset('assets/images/logo.png') }}" style="max-height: 60px;" alt="Logo Daxtro">
+            <img src="{{ asset('assets/images/Logo Daxtro Ice Machine.png') }}" style="max-height: 80px;" alt="Logo Daxtro">
         </div>
 
         

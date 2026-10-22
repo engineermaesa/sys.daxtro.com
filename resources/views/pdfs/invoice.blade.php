@@ -18,7 +18,8 @@
         }
 
         .logo {
-            width: 120px;
+            width: 175px;
+            margin-left: -26px;
         }
 
         /* .company-info {
@@ -128,7 +129,7 @@
 
 
     <div class="header">
-        <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo">
+        <img src="{{ public_path('assets/images/Logo Daxtro Ice Machine.png') }}" class="logo" alt="Logo">
         <div class="company-info"> <br>
             <h4>PT. PANDU NARADIPTA DANENDRA</h4>
             <p>Komplek Harmoni Plaza Blok A No. 16-17, Jl. Suryopranoto, Petojo Utara, Gambir, Jakarta Pusat</p>
