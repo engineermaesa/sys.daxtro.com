@@ -85,6 +85,7 @@
 <script type="application/json" id="machines-page-config">
 {!! json_encode([
     'id' => $customer->id,
+    'name' => $customer->name,
     'machineCreateUrl' => route('aftersales.pages.customers.machines.create', $customer->id),
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) !!}
 </script>
@@ -110,10 +111,18 @@
     }
 
     function pmContractBadge(status) {
-        if (status === 'active') {
-            return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FFF3CD] text-[#8A6D00]">Active</span>`;
+        if (status === 'premium') {
+            return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#E6F4EF] text-[#115640]">Premium</span>`;
+        }
+        if (status === 'basic') {
+            return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FFF3CD] text-[#8A6D00]">Basic</span>`;
         }
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#F0F0F0] text-[#757575]">None</span>`;
+    }
+
+    // PM Frequency follows the PM Contract: Basic = 6 months, Premium = 3 months, None = empty.
+    function pmFrequencyLabel(status) {
+        return { basic: '6 months', premium: '3 months' }[status] || '';
     }
 
     function renderMachineRows(rows) {
@@ -134,7 +143,7 @@
                 <td class="p-3 text-center text-black">${escapeHtml(row.warranty_end) || '-'}</td>
                 <td class="p-3 text-center">${machineBadge(row.warranty_active, 'Active', 'Expired')}</td>
                 <td class="p-3 text-center">${pmContractBadge(row.pm_contract_status)}</td>
-                <td class="p-3 text-center text-black">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
+                <td class="p-3 text-center text-black">${pmFrequencyLabel(row.pm_contract_status) || '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -147,7 +156,7 @@
                             </a>
                             <a class="dropdown-item btn-move-machine flex! items-center! gap-2! cursor-pointer"
                                 data-id="${row.id}" data-name="${escapeHtml(row.product_name)}" data-type="${escapeHtml(row.product_type_name)}">
-                                <i class="bi bi-arrow-left-right"></i> Move Machine
+                                <i class="bi bi-arrow-left-right"></i> Move to Another Customer
                             </a>
                             <a class="dropdown-item btn-delete-machine flex! items-center! gap-2! cursor-pointer text-red-600!" data-id="${row.id}">
                                 <i class="bi bi-trash"></i> Delete
@@ -229,7 +238,7 @@
             const name = $(this).data('name') || '';
             const type = $(this).data('type') || '';
             $('#move-machine-subtitle').text([name, type].filter(Boolean).join(' | '));
-            $('#move-machine-note').val('');
+            $('#move-machine-note').val(`Previously owned by ${pageConfig.name}`);
             initMoveTarget();
             $('#move-machine-target').val(null).trigger('change');
             $('#moveMachineModal').modal('show');

@@ -202,6 +202,20 @@
         });
     }
 
+    // Accepts google.com/maps, maps.google.com and the maps.app.goo.gl / goo.gl/maps short links.
+    function isGoogleMapsLink(value) {
+        try {
+            const url = new URL(String(value || '').trim());
+            const host = url.hostname.toLowerCase();
+            if (host === 'maps.app.goo.gl') return true;
+            if (host === 'goo.gl') return url.pathname.startsWith('/maps');
+            if (host === 'maps.google.com') return true;
+            return /^(www\.)?google\.[a-z.]+$/.test(host) && url.pathname.startsWith('/maps');
+        } catch (e) {
+            return false;
+        }
+    }
+
     // ---- Map picker (Leaflet) ----
     let pickerMap = null;
     let pickerMarker = null;
@@ -298,6 +312,16 @@
 
         $('#customer-form').on('submit', function (e) {
             e.preventDefault();
+
+            if (!isGoogleMapsLink($('#customer-maps-link').val())) {
+                Swal.fire({
+                    title: 'Invalid link',
+                    text: 'Google Maps Link must be a valid Google Maps URL (google.com/maps, maps.google.com, or maps.app.goo.gl).',
+                    icon: 'warning',
+                    confirmButtonColor: '#115640'
+                });
+                return;
+            }
 
             if (!$('#customer-province').val() || !$('#customer-region').val()) {
                 Swal.fire({

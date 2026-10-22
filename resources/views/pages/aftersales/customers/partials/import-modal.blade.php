@@ -72,7 +72,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="text-[#9A9A9A] mb-0" style="font-size:9.5px;margin:18px 0 0">Do not rename, remove, or reorder columns in the downloaded template.</p>
+                        <p class="text-[#9A9A9A] mb-0" style="font-size:9.5px;margin:18px 0 0">Do not rename, remove, or reorder columns in the downloaded template. Leave Warranty End empty to use Warranty Start + 12 months.</p>
                     </div>
                 </div>
 
@@ -103,7 +103,7 @@
 
                 {{-- STEP 3 --}}
                 <div class="ci-panel hidden" data-panel="3">
-                    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px">
                         @foreach ([
                             ['18', 'Exact match', '#115640'],
                             ['1', 'Possible match', '#7A5F00'],
@@ -152,7 +152,10 @@
                                         ['decision', 3, 'PT Sejuk Sentosa', '+62 812-9876-420', 'CD 10 · Cube Ice Machine', 'DX-CD-88210', 'Possible match', $badge('#FBEFC8', '#7A5F00'), 'Decision required', $detail('')],
                                         'DECISION',
                                         ['new', 4, 'CV Tirta Abadi', '+62 813-7221-880', 'FM 40 · Flake Ice Machine', 'DX-FM-33018', 'New', $badge('#D3E8DE', '#115640'), 'Ready to create', $detail('')],
-                                        ['warning', 5, 'UD Beku Jaya', '+62 811-2233-445', 'RD 900 · Cold Room', 'DX-CR-20015', 'Warning', $badge('#FBEFC8', '#7A5F00'), 'Contract value empty, set to None', $detail('')],
+                                        ['warning', 5, 'UD Beku Jaya', '+62 811-2233-445', 'RD 900 · Cold Room', 'DX-CR-20015', 'Warning', $badge('#FBEFC8', '#7A5F00'), 'Province follows City (Bandung → Jawa Barat)', $detail('')],
+                                        ['warning', 7, 'PT Dingin Makmur', '+62 821-4455-667', 'TD 20 · Tube Ice Machine', 'DX-TD-55120', 'Warning', $badge('#FBEFC8', '#7A5F00'), 'CITY_SELECT', $detail('')],
+                                        ['exists', 8, 'Global Dynamic', '+62 8578-1357-651', 'RD 1445 · Cold Room', 'DX-CR-10441', 'Already exists', $badge('#E3E3E3', '#5F6B66'), 'Serial already in system, skipped', $detail('')],
+                                        ['warning', 9, 'CV Es Nusantara', '+62 812-3300-910', 'CD 50 · Cube Ice Machine', 'DX-CD-77001', 'Warning', $badge('#FBEFC8', '#7A5F00'), 'Same serial in rows 9 and 12: owner set to last row, note "Previously owned by PT Es Lama"', $detail('')],
                                         ['error', 6, '-', '+62 819-0000-111', 'CD 10 · Cube Ice Machine', 'DX-CD-00001', 'Error', $badge('#FBE0DF', '#C0281F'), 'Customer Name is required', $detail('color:#C0281F')],
                                     ];
                                 @endphp
@@ -189,7 +192,19 @@
                                             <td style="padding:10px 12px">{{ $r[4] }}</td>
                                             <td style="padding:10px 12px;white-space:nowrap">{{ $r[5] }}</td>
                                             <td style="padding:10px 12px"><span {!! $r[7] !!}>{{ $r[6] }}</span></td>
-                                            <td {!! $r[9] !!}>{{ $r[8] }}</td>
+                                            <td {!! $r[9] !!}>
+                                                @if ($r[8] === 'CITY_SELECT')
+                                                    <div style="font-size:9.5px;color:#7A5F00;margin-bottom:3px">City "Bandng" not found. Choose one:</div>
+                                                    <select style="font-size:10px;padding:4px 8px;border:1px solid #D9D9D9;border-radius:6px;max-width:200px">
+                                                        <option value="">Select City</option>
+                                                        <option>Kota Bandung</option>
+                                                        <option>Kabupaten Bandung</option>
+                                                        <option>Kabupaten Bandung Barat</option>
+                                                    </select>
+                                                @else
+                                                    {{ $r[8] }}
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endif
                                 @endforeach

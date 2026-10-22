@@ -173,6 +173,10 @@
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/customers/${row.id}/edit">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
+                            ${row.maps_link ? `
+                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${escapeHtml(row.maps_link)}" target="_blank" rel="noopener">
+                                <i class="bi bi-geo-alt"></i> Open in Google Maps
+                            </a>` : ''}
                         </div>
                     </div>
                 </td>
