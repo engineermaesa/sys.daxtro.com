@@ -14,9 +14,12 @@ class ServiceCustomer extends Model
 
     protected $table = 'service_customers';
 
+    protected $appends = ['maps_link'];
+
     protected $fillable = [
         'name',
         'address',
+        'maps_link',
         'ref_province_id',
         'ref_region_id',
         'pic_name',
@@ -24,6 +27,18 @@ class ServiceCustomer extends Model
         'phone',
         'address_maps_url', 'source', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
     ];
+
+    public function getMapsLinkAttribute(?string $value): ?string
+    {
+        return array_key_exists('address_maps_url', $this->attributes)
+            ? $this->attributes['address_maps_url']
+            : $value;
+    }
+
+    public function setMapsLinkAttribute(?string $value): void
+    {
+        $this->attributes['address_maps_url'] = $value;
+    }
 
     public function province()
     {

@@ -81,7 +81,7 @@ class ImprovementsTest extends TestCase
         DB::table('user_role_permissions')->insert(['role_id' => 1, 'permission_id' => 1]);
         DB::table('ref_provinces')->insert(['id' => 1, 'name' => 'Jawa Timur']);
         DB::table('ref_regions')->insert(['id' => 1, 'name' => 'Ponorogo', 'province_id' => 1]);
-        foreach (['2026_09_03_010100_create_service_customers_table.php', '2026_09_08_000000_alter_service_customers_province_region.php', '2026_09_03_010200_create_service_customer_products_table.php', '2026_09_08_010000_alter_service_customer_products_product_ref.php'] as $migration) {
+        foreach (['2026_09_03_010100_create_service_customers_table.php', '2026_09_08_000000_alter_service_customers_province_region.php', '2026_09_03_010200_create_service_customer_products_table.php', '2026_09_08_010000_alter_service_customer_products_product_ref.php', '2026_10_22_000100_add_source_to_service_customers.php', '2026_10_22_000200_add_maps_link_to_service_customers.php'] as $migration) {
             (require database_path('migrations/'.$migration))->up();
         }
         Schema::table('service_customer_products', function (Blueprint $t) {
@@ -367,6 +367,42 @@ class ImprovementsTest extends TestCase
         app(CustomerImports::class)->apply($batch, 0, 1);
         $this->assertSame(1, ServiceCustomer::count());
         $this->assertSame(276, ServiceCustomerProduct::count());
+    }
+
+    public function test_frontend_maps_alias_uses_backend_storage_and_validation(): void
+    {
+        $this->actingAs($this->user());
+        $created = $this->postJson('/api/aftersales/customers', [
+            'name' => 'FE Customer', 'maps_link' => 'https://maps.app.goo.gl/frontend',
+        ])->assertCreated()->json('data.data');
+        $this->assertSame('https://maps.app.goo.gl/frontend', $created['address_maps_url']);
+        $this->assertSame($created['address_maps_url'], $created['maps_link']);
+        $customer = ServiceCustomer::findOrFail($created['id']);
+        $this->assertSame($customer->address_maps_url, $customer->maps_link);
+        $this->postJson('/api/aftersales/customers', [
+            'name' => 'Invalid Maps', 'maps_link' => 'https://example.com/maps',
+        ])->assertUnprocessable()->assertJsonValidationErrors('address_maps_url');
+        $this->putJson('/api/aftersales/customers/'.$customer->id, [
+            'maps_link' => 'https://maps.app.goo.gl/changed',
+        ])->assertOk()->assertJsonPath('data.data.address_maps_url', 'https://maps.app.goo.gl/changed');
+        $this->putJson('/api/aftersales/customers/'.$customer->id, [
+            'maps_link' => 'https://maps.app.goo.gl/a', 'address_maps_url' => 'https://maps.app.goo.gl/b',
+        ])->assertUnprocessable()->assertJsonValidationErrors('maps_link');
+        DB::table('service_customers')->where('id', $customer->id)->update(['maps_link' => 'https://maps.app.goo.gl/old']);
+        $this->putJson('/api/aftersales/customers/'.$customer->id, ['maps_link' => null])
+            ->assertOk()->assertJsonPath('data.data.maps_link', null);
+        $this->assertNull($customer->fresh()->address_maps_url);
+    }
+
+    public function test_maps_migration_preserves_both_existing_frontend_and_backend_values(): void
+    {
+        $legacy = ServiceCustomer::create(['name' => 'FE legacy']);
+        $backend = ServiceCustomer::create(['name' => 'Backend customer', 'address_maps_url' => 'https://maps.app.goo.gl/backend']);
+        DB::table('service_customers')->whereIn('id', [$legacy->id, $backend->id])->update(['maps_link' => 'https://maps.app.goo.gl/legacy']);
+        (require database_path('migrations/2026_10_22_110000_reconcile_customer_maps_fields.php'))->up();
+        $this->assertSame('https://maps.app.goo.gl/legacy', $legacy->fresh()->address_maps_url);
+        $this->assertSame('https://maps.app.goo.gl/backend', $backend->fresh()->address_maps_url);
+        $this->assertSame('https://maps.app.goo.gl/backend', $backend->fresh()->maps_link);
     }
 
     public function test_ticket_reminders_do_not_expose_survey_answers_to_technician(): void

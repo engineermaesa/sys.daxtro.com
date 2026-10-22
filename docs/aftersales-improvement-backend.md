@@ -182,6 +182,8 @@ Response Create 201 / Update 200: `{"message":"Customer created successfully","d
 
 Open Maps tidak memanggil API: buka `address_maps_url` di tab baru jika terisi, dengan `rel="noopener noreferrer"`. Tidak ada endpoint geocoding/autofill alamat.
 
+Kompatibilitas form FE: `maps_link` diterima sebagai alias `address_maps_url` pada Create/Update Customer dan dikembalikan pada JSON/model Blade dengan nilai yang sama. Keduanya memakai validasi Google Maps; jika kedua field dikirim dengan nilai berbeda, request ditolak 422 pada `errors.maps_link`. Penyimpanan utama tetap `address_maps_url`, sehingga data dari impor dan Deal memakai field yang konsisten. Migration `2026_10_22_110000_reconcile_customer_maps_fields` menyalin Maps lama dari kolom FE hanya bila nilai backend masih null.
+
 ### 3.4 C05/C06 — Dropdown Province dan City
 
 C05 tanpa query/body → 200:

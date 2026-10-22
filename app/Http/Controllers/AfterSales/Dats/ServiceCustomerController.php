@@ -112,6 +112,7 @@ class ServiceCustomerController extends Controller
     public function store(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $this->normalizeMapsInput($request);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -135,6 +136,7 @@ class ServiceCustomerController extends Controller
     public function update(Request $request, ServiceCustomer $customer)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $this->normalizeMapsInput($request);
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -299,6 +301,21 @@ class ServiceCustomerController extends Controller
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
         return response()->json(['data' => ['categories' => \App\Models\Masters\ProductType::orderBy('name')->get(['id', 'name', 'code_prefix']), 'industries' => \App\Models\Masters\Industry::orderBy('name')->get(['id', 'name']), 'pm_contracts' => ['none' => null, 'basic' => '6 months', 'premium' => '3 months']]]);
+    }
+
+    private function normalizeMapsInput(Request $request): void
+    {
+        if (! $request->exists('maps_link')) {
+            return;
+        }
+
+        if ($request->exists('address_maps_url') && $request->input('address_maps_url') !== $request->input('maps_link')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'maps_link' => 'Google Maps fields must contain the same URL.',
+            ]);
+        }
+
+        $request->merge(['address_maps_url' => $request->input('maps_link')]);
     }
 
     private function customerLocation(array $data, ?ServiceCustomer $customer = null): array

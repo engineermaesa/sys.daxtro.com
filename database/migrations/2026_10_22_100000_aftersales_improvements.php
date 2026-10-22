@@ -9,9 +9,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('service_customers', function (Blueprint $t) {
+        $hasSource = Schema::hasColumn('service_customers', 'source');
+        Schema::table('service_customers', function (Blueprint $t) use ($hasSource) {
             $t->string('address_maps_url', 2048)->nullable();
-            $t->string('source')->default('manual');
+            if (! $hasSource) {
+                $t->string('source')->default('manual');
+            }
         });
         Schema::table('ref_product_types', fn (Blueprint $t) => $t->string('code_prefix')->nullable());
         Schema::table('service_customer_products', function (Blueprint $t) {
