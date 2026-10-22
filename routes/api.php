@@ -1,64 +1,59 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementController;
+use App\Http\Controllers\AfterSales\Dats\AgreementTemplateController;
+use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
+use App\Http\Controllers\AfterSales\Dats\InspectionTemplateController;
+use App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController as DatsSatisfactionSurveyController;
+use App\Http\Controllers\AfterSales\Dats\ServiceCustomerController;
+use App\Http\Controllers\AfterSales\Dats\ServiceFormController as DatsServiceFormController;
+use App\Http\Controllers\AfterSales\Dats\SparepartController;
+use App\Http\Controllers\AfterSales\Dats\SurveyLinkController as DatsSurveyLinkController;
+// LEADS (API)
+use App\Http\Controllers\AfterSales\Dats\SurveyTemplateController;
+use App\Http\Controllers\AfterSales\Dats\TechnicianController as DatsTechnicianController;
+use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketController;
+use App\Http\Controllers\AfterSales\Survey\CustomerSurveyController;
+use App\Http\Controllers\AfterSales\Survey\InspectionPhotoController;
 use App\Http\Controllers\Api\LeadRegisterController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Dashboard\AfterSalesSummaryController;
+use App\Http\Controllers\Dashboard\BMSummaryController;
+// MASTERS (API)
 use App\Http\Controllers\Dashboard\DashSummaryController;
 use App\Http\Controllers\Dashboard\LeadSummaryController;
-use App\Http\Controllers\Dashboard\BMSummaryController;
-use App\Http\Controllers\Dashboard\AfterSalesSummaryController;
-use App\Http\Controllers\NotificationController;
-
-// LEADS (API)
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Leads\ColdLeadController;
+use App\Http\Controllers\Leads\DealLeadController;
+use App\Http\Controllers\Leads\HotLeadController;
+use App\Http\Controllers\Leads\ImportLeadController;
 use App\Http\Controllers\Leads\LeadActivityController;
 use App\Http\Controllers\Leads\LeadController;
-use App\Http\Controllers\Leads\ImportLeadController;
-use App\Http\Controllers\Leads\ColdLeadController;
-use App\Http\Controllers\Leads\WarmLeadController;
-use App\Http\Controllers\Leads\HotLeadController;
-use App\Http\Controllers\Leads\DealLeadController;
 use App\Http\Controllers\Leads\MeetingController;
 use App\Http\Controllers\Leads\SummaryController;
-
-
-// MASTERS (API)
+use App\Http\Controllers\Leads\WarmLeadController;
 use App\Http\Controllers\Masters\AccountController;
 use App\Http\Controllers\Masters\AgentController;
 use App\Http\Controllers\Masters\BankController;
 use App\Http\Controllers\Masters\BranchController;
 use App\Http\Controllers\Masters\CompanyController;
+// Purchasing
 use App\Http\Controllers\Masters\CustomerTypeController;
+// AFTERSALES DATS (API)
 use App\Http\Controllers\Masters\ExpenseTypeController;
 use App\Http\Controllers\Masters\PartController;
 use App\Http\Controllers\Masters\ProductCategoryController;
-use App\Http\Controllers\Masters\SourceController;
 use App\Http\Controllers\Masters\ProductController;
+use App\Http\Controllers\Masters\ProductTypeController;
 use App\Http\Controllers\Masters\ProvinceController;
 use App\Http\Controllers\Masters\RegionController;
-use App\Http\Controllers\Masters\ProductTypeController;
+use App\Http\Controllers\Masters\SourceController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Purchasing\PurchaseController;
 use App\Http\Controllers\Users\AdminController;
 use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
-
-// Purchasing
-use App\Http\Controllers\Purchasing\PurchaseController;
-
-// AFTERSALES DATS (API)
-use App\Http\Controllers\AfterSales\Dats\ServiceCustomerController;
-use App\Http\Controllers\AfterSales\Dats\TechnicianController as DatsTechnicianController;
-use App\Http\Controllers\AfterSales\Dats\SparepartController;
-use App\Http\Controllers\AfterSales\Dats\TicketController as DatsTicketController;
-use App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController as DatsSatisfactionSurveyController;
-use App\Http\Controllers\AfterSales\Dats\SurveyLinkController as DatsSurveyLinkController;
-use App\Http\Controllers\AfterSales\Survey\CustomerSurveyController;
-use App\Http\Controllers\AfterSales\Survey\InspectionPhotoController;
-use App\Http\Controllers\AfterSales\Dats\ServiceFormController as DatsServiceFormController;
-use App\Http\Controllers\AfterSales\Dats\AgreementController as DatsAgreementController;
-use App\Http\Controllers\AfterSales\Dats\DocumentController as DatsDocumentController;
-use App\Http\Controllers\AfterSales\Dats\AgreementTemplateController;
-use App\Http\Controllers\AfterSales\Dats\InspectionTemplateController;
-use App\Http\Controllers\AfterSales\Dats\SurveyTemplateController;
+use Illuminate\Support\Facades\Route;
 
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {
     Route::get('/', [SurveyTemplateController::class, 'index'])->name('index');
@@ -102,7 +97,6 @@ Route::post('leads/register', [LeadRegisterController::class, 'store'])->name('a
 Route::get('leads/sources', [LeadRegisterController::class, 'sources'])->name('api.leads.sources');
 Route::get('leads/segments', [LeadRegisterController::class, 'segments'])->name('api.leads.segments');
 Route::get('leads/regions', [LeadRegisterController::class, 'regions'])->name('api.leads.regions');
-
 
 Route::get('/dashboard/mkt5a', [DashboardController::class, 'mkt5a']);
 // Route::get('/dashboard/sales-segment-performance', [DashboardController::class, 'salesSegmentPerformance']);
@@ -150,11 +144,8 @@ Route::group([
     Route::get('/dashboard/after-sales/province-distribution', [AfterSalesSummaryController::class, 'provinceDistribution']);
 });
 
-
-
-
 // =====================================
-// LEAD CLAIMS (API)    
+// LEAD CLAIMS (API)
 // =====================================
 
 // =====================================
@@ -162,7 +153,6 @@ Route::group([
 // =====================================
 Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('api.login');
 Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('api.logout')->middleware('auth');
-
 
 // =====================================
 // LEADS (API)
@@ -174,7 +164,6 @@ Route::group([
     'namespace' => 'App\\Http\\Controllers\\Leads',
     'middleware' => ['api', 'web', 'auth'],
 ], function () {
-
 
     // Dashboard Leads Summary (API)
     Route::get('/grid', [LeadSummaryController::class, 'grid'])->name('grid');
@@ -240,12 +229,10 @@ Route::group([
     Route::prefix('my')->name('my.')->group(function () {
         Route::get('/', [LeadController::class, 'my'])->name('index');
 
-
         // PRIORITY TO USE LARAVEL SANCTUM
         // API FOR GRID BUT NOT SAFE BECAUSE NO MIDDLEWARE CHECK
         Route::get('/summary', [SummaryController::class, 'index'])->withoutMiddleware(['web', 'auth'])->name('summary');
         //
-
 
         Route::get('/all', [LeadController::class, 'myAllList'])->name('all');
         Route::get('/form/{id?}', [LeadController::class, 'form'])->name('form');
@@ -308,7 +295,7 @@ Route::group([
     'prefix' => 'lost-leads',
     'as' => 'lost-leads.',
     'namespace' => 'App\\Http\\Controllers\\Leads',
-    'middleware' => ['api','web','auth'],
+    'middleware' => ['api', 'web', 'auth'],
 ], function () {
     Route::get('list', 'LostLeadController@hotList')->name('hot.list');
 });
@@ -448,7 +435,6 @@ Route::group([
         Route::delete('/delete/{id}', [PartController::class, 'delete'])->name('delete');
     });
 
-
     // COMPANIES (API)
     Route::prefix('companies')->name('companies.')->group(function () {
         Route::get('/list', [CompanyController::class, 'list'])->name('list');
@@ -531,6 +517,16 @@ Route::group([
 
     // SERVICE CUSTOMERS + PRODUCT UNITS (API)
     Route::prefix('customers')->name('customers.')->group(function () {
+        Route::get('/machine-references', [ServiceCustomerController::class, 'machineReferences'])->name('machine-references');
+        Route::get('/imports/template', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'template'])->name('imports.template');
+        Route::post('/imports', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'upload'])->name('imports.upload');
+        Route::get('/imports/{import}', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'show'])->name('imports.show');
+        Route::put('/imports/{import}/review', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'review'])->name('imports.review');
+        Route::post('/imports/{import}/apply', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'apply'])->name('imports.apply');
+        Route::get('/imports/{import}/export', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'export'])->name('imports.export');
+        Route::get('/deal-reviews', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'index'])->name('deal-reviews.index');
+        Route::post('/deal-reviews/{deal}/resolve', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'resolve'])->name('deal-reviews.resolve');
+        Route::post('/products/{product}/move', [ServiceCustomerController::class, 'moveProduct'])->name('products.move');
         Route::get('/', [ServiceCustomerController::class, 'index'])->name('index');
         Route::post('/', [ServiceCustomerController::class, 'store'])->name('store');
         Route::get('/provinces', [ServiceCustomerController::class, 'provinces'])->name('provinces');
@@ -572,6 +568,7 @@ Route::group([
         Route::get('/next-code', [DatsTicketController::class, 'nextCode'])->name('next-code');
         Route::get('/exchange-rates', [DatsTicketController::class, 'exchangeRates'])->name('exchange-rates');
         Route::get('/supervisors', [DatsTicketController::class, 'supervisors'])->name('supervisors');
+        Route::post('/{ticket}/happy-call', [DatsTicketController::class, 'happyCall'])->name('happy-call');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
         Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');
         Route::delete('/{ticket}', [DatsTicketController::class, 'destroy'])->name('destroy');
@@ -676,7 +673,6 @@ Route::group([
     Route::post('permissions/save/{roleId}', [\App\Http\Controllers\Users\PermissionSettingController::class, 'save'])->name('permissions-settings.save');
     Route::get('seeder', [\App\Http\Controllers\Users\SeederController::class, 'run'])->name('seeder.run');
 });
-
 
 // =====================================
 // PURCHASING (API) - PUBLIC (NO AUTH)

@@ -14,7 +14,8 @@ class TechnicianScore
     public const PERIODS = ['all' => null, '30' => 30, '90' => 90, '365' => 365];
 
     private const COUNTED_REASONS = ['further_work_needed', 'other'];
-    private const SURVEY_STEPS = [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED];
+
+    private const SURVEY_STEPS = [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED, TicketLog::STEP_HAPPY_CALL_COMPLETED];
 
     public static function since(?string $period): ?Carbon
     {
@@ -92,6 +93,7 @@ class TechnicianScore
         }
 
         return [
+            'rating_scale_max' => 3,
             'rating' => $counted->isEmpty() ? null : round($counted->avg(fn ($x) => $x['model']->average_score), 1),
             'rating_count' => $counted->count(),
             'completion' => $c + $r > 0 ? (int) round($c / ($c + $r) * 100) : null,

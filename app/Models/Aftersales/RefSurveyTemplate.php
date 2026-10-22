@@ -34,7 +34,7 @@ class RefSurveyTemplate extends Model
     {
         $question = fn ($key, $label, $type, $required = true, $core = false) => ['question_key' => $key, 'label' => $label, 'hint' => '', 'type' => $type, 'options' => [], 'required' => $required, 'is_core' => $core, 'is_active' => true];
 
-        return ['scale_labels' => ['Very Poor', 'Poor', 'Fair', 'Good', 'Very Good'], 'sections' => [
+        return ['scale_labels' => ['Kurang Puas', 'Puas', 'Sangat Puas'], 'sections' => [
             ['section_key' => 'ratings', 'title' => 'Ratings', 'is_active' => true, 'questions' => collect(TicketSatisfaction::ASPECTS)->map(fn ($label, $key) => $question($key, $label, 'rating'))->values()->all()],
             ['section_key' => 'machine_condition', 'title' => 'Machine condition', 'is_active' => true, 'questions' => [$question('machine_ok', 'Is the machine working properly after service?', 'yes_no', true, true)]],
             ['section_key' => 'comments', 'title' => 'Comments & Suggestions', 'is_active' => true, 'questions' => [$question('feedback', 'Please share any comments or suggestions.', 'long_text', false)]],

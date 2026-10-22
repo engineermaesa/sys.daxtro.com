@@ -13,6 +13,7 @@ class Ticket extends Model
     use HasFactory, SoftDeletes;
 
     public const CATEGORIES = ['electrical', 'mechanical', 'refrigeration_system', 'production'];
+
     public const PRIORITIES = ['low', 'medium', 'high'];
 
     protected $fillable = [
@@ -31,12 +32,14 @@ class Ticket extends Model
         'service_type',
         'created_by',
         'updated_by',
+        'happy_call_required',
     ];
 
     protected $casts = [
         'sla_due_at' => 'datetime',
         'assigned_technician_id' => 'integer',
         'supervisor_id' => 'integer',
+        'happy_call_required' => 'boolean',
     ];
 
     public function customer()
@@ -62,6 +65,11 @@ class Ticket extends Model
     public function logs()
     {
         return $this->hasMany(TicketLog::class, 'ticket_id');
+    }
+
+    public function latestLog()
+    {
+        return $this->hasOne(TicketLog::class, 'ticket_id')->latestOfMany();
     }
 
     public function visits()

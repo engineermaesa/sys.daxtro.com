@@ -23,7 +23,8 @@ class ServiceCustomerController extends Controller
     public function machinesPage(Request $request, ServiceCustomer $customer)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
-        $this->pageTitle = 'Machine — ' . $customer->name;
+        $this->pageTitle = 'Machine — '.$customer->name;
+
         return $this->render('pages.aftersales.customers.machines', [
             'customer' => $customer,
         ]);
@@ -32,7 +33,8 @@ class ServiceCustomerController extends Controller
     public function ticketsPage(Request $request, ServiceCustomer $customer)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
-        $this->pageTitle = 'Tickets — ' . $customer->name;
+        $this->pageTitle = 'Tickets — '.$customer->name;
+
         return $this->render('pages.aftersales.customers.tickets', [
             'customer' => $customer,
         ]);
@@ -44,7 +46,7 @@ class ServiceCustomerController extends Controller
 
         $customer?->load(['province', 'region']);
 
-        $this->pageTitle = ($customer ? 'Edit' : 'Add') . ' Customer';
+        $this->pageTitle = ($customer ? 'Edit' : 'Add').' Customer';
 
         return $this->render('pages.aftersales.customers.create', [
             'customer' => $customer,
@@ -59,7 +61,8 @@ class ServiceCustomerController extends Controller
             $product = ServiceCustomerProduct::where('customer_id', $customer->id)
                 ->findOrFail($request->input('product'));
         }
-        $this->pageTitle = ($product ? 'Edit' : 'Add') . ' Machine — ' . $customer->name;
+        $this->pageTitle = ($product ? 'Edit' : 'Add').' Machine — '.$customer->name;
+
         return $this->render('pages.aftersales.customers.create-machine', [
             'customer' => $customer,
             'product' => $product,
@@ -72,7 +75,7 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $query = ServiceCustomer::query()->with(['province', 'region'])->withCount('products');
+        $query = ServiceCustomer::query()->with(['province', 'region', 'deals'])->withCount('products');
 
         if ($request->filled('search')) {
             $search = trim((string) $request->input('search'));
@@ -83,8 +86,9 @@ class ServiceCustomerController extends Controller
             });
         }
 
-        $perPage = (int) $request->input('per_page', 15);
+        $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $paginated->getCollection()->each->append(['lead_no_longer_deal', 'lead_updated']);
 
         return response()->json([
             'status' => 'success',
@@ -99,7 +103,8 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $customer->load(['province', 'region', 'products.industry', 'products.product', 'products.productType']);
+        $customer->load(['province', 'region', 'deals.lead.quotation', 'products.industry', 'products.product', 'products.productType']);
+        $customer->append(['lead_no_longer_deal', 'lead_updated']);
 
         return response()->json(['status' => 'success', 'data' => $customer]);
     }
@@ -107,21 +112,27 @@ class ServiceCustomerController extends Controller
     public function store(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $this->normalizeMapsInput($request);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'address' => 'required|string',
-            'maps_link' => 'required|url|max:2048',
-            'ref_province_id' => 'required|integer|exists:ref_provinces,id',
-            'ref_region_id' => 'required|integer|exists:ref_regions,id',
-            'pic_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'required|string|max:50',
+            'address' => 'nullable|string',
+            'address_maps_url' => ['nullable', 'string', 'max:2048', new \App\Rules\GoogleMapsUrl],
+            'ref_province_id' => 'nullable|integer|exists:ref_provinces,id',
+            'ref_region_id' => 'nullable|integer|exists:ref_regions,id',
+            'pic_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
         ]);
 
         $validated['created_by'] = $request->user()->id;
+        $validated = $this->customerLocation($validated);
 
-        $customer = ServiceCustomer::create($validated);
+        $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($validated));
+
+            return ServiceCustomer::create($validated);
+        }, 3);
 
         return $this->setJsonResponse('Customer created successfully', ['data' => $customer], 201);
     }
@@ -129,38 +140,50 @@ class ServiceCustomerController extends Controller
     public function update(Request $request, ServiceCustomer $customer)
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $this->normalizeMapsInput($request);
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'address' => 'required|string',
-            'maps_link' => 'required|url|max:2048',
-            'ref_province_id' => 'required|integer|exists:ref_provinces,id',
-            'ref_region_id' => 'required|integer|exists:ref_regions,id',
-            'pic_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'required|string|max:50',
+            'address' => 'nullable|string',
+            'address_maps_url' => ['nullable', 'string', 'max:2048', new \App\Rules\GoogleMapsUrl],
+            'ref_province_id' => 'nullable|integer|exists:ref_provinces,id',
+            'ref_region_id' => 'nullable|integer|exists:ref_regions,id',
+            'pic_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
         ]);
 
         $validated['updated_by'] = $request->user()->id;
+        $validated = $this->customerLocation($validated, $customer);
 
-        $digits = fn ($p) => preg_replace('/\D+/', '', (string) $p);
-        $phoneChanged = array_key_exists('phone', $validated) && $digits($validated['phone']) !== $digits($customer->phone);
-        if ($phoneChanged) {
-            abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403, 'Only admin can change the customer WhatsApp number.');
-        }
+        $original = $customer->getAttributes();
+        $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($customer, $validated, $request, $original) {
+            $oldKeys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys($original);
+            $newKeys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys(array_replace($original, $validated));
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(array_merge($oldKeys, $newKeys));
+            $customer = ServiceCustomer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            abort_unless(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($customer->getAttributes()) === $oldKeys, 409, 'Customer changed. Reload before saving.');
+            $digits = fn ($p) => preg_replace('/\D+/', '', (string) $p);
+            $phoneChanged = array_key_exists('phone', $validated) && $digits($validated['phone']) !== $digits($customer->phone);
+            if ($phoneChanged) {
+                abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403, 'Only admin can change the customer WhatsApp number.');
+            }
 
-        $oldPhone = $customer->phone;
-        $customer->update($validated);
+            $oldPhone = $customer->phone;
+            $customer->update($validated);
 
-        if ($phoneChanged) {
-            ServiceCustomerPhoneChange::create([
-                'customer_id' => $customer->id,
-                'old_phone' => $oldPhone,
-                'new_phone' => $validated['phone'],
-                'changed_by_user_id' => $request->user()->id,
-                'changed_at' => Carbon::now('Asia/Jakarta'),
-            ]);
-        }
+            if ($phoneChanged) {
+                ServiceCustomerPhoneChange::create([
+                    'customer_id' => $customer->id,
+                    'old_phone' => $oldPhone,
+                    'new_phone' => $validated['phone'],
+                    'changed_by_user_id' => $request->user()->id,
+                    'changed_at' => Carbon::now('Asia/Jakarta'),
+                ]);
+            }
+
+            return $customer;
+        }, 3);
 
         return $this->setJsonResponse('Customer updated successfully', ['data' => $customer->fresh(['province', 'region'])]);
     }
@@ -210,8 +233,14 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $customer->update(['deleted_by' => $request->user()->id, 'is_deleted' => true]);
-        $customer->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($customer, $request) {
+            $keys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys($customer->getAttributes());
+            \App\Services\Aftersales\CustomerMutationLocks::acquire($keys);
+            $locked = ServiceCustomer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            abort_unless(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($locked->getAttributes()) === $keys, 409, 'Customer changed. Reload before deleting.');
+            $locked->update(['deleted_by' => $request->user()->id, 'is_deleted' => true]);
+            $locked->delete();
+        }, 3);
 
         return $this->setJsonResponse('Customer deleted successfully');
     }
@@ -221,21 +250,24 @@ class ServiceCustomerController extends Controller
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
         $validated = $request->validate([
-            'product_id' => 'required|integer|exists:ref_products,id',
-            'serial_number' => 'nullable|string|max:255',
+            'product_id' => 'nullable|integer|exists:ref_products,id',
+            'machine_name' => 'required|string|max:255',
+            'serial_number' => 'required|string|max:255',
+            'brand' => 'nullable|string|max:255',
+            'capacity' => 'nullable|numeric|min:0',
+            'refrigerant' => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:10000',
             'ref_product_type_id' => 'nullable|integer|exists:ref_product_types,id',
             'industry_id' => 'nullable|integer|exists:ref_industries,id',
-            'warranty_period' => 'nullable|string|max:255',
             'warranty_start' => 'nullable|date',
             'warranty_end' => 'nullable|date',
-            'pm_contract_status' => 'nullable|in:none,offered,active,expired',
-            'pm_frequency' => 'nullable|string|max:255',
+            'pm_contract_status' => 'sometimes|required|in:none,basic,premium',
         ]);
 
         $validated['customer_id'] = $customer->id;
         $validated['created_by'] = $request->user()->id;
 
-        $product = ServiceCustomerProduct::create($validated);
+        $product = $this->saveMachine($validated);
 
         return $this->setJsonResponse('Product unit added successfully', ['data' => $product->load(['product', 'productType'])], 201);
     }
@@ -245,20 +277,23 @@ class ServiceCustomerController extends Controller
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
         $validated = $request->validate([
-            'product_id' => 'sometimes|required|integer|exists:ref_products,id',
-            'serial_number' => 'nullable|string|max:255',
+            'product_id' => 'nullable|integer|exists:ref_products,id',
+            'machine_name' => 'required|string|max:255',
+            'serial_number' => 'required|string|max:255',
+            'brand' => 'nullable|string|max:255',
+            'capacity' => 'nullable|numeric|min:0',
+            'refrigerant' => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:10000',
             'ref_product_type_id' => 'nullable|integer|exists:ref_product_types,id',
             'industry_id' => 'nullable|integer|exists:ref_industries,id',
-            'warranty_period' => 'nullable|string|max:255',
             'warranty_start' => 'nullable|date',
             'warranty_end' => 'nullable|date',
-            'pm_contract_status' => 'nullable|in:none,offered,active,expired',
-            'pm_frequency' => 'nullable|string|max:255',
+            'pm_contract_status' => 'sometimes|required|in:none,basic,premium',
         ]);
 
         $validated['updated_by'] = $request->user()->id;
 
-        $product->update($validated);
+        $product = $this->saveMachine($validated, $product);
 
         return $this->setJsonResponse('Product unit updated successfully', ['data' => $product->fresh(['product', 'productType'])]);
     }
@@ -271,5 +306,65 @@ class ServiceCustomerController extends Controller
         $product->delete();
 
         return $this->setJsonResponse('Product unit deleted successfully');
+    }
+
+    public function moveProduct(Request $request, ServiceCustomerProduct $product, \App\Services\Aftersales\MachineTransfer $service)
+    {
+        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $input = $request->validate(['customer_id' => 'required|integer|exists:service_customers,id', 'note' => 'nullable|string|max:10000']);
+
+        return response()->json(['data' => $service->move($product, $input['customer_id'], $input['note'] ?? null, $request->user()->id)->load(['customer', 'productType'])]);
+    }
+
+    public function machineReferences(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+
+        return response()->json(['data' => ['categories' => \App\Models\Masters\ProductType::orderBy('name')->get(['id', 'name', 'code_prefix']), 'industries' => \App\Models\Masters\Industry::orderBy('name')->get(['id', 'name']), 'pm_contracts' => ['none' => null, 'basic' => '6 months', 'premium' => '3 months']]]);
+    }
+
+    private function normalizeMapsInput(Request $request): void
+    {
+        if (! $request->exists('maps_link')) {
+            return;
+        }
+
+        if ($request->exists('address_maps_url') && $request->input('address_maps_url') !== $request->input('maps_link')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'maps_link' => 'Google Maps fields must contain the same URL.',
+            ]);
+        }
+
+        $request->merge(['address_maps_url' => $request->input('maps_link')]);
+    }
+
+    private function customerLocation(array $data, ?ServiceCustomer $customer = null): array
+    {
+        $regionId = $data['ref_region_id'] ?? $customer?->ref_region_id;
+        if ($regionId) {
+            $data['ref_province_id'] = \App\Models\Masters\Region::findOrFail($regionId)->province_id;
+        }
+
+        return $data;
+    }
+
+    private function saveMachine(array $data, ?ServiceCustomerProduct $machine = null): ServiceCustomerProduct
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($data, $machine) {
+            $serial = \App\Services\Aftersales\CustomerMatching::serial($data['serial_number']);
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(\App\Services\Aftersales\CustomerMutationLocks::serialKey($serial));
+            $duplicate = $serial && \App\Services\Aftersales\MachineSerials::exists($serial, $machine?->id);
+            if (! $serial || $duplicate) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['serial_number' => $serial ? 'This serial number already exists.' : 'Serial Number is required.']);
+            }
+            $data['serial_number'] = $serial;
+            if ($machine) {
+                $machine = ServiceCustomerProduct::whereKey($machine->id)->lockForUpdate()->firstOrFail();
+            }
+            $machine ??= new ServiceCustomerProduct;
+            $machine->fill($data)->save();
+
+            return $machine;
+        }, 3);
     }
 }

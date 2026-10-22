@@ -13,5 +13,6 @@ class ProductType extends Model
 
     protected $fillable = [
         'name',
+        'code_prefix',
     ];
 }

@@ -94,6 +94,7 @@ class RolePermissionSeeder extends Seeder
             ],
         ];
 
+        $map['supervisor_after_sales'] = $map['after_sales'];
         foreach ($map as $roleCode => $permIds) {
             if (! isset($roles[$roleCode])) {
                 continue;

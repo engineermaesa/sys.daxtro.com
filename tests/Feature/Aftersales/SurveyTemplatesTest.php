@@ -187,7 +187,7 @@ class SurveyTemplatesTest extends TestCase
     {
         $template = RefSurveyTemplate::active();
         $this->assertCount(11, $template->questions());
-        $this->assertCount(5, $template->content['scale_labels']);
+        $this->assertCount(3, $template->content['scale_labels']);
         $this->assertSame($template->id, SatisfactionLink::first()->ref_survey_template_id);
         $response = TicketSatisfaction::first();
         $this->assertSame($template->id, $response->ref_survey_template_id);
@@ -315,7 +315,7 @@ class SurveyTemplatesTest extends TestCase
     public function test_rating_range_required_answers_and_no_explanation_are_enforced(): void
     {
         $template = RefSurveyTemplate::active();
-        foreach ([['timeliness' => 6], ['timeliness' => null], ['machine_ok' => false]] as $change) {
+        foreach ([['timeliness' => 4], ['timeliness' => 6], ['timeliness' => null], ['machine_ok' => false]] as $change) {
             $input = $this->answerInput($template);
             $input['answers'] = array_replace($input['answers'], $change);
             try {
@@ -488,8 +488,8 @@ class SurveyTemplatesTest extends TestCase
         $this->manager(false);
         $this->getJson($this->api)->assertForbidden();
         $this->postJson($this->api.'/draft')->assertForbidden();
-        $this->putJson($this->api.'/1',[])->assertForbidden();
-        $this->postJson($this->api.'/1/activate',[])->assertForbidden();
+        $this->putJson($this->api.'/1', [])->assertForbidden();
+        $this->postJson($this->api.'/1/activate', [])->assertForbidden();
         $this->getJson($this->api.'/question-scores')->assertForbidden();
     }
 }

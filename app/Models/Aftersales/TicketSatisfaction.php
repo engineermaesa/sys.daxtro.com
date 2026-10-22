@@ -14,11 +14,15 @@ class TicketSatisfaction extends Model
     use HasFactory, SoftDeletes;
 
     public const SOURCE_LINK = 'link';
+
     public const SOURCE_ADMIN = 'admin';
 
     public const REVIEW_NORMAL = 'normal';
+
     public const REVIEW_NEEDS_REVIEW = 'needs_review';
+
     public const REVIEW_REVIEWED = 'reviewed';
+
     public const REVIEW_REJECTED = 'rejected';
 
     public const ASPECTS = [
@@ -67,10 +71,12 @@ class TicketSatisfaction extends Model
         'filled_by_user_id',
         'filled_at',
         'ref_survey_template_id',
+        'score_original', 'scale_version',
     ];
 
     protected $casts = [
         'machine_ok' => 'boolean',
+        'score_original' => 'array',
         'review_reasons' => 'array',
         'filled_at' => 'datetime',
         'reviewed_at' => 'datetime',
@@ -103,7 +109,7 @@ class TicketSatisfaction extends Model
         $png = base64_decode($m[1], true);
         abort_if($png === false || strlen($png) > 512 * 1024 || ! str_starts_with($png, "\x89PNG"), 422, 'Invalid signature.');
 
-        $path = $dir . '/' . $ticketId . '/' . Str::uuid() . '.png';
+        $path = $dir.'/'.$ticketId.'/'.Str::uuid().'.png';
         Storage::disk('local')->put($path, $png);
 
         return $path;
@@ -138,6 +144,7 @@ class TicketSatisfaction extends Model
     {
         if ($this->ref_survey_template_id) {
             $scores = $this->answers->where('type', 'rating')->whereNotNull('value_number');
+
             return $scores->isEmpty() ? null : round($scores->avg('value_number'), 1);
         }
         $scores = collect(array_keys(self::ASPECTS))

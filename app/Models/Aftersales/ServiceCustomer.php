@@ -14,6 +14,8 @@ class ServiceCustomer extends Model
 
     protected $table = 'service_customers';
 
+    protected $appends = ['maps_link'];
+
     protected $fillable = [
         'name',
         'address',
@@ -23,8 +25,20 @@ class ServiceCustomer extends Model
         'pic_name',
         'email',
         'phone',
-        'source',
+        'address_maps_url', 'source', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
     ];
+
+    public function getMapsLinkAttribute(?string $value): ?string
+    {
+        return array_key_exists('address_maps_url', $this->attributes)
+            ? $this->attributes['address_maps_url']
+            : $value;
+    }
+
+    public function setMapsLinkAttribute(?string $value): void
+    {
+        $this->attributes['address_maps_url'] = $value;
+    }
 
     public function province()
     {
@@ -44,5 +58,20 @@ class ServiceCustomer extends Model
     public function tickets()
     {
         return $this->hasMany(Ticket::class, 'customer_id');
+    }
+
+    public function deals()
+    {
+        return $this->hasMany(CustomerDeal::class, 'service_customer_id');
+    }
+
+    public function getLeadNoLongerDealAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->whereNotNull('left_deal_at')->isNotEmpty() : $this->deals()->whereNotNull('left_deal_at')->exists();
+    }
+
+    public function getLeadUpdatedAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->contains(fn ($d) => ! empty($d->pending_changes)) : $this->deals()->whereNotNull('pending_changes')->exists();
     }
 }
