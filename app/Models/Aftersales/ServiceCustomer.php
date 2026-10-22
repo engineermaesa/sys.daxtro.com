@@ -17,11 +17,13 @@ class ServiceCustomer extends Model
     protected $fillable = [
         'name',
         'address',
+        'maps_link',
         'ref_province_id',
         'ref_region_id',
         'pic_name',
         'email',
         'phone',
+        'source',
     ];
 
     public function province()

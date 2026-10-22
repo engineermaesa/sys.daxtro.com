@@ -15,10 +15,16 @@
                 </div>
                 <p class="text-[#757575] mt-1">Manage and monitor your customers' complete information here.</p>
             </div>
-            <a href="{{ route('aftersales.pages.customers.create') }}"
-                class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors">
-                <i class="bi bi-plus-lg"></i> Add Customer
-            </a>
+            <div class="flex items-center gap-2">
+                <button type="button" data-toggle="modal" data-target="#customerImportModal"
+                    class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
+                    Import Customer
+                </button>
+                <a href="{{ route('aftersales.pages.customers.create') }}"
+                    class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors">
+                    <i class="bi bi-plus-lg"></i> Add Customer
+                </a>
+            </div>
         </div>
 
         {{-- SEARCH --}}
@@ -47,6 +53,7 @@
                         <th class="p-3 text-left uppercase text-xs font-bold">Contact</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Region</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Province</th>
+                        <th class="p-3 text-left uppercase text-xs font-bold">Source</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Action</th>
                     </tr>
                 </thead>
@@ -81,6 +88,7 @@
         </div>
     </div>
 </section>
+@include('pages.aftersales.customers.partials.import-modal')
 @endsection
 
 @section('scripts')
@@ -122,11 +130,18 @@
         return `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" class="underline">${display}</a>`;
     }
 
+    function renderSource(source) {
+        const isImport = source === 'import';
+        const label = isImport ? 'Import' : 'Manual';
+        const style = isImport ? 'background:#D3E8DE;color:#115640' : 'background:#F0F0F0;color:#5F6B66';
+        return `<span style="${style};font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px">${label}</span>`;
+    }
+
     function renderCustomerRows(rows) {
         const $body = $('#customer-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="7" class="text-center p-4 text-[#757575]">No customers found</td></tr>');
+            $body.html('<tr><td colspan="8" class="text-center p-4 text-[#757575]">No customers found</td></tr>');
             return;
         }
 
@@ -140,6 +155,7 @@
                 <td class="p-3 text-left text-black">${renderContact(row.phone)}</td>
                 <td class="p-3 text-left text-black">${escapeHtml(row.region?.name) || '-'}</td>
                 <td class="p-3 text-left text-black">${escapeHtml(row.province?.name) || '-'}</td>
+                <td class="p-3 text-left text-black">${renderSource(row.source)}</td>
                 <td class="p-3 text-center text-black">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -182,7 +198,7 @@
     }
 
     function loadCustomers() {
-        $('#customer-table-body').html('<tr><td colspan="7" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#customer-table-body').html('<tr><td colspan="8" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/customers',
@@ -198,7 +214,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load customers';
-                $('#customer-table-body').html(`<tr><td colspan="7" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#customer-table-body').html(`<tr><td colspan="8" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }

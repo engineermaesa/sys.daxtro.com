@@ -110,12 +110,13 @@ class ServiceCustomerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'address' => 'nullable|string',
-            'ref_province_id' => 'nullable|integer|exists:ref_provinces,id',
-            'ref_region_id' => 'nullable|integer|exists:ref_regions,id',
-            'pic_name' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
+            'address' => 'required|string',
+            'maps_link' => 'required|url|max:2048',
+            'ref_province_id' => 'required|integer|exists:ref_provinces,id',
+            'ref_region_id' => 'required|integer|exists:ref_regions,id',
+            'pic_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:50',
         ]);
 
         $validated['created_by'] = $request->user()->id;
@@ -131,12 +132,13 @@ class ServiceCustomerController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'address' => 'nullable|string',
-            'ref_province_id' => 'nullable|integer|exists:ref_provinces,id',
-            'ref_region_id' => 'nullable|integer|exists:ref_regions,id',
-            'pic_name' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
+            'address' => 'required|string',
+            'maps_link' => 'required|url|max:2048',
+            'ref_province_id' => 'required|integer|exists:ref_provinces,id',
+            'ref_region_id' => 'required|integer|exists:ref_regions,id',
+            'pic_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:50',
         ]);
 
         $validated['updated_by'] = $request->user()->id;
