@@ -23,15 +23,15 @@
             <table class="w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="p-3 text-left uppercase text-xs font-bold">Machine Name</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Serial Number</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Model</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Warranty Period</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Warranty Start</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Warranty End</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">Warranty Status</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">PM Contract</th>
-                        <th class="p-3 text-left uppercase text-xs font-bold">PM Frequency</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Machine Name</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Serial Number</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Model</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Warranty Period</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Warranty Start</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Warranty End</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Warranty Status</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">PM Contract</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">PM Frequency</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Action</th>
                     </tr>
                 </thead>
@@ -40,13 +40,59 @@
         </div>
     </div>
 </section>
+
+{{-- Move Machine modal (FE only; backend pending) --}}
+<div class="modal fade" id="moveMachineModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:520px">
+        <div class="modal-content rounded-2xl! overflow-hidden border-0!">
+            <div style="padding:22px 26px 0">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h5 class="text-[#115640] mb-1" style="font-size:20px;font-weight:500">Move Machine</h5>
+                        <p class="text-[#9A9A9A] mb-0" style="font-size:11px" id="move-machine-subtitle"></p>
+                    </div>
+                    <button type="button" data-dismiss="modal" aria-label="Close"
+                        style="width:32px;height:32px;font-size:12px"
+                        class="border border-[#D9D9D9] rounded-lg bg-white flex items-center justify-center cursor-pointer"><i class="bi bi-x-lg"></i></button>
+                </div>
+
+                <div style="margin-top:18px">
+                    <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Move to<span class="text-red-600">*</span></label>
+                    <select id="move-machine-target" style="width:100%">
+                        <option value=""></option>
+                    </select>
+                </div>
+
+                <div style="margin-top:14px">
+                    <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Note</label>
+                    <textarea id="move-machine-note" rows="4" placeholder="Add a note about this machine transfer"
+                        style="width:100%;font-size:12px;padding:10px 12px;border:1px solid #D9D9D9;border-radius:10px"
+                        class="focus:outline-none!"></textarea>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2" style="padding:16px 26px 22px">
+                <button type="button" data-dismiss="modal" style="font-size:12px;padding:8px 18px"
+                    class="bg-white border border-[#D9D9D9] rounded-lg cursor-pointer font-semibold hover:bg-[#E8E8E8]">Cancel</button>
+                <button type="button" id="move-machine-submit" style="font-size:12px;padding:8px 18px"
+                    class="bg-[#115640] text-white rounded-lg cursor-pointer font-semibold hover:bg-[#0a3b2b]">Move Machine</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
+<script type="application/json" id="machines-page-config">
+{!! json_encode([
+    'id' => $customer->id,
+    'machineCreateUrl' => route('aftersales.pages.customers.machines.create', $customer->id),
+], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) !!}
+</script>
 <script>
-    const customerId = {{ $customer->id }};
+    const pageConfig = JSON.parse(document.getElementById('machines-page-config').textContent);
+    const customerId = pageConfig.id;
     const apiBaseUrl = '/api/aftersales/customers';
-    const machineCreateBaseUrl = '{{ route('aftersales.pages.customers.machines.create', $customer->id) }}';
+    const machineCreateBaseUrl = pageConfig.machineCreateUrl;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -81,14 +127,14 @@
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
                 <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.serial_number) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.product_type_name) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.warranty_period) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.warranty_start) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.warranty_end) || '-'}</td>
-                <td class="p-3 text-left">${machineBadge(row.warranty_active, 'Active', 'Expired')}</td>
-                <td class="p-3 text-left">${pmContractBadge(row.pm_contract_status)}</td>
-                <td class="p-3 text-left text-black">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.serial_number) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_period) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_start) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_end) || '-'}</td>
+                <td class="p-3 text-center">${machineBadge(row.warranty_active, 'Active', 'Expired')}</td>
+                <td class="p-3 text-center">${pmContractBadge(row.pm_contract_status)}</td>
+                <td class="p-3 text-center text-black">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -98,6 +144,10 @@
                         <div class="dropdown-menu dropdown-menu-right mt-2">
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${machineCreateBaseUrl}?product=${row.id}">
                                 <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <a class="dropdown-item btn-move-machine flex! items-center! gap-2! cursor-pointer"
+                                data-id="${row.id}" data-name="${escapeHtml(row.product_name)}" data-type="${escapeHtml(row.product_type_name)}">
+                                <i class="bi bi-arrow-left-right"></i> Move Machine
                             </a>
                             <a class="dropdown-item btn-delete-machine flex! items-center! gap-2! cursor-pointer text-red-600!" data-id="${row.id}">
                                 <i class="bi bi-trash"></i> Delete
@@ -144,6 +194,75 @@
 
     $(function () {
         loadMachines();
+
+        // ---- Move Machine (FE only; backend pending) ----
+        let moveMachineId = null;
+
+        function initMoveTarget() {
+            const $target = $('#move-machine-target');
+            if ($target.data('select2')) return;
+            if (!window.jQuery || !jQuery.fn?.select2) return;
+
+            $target.select2({
+                width: '100%',
+                dropdownParent: $('#moveMachineModal'),
+                placeholder: 'Select destination customer',
+                allowClear: true,
+                ajax: {
+                    url: apiBaseUrl,
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ search: params.term || '', per_page: 20, page: params.page || 1 }),
+                    processResults: function (response, params) {
+                        params.page = params.page || 1;
+                        const results = (response.data || [])
+                            .filter(c => String(c.id) !== String(customerId))
+                            .map(c => ({ id: c.id, text: c.name }));
+                        return { results, pagination: { more: response.current_page < response.last_page } };
+                    }
+                }
+            });
+        }
+
+        $(document).on('click', '.btn-move-machine', function () {
+            moveMachineId = $(this).data('id');
+            const name = $(this).data('name') || '';
+            const type = $(this).data('type') || '';
+            $('#move-machine-subtitle').text([name, type].filter(Boolean).join(' | '));
+            $('#move-machine-note').val('');
+            initMoveTarget();
+            $('#move-machine-target').val(null).trigger('change');
+            $('#moveMachineModal').modal('show');
+        });
+
+        $('#move-machine-submit').on('click', function () {
+            if (!$('#move-machine-target').val()) {
+                Swal.fire({
+                    title: 'Incomplete data',
+                    text: 'Please select the destination customer.',
+                    icon: 'warning',
+                    confirmButtonColor: '#115640'
+                });
+                return;
+            }
+
+            // FE only: remove the row to simulate the move. TODO: wire to backend
+            // (move machine moveMachineId, with all its details, to the selected customer with note).
+            const destination = $('#move-machine-target').find('option:selected').text();
+
+            $(`.btn-move-machine[data-id="${moveMachineId}"]`).closest('tr').remove();
+            if ($('#machine-table-body tr').length === 0) {
+                $('#machine-table-body').html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
+            }
+
+            $('#moveMachineModal').modal('hide');
+            Swal.fire({
+                title: 'Machine moved',
+                text: `The machine and all its details were moved to ${destination}.`,
+                icon: 'success',
+                confirmButtonColor: '#115640'
+            });
+        });
 
         $(document).on('click', '.btn-delete-machine', function () {
             const id = $(this).data('id');
