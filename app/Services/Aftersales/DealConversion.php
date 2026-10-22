@@ -26,8 +26,28 @@ class DealConversion
 
     public function sync(Lead $lead): ?CustomerDeal
     {
-        return DB::transaction(function () use ($lead) {
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            if ($attempt > 0) {
+                $lead = Lead::findOrFail($lead->id);
+            }
+            $keys = CustomerMutationLocks::customerKeys(['name' => $lead->name, 'phone' => $lead->phone]);
+            try {
+                return $this->syncWithIdentity($lead, $keys);
+            } catch (CustomerIdentityChanged) {
+               
+            }
+        }
+        abort(409, 'The Lead changed during conversion. Retry from its current data.');
+    }
+
+    private function syncWithIdentity(Lead $lead, array $keys): ?CustomerDeal
+    {
+        return DB::transaction(function () use ($lead, $keys) {
+            CustomerMutationLocks::acquire($keys);
             $lead = Lead::whereKey($lead->id)->lockForUpdate()->firstOrFail();
+            if (CustomerMutationLocks::customerKeys(['name' => $lead->name, 'phone' => $lead->phone]) !== $keys) {
+                throw new CustomerIdentityChanged;
+            }
             $link = CustomerDeal::where('lead_id', $lead->id)->lockForUpdate()->first();
             if ((int) $lead->status_id !== LeadStatus::DEAL) {
                 $link?->update(['left_deal_at' => $link->left_deal_at ?? now()]);
@@ -44,8 +64,6 @@ class DealConversion
 
                 return $link;
             }
-            
-            DB::table('ref_product_types')->orderBy('id')->lockForUpdate()->get();
             $matches = app(CustomerMatching::class)->candidates($data, false);
             $exact = collect($matches)->where('status', 'exact');
             if ($exact->count() === 1) {

@@ -15,9 +15,8 @@ class MachineTransfer
             $machine = ServiceCustomerProduct::whereKey($machine->id)->lockForUpdate()->firstOrFail();
             $customer = ServiceCustomer::findOrFail($destination);
             abort_if($machine->customer_id === $customer->id, 422, 'Select a different destination customer.');
-            foreach ($machine->tickets()->with(['logs', 'visits'])->get() as $ticket) {
-                abort_unless($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This machine has open tickets. Close them first.');
-            }
+            $hasOpenTickets = $machine->tickets()->whereDoesntHave('latestLog', fn ($q) => $q->where('step', TicketLog::STEP_CLOSED))->exists();
+            abort_if($hasOpenTickets, 422, 'This machine has open tickets. Close them first.');
             $from = $machine->customer_id;
             $note = trim($note ?? '') ?: 'Previously owned by '.$machine->customer->name;
             $machine->update(['customer_id' => $customer->id, 'note' => trim(implode("\n", array_filter([$machine->note, $note]))), 'updated_by' => $userId]);

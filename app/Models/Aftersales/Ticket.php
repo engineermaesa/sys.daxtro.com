@@ -67,6 +67,11 @@ class Ticket extends Model
         return $this->hasMany(TicketLog::class, 'ticket_id');
     }
 
+    public function latestLog()
+    {
+        return $this->hasOne(TicketLog::class, 'ticket_id')->latestOfMany();
+    }
+
     public function visits()
     {
         return $this->hasMany(TicketVisit::class, 'ticket_id');

@@ -13,7 +13,7 @@ class TicketReminders
         $lastCycle = $ticket->logs->where('step', TicketLog::STEP_RECOMING)->max('id') ?? 0;
         $logs = $ticket->logs->where('id', '>', $lastCycle);
         $happy = $logs->contains('step', TicketLog::STEP_HAPPY_CALL_COMPLETED);
-        $response = $ticket->satisfactions->sortByDesc('id')->first();
+        $response = $ticket->relationLoaded('satisfactions') ? $ticket->satisfactions->sortByDesc('id')->first() : $ticket->satisfaction;
         $currentResponse = $response && (! $lastCycle || $response->created_at >= $ticket->logs->firstWhere('id', $lastCycle)->created_at);
         $shared = $ticket->surveyLink?->shared_at;
         $closed = $ticket->progress === TicketLog::STEP_CLOSED;

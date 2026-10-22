@@ -4,10 +4,8 @@ namespace App\Services\Aftersales;
 
 use App\Models\Aftersales\CustomerImport;
 use App\Models\Aftersales\ServiceCustomer;
-use App\Models\Aftersales\ServiceCustomerProduct;
 use App\Models\Leads\Lead;
 use App\Models\Masters\Industry;
-use App\Models\Masters\ProductType;
 use App\Models\Masters\Province;
 use App\Models\Masters\Region;
 use App\Rules\GoogleMapsUrl;
@@ -41,25 +39,72 @@ class CustomerImports
             throw ValidationException::withMessages(['file' => 'A maximum of 5000 rows is allowed per import.']);
         }
 
-        return DB::transaction(function () use ($file, $userId, $sheet, $last) {
-            $batch = CustomerImport::create(['file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId]);
-            for ($row = 2; $row <= $last; $row++) {
-                $values = $sheet->rangeToArray('A'.$row.':R'.$row, null, false, false)[0];
-                if (! count(array_filter($values, fn ($v) => $v !== null && $v !== ''))) {
-                    continue;
-                }
-                $input = array_combine(self::HEADERS, $values);
-                $review = $this->review($input, $batch);
-                $batch->rows()->create(['row_number' => $row, 'input' => $input, 'review' => $review]);
+        $inputs = [];
+        for ($row = 2; $row <= $last; $row++) {
+            $values = $sheet->rangeToArray('A'.$row.':R'.$row, null, false, false)[0];
+            if (count(array_filter($values, fn ($v) => $v !== null && $v !== ''))) {
+                $inputs[$row] = array_combine(self::HEADERS, $values);
             }
-            abort_unless($batch->rows()->exists(), 422, 'The template contains no data rows.');
+        }
+        $book->disconnectWorksheets();
+        abort_unless($inputs, 422, 'The template contains no data rows.');
+        $context = $this->context($inputs);
+
+        return DB::transaction(function () use ($file, $userId, $inputs, $context) {
+            $batch = CustomerImport::create(['file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId]);
+            $now = now();
+            $pending = [];
+            foreach ($inputs as $number => $input) {
+                $pending[] = ['customer_import_id' => $batch->id, 'row_number' => $number, 'input' => json_encode($input, JSON_THROW_ON_ERROR), 'review' => '{}', 'created_at' => $now, 'updated_at' => $now];
+            }
+            foreach (array_chunk($pending, 100) as $chunk) {
+                DB::table('customer_import_rows')->insert($chunk);
+            }
+            $rows = $batch->rows()->orderBy('row_number')->get();
+            foreach ($rows as $row) {
+                $review = $this->review($row->input, $batch, $row->row_number, $context);
+                $row->review = $review;
+                $context->addPrior($row->id, $row->row_number, $review);
+            }
+            $this->persistRows($rows);
 
             return $batch;
         });
     }
 
-    public function review(array $input, CustomerImport $batch, ?int $beforeRow = null): array
+    public function context(iterable $inputs): CustomerImportContext
     {
+        $serials = [];
+        foreach ($inputs as $input) {
+            $serials[] = (string) ($input['Serial Number'] ?? '');
+        }
+
+        return new CustomerImportContext(app(CustomerMatching::class)->index(), MachineSerials::existing($serials));
+    }
+
+    public function persistRows(iterable $rows): void
+    {
+        $changes = [];
+        foreach ($rows as $row) {
+            if (! $row->isDirty()) {
+                continue;
+            }
+            $row->updated_at = now();
+            $changes[] = $row->getAttributes();
+        }
+        foreach (array_chunk($changes, 100) as $chunk) {
+            DB::table('customer_import_rows')->upsert($chunk, ['id'], ['input', 'review', 'decision', 'result', 'updated_at']);
+        }
+    }
+
+    public function review(array $input, CustomerImport $batch, ?int $beforeRow = null, ?CustomerImportContext $context = null): array
+    {
+        if ($context === null) {
+            $context = $this->context([$input]);
+            foreach ($batch->rows()->when($beforeRow, fn ($q) => $q->where('row_number', '<', $beforeRow))->orderBy('row_number')->get() as $prior) {
+                $context->addPrior($prior->id, $prior->row_number, $prior->review);
+            }
+        }
         $errors = $warnings = [];
         $get = fn ($key) => trim((string) ($input[$key] ?? ''));
         foreach (['Customer Name*', 'Machine Category*', 'Machine Name*'] as $key) {
@@ -85,8 +130,8 @@ class CustomerImports
         }
         $validator = Validator::make(['email' => $get('Email') ?: null, 'maps' => $get('Google Maps Link') ?: null], ['email' => 'nullable|email|max:255', 'maps' => ['nullable', 'max:2048', new GoogleMapsUrl]]);
         $errors = array_merge($errors, $validator->errors()->all());
-        $province = $this->lookup(Province::class, $get('Province'));
-        $region = $this->lookup(Region::class, $get('City / Region'));
+        $province = $context->lookup(Province::class, $get('Province'));
+        $region = $context->lookup(Region::class, $get('City / Region'));
         if (! $province && $get('Province')) {
             $warnings[] = 'Province not found. Select it during review.';
         }
@@ -97,13 +142,13 @@ class CustomerImports
             if ($province && (int) $province->id !== (int) $region->province_id) {
                 $warnings[] = 'Province does not match City / Region; Province follows the selected region.';
             }
-            $province = Province::find($region->province_id);
+            $province = $context->province($region->province_id);
         }
-        $industry = $this->lookup(Industry::class, $get('Industry'));
+        $industry = $context->lookup(Industry::class, $get('Industry'));
         if (! $industry && $get('Industry')) {
             $warnings[] = 'Industry not found; it will be left empty.';
         }
-        $category = ProductType::all()->first(fn ($type) => $this->category($type->name) === $this->category($get('Machine Category*')));
+        $category = $context->categoryFor($get('Machine Category*'));
         if (! $category) {
             $errors[] = 'Machine Category was not found.';
         }
@@ -138,20 +183,11 @@ class CustomerImports
         $serial = CustomerMatching::serial($get('Serial Number'));
         $data = ['name' => $get('Customer Name*'), 'pic_name' => $get('PIC Name') ?: null, 'phone' => $phone, 'email' => $get('Email') ?: null, 'address' => $get('Address') ?: null, 'address_maps_url' => $get('Google Maps Link') ?: null, 'ref_province_id' => $province?->id, 'ref_region_id' => $region?->id];
         $machine = ['product_id' => null, 'machine_name' => $get('Machine Name*'), 'ref_product_type_id' => $category?->id, 'industry_id' => $industry?->id, 'brand' => $get('Brand') ?: null, 'capacity' => $capacity === '' ? null : $capacity, 'serial_number' => $serial, 'warranty_start' => $start, 'warranty_end' => $end, 'pm_contract_status' => $pm, 'note' => $get('Note') ?: null];
-        $candidates = app(CustomerMatching::class)->candidates($data);
-        // Include earlier rows, so duplicates and possible matches inside one file are reviewable.
-        foreach ($batch->rows()->when($beforeRow, fn ($q) => $q->where('row_number', '<', $beforeRow))->orderBy('row_number')->get() as $prior) {
-            if (($prior->review['status'] ?? '') === 'error') {
-                continue;
-            }
-            if ($match = app(CustomerMatching::class)->classify($data, $prior->review['customer'])) {
-                $candidates[] = ['type' => 'row', 'id' => $prior->id, 'row_number' => $prior->row_number, 'status' => $match, 'name' => $prior->review['customer']['name']];
-            }
-            if ($serial && $serial === ($prior->review['machine']['serial_number'] ?? null)) {
-                $warnings[] = 'Serial repeated in this file: one machine, last applied row owns it; earliest warranty is preserved.';
-            }
+        $candidates = array_merge($context->matches->candidates($data), $context->prior->candidates($data));
+        for ($i = 0; $i < ($context->priorSerialCounts[$serial] ?? 0); $i++) {
+            $warnings[] = 'Serial repeated in this file: one machine, last applied row owns it; earliest warranty is preserved.';
         }
-        $existingSerial = $serial && ServiceCustomerProduct::withTrashed()->get(['id', 'serial_number'])->contains(fn ($m) => CustomerMatching::serial($m->serial_number) === $serial);
+        $existingSerial = $serial && isset($context->existingSerials[$serial]);
         $exact = collect($candidates)->where('status', 'exact');
         $targets = $exact->where('type', '!=', 'row')->map(fn ($c) => $c['type'] === 'lead' && ! empty($c['customer_id']) ? 'customer:'.$c['customer_id'] : $c['type'].':'.$c['id'])->unique();
         if ($targets->isEmpty() && $exact->contains('type', 'row')) {
@@ -160,22 +196,6 @@ class CustomerImports
         $status = $existingSerial ? 'already_exists' : ($targets->count() === 1 ? 'exact' : ($candidates ? 'possible' : 'new'));
 
         return ['status' => $errors ? 'error' : $status, 'errors' => $errors, 'warnings' => $warnings, 'customer' => $data, 'machine' => $machine, 'candidates' => $candidates];
-    }
-
-    private function category(string $name): string
-    {
-        return trim(str_replace(['ice machine', 'machine'], '', strtolower($name)));
-    }
-
-    private function lookup(string $class, string $name): mixed
-    {
-        if ($name === '') {
-            return null;
-        }
-        $normal = fn ($s) => trim(preg_replace('/^(kabupaten|kab\.?|kota)\s+/i', '', mb_strtolower(trim($s))));
-        $matches = $class::all()->filter(fn ($m) => $normal($m->name) === $normal($name));
-
-        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     public function date(mixed $value): ?string
@@ -225,13 +245,28 @@ class CustomerImports
                 return $this->payload($batch);
             }
             abort_unless($batch->lock_version === $version, 409, 'Review changed. Reload before Apply.');
-            DB::table('ref_product_types')->orderBy('id')->lockForUpdate()->get();
             $rows = $batch->rows()->orderBy('row_number')->lockForUpdate()->get();
             foreach ($rows as $row) {
                 if ($row->review['status'] === 'possible' && ! $row->decision) {
                     throw ValidationException::withMessages(['rows' => 'Resolve all Possible matches before Apply (row '.$row->row_number.').']);
                 }
             }
+            $lockKeys = [];
+            $incomingSerials = [];
+            foreach ($rows as $row) {
+                $lockKeys = array_merge($lockKeys, CustomerMutationLocks::customerKeys($row->review['customer']), CustomerMutationLocks::serialKey($row->review['machine']['serial_number']));
+                $incomingSerials[] = $row->review['machine']['serial_number'];
+            }
+            CustomerMutationLocks::acquire($lockKeys);
+            // Build the snapshot only after acquiring identity/serial locks.
+            $index = app(CustomerMatching::class)->index();
+            $existingSerials = MachineSerials::existing($incomingSerials);
+            $customers = $index->customers;
+            $findCustomer = function (int $id) use (&$customers) {
+                return $customers[$id] ??= ServiceCustomer::findOrFail($id);
+            };
+            $leads = [];
+            $linkedLeads = [];
             $resolved = [];
             $serials = [];
             $created = $matched = $errorCount = 0;
@@ -239,7 +274,7 @@ class CustomerImports
                 $review = $row->review;
                 $decision = $row->decision ?? [];
                 if (in_array($review['status'], ['error', 'already_exists'], true) || ($decision['action'] ?? '') === 'skip') {
-                    $row->update(['result' => ['status' => 'skipped']]);
+                    $row->result = ['status' => 'skipped'];
                     $errorCount += $review['status'] === 'error' ? 1 : 0;
 
                     continue;
@@ -247,8 +282,8 @@ class CustomerImports
                 $machine = $review['machine'];
                 $serial = $machine['serial_number'];
                 // Recheck at Apply, including another batch applied since upload.
-                if ($serial && ! isset($serials[$serial]) && ServiceCustomerProduct::withTrashed()->get(['id', 'serial_number'])->contains(fn ($m) => CustomerMatching::serial($m->serial_number) === $serial)) {
-                    $row->update(['result' => ['status' => 'already_exists']]);
+                if ($serial && ! isset($serials[$serial]) && isset($existingSerials[$serial])) {
+                    $row->result = ['status' => 'already_exists'];
 
                     continue;
                 }
@@ -256,31 +291,32 @@ class CustomerImports
                 $lead = null;
                 if (($decision['action'] ?? '') === 'link') {
                     if (! empty($decision['customer_id'])) {
-                        $customer = ServiceCustomer::findOrFail($decision['customer_id']);
+                        $customer = $findCustomer((int) $decision['customer_id']);
                     } elseif (! empty($decision['row_id'])) {
-                        $customer = isset($resolved[$decision['row_id']]) ? ServiceCustomer::findOrFail($resolved[$decision['row_id']]) : null;
+                        $customer = isset($resolved[$decision['row_id']]) ? $findCustomer($resolved[$decision['row_id']]) : null;
                     } elseif (! empty($decision['lead_id'])) {
-                        $lead = Lead::findOrFail($decision['lead_id']);
-                        $customer = $lead->customerDeal?->customer;
+                        $lead = $leads[$decision['lead_id']] ??= Lead::with('customerDeal')->findOrFail($decision['lead_id']);
+                        $customerId = $linkedLeads[$lead->id] ?? $lead->customerDeal?->service_customer_id;
+                        $customer = $customerId ? $findCustomer((int) $customerId) : null;
                     }
                     abort_if(! $customer && ! $lead, 422, 'The selected row must resolve to a customer before it can be linked.');
                 } elseif (($decision['action'] ?? '') !== 'create_new') {
                     // Refresh DB matches instead of trusting a stale preview.
-                    $matches = app(CustomerMatching::class)->candidates($review['customer']);
+                    $matches = $index->candidates($review['customer']);
                     $exactCustomers = collect($matches)->where('status', 'exact')->map(fn ($m) => $m['type'] === 'customer' ? $m['id'] : ($m['customer_id'] ?? null))->filter()->unique();
                     abort_if($exactCustomers->count() > 1, 409, 'Customer matches changed. Review this import again.');
                     if ($exactCustomers->count() === 1) {
-                        $customer = ServiceCustomer::findOrFail($exactCustomers->first());
+                        $customer = $findCustomer((int) $exactCustomers->first());
                     }
                     if (! $customer) {
                         $prior = collect($review['candidates'])->where('type', 'row')->where('status', 'exact')->first();
                         if ($prior && isset($resolved[$prior['id']])) {
-                            $customer = ServiceCustomer::findOrFail($resolved[$prior['id']]);
+                            $customer = $findCustomer($resolved[$prior['id']]);
                         }
                     }
                     $leadMatches = collect($matches)->where('type', 'lead')->where('status', 'exact')->values();
                     if ($leadMatches->count() === 1) {
-                        $lead = Lead::findOrFail($leadMatches[0]['id']);
+                        $lead = $leads[$leadMatches[0]['id']] ??= Lead::findOrFail($leadMatches[0]['id']);
                     }
                     if (! $customer && ! $lead && collect($matches)->contains('status', 'possible')) {
                         abort(409, 'New possible matches appeared. Review this import again.');
@@ -288,17 +324,22 @@ class CustomerImports
                 }
                 if (! $customer) {
                     $customer = ServiceCustomer::create($review['customer'] + ['source' => 'import', 'created_by' => $userId]);
+                    $customers[$customer->id] = $customer;
+                    $index->add('customer', $customer->id, $customer->getAttributes());
                     $created++;
                 } else {
                     $matched++;
                 }
-                if ($lead) {
+                abort_if($lead && isset($linkedLeads[$lead->id]) && $linkedLeads[$lead->id] !== $customer->id, 409, 'This Deal is already linked to another customer.');
+                if ($lead && ! isset($linkedLeads[$lead->id])) {
                     app(DealConversion::class)->link($lead, $customer);
+                    $linkedLeads[$lead->id] = $customer->id;
+                    $index->linkLead($lead->id, $customer->id);
                 }
                 $resolved[$row->id] = $customer->id;
                 if ($serial && isset($serials[$serial])) {
-                    $unit = ServiceCustomerProduct::findOrFail($serials[$serial]);
-                    $previous = $unit->customer;
+                    $unit = $serials[$serial];
+                    $previous = $findCustomer($unit->customer_id);
                     if ($unit->warranty_start && (! $machine['warranty_start'] || $unit->warranty_start->toDateString() < $machine['warranty_start'])) {
                         $machine['warranty_start'] = $unit->warranty_start->toDateString();
                         $machine['warranty_end'] = $unit->warranty_end?->toDateString();
@@ -309,10 +350,11 @@ class CustomerImports
                     $unit = $customer->products()->create($machine + ['created_by' => $userId]);
                 }
                 if ($serial) {
-                    $serials[$serial] = $unit->id;
+                    $serials[$serial] = $unit;
                 }
-                $row->update(['result' => ['status' => 'applied', 'customer_id' => $customer->id, 'machine_id' => $unit->id]]);
+                $row->result = ['status' => 'applied', 'customer_id' => $customer->id, 'machine_id' => $unit->id];
             }
+            $this->persistRows($rows);
             $batch->update(['status' => 'applied', 'applied_at' => now(), 'created_count' => $created, 'matched_count' => $matched, 'error_count' => $errorCount, 'lock_version' => $version + 1]);
 
             return $this->payload($batch);

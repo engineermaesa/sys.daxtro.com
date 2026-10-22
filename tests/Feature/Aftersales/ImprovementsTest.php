@@ -135,6 +135,7 @@ class ImprovementsTest extends TestCase
         DB::table('ticket_satisfactions')->insert(['id' => 1, 'ticket_id' => 1, 'timeliness' => 2, 'grooming' => 5]);
         DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => 1, 'type' => 'rating', 'value_number' => 4]);
         (require database_path('migrations/2026_10_22_100000_aftersales_improvements.php'))->up();
+        (require database_path('migrations/2026_10_23_000000_optimize_aftersales_matching.php'))->up();
     }
 
     private function file(array $rows): UploadedFile
@@ -168,6 +169,25 @@ class ImprovementsTest extends TestCase
         $user->shouldReceive('hasPermission')->andReturn($allowed);
 
         return $user;
+    }
+
+    private function measureQueries(callable $work): array
+    {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        try {
+            $result = $work();
+
+            return [$result, DB::getQueryLog()];
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+    }
+
+    private function reads(array $queries, string $table): int
+    {
+        return count(array_filter($queries, fn ($q) => preg_match('/^select\b/i', $q['query']) && preg_match('/\bfrom\s+["`]?'.preg_quote($table, '/').'["`]?\b/i', $q['query'])));
     }
 
     public function test_migration_preserves_original_scores_and_grandfathers_existing_tickets(): void
@@ -359,14 +379,248 @@ class ImprovementsTest extends TestCase
         for ($i = 0; $i < 276; $i++) {
             $rows[] = ['Serial Number' => 'LEGACY-'.$i];
         }
-        $batch = $this->upload($rows);
+        [$batch, $uploadQueries] = $this->measureQueries(fn () => $this->upload($rows));
+        foreach (['ref_provinces', 'ref_regions', 'ref_industries', 'ref_product_types', 'service_customers', 'leads', 'service_customer_products', 'customer_import_rows'] as $table) {
+            $this->assertLessThanOrEqual(1, $this->reads($uploadQueries, $table), 'Repeated upload reads: '.$table);
+        }
+        $this->assertLessThanOrEqual(30, count($uploadQueries));
         $payload = app(CustomerImports::class)->payload($batch);
         $this->assertSame(276, $payload['rows']->count());
         $this->assertSame(275, $payload['summary']['exact']);
         $this->assertSame(0, ServiceCustomer::count());
-        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->actingAs($this->user());
+        [, $reviewQueries] = $this->measureQueries(fn () => $this->putJson('/api/aftersales/customers/imports/'.$batch->id.'/review', [
+            'lock_version' => 0, 'rows' => [['id' => $payload['rows']->first()->id, 'input' => ['Note' => 'Correct one row']]],
+        ])->assertOk());
+        foreach (['ref_provinces', 'ref_regions', 'ref_industries', 'ref_product_types', 'service_customers', 'leads', 'service_customer_products'] as $table) {
+            $this->assertLessThanOrEqual(1, $this->reads($reviewQueries, $table), 'Repeated review reads: '.$table);
+        }
+        $this->assertLessThanOrEqual(25, count($reviewQueries));
+        [, $applyQueries] = $this->measureQueries(fn () => app(CustomerImports::class)->apply($batch, 1, 1));
+        $this->assertLessThanOrEqual(1, $this->reads($applyQueries, 'service_customers'));
+        $this->assertLessThanOrEqual(1, $this->reads($applyQueries, 'service_customer_products'));
+        $this->assertLessThanOrEqual(300, count($applyQueries));
+        $this->assertSame(0, $this->reads($applyQueries, 'ref_product_types'));
         $this->assertSame(1, ServiceCustomer::count());
         $this->assertSame(276, ServiceCustomerProduct::count());
+    }
+
+    public function test_indexed_matching_preserves_exact_possible_and_missing_phone_behavior(): void
+    {
+        $matching = app(CustomerMatching::class);
+        $index = new \App\Services\Aftersales\CustomerMatchIndex;
+        $records = [
+            ['name' => 'Pak Rusman', 'phone' => '0811440149', 'ref_region_id' => 1],
+            ['name' => 'Mrs Rusman', 'phone' => null, 'ref_region_id' => 2],
+            ['name' => 'Different customer', 'phone' => '62811440149', 'ref_region_id' => 2],
+            ['name' => 'Rusman', 'phone' => '6.28139E+24', 'ref_region_id' => 1],
+            ['name' => 'Roy', 'phone' => '089999999999', 'ref_region_id' => 1],
+        ];
+        foreach ($records as $i => $record) {
+            $index->add('customer', $i + 1, $record);
+        }
+        $probes = $records;
+        foreach (['62811440149', '628114401490', '6281144014', '62811440148', '6281440149', '628999999999', null, '-', 'bad phone'] as $phone) {
+            $probes[] = ['name' => 'Mr Rusman', 'phone' => $phone, 'ref_region_id' => 1];
+            $probes[] = ['name' => 'Another name', 'phone' => $phone, 'ref_region_id' => 3];
+        }
+        foreach ($probes as $probe) {
+            $expected = [];
+            foreach ($records as $i => $record) {
+                if ($status = $matching->classify($probe, $record)) {
+                    $expected[$i + 1] = $status;
+                }
+            }
+            $actual = collect($index->candidates($probe))->pluck('status', 'id')->all();
+            $this->assertSame($expected, $actual);
+        }
+    }
+
+    public function test_apply_rechecks_customers_created_since_preview(): void
+    {
+        $batch = $this->upload([[]]);
+        ServiceCustomer::create(['name' => 'Pak Rusman', 'phone' => '0811440148', 'ref_region_id' => 1]);
+        try {
+            app(CustomerImports::class)->apply($batch, 0, 1);
+            $this->fail('A new ambiguous match must block stale Apply.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(409, $e->getStatusCode());
+        }
+        $this->assertSame('review', $batch->fresh()->status);
+        $this->assertSame(0, ServiceCustomerProduct::count());
+    }
+
+    public function test_apply_rechecks_serials_inserted_since_preview(): void
+    {
+        $batch = $this->upload([[]]);
+        $other = ServiceCustomer::create(['name' => 'Another owner']);
+        $other->products()->create(['machine_name' => 'Existing unit', 'serial_number' => ' s n - 0 ']);
+        $result = app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame('already_exists', $result['rows']->first()->result['status']);
+        $this->assertSame(1, ServiceCustomerProduct::count());
+        $this->assertSame(1, ServiceCustomer::count());
+    }
+
+    public function test_partial_review_preserves_unaffected_decisions_and_batches_target_validation(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Pak Rusman', 'phone' => '62811440149', 'ref_region_id' => 1]);
+        $batch = $this->upload(array_fill(0, 10, []));
+        $rows = $batch->rows()->orderBy('row_number')->get();
+        $decisions = $rows->map(fn ($row) => ['id' => $row->id, 'decision' => ['action' => 'link', 'customer_id' => $customer->id]])->all();
+        $this->actingAs($this->user());
+        [, $queries] = $this->measureQueries(fn () => $this->putJson('/api/aftersales/customers/imports/'.$batch->id.'/review', ['lock_version' => 0, 'rows' => $decisions])->assertOk());
+        $this->assertSame(2, $this->reads($queries, 'service_customers'));
+        $result = $this->putJson('/api/aftersales/customers/imports/'.$batch->id.'/review', [
+            'lock_version' => 1, 'rows' => [['id' => $rows->first()->id, 'input' => ['Note' => 'Change note only']]],
+        ])->assertOk()->json('data');
+        $this->assertSame('link', $result['rows'][1]['decision']['action']);
+        $this->assertSame(2, $result['import']['lock_version']);
+    }
+
+    public function test_serial_migration_backfills_legacy_duplicates_without_rewriting_original_values(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Legacy owner']);
+        $one = $customer->products()->create(['machine_name' => 'Legacy one', 'serial_number' => ' a B c ']);
+        $two = $customer->products()->create(['machine_name' => 'Legacy two', 'serial_number' => 'ABC']);
+        $two->delete();
+        $migration = require database_path('migrations/2026_10_23_000000_optimize_aftersales_matching.php');
+        $migration->down();
+        $migration->up();
+        $this->assertSame('ABC', $one->fresh()->getRawOriginal('normalized_serial'));
+        $this->assertSame(' a B c ', $one->fresh()->serial_number);
+        $this->assertSame(2, ServiceCustomerProduct::withTrashed()->where('normalized_serial', 'ABC')->count());
+    }
+
+    public function test_serial_lookup_is_indexed_and_respects_soft_deleted_units(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Serial owner']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine', 'serial_number' => ' a B c ']);
+        $this->assertSame('ABC', $machine->getRawOriginal('normalized_serial'));
+        $this->assertArrayNotHasKey('normalized_serial', $machine->toArray());
+        $machine->delete();
+        $this->actingAs($this->user());
+        [, $queries] = $this->measureQueries(fn () => $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'machine_name' => 'Duplicate', 'serial_number' => 'a b c',
+        ])->assertUnprocessable()->assertJsonValidationErrors('serial_number'));
+        $serialQueries = array_values(array_filter($queries, fn ($q) => str_contains($q['query'], 'normalized_serial')));
+        $this->assertCount(1, $serialQueries);
+        $this->assertStringContainsString('exists', strtolower($serialQueries[0]['query']));
+        $this->assertStringContainsString('where', strtolower($serialQueries[0]['query']));
+    }
+
+    public function test_deal_conversion_runs_after_commit_and_never_for_rolled_back_lead(): void
+    {
+        DB::beginTransaction();
+        Lead::create(['name' => 'Rolled back', 'phone' => '08123456789', 'status_id' => 5, 'deal_at' => now()]);
+        $this->assertSame(0, CustomerDeal::count());
+        DB::rollBack();
+        $this->assertSame(0, ServiceCustomer::count());
+        DB::beginTransaction();
+        $lead = Lead::create(['name' => 'Committed', 'phone' => '08123456789', 'status_id' => 5, 'deal_at' => now()]);
+        $this->assertSame(0, CustomerDeal::count());
+        DB::commit();
+        $this->assertSame(1, CustomerDeal::count());
+        DB::transaction(function () use ($lead) {
+            $lead->update(['status_id' => 1]);
+            $lead->update(['name' => 'Changed before commit']);
+        });
+        $this->assertNotNull($lead->customerDeal->left_deal_at);
+        $this->assertSame(1, ServiceCustomer::count());
+    }
+
+    public function test_deal_review_uses_consistent_lock_order_for_link_and_apply(): void
+    {
+        Schema::create('service_customer_phone_changes', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('customer_id');
+            $t->string('old_phone')->nullable();
+            $t->string('new_phone')->nullable();
+            $t->unsignedBigInteger('changed_by_user_id');
+            $t->timestamp('changed_at');
+            $t->timestamps();
+        });
+        $customer = ServiceCustomer::create(['name' => 'Pak Rusman', 'phone' => '0811440148', 'ref_region_id' => 1]);
+        $lead = Lead::withoutEvents(fn () => Lead::create(['name' => 'Mr Rusman', 'phone' => '0811440149', 'status_id' => 5, 'deal_at' => now(), 'factory_city_id' => 1]));
+        $link = app(DealConversion::class)->sync($lead);
+        $this->assertSame('needs_review', $link->status);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews/'.$link->id.'/resolve';
+        $this->postJson($url, ['action' => 'link', 'customer_id' => $customer->id, 'updated_at' => $link->updated_at->toJSON()])
+            ->assertOk()->assertJsonPath('data.service_customer_id', $customer->id);
+        $lead->update(['phone' => '089999999999']);
+        $link->refresh();
+        $this->postJson($url, ['action' => 'apply', 'updated_at' => $link->updated_at->toJSON()])->assertOk();
+        $this->assertSame('6289999999999', $customer->fresh()->phone);
+        $this->assertNull($link->fresh()->pending_changes);
+        $this->assertSame(1, DB::table('service_customer_phone_changes')->count());
+    }
+
+    public function test_identity_locks_overlap_for_possible_matches_but_not_unrelated_customers(): void
+    {
+        $keys = fn ($name, $phone) => \App\Services\Aftersales\CustomerMutationLocks::customerKeys(['name' => $name, 'phone' => $phone]);
+        $a = $keys('Pak Rusman', '0811440149');
+        $this->assertNotEmpty(array_intersect($a, $keys('Different name', '0811440148')));
+        $this->assertNotEmpty(array_intersect($a, $keys('Another name', '08114401490')));
+        $this->assertNotEmpty(array_intersect($a, $keys('Mr Rusman', null)));
+        $this->assertEmpty(array_intersect($a, $keys('Completely unrelated', '089999999999')));
+    }
+
+    private function ticketAuxiliaryTables(bool $detail = false): void
+    {
+        $tables = ['ticket_recomings', 'ticket_service_forms', 'satisfaction_links'];
+        if ($detail) {
+            $tables = array_merge($tables, ['ticket_work_orders', 'ticket_parts', 'ticket_costs', 'ticket_photos', 'ticket_agreements']);
+        }
+        foreach ($tables as $table) {
+            Schema::create($table, function (Blueprint $t) {
+                $t->id();
+                $t->unsignedBigInteger('ticket_id');
+                $t->timestamp('saved_at')->nullable();
+                $t->softDeletes();
+            });
+        }
+        if ($detail) {
+            Schema::create('part_stock_movements', function (Blueprint $t) {
+                $t->id();
+                $t->unsignedBigInteger('ticket_id');
+                $t->string('type');
+                $t->integer('qty');
+                $t->softDeletes();
+            });
+            Schema::table('ticket_satisfactions', fn (Blueprint $t) => $t->unsignedBigInteger('ref_survey_template_id')->nullable());
+        }
+    }
+
+    public function test_ticket_list_eager_loads_machine_codes_once_for_many_units(): void
+    {
+        $this->ticketAuxiliaryTables();
+        $customer = ServiceCustomer::create(['name' => 'Customer']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        for ($i = 0; $i < 10; $i++) {
+            $machine = $customer->products()->create(['machine_name' => 'Machine '.$i, 'serial_number' => 'LIST-'.$i, 'capacity' => '5', 'ref_product_type_id' => $type]);
+            Ticket::create(['ticket_code' => 'LIST-'.$i, 'customer_id' => $customer->id, 'customer_product_id' => $machine->id]);
+        }
+        $this->actingAs($this->user());
+        [$response, $queries] = $this->measureQueries(fn () => $this->getJson('/api/aftersales/tickets?per_page=10')->assertOk());
+        $this->assertCount(10, $response->json('data'));
+        $this->assertSame('TD 5', $response->json('data.0.customer_product.machine_code'));
+        $this->assertSame(1, $this->reads($queries, 'ref_product_types'));
+        $this->assertArrayNotHasKey('satisfaction', $response->json('data.0'));
+    }
+
+    public function test_ticket_detail_fetches_survey_answers_once_for_history(): void
+    {
+        $this->ticketAuxiliaryTables(true);
+        $ticket = Ticket::create(['ticket_code' => 'DETAIL']);
+        for ($i = 0; $i < 10; $i++) {
+            $response = TicketSatisfaction::create(['ticket_id' => $ticket->id, 'ref_survey_template_id' => 1]);
+            DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => $response->id, 'type' => 'rating', 'value_number' => 3]);
+        }
+        $this->actingAs($this->user());
+        [$response, $queries] = $this->measureQueries(fn () => $this->getJson('/api/aftersales/tickets/'.$ticket->id)->assertOk());
+        $this->assertCount(10, $response->json('data.survey_responses'));
+        $this->assertEquals(3, $response->json('data.survey_responses.0.average_score'));
+        $this->assertSame(1, $this->reads($queries, 'ticket_satisfaction_answers'));
     }
 
     public function test_frontend_maps_alias_uses_backend_storage_and_validation(): void

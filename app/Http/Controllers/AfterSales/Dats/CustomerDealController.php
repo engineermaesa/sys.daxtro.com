@@ -5,6 +5,8 @@ namespace App\Http\Controllers\AfterSales\Dats;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\CustomerDeal;
 use App\Models\Aftersales\ServiceCustomer;
+use App\Models\Leads\Lead;
+use App\Services\Aftersales\CustomerMutationLocks;
 use App\Services\Aftersales\DealConversion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,19 +26,33 @@ class CustomerDealController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
         $input = $request->validate(['action' => 'required|in:link,create_new,apply,ignore', 'customer_id' => 'required_if:action,link|integer|exists:service_customers,id', 'updated_at' => 'required|string']);
-        $data = DB::transaction(function () use ($deal, $input, $service, $request) {
+        $initialLead = $deal->lead;
+        $identityKeys = CustomerMutationLocks::customerKeys(['name' => $initialLead->name, 'phone' => $initialLead->phone]);
+        $target = $input['action'] === 'link' ? ServiceCustomer::findOrFail($input['customer_id']) : $deal->customer;
+        $customerKeys = $target ? CustomerMutationLocks::customerKeys($target->getAttributes()) : [];
+        $data = DB::transaction(function () use ($deal, $input, $service, $request, $identityKeys, $customerKeys) {
+            CustomerMutationLocks::acquire(array_merge($identityKeys, $customerKeys));
+            $lead = Lead::whereKey($deal->lead_id)->lockForUpdate()->firstOrFail();
+            abort_unless(CustomerMutationLocks::customerKeys(['name' => $lead->name, 'phone' => $lead->phone]) === $identityKeys, 409, 'Deal review changed. Reload before saving.');
             $link = CustomerDeal::whereKey($deal->id)->lockForUpdate()->firstOrFail();
+            $link->setRelation('lead', $lead);
             abort_unless($link->updated_at->toJSON() === $input['updated_at'], 409, 'Deal review changed. Reload before saving.');
             $before = $link->getAttributes();
             if (in_array($input['action'], ['link', 'create_new'], true)) {
                 abort_unless($link->status === 'needs_review', 409, 'This Deal is already resolved.');
-                $customer = $input['action'] === 'link' ? ServiceCustomer::findOrFail($input['customer_id']) : ServiceCustomer::create($service->snapshot($link->lead) + ['source' => 'deal_conversion', 'created_by' => $request->user()->id]);
+                if ($input['action'] === 'link') {
+                    $customer = ServiceCustomer::whereKey($input['customer_id'])->lockForUpdate()->firstOrFail();
+                    abort_unless(CustomerMutationLocks::customerKeys($customer->getAttributes()) === $customerKeys, 409, 'Customer changed. Reload the Deal review.');
+                } else {
+                    $customer = ServiceCustomer::create($service->snapshot($link->lead) + ['source' => 'deal_conversion', 'created_by' => $request->user()->id]);
+                }
                 $link = $service->link($link->lead, $customer);
             } else {
                 abort_unless($link->service_customer_id && $link->pending_changes, 409, 'There are no pending Lead changes.');
                 $snapshot = $service->snapshot($link->lead);
                 if ($input['action'] === 'apply') {
-                    $customer = $link->customer;
+                    $customer = ServiceCustomer::whereKey($link->service_customer_id)->lockForUpdate()->firstOrFail();
+                    abort_unless(CustomerMutationLocks::customerKeys($customer->getAttributes()) === $customerKeys, 409, 'Customer changed. Reload the Deal review.');
                     if (($snapshot['phone'] ?? null) !== $customer->phone) {
                         abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403);
                         \App\Models\Aftersales\ServiceCustomerPhoneChange::create(['customer_id' => $customer->id, 'old_phone' => $customer->phone, 'new_phone' => $snapshot['phone'], 'changed_by_user_id' => $request->user()->id, 'changed_at' => now()]);

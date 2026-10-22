@@ -1,6 +1,6 @@
 # API Contract Aftersales Improvement untuk Tim Frontend
 
-Dokumen ini mengacu pada implementasi `routes/api.php` dan controller saat ini. Bagian 1–9 adalah kontrak integrasi FE; lampiran di bagian akhir menjelaskan migrasi dan aturan bisnis backend. Seluruh ID, nama, jumlah, dan timestamp pada contoh adalah ilustrasi. Contoh objek model menampilkan field yang dibutuhkan FE; backend dapat mengembalikan field model tambahan seperti `created_by`, `updated_by`, `deleted_at`, dan relasi. Jangan mengandalkan field tambahan yang tidak dibahas di sini.
+Dokumen ini mengacu pada implementasi `routes/api.php` dan controller saat ini. Bagian 1–9 adalah kontrak integrasi FE; lampiran di bagian akhir menjelaskan migrasi dan aturan bisnis backend. Optimasi query dan pengujian lock dicatat di [aftersales-performance.md](aftersales-performance.md); kontrak payload tetap kompatibel. Seluruh ID, nama, jumlah, dan timestamp pada contoh adalah ilustrasi. Contoh objek model menampilkan field yang dibutuhkan FE; backend dapat mengembalikan field model tambahan seperti `created_by`, `updated_by`, `deleted_at`, dan relasi. Jangan mengandalkan field tambahan yang tidak dibahas di sini.
 
 ## 1. Konvensi request, ID, dan response
 
@@ -515,7 +515,7 @@ Permission `aftersales.tickets.manage`. GET tanpa body → 200:
 
 ### 7.2 T02/T03 — Baca reminder dan logs
 
-T02 untuk manager memakai `aftersales.tickets.manage`; teknisi memakai `aftersales.tickets.view-own` dan hanya melihat tiket sendiri. T03 mempertahankan aturan akses detail existing. Query T02 yang relevan: `page`, `per_page` (default 15), `search`, `customer_id`, `supervisor=me`, `supervisor_id`, `category`, `priority`, `assigned_technician_id`, `progress`. Filter progress saat ini dilakukan setelah pagination backend; jangan menghitung total hasil progress sebagai jumlah global yang pasti.
+T02 untuk manager memakai `aftersales.tickets.manage`; teknisi memakai `aftersales.tickets.view-own` dan hanya melihat tiket sendiri. T03 mempertahankan aturan akses detail existing. Query T02 yang relevan: `page`, `per_page` (default 15, dibatasi 1–100), `search`, `customer_id`, `supervisor=me`, `supervisor_id`, `category`, `priority`, `assigned_technician_id`, `progress`. Filter progress saat ini dilakukan setelah pagination backend; jangan menghitung total hasil progress sebagai jumlah global yang pasti.
 
 Response list 200: `{"status":"success","data":[Ticket],"total":1,"current_page":1,"last_page":1}`. Detail 200: `{"status":"success","data":Ticket}`. Field tambahan berikut ada pada kedua Ticket:
 

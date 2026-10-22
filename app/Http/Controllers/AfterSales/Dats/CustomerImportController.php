@@ -50,36 +50,63 @@ class CustomerImportController extends Controller
             'rows.*.id' => 'required|integer|distinct', 'rows.*.input' => 'sometimes|array',
             'rows.*.decision' => 'nullable|array:action,customer_id,lead_id,row_id',
             'rows.*.decision.action' => 'required_with:rows.*.decision|in:link,create_new,skip',
-            'rows.*.decision.customer_id' => 'nullable|integer|exists:service_customers,id',
-            'rows.*.decision.lead_id' => 'nullable|integer|exists:leads,id',
+            'rows.*.decision.customer_id' => 'nullable|integer',
+            'rows.*.decision.lead_id' => 'nullable|integer',
             'rows.*.decision.row_id' => 'nullable|integer',
         ]);
+        $this->validateLinkTargets($input['rows']);
         DB::transaction(function () use ($input, $import, $service) {
             $batch = CustomerImport::whereKey($import->id)->lockForUpdate()->firstOrFail();
             abort_unless($batch->status === 'review' && $batch->lock_version === (int) $input['lock_version'], 409, 'Review changed or already applied. Reload the import.');
+            $rows = $batch->rows()->orderBy('row_number')->get();
+            $byId = $rows->keyBy('id');
+            $items = collect($input['rows'])->keyBy('id');
             foreach ($input['rows'] as $item) {
-                $row = $batch->rows()->findOrFail($item['id']);
+                $row = $byId->get($item['id']);
+                abort_unless($row, 404);
                 $raw = array_replace($row->input, array_intersect_key($item['input'] ?? [], array_flip(CustomerImports::HEADERS)));
-                $row->update(['input' => $raw]);
+                $row->input = $raw;
             }
-            // Rebuild in file order after corrections; downstream matches cannot remain stale.
-            foreach ($batch->rows()->orderBy('row_number')->get() as $row) {
-                $review = $service->review($row->input, $batch, $row->row_number);
-                $item = collect($input['rows'])->firstWhere('id', $row->id);
-                $decision = array_key_exists('decision', $item ?? []) ? $item['decision'] : ($review === $row->review ? $row->decision : null);
+            $context = $service->context($rows->pluck('input'));
+            foreach ($rows as $row) {
+                $review = $service->review($row->input, $batch, $row->row_number, $context);
+                $item = $items->get($row->id);
+                $decision = array_key_exists('decision', $item ?? []) ? $item['decision'] : ($review == $row->review ? $row->decision : null);
                 if (($decision['action'] ?? '') === 'link') {
                     $targets = array_filter([$decision['customer_id'] ?? null, $decision['lead_id'] ?? null, $decision['row_id'] ?? null]);
                     abort_unless(count($targets) === 1, 422, 'Select exactly one link target.');
                     if (! empty($decision['row_id'])) {
-                        abort_unless($batch->rows()->where('row_number', '<', $row->row_number)->whereKey($decision['row_id'])->exists(), 422, 'Only an earlier row in this import can be linked.');
+                        $target = $byId->get($decision['row_id']);
+                        abort_unless($target && $target->row_number < $row->row_number, 422, 'Only an earlier row in this import can be linked.');
                     }
                 }
-                $row->update(['review' => $review, 'decision' => $decision]);
+                $row->fill(['review' => $review, 'decision' => $decision]);
+                $context->addPrior($row->id, $row->row_number, $review);
             }
+            $service->persistRows($rows);
             $batch->increment('lock_version');
         });
 
         return response()->json(['data' => $service->payload($import->fresh())]);
+    }
+
+    private function validateLinkTargets(array $items): void
+    {
+        foreach (['customer_id' => 'service_customers', 'lead_id' => 'leads'] as $field => $table) {
+            $ids = collect($items)->pluck('decision.'.$field)->filter(fn ($id) => $id !== null)->unique()->values()->all();
+            $found = [];
+            foreach (array_chunk($ids, 500) as $chunk) {
+                foreach (DB::table($table)->whereIn('id', $chunk)->pluck('id') as $id) {
+                    $found[(int) $id] = true;
+                }
+            }
+            foreach ($items as $i => $item) {
+                $id = $item['decision'][$field] ?? null;
+                if ($id !== null && ! isset($found[(int) $id])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['rows.'.$i.'.decision.'.$field => 'The selected '.$field.' is invalid.']);
+                }
+            }
+        }
     }
 
     public function apply(Request $request, CustomerImport $import, CustomerImports $service)

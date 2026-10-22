@@ -44,9 +44,14 @@ class ServiceCustomerProduct extends Model
 
     protected $appends = ['machine_code', 'warranty_active'];
 
+    protected $hidden = ['normalized_serial'];
+
     protected static function booted(): void
     {
         static::saving(function (self $machine) {
+            if (! $machine->exists || $machine->isDirty('serial_number')) {
+                $machine->normalized_serial = \App\Services\Aftersales\CustomerMatching::serial($machine->serial_number);
+            }
             if ($machine->isDirty('pm_contract_status') || ! $machine->exists) {
                 $machine->pm_frequency = match ($machine->pm_contract_status ?? 'none') {
                     'basic' => '6 months', 'premium' => '3 months', 'none' => null,

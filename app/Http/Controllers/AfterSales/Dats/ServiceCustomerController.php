@@ -128,7 +128,11 @@ class ServiceCustomerController extends Controller
         $validated['created_by'] = $request->user()->id;
         $validated = $this->customerLocation($validated);
 
-        $customer = ServiceCustomer::create($validated);
+        $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($validated));
+
+            return ServiceCustomer::create($validated);
+        }, 3);
 
         return $this->setJsonResponse('Customer created successfully', ['data' => $customer], 201);
     }
@@ -152,24 +156,34 @@ class ServiceCustomerController extends Controller
         $validated['updated_by'] = $request->user()->id;
         $validated = $this->customerLocation($validated, $customer);
 
-        $digits = fn ($p) => preg_replace('/\D+/', '', (string) $p);
-        $phoneChanged = array_key_exists('phone', $validated) && $digits($validated['phone']) !== $digits($customer->phone);
-        if ($phoneChanged) {
-            abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403, 'Only admin can change the customer WhatsApp number.');
-        }
+        $original = $customer->getAttributes();
+        $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($customer, $validated, $request, $original) {
+            $oldKeys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys($original);
+            $newKeys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys(array_replace($original, $validated));
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(array_merge($oldKeys, $newKeys));
+            $customer = ServiceCustomer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            abort_unless(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($customer->getAttributes()) === $oldKeys, 409, 'Customer changed. Reload before saving.');
+            $digits = fn ($p) => preg_replace('/\D+/', '', (string) $p);
+            $phoneChanged = array_key_exists('phone', $validated) && $digits($validated['phone']) !== $digits($customer->phone);
+            if ($phoneChanged) {
+                abort_unless($request->user()->hasPermission('aftersales.customer-phone.change'), 403, 'Only admin can change the customer WhatsApp number.');
+            }
 
-        $oldPhone = $customer->phone;
-        $customer->update($validated);
+            $oldPhone = $customer->phone;
+            $customer->update($validated);
 
-        if ($phoneChanged) {
-            ServiceCustomerPhoneChange::create([
-                'customer_id' => $customer->id,
-                'old_phone' => $oldPhone,
-                'new_phone' => $validated['phone'],
-                'changed_by_user_id' => $request->user()->id,
-                'changed_at' => Carbon::now('Asia/Jakarta'),
-            ]);
-        }
+            if ($phoneChanged) {
+                ServiceCustomerPhoneChange::create([
+                    'customer_id' => $customer->id,
+                    'old_phone' => $oldPhone,
+                    'new_phone' => $validated['phone'],
+                    'changed_by_user_id' => $request->user()->id,
+                    'changed_at' => Carbon::now('Asia/Jakarta'),
+                ]);
+            }
+
+            return $customer;
+        }, 3);
 
         return $this->setJsonResponse('Customer updated successfully', ['data' => $customer->fresh(['province', 'region'])]);
     }
@@ -219,8 +233,14 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $customer->update(['deleted_by' => $request->user()->id, 'is_deleted' => true]);
-        $customer->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($customer, $request) {
+            $keys = \App\Services\Aftersales\CustomerMutationLocks::customerKeys($customer->getAttributes());
+            \App\Services\Aftersales\CustomerMutationLocks::acquire($keys);
+            $locked = ServiceCustomer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+            abort_unless(\App\Services\Aftersales\CustomerMutationLocks::customerKeys($locked->getAttributes()) === $keys, 409, 'Customer changed. Reload before deleting.');
+            $locked->update(['deleted_by' => $request->user()->id, 'is_deleted' => true]);
+            $locked->delete();
+        }, 3);
 
         return $this->setJsonResponse('Customer deleted successfully');
     }
@@ -331,9 +351,9 @@ class ServiceCustomerController extends Controller
     private function saveMachine(array $data, ?ServiceCustomerProduct $machine = null): ServiceCustomerProduct
     {
         return \Illuminate\Support\Facades\DB::transaction(function () use ($data, $machine) {
-            \Illuminate\Support\Facades\DB::table('ref_product_types')->orderBy('id')->lockForUpdate()->get();
             $serial = \App\Services\Aftersales\CustomerMatching::serial($data['serial_number']);
-            $duplicate = ServiceCustomerProduct::withTrashed()->when($machine, fn ($q) => $q->where('id', '!=', $machine->id))->get(['id', 'serial_number'])->contains(fn ($m) => \App\Services\Aftersales\CustomerMatching::serial($m->serial_number) === $serial);
+            \App\Services\Aftersales\CustomerMutationLocks::acquire(\App\Services\Aftersales\CustomerMutationLocks::serialKey($serial));
+            $duplicate = $serial && \App\Services\Aftersales\MachineSerials::exists($serial, $machine?->id);
             if (! $serial || $duplicate) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['serial_number' => $serial ? 'This serial number already exists.' : 'Serial Number is required.']);
             }

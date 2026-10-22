@@ -144,13 +144,12 @@ class TicketController extends Controller
         $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
         abort_unless($isManager || $ownOnly, 403);
 
-        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfactions']);
+        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction']);
 
         if ($ownOnly) {
             $query->where('assigned_technician_id', $user->id);
         }
 
-        // "Supervisor: Saya" filter: tickets waiting for my signature (FR-08)
         if ($request->input('supervisor') === 'me') {
             $query->where('supervisor_id', $user->id);
         }
@@ -183,15 +182,16 @@ class TicketController extends Controller
             });
         }
 
-        $perPage = (int) $request->input('per_page', 15);
+        $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
         $items = collect($paginated->items())->map(function (Ticket $t) {
             $latestVisit = $t->visits->sortByDesc('scheduled_at')->first();
             $closedLog = $t->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first();
+            $t->makeHidden(['satisfactions', 'satisfaction', 'serviceForm', 'surveyLink']);
             $data = $t->toArray();
             // Reminder inputs are internal; never expose survey answers in the ticket list.
-            unset($data['satisfactions'], $data['service_form'], $data['survey_link']);
+            unset($data['satisfactions'], $data['satisfaction'], $data['service_form'], $data['survey_link']);
 
             return array_merge($data, [
                 'current_recoming' => $this->currentRecoming($t),
@@ -231,14 +231,16 @@ class TicketController extends Controller
         TicketDocuments::ensure($ticket);
 
         $ticket->load([
-            'customer', 'customerProduct.industry', 'technician', 'supervisor',
+            'customer', 'customerProduct.industry', 'customerProduct.product', 'customerProduct.productType', 'technician', 'supervisor',
             'logs' => fn ($q) => $q->orderBy('id'),
             'logs.actor',
             'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings', 'serviceForm', 'agreement',
             'satisfactions' => fn ($q) => $q->orderByDesc('id'),
+            'satisfactions.answers', 'surveyLink',
         ]);
 
         $isManager = (bool) $user->hasPermission('aftersales.tickets.manage');
+        $ticket->makeHidden($isManager ? ['satisfactions'] : ['satisfactions', 'satisfaction']);
         $data = $ticket->toArray();
         unset($data['satisfactions']);
         if (! $isManager) {
@@ -978,7 +980,7 @@ class TicketController extends Controller
 
     private function canReschedule(Ticket $ticket): bool
     {
-        $recoming = $ticket->recomings()->latest('id')->first();
+        $recoming = $ticket->relationLoaded('recomings') ? $ticket->recomings->sortByDesc('id')->first() : $ticket->recomings()->latest('id')->first();
 
         return $ticket->progress === TicketLog::STEP_RECOMING
             && $recoming

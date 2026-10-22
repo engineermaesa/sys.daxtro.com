@@ -47,14 +47,41 @@ class CustomerMatching
 
     public function classify(array $a, array $b): ?string
     {
-        $an = self::name($a['name'] ?? null);
-        $bn = self::name($b['name'] ?? null);
+        return self::classifyPrepared(self::prepare($a), self::prepare($b));
+    }
+
+    public static function prepare(array $data): array
+    {
         try {
-            $ap = self::phone($a['phone'] ?? null);
-            $bp = self::phone($b['phone'] ?? null);
+            $phone = self::phone($data['phone'] ?? null);
+            $valid = true;
         } catch (\InvalidArgumentException) {
-            $ap = $bp = null;
+            $phone = null;
+            $valid = false;
         }
+
+        return ['name' => self::name($data['name'] ?? null), 'phone' => $phone, 'phone_valid' => $valid, 'ref_region_id' => $data['ref_region_id'] ?? null];
+    }
+
+    public static function phoneSignatures(?string $phone): array
+    {
+        if (! $phone) {
+            return [];
+        }
+        $keys = [$phone];
+        for ($i = 0; $i < strlen($phone); $i++) {
+            $keys[] = substr($phone, 0, $i).substr($phone, $i + 1);
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    public static function classifyPrepared(array $a, array $b): ?string
+    {
+        $an = $a['name'];
+        $bn = $b['name'];
+        $ap = $a['phone_valid'] && $b['phone_valid'] ? $a['phone'] : null;
+        $bp = $a['phone_valid'] && $b['phone_valid'] ? $b['phone'] : null;
         $sameName = $an !== '' && $an === $bn;
         $samePhone = $ap && $bp && $ap === $bp;
         $sameCity = ! empty($a['ref_region_id']) && (int) $a['ref_region_id'] === (int) ($b['ref_region_id'] ?? 0);
@@ -74,20 +101,22 @@ class CustomerMatching
 
     public function candidates(array $data, bool $includeLeads = true): array
     {
-        $matches = [];
-        foreach (ServiceCustomer::query()->get() as $customer) {
-            if ($status = $this->classify($data, $customer->getAttributes())) {
-                $matches[] = ['type' => 'customer', 'id' => $customer->id, 'status' => $status, 'name' => $customer->name, 'phone' => $customer->phone, 'ref_region_id' => $customer->ref_region_id];
-            }
+        return $this->index($includeLeads)->candidates($data);
+    }
+
+    public function index(bool $includeLeads = true): CustomerMatchIndex
+    {
+        $index = new CustomerMatchIndex;
+        foreach (ServiceCustomer::get(['id', 'name', 'phone', 'ref_region_id']) as $customer) {
+            $index->customers[$customer->id] = $customer;
+            $index->add('customer', $customer->id, $customer->getAttributes());
         }
         if ($includeLeads) {
-            foreach (Lead::where('status_id', LeadStatus::DEAL)->whereNotNull('deal_at')->with('customerDeal')->get() as $lead) {
-                if ($status = $this->classify($data, ['name' => $lead->name, 'phone' => $lead->phone, 'ref_region_id' => $lead->factory_city_id])) {
-                    $matches[] = ['type' => 'lead', 'id' => $lead->id, 'status' => $status, 'customer_id' => $lead->customerDeal?->service_customer_id, 'name' => $lead->name, 'phone' => $lead->phone];
-                }
+            foreach (Lead::where('status_id', LeadStatus::DEAL)->whereNotNull('deal_at')->with('customerDeal:id,lead_id,service_customer_id')->get(['id', 'name', 'phone', 'factory_city_id']) as $lead) {
+                $index->add('lead', $lead->id, ['name' => $lead->name, 'phone' => $lead->phone, 'ref_region_id' => $lead->factory_city_id], ['customer_id' => $lead->customerDeal?->service_customer_id]);
             }
         }
 
-        return $matches;
+        return $index;
     }
 }
