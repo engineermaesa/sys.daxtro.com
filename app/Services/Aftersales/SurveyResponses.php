@@ -29,7 +29,7 @@ class SurveyResponses
         $attributes = [];
         foreach ($questions as $key => $q) {
             $typeRules = match ($q['type']) {
-                'rating' => ['integer', 'between:1,5'], 'yes_no' => ['boolean'], 'short_text' => ['string', 'max:500'], 'long_text' => ['string', 'max:10000'], 'choice' => ['string', Rule::in($q['options'])],
+                'rating' => ['integer', 'between:1,3'], 'yes_no' => ['boolean'], 'short_text' => ['string', 'max:500'], 'long_text' => ['string', 'max:10000'], 'choice' => ['string', Rule::in($q['options'])],
             };
             $rules['answers.'.$key] = array_merge([$q['required'] ? 'required' : 'nullable'], $typeRules);
             $attributes['answers.'.$key] = $q['label'];

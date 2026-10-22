@@ -22,6 +22,7 @@ class ServiceCustomer extends Model
         'pic_name',
         'email',
         'phone',
+        'address_maps_url', 'source', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
     ];
 
     public function province()
@@ -42,5 +43,20 @@ class ServiceCustomer extends Model
     public function tickets()
     {
         return $this->hasMany(Ticket::class, 'customer_id');
+    }
+
+    public function deals()
+    {
+        return $this->hasMany(CustomerDeal::class, 'service_customer_id');
+    }
+
+    public function getLeadNoLongerDealAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->whereNotNull('left_deal_at')->isNotEmpty() : $this->deals()->whereNotNull('left_deal_at')->exists();
+    }
+
+    public function getLeadUpdatedAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->contains(fn ($d) => ! empty($d->pending_changes)) : $this->deals()->whereNotNull('pending_changes')->exists();
     }
 }

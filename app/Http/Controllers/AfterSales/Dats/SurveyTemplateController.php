@@ -56,7 +56,7 @@ class SurveyTemplateController extends Controller
         $this->authorizeManager($request);
         $input = $request->validate([
             'lock_version' => 'required|integer|min:0', 'title' => 'required|string|max:255', 'content' => 'required|array:sections,scale_labels',
-            'content.scale_labels' => 'required|array|size:5', 'content.scale_labels.*' => 'nullable|string|max:100',
+            'content.scale_labels' => 'required|array|size:3', 'content.scale_labels.*' => 'nullable|string|max:100',
             'content.sections' => 'present|array|max:100', 'content.sections.*.section_key' => 'nullable|string|max:64',
             'content.sections.*.title' => 'nullable|string|max:255', 'content.sections.*.is_active' => 'required|boolean', 'content.sections.*.questions' => 'present|array|max:200',
             'content.sections.*.questions.*.question_key' => 'nullable|string|max:64', 'content.sections.*.questions.*.label' => 'nullable|string|max:1000', 'content.sections.*.questions.*.hint' => 'nullable|string|max:2000',

@@ -7,7 +7,6 @@ use App\Jobs\SendTicketDocumentEmail;
 use App\Models\Aftersales\DocumentCounter;
 use App\Models\Aftersales\RefAgreementTemplate;
 use App\Models\Aftersales\RefInspectionField;
-use App\Models\Aftersales\RefInspectionItem;
 use App\Models\Aftersales\RefInspectionTemplate;
 use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\Ticket;
@@ -17,9 +16,9 @@ use App\Models\Aftersales\TicketInspection;
 use App\Models\Aftersales\TicketInspectionValue;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketPhoto;
+use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketServiceForm;
 use App\Models\Aftersales\TicketSignature;
-use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketWorkOrder;
 use App\Models\User;
 use Carbon\Carbon;
@@ -32,10 +31,13 @@ use Illuminate\Support\Str;
 class TicketDocuments
 {
     public const TYPE_AGREEMENT = 'agreement';
+
     public const TYPE_FORM = 'service_form';
+
     public const TYPES = [self::TYPE_AGREEMENT, self::TYPE_FORM];
 
     public const UNIT_FIELDS = ['capacity', 'refrigerant', 'condenser_type', 'voltage', 'phase', 'hz'];
+
     public const SERVICE_TYPES = ['preventive', 'repair'];
 
     public static function ensure(Ticket $ticket): void
@@ -67,7 +69,7 @@ class TicketDocuments
             TicketWorkOrder::create([
                 'ticket_id' => $ticket->id,
                 'ticket_visit_id' => $latestVisit?->id,
-                'wo_number' => 'WO-' . $now->format('Ymd') . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT),
+                'wo_number' => 'WO-'.$now->format('Ymd').'-'.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT),
                 'technician_id' => $ticket->assigned_technician_id,
                 'issued_at' => $now,
             ]);
@@ -92,7 +94,8 @@ class TicketDocuments
 
     public static function isSupervisor(User $user, Ticket $ticket): bool
     {
-        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.tickets.manage');
+        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.tickets.manage')
+            && (! $ticket->happy_call_required || $user->role?->code === 'supervisor_after_sales');
     }
 
     public static function isManager(User $user): bool
@@ -163,7 +166,7 @@ class TicketDocuments
                         'id' => $photo->id,
                         'captured_at' => $photo->captured_at,
                         'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false),
-                        'thumbnail_url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false) . '?thumb=1',
+                        'thumbnail_url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false).'?thumb=1',
                     ] : null,
                 ];
             })->values()->all();
@@ -184,7 +187,6 @@ class TicketDocuments
         return array_values($groups);
     }
 
-
     /** @return array{complete: bool, missing: string[], summary: string, counts: array} */
     public static function completeness(Ticket $ticket, string $type): array
     {
@@ -200,7 +202,7 @@ class TicketDocuments
             }
             $counts['section2_missing'] = $unitMissing;
             if ($unitMissing) {
-                $missing[] = 'Machine info incomplete: ' . implode(', ', $unitMissing);
+                $missing[] = 'Machine info incomplete: '.implode(', ', $unitMissing);
             }
 
             $unfilled = 0;
@@ -213,6 +215,7 @@ class TicketDocuments
                     }
                     if ($item['status'] === null) {
                         $unfilled++;
+
                         continue;
                     }
                     $checklistValues = collect($item['fields'])->where('type', RefInspectionField::TYPE_CHECKLIST)->flatMap(fn ($f) => is_array($f['value']) ? $f['value'] : [$f['value']])->all();
@@ -244,7 +247,7 @@ class TicketDocuments
         $unsigned = array_values(array_diff(TicketSignature::ROLES, $signed));
         $counts['signatures_missing'] = $unsigned;
         foreach ($unsigned as $role) {
-            $missing[] = ucfirst($role) . ' signature is missing';
+            $missing[] = ucfirst($role).' signature is missing';
         }
 
         return [
@@ -275,7 +278,9 @@ class TicketDocuments
         DB::transaction(function () use ($ticket, $form, $data, $user) {
             $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
             abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
-            if (array_key_exists('diagnosis', $data)) app(ServiceDiagnosis::class)->save($ticket, $form, $data['diagnosis'], $user);
+            if (array_key_exists('diagnosis', $data)) {
+                app(ServiceDiagnosis::class)->save($ticket, $form, $data['diagnosis'], $user);
+            }
             if (array_key_exists('service_type', $data)) {
                 $ticket->update(['service_type' => $data['service_type'], 'updated_by' => $user->id]);
             }
@@ -307,7 +312,7 @@ class TicketDocuments
 
             if (! $form->first_draft_at) {
                 $form->update(['first_draft_at' => Carbon::now('Asia/Jakarta')]);
-                
+
                 if (in_array($ticket->progress, [TicketLog::STEP_ASSIGNED, TicketLog::STEP_ON_SITE], true)) {
                     TicketLog::create([
                         'ticket_id' => $ticket->id,
@@ -328,6 +333,7 @@ class TicketDocuments
             $options = array_values(array_unique($raw ?? []));
             abort_if(array_diff($options, $field->options ?? []), 422, "'{$field->label}' contains an unknown option.");
             TicketInspectionValue::updateOrCreate(['ticket_inspection_id' => $inspection->id, 'ref_inspection_field_id' => $field->id], ['value' => count($options) ? json_encode($options) : null]);
+
             return;
         }
         $unit = $field->unit;
@@ -350,7 +356,7 @@ class TicketDocuments
                 abort_unless(is_finite((float) $value), 422, "'{$field->label}' must be a finite number.");
                 abort_if(($field->min_value !== null && (float) $value < (float) $field->min_value) || ($field->max_value !== null && (float) $value > (float) $field->max_value), 422, "'{$field->label}' is outside the allowed range.");
             } elseif ($field->type === RefInspectionField::TYPE_CHECKLIST) {
-                abort_unless(in_array($value, $field->options ?? [], true), 422, "'{$field->label}' must be one of: " . implode(', ', $field->options ?? []));
+                abort_unless(in_array($value, $field->options ?? [], true), 422, "'{$field->label}' must be one of: ".implode(', ', $field->options ?? []));
             }
         }
 
@@ -373,7 +379,7 @@ class TicketDocuments
         $valid = $agreement->template->clauseKeys();
         if (array_key_exists('accepted_clauses', $data)) {
             $unknown = array_diff($data['accepted_clauses'], $valid);
-            abort_if($unknown, 422, 'Unknown clause(s): ' . implode(', ', $unknown));
+            abort_if($unknown, 422, 'Unknown clause(s): '.implode(', ', $unknown));
             $agreement->accepted_clauses = array_values(array_intersect($valid, $data['accepted_clauses']));
         }
         if (array_key_exists('customer_name', $data)) {
@@ -394,7 +400,7 @@ class TicketDocuments
     {
         abort_if(blank($value->value), 422, 'Enter the value before attaching a photo.');
 
-        $dir = 'ticket-inspection-photos/' . $ticket->id;
+        $dir = 'ticket-inspection-photos/'.$ticket->id;
         $path = $file->store($dir, 'local');
         $thumb = self::makeThumbnail($file, $dir);
 
@@ -428,12 +434,11 @@ class TicketDocuments
 
         ob_start();
         imagejpeg($dst, null, 80);
-        $path = $dir . '/thumb-' . Str::uuid() . '.jpg';
+        $path = $dir.'/thumb-'.Str::uuid().'.jpg';
         Storage::disk('local')->put($path, (string) ob_get_clean());
 
         return $path;
     }
-
 
     public static function sign(Ticket $ticket, TicketServiceForm|TicketAgreement $doc, User $user, string $role, string $dataUri, ?string $signerName, Request $request): TicketSignature
     {
@@ -488,7 +493,7 @@ class TicketDocuments
         abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'The ticket is in Recoming until the follow-up visit.');
 
         $check = self::completeness($ticket, $type);
-        abort_if(! $check['complete'], 422, 'Cannot save yet: ' . $check['summary']);
+        abort_if(! $check['complete'], 422, 'Cannot save yet: '.$check['summary']);
 
         $result = DB::transaction(function () use ($ticket, $type, $doc, $user) {
             $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
@@ -578,7 +583,7 @@ class TicketDocuments
                 'status' => blank($email) ? 'skipped' : 'queued',
                 'error' => blank($email) ? 'No email address for this recipient.' : null,
             ]);
-            blank($email) && $warnings[] = ucfirst($role) . ' has no email address; email skipped.';
+            blank($email) && $warnings[] = ucfirst($role).' has no email address; email skipped.';
             $rows[] = $row;
         }
 

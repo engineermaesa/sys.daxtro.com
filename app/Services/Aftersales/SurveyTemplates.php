@@ -95,8 +95,8 @@ class SurveyTemplates
     public function validateActivation(RefSurveyTemplate $template): void
     {
         $fail = fn ($message) => throw ValidationException::withMessages(['content' => $message]);
-        if (count($template->content['scale_labels']) !== 5 || count(array_filter($template->content['scale_labels'], fn ($s) => blank($s)))) {
-            $fail('All five rating scale labels are required.');
+        if (count($template->content['scale_labels']) !== 3 || count(array_filter($template->content['scale_labels'], fn ($s) => blank($s)))) {
+            $fail('All three rating scale labels are required.');
         }
         $questions = $template->questions();
         if (! collect($questions)->contains('type', 'rating')) {
