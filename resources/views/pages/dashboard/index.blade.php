@@ -2691,7 +2691,7 @@
 
 @if(auth()->user()->role?->code === 'super_admin')
     @include('pages.dashboard.super-admin.index')
-@elseif(auth()->user()->role?->code === 'sales_director')
+@elseif(in_array(auth()->user()->role?->code, ['sales_director', 'finance_director']))
     @include('pages.dashboard.super-admin.index')
 @elseif(auth()->user()->role?->code === 'branch_manager')
     @include('pages.dashboard.branch-manager.index')
