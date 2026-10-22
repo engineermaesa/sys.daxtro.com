@@ -90,6 +90,8 @@
 @include('pages.aftersales.tickets.partials.ticket-log-preview-modal')
 
 @include('pages.aftersales.tickets.partials.ticket-delete-modal')
+
+@include('pages.aftersales.tickets.partials.survey-on-behalf-modal')
 @endsection
 
 @section('scripts')
@@ -198,6 +200,19 @@
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${escapeHtml(label)}</span>`;
     }
 
+    // Reminders under STEPS come straight from the API booleans (never computed from dates in the FE).
+    function reminderBadges(reminders) {
+        if (!reminders) return '';
+        let html = '';
+        if (reminders.survey_due) {
+            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FFF3CD] text-[#8A6D00]">Survey due</span>';
+        }
+        if (reminders.happy_call_due) {
+            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#E7ECFB] text-[#3B4FA6]">Happy Call due</span>';
+        }
+        return html ? `<div class="flex flex-wrap justify-center gap-1 mt-1">${html}</div>` : '';
+    }
+
     function renderTicketRows(rows) {
         const $body = $('#ticket-table-body');
 
@@ -226,7 +241,7 @@
                 <td class="p-3 text-center">${slaBadge(row.sla_status)}</td>
                 <td class="p-3 text-center">${row.aging_days ?? 0}</td>
                 <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
-                <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}</td>
+                <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -332,6 +347,7 @@
         waiting_sparepart: 'Waiting Sparepart',
         documentation_published: 'Documentation Published',
         satisfaction_submitted: 'Satisfaction Submitted',
+        happy_call_completed: 'Happy Call Completed',
         closed: 'Closed',
         recoming: 'Recoming',
     };

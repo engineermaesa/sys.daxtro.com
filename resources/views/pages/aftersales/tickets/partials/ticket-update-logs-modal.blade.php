@@ -35,6 +35,7 @@
                             <option value="repair">Repair</option>
                             <option value="waiting_sparepart">Waiting Sparepart</option>
                             <option value="satisfaction_submitted">Satisfaction Submitted</option>
+                            <option value="happy_call_completed">Happy Call Completed</option>
                             <option value="closed">Closed</option>
                         </select>
                         <input type="text" id="ticketLogNote" placeholder="Note..."
@@ -52,12 +53,11 @@
                             <div>
                                 <label class="block text-xs text-[#757575] mb-1">{{ $label }}</label>
                                 <select class="ticket-log-satisfaction-field w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" data-field="{{ $key }}">
-                                    <option value="">Rate 1-5</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                    <option value="5">5</option>
+                                    {{-- 3-level scale (API contract section 8): value 1-3, shown as x/3 --}}
+                                    <option value="">Rate 1-3</option>
+                                    <option value="1">1 · Kurang Puas</option>
+                                    <option value="2">2 · Puas</option>
+                                    <option value="3">3 · Sangat Puas</option>
                                 </select>
                             </div>
                         @endforeach
@@ -202,7 +202,8 @@
         waiting_sparepart: 'waiting-sparepart',
         documentation_published: 'documentation',
         satisfaction_submitted: 'satisfaction',
-        closed: 'close',
+        happy_call_completed: 'happy-call', // T04: records the log only; it never closes the ticket
+        closed: 'close',                    // T05: separate request, guarded by the backend
     };
 
     let currentUpdateLogsTicketId = null;
@@ -386,7 +387,7 @@
             if (missing) {
                 Swal.fire({
                     title: 'Data incomplete',
-                    text: 'Please rate all five satisfaction criteria.',
+                    text: 'Please rate all five satisfaction criteria (1-3).',
                     icon: 'warning',
                     confirmButtonColor: '#115640'
                 });

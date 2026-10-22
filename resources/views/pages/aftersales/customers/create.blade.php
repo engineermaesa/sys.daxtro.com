@@ -35,7 +35,7 @@
                     <div class="lg:col-span-2">
                         <label class="block text-sm font-medium mb-1">Google Maps Link<span class="text-red-600">*</span></label>
                         <div class="flex items-stretch gap-2">
-                            <input type="url" id="customer-maps-link" required value="{{ $customer->maps_link ?? '' }}"
+                            <input type="url" id="customer-maps-link" required value="{{ $customer->address_maps_url ?? $customer->maps_link ?? '' }}"
                                 placeholder="Paste Google Maps location link"
                                 class="flex-1 border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                             <button type="button" id="btn-open-maps"
@@ -254,25 +254,7 @@
         $('#mapPickerModal').modal('show');
     });
 
-    // Collapse the sidebar while the modal is open so it doesn't overlap, then restore.
-    let sidebarWasOpen = false;
-    function toggleSidebar() {
-        const saved = localStorage.getItem('sidebar-collapsed');
-        const btn = document.getElementById('toggleSidepanel');
-        if (btn) btn.click();
-        if (saved === null) localStorage.removeItem('sidebar-collapsed');
-        else localStorage.setItem('sidebar-collapsed', saved);
-    }
-
-    $('#mapPickerModal').on('show.bs.modal', function () {
-        const wrap = document.getElementById('sidebarWrapper');
-        sidebarWasOpen = !!wrap && !wrap.classList.contains('sidebar-collapsed');
-        if (sidebarWasOpen) toggleSidebar();
-    }).on('hidden.bs.modal', function () {
-        if (sidebarWasOpen) toggleSidebar();
-        sidebarWasOpen = false;
-    });
-
+    // (The sidebar collapses for every modal through the global handler in layouts/app.blade.php.)
     $('#mapPickerModal').on('shown.bs.modal', function () {
         if (!pickerMap) {
             pickerMap = L.map('map-canvas').setView([-2.5, 118], 5);
@@ -350,7 +332,7 @@
                 const payload = {
                     name: $('#customer-name').val(),
                     address: $('#customer-address').val(),
-                    maps_link: $('#customer-maps-link').val() || null,
+                    address_maps_url: $('#customer-maps-link').val() || null,
                     ref_province_id: $('#customer-province').val() || null,
                     ref_region_id: $('#customer-region').val() || null,
                     pic_name: $('#customer-pic-name').val(),
@@ -377,9 +359,11 @@
                         });
                     },
                     error: function (xhr) {
+                        // 422: show every field error from `errors` (e.g. address_maps_url / maps_link).
+                        const fieldErrors = Object.values(xhr.responseJSON?.errors || {}).flat();
                         Swal.fire({
                             title: 'Failed',
-                            text: xhr.responseJSON?.message || 'Failed to save customer',
+                            text: fieldErrors.length ? fieldErrors.join('\n') : (xhr.responseJSON?.message || 'Failed to save customer'),
                             icon: 'error',
                             confirmButtonColor: '#115640'
                         });

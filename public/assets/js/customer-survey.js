@@ -81,7 +81,8 @@
                 if (choice) {
                     option(input, "", "Select an answer");
                     if (question.type === "rating")
-                        for (let score = 1; score <= 5; score++)
+                        // 3-level scale: the number of options follows the template's scale_labels (3)
+                        for (let score = 1; score <= (data.template.scale_labels.length || 3); score++)
                             option(
                                 input,
                                 score,

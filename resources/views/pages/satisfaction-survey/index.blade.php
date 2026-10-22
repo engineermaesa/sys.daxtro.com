@@ -590,13 +590,15 @@
             setSignature('vfSignature', signer.signature_url);
 
             document.getElementById('vfRatings').innerHTML = (f.template ? '<p class="text-xs text-[#757575]">' + f.template.scale_labels.map(function (label, i) { return (i + 1) + ': ' + esc(label); }).join(' · ') + '</p>' : '') + (f.ratings || []).map(function (item) {
-                const boxes = [1, 2, 3, 4, 5].map(function (n) {
+                // 3-level scale (Kurang Puas / Puas / Sangat Puas); labels come from the pinned template
+                const scaleLabels = (f.template && f.template.scale_labels) || [];
+                const boxes = [1, 2, 3].map(function (n) {
                     const on = n === Math.round(item.score);
-                    return `<span class="flex items-center justify-center h-14 rounded-lg border font-semibold ${on ? 'bg-[#115640] border-[#115640] text-white' : 'bg-white border-[#D9D9D9] text-[#4B5563]'}">${n}</span>`;
+                    return `<span class="flex flex-col items-center justify-center h-14 rounded-lg border font-semibold ${on ? 'bg-[#115640] border-[#115640] text-white' : 'bg-white border-[#D9D9D9] text-[#4B5563]'}">${n}<span class="text-[10px] font-normal">${esc(scaleLabels[n - 1] || '')}</span></span>`;
                 }).join('');
                 return `<div class="py-4 border-b border-[#EDEDED] last:border-b-0">
                     <p class="font-medium mb-3">${esc(item.label)}</p>
-                    <div class="grid grid-cols-5 gap-2">${boxes}</div>
+                    <div class="grid grid-cols-3 gap-2">${boxes}</div>
                 </div>`;
             }).join('');
         }

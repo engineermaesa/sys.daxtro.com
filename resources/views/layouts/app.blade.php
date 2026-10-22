@@ -166,6 +166,37 @@
                 }
             });
             
+            // Every Bootstrap modal collapses the sidebar while it is open (so it never overlaps the dialog)
+            // and restores it when the last open modal closes. The user's saved sidebar preference is untouched.
+            let openModals = 0;
+            let sidebarWasOpen = false;
+
+            function toggleSidebarForModal() {
+                const saved = localStorage.getItem('sidebar-collapsed');
+                const btn = document.getElementById('toggleSidepanel');
+                if (btn) btn.click();
+                // the toggle persists its state; put the saved preference back
+                if (saved === null) localStorage.removeItem('sidebar-collapsed');
+                else localStorage.setItem('sidebar-collapsed', saved);
+            }
+
+            $(document).on('show.bs.modal', '.modal', function () {
+                if (openModals === 0) {
+                    const wrap = document.getElementById('sidebarWrapper');
+                    sidebarWasOpen = !!wrap && !wrap.classList.contains('sidebar-collapsed');
+                    if (sidebarWasOpen) toggleSidebarForModal();
+                }
+                openModals++;
+            });
+
+            $(document).on('hidden.bs.modal', '.modal', function () {
+                openModals = Math.max(0, openModals - 1);
+                if (openModals === 0 && sidebarWasOpen) {
+                    toggleSidebarForModal();
+                    sidebarWasOpen = false;
+                }
+            });
+
             // Handle sidebar toggle for header positioning
             $('#sidebarToggle, #sidebarToggleTop').on('click', function() {
                 setTimeout(function() {

@@ -2,7 +2,7 @@
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
     <div class="bg-white rounded-lg border border-[#D9D9D9] p-6">
         <p class="text-[#757575]">Average Rating</p>
-        <p class="mt-3"><span id="td-avg-rating" class="text-[#115640] font-bold text-4xl">-</span><span class="text-[#115640] font-semibold text-sm"> / 5</span></p>
+        <p class="mt-3"><span id="td-avg-rating" class="text-[#115640] font-bold text-4xl">-</span><span class="text-[#115640] font-semibold text-sm"> / 3</span></p>
         <p id="td-avg-rating-note" class="text-[#9CA3AF] text-xs mt-3"></p>
     </div>
     <div class="bg-white rounded-lg border border-[#D9D9D9] p-6">

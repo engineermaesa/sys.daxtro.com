@@ -164,6 +164,7 @@
             <div class="flex items-center justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
                 <a id="tdSurveyUrl" class="text-[#4B5563] truncate underline" target="_blank" rel="noopener noreferrer"></a>
                 <div class="flex items-center shrink-0" style="gap: 8px;">
+                    <button type="button" id="tdFillOnBehalf" class="hidden bg-white border border-[#D9D9D9] text-[#1E1E1E] font-semibold rounded-md cursor-pointer" style="padding: 8px 16px;">Fill on Behalf</button>
                     <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
                     <button type="button" id="tdShareWhatsapp" disabled class="bg-white border border-[#115640] text-[#115640] font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">
                         <i class="bi bi-whatsapp"></i> WhatsApp

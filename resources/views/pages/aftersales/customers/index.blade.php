@@ -16,6 +16,9 @@
                 <p class="text-[#757575] mt-1">Manage and monitor your customers' complete information here.</p>
             </div>
             <div class="flex items-center gap-2">
+                <button type="button" class="btn-open-deal-review bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
+                    Deal Reviews
+                </button>
                 <button type="button" data-toggle="modal" data-target="#customerImportModal"
                     class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
                     Import Customer
@@ -89,6 +92,7 @@
     </div>
 </section>
 @include('pages.aftersales.customers.partials.import-modal')
+@include('pages.aftersales.customers.partials.deal-review-modal')
 @endsection
 
 @section('scripts')
@@ -130,11 +134,28 @@
         return `<a href="https://wa.me/${wa}" target="_blank" rel="noopener" class="underline">${display}</a>`;
     }
 
-    function renderSource(source) {
-        const isImport = source === 'import';
-        const label = isImport ? 'Import' : 'Manual';
-        const style = isImport ? 'background:#D3E8DE;color:#115640' : 'background:#F0F0F0;color:#5F6B66';
-        return `<span style="${style};font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px">${label}</span>`;
+    const SOURCE_BADGES = {
+        manual: { label: 'Manual', style: 'background:#F0F0F0;color:#5F6B66' },
+        import: { label: 'Import', style: 'background:#D3E8DE;color:#115640' },
+        deal_conversion: { label: 'Deal', style: 'background:#DCEBFA;color:#1D5FA8' },
+    };
+
+    function badge(label, style) {
+        return `<span style="${style};font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;white-space:nowrap">${label}</span>`;
+    }
+
+    // Source column: Manual / Import / Deal, plus separate indicators from the API flags.
+    function renderSource(row) {
+        const source = SOURCE_BADGES[row.source] || SOURCE_BADGES.manual;
+        let html = badge(source.label, source.style);
+
+        if (row.lead_no_longer_deal) {
+            html += ` ${badge('Lead no longer Deal', 'background:#FBE0DF;color:#C0281F')}`;
+        }
+        if (row.lead_updated) {
+            html += ` <button type="button" class="btn-open-deal-review cursor-pointer" data-customer-id="${row.id}" style="background:#FBEFC8;color:#7A5F00;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;white-space:nowrap">Lead updated</button>`;
+        }
+        return html;
     }
 
     function renderCustomerRows(rows) {
@@ -155,7 +176,7 @@
                 <td class="p-3 text-left text-black">${renderContact(row.phone)}</td>
                 <td class="p-3 text-left text-black">${escapeHtml(row.region?.name) || '-'}</td>
                 <td class="p-3 text-left text-black">${escapeHtml(row.province?.name) || '-'}</td>
-                <td class="p-3 text-left text-black">${renderSource(row.source)}</td>
+                <td class="p-3 text-left text-black">${renderSource(row)}</td>
                 <td class="p-3 text-center text-black">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -173,8 +194,8 @@
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/customers/${row.id}/edit">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
-                            ${row.maps_link ? `
-                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${escapeHtml(row.maps_link)}" target="_blank" rel="noopener">
+                            ${row.address_maps_url ? `
+                            <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${escapeHtml(row.address_maps_url)}" target="_blank" rel="noopener noreferrer">
                                 <i class="bi bi-geo-alt"></i> Open in Google Maps
                             </a>` : ''}
                         </div>

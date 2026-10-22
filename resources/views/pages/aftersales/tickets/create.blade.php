@@ -452,6 +452,12 @@
                     $('#field-technician').val(String(EDIT_TICKET.assigned_technician_id)).trigger('change.select2');
                 }
                 if (EDIT_TICKET.supervisor_id) {
+                    // Older tickets may have a supervisor who is not in the new dropdown (role supervisor_after_sales):
+                    // keep showing the existing one instead of clearing it. Keeping the same ID is allowed by the API.
+                    if (!$('#field-supervisor option[value="' + EDIT_TICKET.supervisor_id + '"]').length) {
+                        $('#field-supervisor').append('<option value="' + EDIT_TICKET.supervisor_id + '">' +
+                            escapeHtml(EDIT_TICKET.supervisor?.name || ('User #' + EDIT_TICKET.supervisor_id)) + '</option>');
+                    }
                     $('#field-supervisor').val(String(EDIT_TICKET.supervisor_id));
                 }
                 if (EDIT_TICKET.sla_due_at) {

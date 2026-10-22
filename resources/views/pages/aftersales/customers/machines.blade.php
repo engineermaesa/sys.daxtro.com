@@ -11,6 +11,8 @@
                     <span class="mx-1">&gt;</span>
                     <span class="font-semibold text-[#115640] underline">{{ $customer->name }} — Machine List</span>
                 </p>
+                {{-- Filled from the customer detail API: Lead no longer Deal badge and Open in Google Maps. --}}
+                <div id="machines-header-extras" class="flex items-center gap-2 mt-2"></div>
             </div>
             <a href="{{ route('aftersales.pages.customers.machines.create', $customer->id) }}"
                 class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors cursor-pointer">
@@ -24,6 +26,8 @@
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-center uppercase text-xs font-bold">Machine Name</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Machine Code</th>
+                        <th class="p-3 text-center uppercase text-xs font-bold">Brand</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Serial Number</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Model</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Warranty Period</th>
@@ -41,7 +45,7 @@
     </div>
 </section>
 
-{{-- Move Machine modal (FE only; backend pending) --}}
+{{-- Move Machine modal --}}
 <div class="modal fade" id="moveMachineModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:520px">
         <div class="modal-content rounded-2xl! overflow-hidden border-0!">
@@ -62,6 +66,8 @@
                         <option value=""></option>
                     </select>
                 </div>
+
+                <p id="move-machine-error" class="hidden text-[#C0281F] mb-0" style="font-size:11px;margin-top:10px"></p>
 
                 <div style="margin-top:14px">
                     <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Note</label>
@@ -120,22 +126,20 @@
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#F0F0F0] text-[#757575]">None</span>`;
     }
 
-    // PM Frequency follows the PM Contract: Basic = 6 months, Premium = 3 months, None = empty.
-    function pmFrequencyLabel(status) {
-        return { basic: '6 months', premium: '3 months' }[status] || '';
-    }
 
     function renderMachineRows(rows) {
         const $body = $('#machine-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
+            $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
             return;
         }
 
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
                 <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.machine_code) || '-'}</td>
+                <td class="p-3 text-center text-black">${escapeHtml(row.brand) || '-'}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.serial_number) || '-'}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.warranty_period) || '-'}</td>
@@ -143,7 +147,7 @@
                 <td class="p-3 text-center text-black">${escapeHtml(row.warranty_end) || '-'}</td>
                 <td class="p-3 text-center">${machineBadge(row.warranty_active, 'Active', 'Expired')}</td>
                 <td class="p-3 text-center">${pmContractBadge(row.pm_contract_status)}</td>
-                <td class="p-3 text-center text-black">${pmFrequencyLabel(row.pm_contract_status) || '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
+                <td class="p-3 text-center text-black">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -171,19 +175,25 @@
     }
 
     function loadMachines() {
-        $('#machine-table-body').html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#machine-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: `${apiBaseUrl}/${customerId}`,
             method: 'GET',
             success: function (response) {
-                const products = response.data?.products || [];
+                const customer = response.data || {};
+                const products = customer.products || [];
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
+                renderHeaderExtras(customer);
+
                 renderMachineRows(products.map(p => ({
                     id: p.id,
-                    product_name: p.product?.name,
+                    // Machine Name is typed by the user; Product name is only a fallback for older/Deal machines.
+                    product_name: p.machine_name || p.product?.name,
+                    machine_code: p.machine_code,
+                    brand: p.brand,
                     serial_number: p.serial_number,
                     product_type_name: p.product_type?.name,
                     warranty_period: p.warranty_period,
@@ -196,15 +206,28 @@
             },
             error: function (xhr) {
                 console.error('Failed to load customer machines', xhr.responseJSON?.message || xhr.statusText);
-                $('#machine-table-body').html('<tr><td colspan="10" class="text-center p-4 text-[#900B09]">Failed to load machines</td></tr>');
+                $('#machine-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#900B09]">Failed to load machines</td></tr>');
             }
         });
+    }
+
+    function renderHeaderExtras(customer) {
+        let html = '';
+        if (customer.lead_no_longer_deal) {
+            html += '<span style="background:#FBE0DF;color:#C0281F;font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px">Lead no longer Deal</span>';
+        }
+        if (customer.address_maps_url) {
+            html += `<a href="${escapeHtml(customer.address_maps_url)}" target="_blank" rel="noopener noreferrer"
+                class="bg-white border border-[#D9D9D9] rounded-lg px-3 py-1 text-xs hover:bg-[#E8E8E8] transition-colors">
+                <i class="bi bi-geo-alt"></i> Open in Google Maps</a>`;
+        }
+        $('#machines-header-extras').html(html);
     }
 
     $(function () {
         loadMachines();
 
-        // ---- Move Machine (FE only; backend pending) ----
+        // ---- Move Machine (M04) ----
         let moveMachineId = null;
 
         function initMoveTarget() {
@@ -239,6 +262,7 @@
             const type = $(this).data('type') || '';
             $('#move-machine-subtitle').text([name, type].filter(Boolean).join(' | '));
             $('#move-machine-note').val(`Previously owned by ${pageConfig.name}`);
+            $('#move-machine-error').addClass('hidden').text('');
             initMoveTarget();
             $('#move-machine-target').val(null).trigger('change');
             $('#moveMachineModal').modal('show');
@@ -255,21 +279,37 @@
                 return;
             }
 
-            // FE only: remove the row to simulate the move. TODO: wire to backend
-            // (move machine moveMachineId, with all its details, to the selected customer with note).
             const destination = $('#move-machine-target').find('option:selected').text();
+            const $submit = $('#move-machine-submit').prop('disabled', true);
+            $('#move-machine-error').addClass('hidden').text('');
 
-            $(`.btn-move-machine[data-id="${moveMachineId}"]`).closest('tr').remove();
-            if ($('#machine-table-body tr').length === 0) {
-                $('#machine-table-body').html('<tr><td colspan="10" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
-            }
-
-            $('#moveMachineModal').modal('hide');
-            Swal.fire({
-                title: 'Machine moved',
-                text: `The machine and all its details were moved to ${destination}.`,
-                icon: 'success',
-                confirmButtonColor: '#115640'
+            // M04: the row is only removed after the server confirms (reload below), never optimistically.
+            $.ajax({
+                url: `${apiBaseUrl}/products/${moveMachineId}/move`,
+                method: 'POST',
+                data: {
+                    customer_id: $('#move-machine-target').val(),
+                    note: $('#move-machine-note').val() || null,
+                },
+                success: function () {
+                    $('#moveMachineModal').modal('hide');
+                    Swal.fire({
+                        title: 'Machine moved',
+                        text: `The machine and all its details were moved to ${destination}.`,
+                        icon: 'success',
+                        confirmButtonColor: '#115640'
+                    });
+                    loadMachines();
+                },
+                error: function (xhr) {
+                    // 422 (open tickets / same destination): keep the modal open and show the message.
+                    const fieldErrors = Object.values(xhr.responseJSON?.errors || {}).flat();
+                    const message = fieldErrors.length ? fieldErrors.join(' ') : (xhr.responseJSON?.message || 'Failed to move machine');
+                    $('#move-machine-error').text(message).removeClass('hidden');
+                },
+                complete: function () {
+                    $submit.prop('disabled', false);
+                }
             });
         });
 

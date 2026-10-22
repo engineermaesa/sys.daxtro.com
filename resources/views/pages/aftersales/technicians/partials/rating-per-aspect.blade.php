@@ -14,7 +14,7 @@
                 <div class="grid items-center gap-x-6" style="grid-template-columns: 180px 1fr 32px;">
                     <span class="text-[#374151] truncate">${escapeHtml(a.label)}</span>
                     <div class="h-2 rounded-full bg-[#E5E7EB] overflow-hidden">
-                        <div class="h-full rounded-full bg-[#115640]" style="width: ${avg === null ? 0 : Math.min(100, (avg / 5) * 100)}%;"></div>
+                        <div class="h-full rounded-full bg-[#115640]" style="width: ${avg === null ? 0 : Math.min(100, (avg / 3) * 100)}%;"></div>
                     </div>
                     <span class="text-right font-bold text-[#1E1E1E]">${avg === null ? '—' : avg.toFixed(1)}</span>
                 </div>`;

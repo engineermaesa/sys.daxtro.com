@@ -25,37 +25,43 @@
                         <select id="machine-product-type-id" required
                             class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                             <option value="">Select Model</option>
-                            @foreach ($productTypes as $type)
-                                <option value="{{ $type->id }}" {{ ($product->ref_product_type_id ?? null) == $type->id ? 'selected' : '' }}>{{ $type->name }}</option>
-                            @endforeach
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Machine Name<span class="text-red-600">*</span></label>
                         <input type="text" id="machine-name" required placeholder="e.g. CD 50 – Cube Ice Machine"
+                            value="{{ $product->machine_name ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Capacity (ton)</label>
                         <input type="number" min="0" step="any" id="machine-capacity" placeholder="e.g. 50"
+                            value="{{ $product->capacity ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Machine Code</label>
                         <input type="text" id="machine-code" placeholder="Auto-generated from model" disabled
+                            value="{{ $product->machine_code ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs bg-[#F5F5F5] text-[#757575] focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Brand</label>
                         <input type="text" id="machine-brand" placeholder="e.g. Refcomp"
+                            value="{{ $product->brand ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Refrigerant Type</label>
+                        {{-- Refrigerant is free text in the API; this list only suggests common values and keeps any saved value. --}}
                         <select id="machine-refrigerant" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                             <option value="">Select Refrigerant Type</option>
-                            @foreach (['R404A', 'R134a', 'R290', 'R507A', 'R717', 'R22'] as $refrigerant)
-                                <option value="{{ $refrigerant }}">{{ $refrigerant }}</option>
+                            @php($refrigerants = ['R404A', 'R134a', 'R290', 'R507A', 'R717', 'R22'])
+                            @if (!empty($product->refrigerant) && !in_array($product->refrigerant, $refrigerants, true))
+                                <option value="{{ $product->refrigerant }}" selected>{{ $product->refrigerant }}</option>
+                            @endif
+                            @foreach ($refrigerants as $refrigerant)
+                                <option value="{{ $refrigerant }}" {{ ($product->refrigerant ?? '') === $refrigerant ? 'selected' : '' }}>{{ $refrigerant }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -68,7 +74,7 @@
                     <div>
                         <label class="block text-xs font-medium mb-1">Note</label>
                         <textarea id="machine-note" rows="3" placeholder="Optional"
-                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!"></textarea>
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">{{ $product->note ?? '' }}</textarea>
                     </div>
                 </div>
 
@@ -96,10 +102,9 @@
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">PM Contract</label>
+                        {{-- Options are filled from the machine-references API (pm_contracts). --}}
                         <select id="machine-pm-contract-status" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
-                            <option value="none" {{ ($product->pm_contract_status ?? 'none') === 'none' ? 'selected' : '' }}>None</option>
-                            <option value="basic" {{ ($product->pm_contract_status ?? '') === 'basic' ? 'selected' : '' }}>Basic</option>
-                            <option value="premium" {{ ($product->pm_contract_status ?? '') === 'premium' ? 'selected' : '' }}>Premium</option>
+                            <option value="none">None</option>
                         </select>
                     </div>
                     <div>
@@ -133,6 +138,10 @@
     'customerId' => $customer->id,
     'machineId' => $product->id ?? null,
     'machinesPageUrl' => route('aftersales.pages.customers.machines', $customer->id),
+    'record' => $product ? [
+        'ref_product_type_id' => $product->ref_product_type_id,
+        'pm_contract_status' => $product->pm_contract_status,
+    ] : null,
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) !!}
 </script>
 <script>
@@ -215,42 +224,80 @@
         });
     }
 
-    // Service Frequency is read-only and follows the PM Contract: Basic = 6 months, Premium = 3 months.
-    const PM_FREQUENCY = { basic: '6 months', premium: '3 months' };
+    // Filled from GET /machine-references: category prefixes and PM contract frequencies.
+    let categoryPrefixes = {};   // { [categoryId]: code_prefix }
+    let pmFrequencies = {};      // { none: null, basic: '6 months', premium: '3 months' }
+    let pmTouched = false;       // legacy PM values are only replaced after the user picks a new one
 
+    // Service Frequency is read-only and follows the PM Contract (values come from the API).
     function syncServiceFrequency() {
-        $('#machine-pm-frequency').val(PM_FREQUENCY[$('#machine-pm-contract-status').val()] || '');
+        $('#machine-pm-frequency').val(pmFrequencies[$('#machine-pm-contract-status').val()] || '');
     }
 
-    // Machine Code = Model (Machine Category) prefix + Capacity, e.g. Cube + 50 = "CD 50". Read-only, not stored.
-    const MACHINE_CODE_PREFIX = {
-        'tube': 'TD',
-        'cube': 'CD',
-        'block': 'BD',
-        'flake': 'FD',
-        'slurry': 'SD',
-        'cold room': 'RD',
-        'reverse osmosis': 'RO',
-    };
-
+    // Machine Code preview = category code_prefix + Capacity, e.g. Cube + 50 = "CD 50". The saved value comes from the API.
     function syncMachineCode() {
-        const typeName = $('#machine-product-type-id').val()
-            ? $('#machine-product-type-id option:selected').text().trim().toLowerCase()
-            : '';
-        const prefix = Object.keys(MACHINE_CODE_PREFIX).find(key => typeName.includes(key));
+        const prefix = categoryPrefixes[$('#machine-product-type-id').val()];
         const capacity = $('#machine-capacity').val();
 
-        $('#machine-code').val(prefix ? `${MACHINE_CODE_PREFIX[prefix]}${capacity !== '' ? ' ' + capacity : ''}` : '');
+        $('#machine-code').val(prefix ? `${prefix}${capacity !== '' ? ' ' + capacity : ''}` : '');
+    }
+
+    function loadMachineReferences() {
+        return $.ajax({
+            url: `${apiBaseUrl}/machine-references`,
+            method: 'GET',
+            dataType: 'json',
+        }).done(function (response) {
+            const refs = response.data || {};
+            const record = pageConfig.record;
+
+            const $type = $('#machine-product-type-id');
+            $type.html('<option value="">Select Model</option>' + (refs.categories || []).map(c => {
+                categoryPrefixes[c.id] = c.code_prefix;
+                return `<option value="${c.id}">${$('<div>').text(c.name).html()}</option>`;
+            }).join(''));
+            if (record?.ref_product_type_id) {
+                $type.val(String(record.ref_product_type_id));
+            }
+            $type.trigger('change.select2');
+
+            pmFrequencies = refs.pm_contracts || {};
+            const $pm = $('#machine-pm-contract-status');
+            const labels = { none: 'None', basic: 'Basic', premium: 'Premium' };
+            $pm.html(Object.keys(pmFrequencies).map(key => `<option value="${key}">${labels[key] || key}</option>`).join(''));
+
+            const current = record?.pm_contract_status;
+            if (!record) {
+                $pm.val('none');
+            } else if (current && Object.prototype.hasOwnProperty.call(pmFrequencies, current)) {
+                $pm.val(current);
+            } else {
+                // Legacy PM value outside the list: show as not chosen and keep the old value until a new one is picked.
+                $pm.prepend('<option value="" disabled>Select PM Contract</option>').val('');
+            }
+
+            syncServiceFrequency();
+            syncMachineCode();
+        }).fail(function (xhr) {
+            Swal.fire({
+                title: 'Failed',
+                text: xhr.responseJSON?.message || 'Failed to load machine options',
+                icon: 'error',
+                confirmButtonColor: '#115640'
+            });
+        });
     }
 
     $(function () {
         initSelect2();
         initDatePickers();
         calculateWarrantyPeriod();
-        syncServiceFrequency();
-        syncMachineCode();
+        loadMachineReferences();
 
-        $('#machine-pm-contract-status').on('change', syncServiceFrequency);
+        $('#machine-pm-contract-status').on('change', function () {
+            pmTouched = true;
+            syncServiceFrequency();
+        });
         $('#machine-product-type-id').on('change', syncMachineCode);
         $('#machine-capacity').on('input', syncMachineCode);
 
@@ -271,16 +318,24 @@
                     return;
                 }
 
+                // machine_code, warranty_period and pm_frequency are read-only: never sent (API contract 5.2).
                 const payload = {
-                    product_id: null, // imported/manual machines are not tied to a Product (PRD IM-11)
+                    product_id: null, // manual/imported machines are not tied to a Product
+                    machine_name: $('#machine-name').val(),
                     serial_number: $('#machine-serial-number').val(),
                     ref_product_type_id: $('#machine-product-type-id').val() || null,
-                    warranty_period: $('#machine-warranty-period').val(),
-                    warranty_start: $('#machine-warranty-start').val(),
-                    warranty_end: $('#machine-warranty-end').val(),
-                    pm_contract_status: $('#machine-pm-contract-status').val(),
-                    pm_frequency: $('#machine-pm-frequency').val(),
+                    brand: $('#machine-brand').val() || null,
+                    capacity: $('#machine-capacity').val() || null,
+                    refrigerant: $('#machine-refrigerant').val() || null,
+                    note: $('#machine-note').val() || null,
+                    warranty_start: $('#machine-warranty-start').val() || null,
+                    warranty_end: $('#machine-warranty-end').val() || null,
                 };
+
+                // Create always sends PM; Edit only sends it once the user picked a (new) value.
+                if (!machineId || pmTouched) {
+                    payload.pm_contract_status = $('#machine-pm-contract-status').val() || 'none';
+                }
 
                 const isEdit = !!machineId;
                 const url = isEdit ? `${apiBaseUrl}/products/${machineId}` : `${apiBaseUrl}/${customerId}/products`;
@@ -301,9 +356,11 @@
                         });
                     },
                     error: function (xhr) {
+                        // 422: list each field error (e.g. serial_number, warranty_end).
+                        const fieldErrors = Object.values(xhr.responseJSON?.errors || {}).flat();
                         Swal.fire({
                             title: 'Failed',
-                            text: xhr.responseJSON?.message || 'Failed to save machine',
+                            text: fieldErrors.length ? fieldErrors.join('\n') : (xhr.responseJSON?.message || 'Failed to save machine'),
                             icon: 'error',
                             confirmButtonColor: '#115640'
                         });

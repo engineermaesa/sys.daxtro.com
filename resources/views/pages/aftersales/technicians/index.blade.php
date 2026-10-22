@@ -128,7 +128,8 @@
 
     function scoreCells(row) {
         if (!CAN_SEE_SCORE) return '';
-        const rating = row.rating === null || row.rating === undefined ? '—' : `${row.rating} (${row.rating_count})`;
+        // 3-level scale: the API sends rating_scale_max = 3, so ratings read as x/3
+        const rating = row.rating === null || row.rating === undefined ? '—' : `${row.rating}/${row.rating_scale_max || 3} (${row.rating_count})`;
         const completion = row.completion === null || row.completion === undefined
             ? '—'
             : `${row.completion}% (${row.completion_closed}/${row.completion_total})`;
