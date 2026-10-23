@@ -323,6 +323,25 @@ class ImprovementsTest extends TestCase
         $this->assertSame($input['note'], $machine->fresh()->note);
     }
 
+    public function test_move_api_returns_open_ticket_warning_without_changing_machine_or_note(): void
+    {
+        $this->actingAs($this->user());
+        $owner = ServiceCustomer::create(['name' => 'Owner']);
+        $destination = ServiceCustomer::create(['name' => 'Destination']);
+        $machine = $owner->products()->create(['machine_name' => 'Machine', 'serial_number' => 'OPEN-TICKET', 'note' => 'Original note']);
+        $ticket = Ticket::create(['customer_id' => $owner->id, 'customer_product_id' => $machine->id]);
+        $ticket->logs()->create(['step' => 'assigned']);
+
+        $this->postJson('/api/aftersales/customers/products/'.$machine->id.'/move', [
+            'customer_id' => $destination->id, 'note' => 'Transfer note',
+        ])->assertStatus(422)->assertJsonPath('message', 'This machine has open tickets. Close them first.');
+
+        $machine->refresh();
+        $this->assertSame($owner->id, $machine->customer_id);
+        $this->assertSame('Original note', $machine->note);
+        $this->assertSame(0, DB::table('aftersales_customer_audits')->where('action', 'machine_moved')->count());
+    }
+
     public function test_move_blocks_open_tickets_then_preserves_history_and_contract(): void
     {
         $a = ServiceCustomer::create(['name' => 'Owner A']);

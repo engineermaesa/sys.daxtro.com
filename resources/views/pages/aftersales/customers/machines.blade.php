@@ -79,14 +79,18 @@
                         class="border border-[#D9D9D9] rounded-lg bg-white flex items-center justify-center cursor-pointer"><i class="bi bi-x-lg"></i></button>
                 </div>
 
+                <div id="move-machine-error" role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden
+                    style="margin-top:16px;padding:12px 14px;border:1px solid #F0B8B3;border-radius:8px;background:#FBEAEA;color:#900B09;font-size:13px;line-height:1.5">
+                    <strong class="block mb-1"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Unable to move machine</strong>
+                    <span id="move-machine-error-message"></span>
+                </div>
+
                 <div style="margin-top:18px">
                     <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Move to<span class="text-red-600">*</span></label>
                     <select id="move-machine-target" style="width:100%">
                         <option value=""></option>
                     </select>
                 </div>
-
-                <p id="move-machine-error" class="hidden text-[#C0281F] mb-0" style="font-size:11px;margin-top:10px"></p>
 
                 <div style="margin-top:14px">
                     <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Note</label>
@@ -265,6 +269,16 @@
         });
     }
 
+    function setMachineMoveError(message = '') {
+        const alert = document.getElementById('move-machine-error');
+        document.getElementById('move-machine-error-message').textContent = message;
+        alert.hidden = !message;
+        if (message) {
+            alert.focus({ preventScroll: true });
+            alert.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
     function renderHeaderExtras(customer) {
         let html = '';
         if (customer.lead_no_longer_deal) {
@@ -323,7 +337,7 @@
             const type = $(this).data('type') || '';
             $('#move-machine-subtitle').text([name, type].filter(Boolean).join(' | '));
             $('#move-machine-note').val(`Previously owned by ${pageConfig.name}`);
-            $('#move-machine-error').addClass('hidden').text('');
+            setMachineMoveError();
             initMoveTarget();
             $('#move-machine-target').val(null).trigger('change');
             $('#moveMachineModal').modal('show');
@@ -342,12 +356,14 @@
 
             const destination = $('#move-machine-target').find('option:selected').text();
             const $submit = $('#move-machine-submit').prop('disabled', true);
-            $('#move-machine-error').addClass('hidden').text('');
+            setMachineMoveError();
 
             // M04: the row is only removed after the server confirms (reload below), never optimistically.
             $.ajax({
                 url: `${apiBaseUrl}/products/${moveMachineId}/move`,
                 method: 'POST',
+                dataType: 'json',
+                headers: { Accept: 'application/json' },
                 data: {
                     customer_id: $('#move-machine-target').val(),
                     note: $('#move-machine-note').val() || null,
@@ -366,7 +382,7 @@
                     // 422 (open tickets / same destination): keep the modal open and show the message.
                     const fieldErrors = Object.values(xhr.responseJSON?.errors || {}).flat();
                     const message = fieldErrors.length ? fieldErrors.join(' ') : (xhr.responseJSON?.message || 'Failed to move machine');
-                    $('#move-machine-error').text(message).removeClass('hidden');
+                    setMachineMoveError(message);
                 },
                 complete: function () {
                     $submit.prop('disabled', false);
