@@ -25,7 +25,7 @@
                     <th class="p-2">Item Name</th>
                     <th class="p-2">Part Code</th>
                     <th class="p-2" style="width: 140px;">Qty</th>
-                    <th class="p-2 w-32">Unit</th>
+                    <th class="p-2 w-32">Unit<span class="text-red-600">*</span></th>
                     <th class="p-2 w-36 text-right">Unit Price</th>
                     <th class="p-2 w-10"></th>
                 </tr>
@@ -92,6 +92,21 @@
     }
 
 
+    function checkSparepartUnits(focusInvalid = false) {
+        let firstInvalid = null;
+        $('#sparepart-rows tr').each(function () {
+            const $row = $(this);
+            const $unit = $row.find('.sparepart-unit');
+            const invalid = !$unit.val();
+            $unit.prop('required', true).attr('aria-invalid', invalid ? 'true' : 'false')
+                .css('border-color', invalid ? '#EC221F' : '');
+            $row.find('.sparepart-unit-error').toggleClass('hidden', !invalid);
+            if (invalid && !firstInvalid) firstInvalid = $unit;
+        });
+        if (focusInvalid && firstInvalid) firstInvalid.trigger('focus');
+        return !firstInvalid;
+    }
+
     // harga satuan (IDR) sebagai teks, tidak bisa diedit
     // (nilai tetap IDR di data-unit-price; hanya tampilan yang ikut Total Currency)
     function formatRupiah(value) {
@@ -143,13 +158,14 @@
                     <p class="sparepart-stock-hint hidden mb-0 whitespace-nowrap" style="position: absolute; left: 8px; top: calc(100% - 14px); font-size: 11px; line-height: 14px; color: #8A6D00;"></p>
                 </td>
                 <td class="px-2 py-4">
-                    <select class="sparepart-unit w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
+                    <select aria-label="Unit" required class="sparepart-unit w-full border border-[#D9D9D9] rounded-lg px-3 py-1.5 focus:outline-none!">
                         <option value="">Select</option>
                         <option value="pieces">Pieces</option>
                         <option value="set">Set</option>
                         <option value="lot">Lot</option>
                         <option value="kilogram">Kilogram</option>
                     </select>
+                    <p class="sparepart-unit-error hidden mb-0" style="font-size:11px;color:#EC221F;margin-top:4px;" role="alert">Please select a unit.</p>
                 </td>
                 <td class="px-2 py-4 text-right text-[#4B5563] sparepart-price">-</td>
                 <td class="px-2 py-4 text-center">
@@ -247,11 +263,13 @@
             setSparepartRowPrice($row, $(this).find('option:selected').data('price') || 0);
             if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
             checkSparepartStock();
+            checkSparepartUnits();
         });
 
         $(document).on('input change', '.sparepart-qty, .sparepart-unit', function () {
             if (typeof recalculateCostTotal === 'function') recalculateCostTotal();
             checkSparepartStock();
+            checkSparepartUnits();
         });
 
         $('#btn-add-sparepart').on('click', function () {

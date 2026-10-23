@@ -162,8 +162,8 @@
             return false;
         }
 
-        // banner stok sudah ditampilkan checkSparepartStock(), tidak perlu Swal tambahan
-        if (currentStep === 4 && !checkSparepartStock()) {
+        // Every sparepart row requires a unit before continuing, including newly added rows.
+        if (currentStep === 4 && (!checkSparepartUnits(true) || !checkSparepartStock())) {
             return false;
         }
 
