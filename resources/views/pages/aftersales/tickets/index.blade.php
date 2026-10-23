@@ -13,9 +13,11 @@
                 <h1 class="text-[#115640] font-semibold text-2xl">All Ticket</h1>
                 <p class="text-[#757575] mt-1">Track and manage all your service tickets in one place.</p>
             </div>
+            @if (hasPermission(auth()->user(), 'aftersales.tickets.manage'))
             <a href="{{ route('aftersales.pages.tickets.create') }}" class="self-start sm:self-auto shrink-0 whitespace-nowrap bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
                 <i class="bi bi-plus-lg"></i> Add Ticket
             </a>
+            @endif
         </div>
 
         {{--SEARCH--}}
@@ -199,7 +201,7 @@
         if (step === 'recoming' && currentRecoming) {
             label = `Recoming · visit ${currentRecoming.visit_no} · ${formatDate(currentRecoming.planned_visit_at)}`;
         }
-        return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}">${escapeHtml(label)}</span>`;
+        return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-center ${cls}">${escapeHtml(label)}</span>`;
     }
 
     // Reminders under STEPS come straight from the API booleans (never computed from dates in the FE).
@@ -207,10 +209,10 @@
         if (!reminders) return '';
         let html = '';
         if (reminders.survey_due) {
-            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#FFF3CD] text-[#8A6D00]">Survey due</span>';
+            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium text-center bg-[#FFF3CD] text-[#8A6D00]">Survey due</span>';
         }
         if (reminders.happy_call_due) {
-            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-[#E7ECFB] text-[#3B4FA6]">Happy Call due</span>';
+            html += '<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium text-center bg-[#E7ECFB] text-[#3B4FA6]">Happy Call due</span>';
         }
         return html ? `<div class="flex flex-wrap justify-center gap-1 mt-1">${html}</div>` : '';
     }
