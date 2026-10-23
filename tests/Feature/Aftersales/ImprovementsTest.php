@@ -270,6 +270,36 @@ class ImprovementsTest extends TestCase
         $this->assertSame(2, ServiceCustomerProduct::count());
     }
 
+    public function test_machine_warranty_defaults_and_product_period_survive_manual_edits(): void
+    {
+        $this->actingAs($this->user());
+        $customer = ServiceCustomer::create(['name' => 'Warranty Customer']);
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'machine_name' => 'Manual Machine', 'serial_number' => 'WARRANTY-DEFAULT',
+            'warranty_start' => '2026-10-23',
+        ])->assertCreated();
+        $manual = $customer->products()->first();
+        $this->assertSame('2027-10-23', $manual->warranty_end->toDateString());
+        $this->assertSame('1 Year', $manual->warranty_period);
+
+        DB::table('ref_products')->insert(['id' => 1, 'name' => '24 Month Machine', 'warranty_available' => true, 'warranty_time_month' => 24]);
+        $machine = $customer->products()->create([
+            'product_id' => 1, 'machine_name' => 'Product Machine', 'serial_number' => 'WARRANTY-PRODUCT',
+        ]);
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $input = ['machine_name' => 'Product Machine', 'serial_number' => 'WARRANTY-PRODUCT', 'warranty_start' => '2026-10-23'];
+        $this->putJson($url, $input)->assertOk();
+        $machine->refresh();
+        $this->assertEquals(1, $machine->product_id);
+        $this->assertSame('2028-10-23', $machine->warranty_end->toDateString());
+        $this->assertSame('2 Years', $machine->warranty_period);
+
+        $this->putJson($url, array_replace($input, ['warranty_end' => '2027-10-01']))->assertOk();
+        $machine->refresh();
+        $this->assertSame('2027-10-01', $machine->warranty_end->toDateString());
+        $this->assertSame('11 Months', $machine->warranty_period);
+    }
+
     public function test_move_blocks_open_tickets_then_preserves_history_and_contract(): void
     {
         $a = ServiceCustomer::create(['name' => 'Owner A']);
