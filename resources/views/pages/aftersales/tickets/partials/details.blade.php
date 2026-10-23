@@ -161,9 +161,9 @@
             {{-- Resubmission link (FR-E32): respons current ditolak dan link baru Active --}}
             <div id="tdResubmitBanner" class="hidden rounded-md text-xs" style="margin-top: 16px; padding: 10px 14px; background:#FFF3CD; color:#8A6D00;"></div>
 
-            <div class="flex items-center justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
-                <a id="tdSurveyUrl" class="text-[#4B5563] truncate underline" target="_blank" rel="noopener noreferrer"></a>
-                <div class="flex items-center shrink-0" style="gap: 8px;">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
+                <a id="tdSurveyUrl" class="block min-w-0 text-[#4B5563] break-all md:truncate underline" target="_blank" rel="noopener noreferrer"></a>
+                <div class="flex flex-wrap items-center md:shrink-0" style="gap: 8px;">
                     <button type="button" id="tdFillOnBehalf" class="hidden bg-white border border-[#D9D9D9] text-[#1E1E1E] font-semibold rounded-md cursor-pointer" style="padding: 8px 16px;">Fill on Behalf</button>
                     <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
                     <button type="button" id="tdShareWhatsapp" disabled class="bg-white border border-[#115640] text-[#115640] font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">

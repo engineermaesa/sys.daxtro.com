@@ -3,10 +3,13 @@
 @section('content')
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div class="pt-4">
+        <a href="{{ route('aftersales.pages.customers.index') }}" class="sm:hidden inline-flex items-center gap-2 text-[#115640] font-semibold mb-3">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-[#115640] font-semibold text-2xl">{{ $customer->name }} — Tickets</h1>
-                <p class="text-[#757575] text-sm mt-1">
+                <p class="hidden sm:block text-[#757575] text-sm mt-1">
                     <a href="{{ route('aftersales.pages.customers.index') }}" class="hover:underline">Customer</a>
                     <span class="mx-1">&gt;</span>
                     <span class="font-semibold text-[#115640] underline">{{ $customer->name }} — Tickets</span>
@@ -16,22 +19,22 @@
 
         {{--SEARCH--}}
         <div class="bg-white rounded-lg border border-[#D9D9D9] p-4 mt-4">
-            <div class="flex items-stretch gap-3">
-                <div class="flex-1 relative">
+            <div class="flex flex-col lg:flex-row lg:items-stretch gap-3">
+                <div class="flex-1 relative min-w-0">
                     <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#757575] text-base pointer-events-none"></i>
                     <input type="text" id="ticket-search" placeholder="Search ticket code or machine"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
                 <button type="button" id="btn-search-ticket"
-                class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
+                class="w-full lg:w-auto bg-[#115640] text-white px-6 py-2 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
                 </button>
             </div>
         </div>
 
         {{--TABLE--}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Ticket ID</th>
@@ -53,9 +56,9 @@
         </div>
 
         {{--PAGINATION--}}
-        <div class="flex items-center justify-between mt-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
             <div id="ticket-showing" class="text-[#757575]">Showing 0 to 0 entries</div>
-            <div id="ticket-pagination" class="flex items-center gap-2"></div>
+            <div id="ticket-pagination" class="flex flex-wrap items-center gap-2"></div>
         </div>
     </div>
 </section>
@@ -186,23 +189,26 @@
             const technician = row.technician || {};
 
             return `
-            <tr class="border-t border-t-[#D9D9D9] align-top">
-                <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
-                <td class="p-3">${escapeHtml(machine.product?.name)}</td>
-                <td class="p-3">${escapeHtml(technician.name)}</td>
-                <td class="p-3 max-w-[160px]">
-                    <span class="line-clamp-2">${escapeHtml(row.description)}</span>
-                    <button type="button" class="btn-ticket-detail text-[#115640] text-xs underline cursor-pointer"
-                        data-ticket='@json([])'>- View Detail</button>
+            <tr class="border-t border-t-[#D9D9D9] align-middle">
+                <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID">${escapeHtml(row.ticket_code)}</td>
+                <td class="p-3" data-label="Machine">${escapeHtml(machine.product?.name)}</td>
+                <td class="p-3" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
+                <td class="p-3 sm:max-w-[160px]" data-label="Desc.">
+                    <div class="min-w-0 flex-1 sm:flex-none">
+                        <span class="line-clamp-2 break-words">${escapeHtml(row.description)}</span>
+                        <button type="button" class="btn-ticket-detail text-[#115640] text-xs underline cursor-pointer"
+                            data-ticket='@json([])'>View Detail</button>
+                    </div>
                 </td>
-                <td class="p-3">${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
-                <td class="p-3">${formatDate(row.created_at)}</td>
-                <td class="p-3">${formatDate(row.visit_date)}</td>
-                <td class="p-3">${formatDate(row.closed_at)}</td>
-                <td class="p-3">${slaBadge(row.sla_status)}</td>
-                <td class="p-3">${row.aging_days ?? 0}</td>
-                <td class="p-3">${priorityBadge(row.priority)}</td>
-                <td class="p-3">${stepBadge(row.progress)}</td>
+                <td class="p-3" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
+                <td class="p-3" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
+                <td class="p-3" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
+                <td class="p-3" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
+                <td class="p-3" data-label="SLA">${slaBadge(row.sla_status)}</td>
+                <td class="p-3" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
+                <td class="p-3" data-label="Priority">${priorityBadge(row.priority)}</td>
+                <td class="p-3" data-label="Steps">${stepBadge(row.progress)}</td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `;
         }).join('');
@@ -214,6 +220,12 @@
             $(this).data('ticket', rows[index]);
         });
     }
+
+    // mobile card view: expand / collapse the secondary fields of one ticket
+    $(document).on('click', '#ticket-table-body .card-more', function () {
+        const $row = $(this).closest('tr').toggleClass('is-open');
+        $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
+    });
 
     function renderTicketPagination(pagination) {
         pagination = pagination || {};

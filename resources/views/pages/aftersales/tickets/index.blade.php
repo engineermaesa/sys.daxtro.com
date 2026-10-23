@@ -45,8 +45,8 @@
         </div>
 
         {{--TABLE--}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full whitespace-nowrap text-xs">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full whitespace-nowrap text-xs">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Ticket ID</th>
@@ -230,21 +230,21 @@
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
-                <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
-                <td class="p-3 text-center">${escapeHtml(customer.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(machine.product?.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(technician.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(customer.province?.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(customer.region?.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
-                <td class="p-3 text-center">${formatDate(row.created_at)}</td>
-                <td class="p-3 text-center">${formatDate(row.visit_date)}</td>
-                <td class="p-3 text-center">${formatDate(row.closed_at)}</td>
-                <td class="p-3 text-center">${slaBadge(row.sla_status)}</td>
-                <td class="p-3 text-center">${row.aging_days ?? 0}</td>
-                <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
-                <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
-                <td class="p-3 text-center">
+                <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID">${escapeHtml(row.ticket_code)}</td>
+                <td class="p-3 text-center" data-label="Customer">${escapeHtml(customer.name)}</td>
+                <td class="p-3 text-center" data-label="Machine">${escapeHtml(machine.product?.name)}</td>
+                <td class="p-3 text-center" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
+                <td class="p-3 text-center" data-label="Province" data-secondary>${escapeHtml(customer.province?.name)}</td>
+                <td class="p-3 text-center" data-label="Region" data-secondary>${escapeHtml(customer.region?.name)}</td>
+                <td class="p-3 text-center" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
+                <td class="p-3 text-center" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
+                <td class="p-3 text-center" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
+                <td class="p-3 text-center" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
+                <td class="p-3 text-center" data-label="SLA">${slaBadge(row.sla_status)}</td>
+                <td class="p-3 text-center" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
+                <td class="p-3 text-center" data-label="Priority">${priorityBadge(row.priority)}</td>
+                <td class="p-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
+                <td class="p-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
                             type="button" id="ticketActionsDropdown${row.id}"
@@ -268,6 +268,7 @@
                         </div>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `;
         }).join('');
@@ -392,6 +393,12 @@
             ticketState.search = $('#ticket-search').val();
             ticketState.page = 1;
             loadTickets();
+        });
+
+        // mobile card view: expand / collapse the secondary fields of one ticket
+        $(document).on('click', '#ticket-table-body .card-more', function () {
+            const $row = $(this).closest('tr').toggleClass('is-open');
+            $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
         });
 
         $(document).on('click', '#ticket-pagination button', function () {

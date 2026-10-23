@@ -3,8 +3,11 @@
 @section('content')
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div class="pt-4">
+        <a href="{{ route('aftersales.pages.customers.machines', $customer->id) }}" class="sm:hidden inline-flex items-center gap-2 text-[#115640] font-semibold mb-3">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
         <h1 class="text-[#115640] font-bold text-2xl">{{ $customer->name }} — Machine List</h1>
-        <p class="text-[#757575] text-sm mt-1">
+        <p class="hidden sm:block text-[#757575] text-sm mt-1">
             <a href="{{ route('aftersales.pages.customers.index') }}" class="hover:underline">Customer</a>
             <span class="mx-1">&gt;</span>
             <a href="{{ route('aftersales.pages.customers.machines', $customer->id) }}" class="hover:underline">{{ $customer->name }} — Machine List</a>

@@ -125,7 +125,7 @@
                         </div>
 
                         <div style="overflow-x:auto">
-                            <table class="w-full" style="font-size:10.5px;color:#2D3748">
+                            <table class="w-full" data-no-cards style="font-size:10.5px;color:#2D3748">
                                 <thead style="background:#F7F9F8;color:#5F6B66;font-size:9.5px;text-transform:uppercase">
                                     <tr style="border-top:1px solid #EDEDED;border-bottom:1px solid #EDEDED">
                                         @foreach (['Row', 'Customer', 'Phone', 'Machine', 'Serial Number', 'Status', 'Detail / Decision'] as $h)

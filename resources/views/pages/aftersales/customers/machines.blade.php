@@ -3,10 +3,13 @@
 @section('content')
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div class="pt-4">
-        <div class="flex items-center justify-between">
-            <div>
+        <a href="{{ route('aftersales.pages.customers.index') }}" class="sm:hidden inline-flex items-center gap-2 text-[#115640] font-semibold mb-3">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div class="min-w-0">
                 <h1 class="text-[#115640] font-semibold text-2xl">{{ $customer->name }} — Machine List</h1>
-                <p class="text-[#757575] text-sm mt-1">
+                <p class="hidden sm:block text-[#757575] text-sm mt-1">
                     <a href="{{ route('aftersales.pages.customers.index') }}" class="hover:underline">Customer</a>
                     <span class="mx-1">&gt;</span>
                     <span class="font-semibold text-[#115640] underline">{{ $customer->name }} — Machine List</span>
@@ -15,7 +18,7 @@
                 <div id="machines-header-extras" class="flex items-center gap-2 mt-2"></div>
             </div>
             <a href="{{ route('aftersales.pages.customers.machines.create', $customer->id) }}"
-                class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors cursor-pointer">
+                class="self-start sm:self-auto shrink-0 whitespace-nowrap bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors cursor-pointer">
                 <i class="bi bi-plus-lg"></i> New Machine
             </a>
         </div>
