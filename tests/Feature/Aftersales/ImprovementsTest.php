@@ -323,6 +323,110 @@ class ImprovementsTest extends TestCase
         $this->assertSame($input['note'], $machine->fresh()->note);
     }
 
+    public function test_customer_delete_soft_deletes_and_preserves_machine_and_ticket_records(): void
+    {
+        $this->actingAs($this->user());
+        $customer = ServiceCustomer::create(['name' => 'Archived Customer', 'phone' => '08123456789']);
+        $machine = $customer->products()->create(['machine_name' => 'Archived Machine', 'serial_number' => 'ARCHIVE-1']);
+        $ticket = Ticket::create(['customer_id' => $customer->id, 'customer_product_id' => $machine->id]);
+
+        $this->deleteJson('/api/aftersales/customers/'.$customer->id)->assertOk();
+        $this->assertNull(ServiceCustomer::find($customer->id));
+        $archived = ServiceCustomer::withTrashed()->findOrFail($customer->id);
+        $this->assertNotNull($archived->deleted_at);
+        $this->assertEquals(1, $archived->deleted_by);
+        $this->assertTrue((bool) $archived->is_deleted);
+        $this->assertSame($customer->id, $machine->fresh()->customer_id);
+        $this->assertSame($customer->id, $ticket->fresh()->customer_id);
+        $this->getJson('/api/aftersales/customers')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertNotFound();
+        $this->deleteJson('/api/aftersales/customers/'.$customer->id)->assertNotFound();
+    }
+
+    public function test_customer_delete_requires_customer_management_permission(): void
+    {
+        $this->actingAs($this->user(false));
+        $customer = ServiceCustomer::create(['name' => 'Protected Customer']);
+        $this->deleteJson('/api/aftersales/customers/'.$customer->id)->assertForbidden();
+        $this->assertNotNull(ServiceCustomer::find($customer->id));
+    }
+
+    public function test_reimport_deleted_customer_creates_new_customer_and_keeps_old_machines_and_deal_archived(): void
+    {
+        $this->actingAs($this->user());
+        $owner = ServiceCustomer::create(['name' => 'Mr Rusman', 'phone' => '62811440149', 'ref_region_id' => 1]);
+        $first = $owner->products()->create(['machine_name' => 'Original Machine', 'serial_number' => 'ARCHIVED-A', 'note' => 'Keep original note', 'warranty_start' => '2024-01-01']);
+        $second = $owner->products()->create(['machine_name' => 'Second Machine', 'serial_number' => 'ARCHIVED-B']);
+        $ticket = Ticket::create(['customer_id' => $owner->id, 'customer_product_id' => $first->id]);
+        $lead = Lead::withoutEvents(fn () => Lead::create(['name' => 'Mr Rusman', 'phone' => '0811440149', 'status_id' => 5, 'deal_at' => now(), 'factory_city_id' => 1]));
+        $deal = app(DealConversion::class)->link($lead, $owner);
+        $this->deleteJson('/api/aftersales/customers/'.$owner->id)->assertOk();
+
+        $batch = $this->upload([['Serial Number' => 'ARCHIVED-A'], ['Serial Number' => 'ARCHIVED-B']]);
+        $this->assertSame(['new', 'exact'], $batch->rows->pluck('review.status')->all());
+        foreach ($batch->rows as $row) {
+            $this->assertTrue($row->review['keep_machine_archived']);
+            $this->assertStringContainsString('stays archived', implode(' ', $row->review['warnings']));
+        }
+        $this->assertSame(0, ServiceCustomer::count());
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $customer = ServiceCustomer::firstOrFail();
+        $this->assertNotSame($owner->id, $customer->id);
+        $this->assertSame('import', $customer->source);
+        $this->assertSame(0, $customer->products()->count());
+        $this->assertSame(2, ServiceCustomerProduct::count());
+        $this->assertSame($owner->id, $first->fresh()->customer_id);
+        $this->assertSame($owner->id, $second->fresh()->customer_id);
+        $this->assertSame('Keep original note', $first->fresh()->note);
+        $this->assertSame('2024-01-01', $first->fresh()->warranty_start->toDateString());
+        $this->assertSame($owner->id, $ticket->fresh()->customer_id);
+        $this->assertEquals($owner->id, $deal->fresh()->service_customer_id);
+        $this->assertTrue(ServiceCustomer::withTrashed()->find($owner->id)->trashed());
+        foreach ($batch->rows()->get() as $row) {
+            $this->assertSame($customer->id, $row->result['customer_id']);
+            $this->assertNull($row->result['machine_id']);
+            $this->assertSame('kept_archived', $row->result['machine_status']);
+        }
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $again = $this->upload([['Serial Number' => 'ARCHIVED-A']]);
+        app(CustomerImports::class)->apply($again, 0, 1);
+        $this->assertSame(1, ServiceCustomer::count());
+        $this->assertSame(2, ServiceCustomerProduct::count());
+    }
+
+    public function test_reimport_deleted_customer_with_new_serial_creates_new_machine_without_restoring_old_owner(): void
+    {
+        $owner = ServiceCustomer::create(['name' => 'Mr Rusman', 'phone' => '62811440149', 'ref_region_id' => 1]);
+        $oldMachine = $owner->products()->create(['machine_name' => 'Old Machine', 'serial_number' => 'OLD-SERIAL']);
+        $owner->delete();
+        $batch = $this->upload([['Serial Number' => 'NEW-SERIAL']]);
+        $this->assertSame('new', $batch->rows->first()->review['status']);
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $customer = ServiceCustomer::firstOrFail();
+        $this->assertNotSame($owner->id, $customer->id);
+        $this->assertSame('NEW-SERIAL', $customer->products()->firstOrFail()->serial_number);
+        $this->assertSame($owner->id, $oldMachine->fresh()->customer_id);
+        $this->assertTrue($owner->fresh()->trashed());
+    }
+
+    public function test_import_refuses_stale_archive_decision_if_old_owner_is_restored_before_apply(): void
+    {
+        $owner = ServiceCustomer::create(['name' => 'Mr Rusman', 'phone' => '62811440149']);
+        $owner->products()->create(['machine_name' => 'Old Machine', 'serial_number' => 'ARCHIVED-A']);
+        $owner->delete();
+        $batch = $this->upload([['Serial Number' => 'ARCHIVED-A']]);
+        $owner->restore();
+        try {
+            app(CustomerImports::class)->apply($batch, 0, 1);
+            $this->fail('Changed archive ownership must require a new review.');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(409, $e->getStatusCode());
+        }
+        $this->assertSame(1, ServiceCustomer::count());
+        $this->assertSame(1, ServiceCustomerProduct::count());
+        $this->assertNotSame('applied', $batch->fresh()->status);
+    }
+
     public function test_move_api_returns_open_ticket_warning_without_changing_machine_or_note(): void
     {
         $this->actingAs($this->user());

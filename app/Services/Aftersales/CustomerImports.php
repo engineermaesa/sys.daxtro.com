@@ -79,7 +79,9 @@ class CustomerImports
             $serials[] = (string) ($input['Serial Number'] ?? '');
         }
 
-        return new CustomerImportContext(app(CustomerMatching::class)->index(), MachineSerials::existing($serials));
+        $snapshot = MachineSerials::importSnapshot($serials);
+
+        return new CustomerImportContext(app(CustomerMatching::class)->index(), $snapshot['existing'], $snapshot['archived']);
     }
 
     public function persistRows(iterable $rows): void
@@ -188,14 +190,18 @@ class CustomerImports
             $warnings[] = 'Serial repeated in this file: one machine, last applied row owns it; earliest warranty is preserved.';
         }
         $existingSerial = $serial && isset($context->existingSerials[$serial]);
+        $keepMachineArchived = $serial && isset($context->archivedSerials[$serial]);
+        if ($keepMachineArchived) {
+            $warnings[] = 'This serial belongs to a deleted customer. The customer will be matched or created as new; the existing machine stays archived and will not be copied or moved.';
+        }
         $exact = collect($candidates)->where('status', 'exact');
         $targets = $exact->where('type', '!=', 'row')->map(fn ($c) => $c['type'] === 'lead' && ! empty($c['customer_id']) ? 'customer:'.$c['customer_id'] : $c['type'].':'.$c['id'])->unique();
         if ($targets->isEmpty() && $exact->contains('type', 'row')) {
             $targets = collect(['file_customer']);
         }
-        $status = $existingSerial ? 'already_exists' : ($targets->count() === 1 ? 'exact' : ($candidates ? 'possible' : 'new'));
+        $status = $existingSerial && ! $keepMachineArchived ? 'already_exists' : ($targets->count() === 1 ? 'exact' : ($candidates ? 'possible' : 'new'));
 
-        return ['status' => $errors ? 'error' : $status, 'errors' => $errors, 'warnings' => $warnings, 'customer' => $data, 'machine' => $machine, 'candidates' => $candidates];
+        return ['status' => $errors ? 'error' : $status, 'errors' => $errors, 'warnings' => $warnings, 'customer' => $data, 'machine' => $machine, 'candidates' => $candidates, 'keep_machine_archived' => (bool) $keepMachineArchived];
     }
 
     public function date(mixed $value): ?string
@@ -260,7 +266,9 @@ class CustomerImports
             CustomerMutationLocks::acquire($lockKeys);
             // Build the snapshot only after acquiring identity/serial locks.
             $index = app(CustomerMatching::class)->index();
-            $existingSerials = MachineSerials::existing($incomingSerials);
+            $serialSnapshot = MachineSerials::importSnapshot($incomingSerials);
+            $existingSerials = $serialSnapshot['existing'];
+            $archivedSerials = $serialSnapshot['archived'];
             $customers = $index->customers;
             $findCustomer = function (int $id) use (&$customers) {
                 return $customers[$id] ??= ServiceCustomer::findOrFail($id);
@@ -281,8 +289,10 @@ class CustomerImports
                 }
                 $machine = $review['machine'];
                 $serial = $machine['serial_number'];
+                $keepMachineArchived = ! empty($review['keep_machine_archived']);
+                abort_if($keepMachineArchived && ! isset($archivedSerials[$serial]), 409, 'The archived machine changed. Review this import again.');
                 // Recheck at Apply, including another batch applied since upload.
-                if ($serial && ! isset($serials[$serial]) && isset($existingSerials[$serial])) {
+                if ($serial && ! $keepMachineArchived && ! isset($serials[$serial]) && isset($existingSerials[$serial])) {
                     $row->result = ['status' => 'already_exists'];
 
                     continue;
@@ -337,6 +347,11 @@ class CustomerImports
                     $index->linkLead($lead->id, $customer->id);
                 }
                 $resolved[$row->id] = $customer->id;
+                if ($keepMachineArchived) {
+                    $row->result = ['status' => 'applied', 'customer_id' => $customer->id, 'machine_id' => null, 'machine_status' => 'kept_archived'];
+
+                    continue;
+                }
                 if ($serial && isset($serials[$serial])) {
                     $unit = $serials[$serial];
                     $previous = $findCustomer($unit->customer_id);

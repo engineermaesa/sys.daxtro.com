@@ -2,6 +2,12 @@
 
 Dokumen ini mengacu pada implementasi `routes/api.php` dan controller saat ini. Bagian 1–9 adalah kontrak integrasi FE; lampiran di bagian akhir menjelaskan migrasi dan aturan bisnis backend. Optimasi query dan pengujian lock dicatat di [aftersales-performance.md](aftersales-performance.md); kontrak payload tetap kompatibel. Seluruh ID, nama, jumlah, dan timestamp pada contoh adalah ilustrasi. Contoh objek model menampilkan field yang dibutuhkan FE; backend dapat mengembalikan field model tambahan seperti `created_by`, `updated_by`, `deleted_at`, dan relasi. Jangan mengandalkan field tambahan yang tidak dibahas di sini.
 
+## Soft delete Customer dan import ulang
+
+`DELETE /api/aftersales/customers/{id}` memerlukan `masters.service-customers` dan melakukan soft delete (`deleted_at`, `deleted_by`, `is_deleted`). Mesin, tiket, dan tautan Deal lama tetap tersimpan pada customer lama. Customer yang terhapus tidak menjadi kandidat matching; Deal yang sudah ditautkan ke customer tersebut juga tidak ditautkan ulang.
+
+Import ulang membuat customer baru atau mencocokkan customer aktif. Jika serial mesin masih milik customer terhapus, review menampilkan `keep_machine_archived=true` beserta Warning. Saat Apply, customer tetap disimpan tetapi mesin tidak disalin, dipindahkan, atau diperbarui. Result baris memuat `customer_id`, `machine_id=null`, dan `machine_status=kept_archived`. Serial pada customer aktif tetap mengikuti aturan Already exists. Serial baru dapat menghasilkan mesin baru pada customer baru. Upload/review tidak mengaktifkan kembali customer lama; seluruh mutasi menunggu Apply.
+
 ## 1. Konvensi request, ID, dan response
 
 - Path di katalog endpoint sudah lengkap, termasuk `/api`. Jangan menambahkan prefix lagi.

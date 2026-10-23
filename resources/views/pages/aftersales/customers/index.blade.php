@@ -198,6 +198,10 @@
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${escapeHtml(row.address_maps_url)}" target="_blank" rel="noopener noreferrer">
                                 <i class="bi bi-geo-alt"></i> Open in Google Maps
                             </a>` : ''}
+                            <button type="button" class="dropdown-item btn-delete-customer flex! items-center! gap-2! cursor-pointer text-red-600!"
+                                data-id="${row.id}" data-name="${escapeHtml(row.name)}">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
                         </div>
                     </div>
                 </td>
@@ -235,6 +239,12 @@
                 search: customerState.search,
             },
             success: function (response) {
+                const lastPage = Math.max(1, response.last_page || 1);
+                if (customerState.page > lastPage) {
+                    customerState.page = lastPage;
+                    loadCustomers();
+                    return;
+                }
                 renderCustomerRows(response.data);
                 renderCustomerPagination(response);
             },
@@ -244,6 +254,38 @@
             }
         });
     }
+
+    async function deleteCustomer(id, name) {
+        const result = await Swal.fire({
+            title: 'Delete customer?',
+            text: `${name} will be removed from the customer list. Existing machine and ticket records will be retained.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#C0281F',
+            cancelButtonColor: '#115640',
+        });
+        if (!result.isConfirmed) return;
+
+        return $.ajax({
+            url: `/api/aftersales/customers/${id}`,
+            method: 'DELETE',
+            dataType: 'json',
+            headers: { Accept: 'application/json' },
+            success: function () {
+                loadCustomers();
+                Swal.fire({ title: 'Customer deleted', icon: 'success', confirmButtonColor: '#115640' });
+            },
+            error: function (xhr) {
+                Swal.fire({ title: 'Unable to delete customer', text: xhr.responseJSON?.message || 'Failed to delete customer. Please try again.', icon: 'error', confirmButtonColor: '#115640' });
+            },
+        });
+    }
+
+    $(document).on('click', '.btn-delete-customer', function () {
+        deleteCustomer($(this).data('id'), $(this).data('name'));
+    });
 
     // mobile card view: expand / collapse the secondary fields of one customer
     $(document).on('click', '#customer-table-body .card-more', function () {

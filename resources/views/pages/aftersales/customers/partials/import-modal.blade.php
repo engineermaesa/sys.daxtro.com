@@ -348,7 +348,8 @@
     function detailText(row) {
         var r = row.review;
         if (r.errors && r.errors.length) return '<span style="color:#C0281F">' + esc(r.errors.join('; ')) + '</span>';
-        if (row.decision) return esc(decisionLabel(row));
+        if (row.decision) return esc(decisionLabel(row) + (r.keep_machine_archived && row.decision.action !== 'skip' ? '; existing machine stays archived and will not be copied or moved.' : ''));
+        if (r.keep_machine_archived) return 'Customer will be matched or created as new; existing machine stays archived and will not be copied or moved.';
         if (r.warnings && r.warnings.length) return esc(r.warnings.slice(0, 2).join('; ')) + (r.warnings.length > 2 ? ' (+' + (r.warnings.length - 2) + ')' : '');
         return esc({ exact: 'Linked automatically', 'new': 'Ready to create', already_exists: 'Serial already in system, skipped', possible: 'Decision required' }[r.status] || '');
     }
@@ -419,7 +420,8 @@
             var type = needsDecision(row) ? 'decision' : (r.errors.length ? 'error' : (r.warnings.length ? 'warning' : r.status));
             var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name*'] || '-';
             var category = row.input['Machine Category*'] ? ' · ' + row.input['Machine Category*'] : '';
-            var result = row.result ? ' <span style="color:#115640;font-size:9px">[' + esc(row.result.status) + ']</span>' : '';
+            var resultLabel = row.result && row.result.machine_status === 'kept_archived' ? 'Customer saved; machine kept archived' : (row.result && row.result.status);
+            var result = row.result ? ' <span style="color:#115640;font-size:9px">[' + esc(resultLabel) + ']</span>' : '';
 
             html += '<tr class="ci-row" data-id="' + row.id + '" data-type="' + type + '" data-status="' + esc(r.status) + '" data-warning="' + (r.warnings.length ? 1 : 0) + '" data-error="' + (r.errors.length ? 1 : 0) + '" data-decision="' + (needsDecision(row) ? 1 : 0) + '" style="border-top:1px solid #EDEDED">' +
                 '<td style="padding:10px 12px">' + esc(row.row_number) + '</td>' +
@@ -442,7 +444,8 @@
         var $b = $('#ci-result-banner');
         if (!isApplied()) { $b.addClass('hidden').text(''); return; }
         var i = preview.import;
-        $b.text('Import applied: ' + i.created_count + ' new customer(s), ' + i.matched_count + ' row(s) linked to existing customers, ' + i.error_count + ' error row(s) skipped.').removeClass('hidden');
+        var archivedMachines = preview.rows.filter(function (row) { return row.result && row.result.machine_status === 'kept_archived'; }).length;
+        $b.text('Import applied: ' + i.created_count + ' new customer(s), ' + i.matched_count + ' row(s) linked to existing customers, ' + i.error_count + ' error row(s) skipped.' + (archivedMachines ? ' ' + archivedMachines + ' machine row(s) kept in archive without copying or moving.' : '')).removeClass('hidden');
     }
 
     function renderPreview() {

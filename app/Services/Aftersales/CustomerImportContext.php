@@ -21,7 +21,7 @@ class CustomerImportContext
 
     private array $categories;
 
-    public function __construct(public CustomerMatchIndex $matches, public array $existingSerials)
+    public function __construct(public CustomerMatchIndex $matches, public array $existingSerials, public array $archivedSerials = [])
     {
         $this->prior = new CustomerMatchIndex;
         foreach ([Province::class, Region::class, Industry::class] as $class) {

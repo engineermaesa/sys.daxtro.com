@@ -113,6 +113,9 @@ class CustomerMatching
         }
         if ($includeLeads) {
             foreach (Lead::where('status_id', LeadStatus::DEAL)->whereNotNull('deal_at')->with('customerDeal:id,lead_id,service_customer_id')->get(['id', 'name', 'phone', 'factory_city_id']) as $lead) {
+                if ($lead->customerDeal?->service_customer_id && ! isset($index->customers[$lead->customerDeal->service_customer_id])) {
+                    continue;
+                }
                 $index->add('lead', $lead->id, ['name' => $lead->name, 'phone' => $lead->phone, 'ref_region_id' => $lead->factory_city_id], ['customer_id' => $lead->customerDeal?->service_customer_id]);
             }
         }
