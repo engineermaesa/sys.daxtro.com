@@ -8,37 +8,39 @@
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div id="ticketListView">
     <div class="pt-4">
-        <div class="flex items-center justify-between">
-            <div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div class="min-w-0">
                 <h1 class="text-[#115640] font-semibold text-2xl">All Ticket</h1>
                 <p class="text-[#757575] mt-1">Track and manage all your service tickets in one place.</p>
             </div>
-            <a href="{{ route('aftersales.pages.tickets.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
+            <a href="{{ route('aftersales.pages.tickets.create') }}" class="self-start sm:self-auto shrink-0 whitespace-nowrap bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
                 <i class="bi bi-plus-lg"></i> Add Ticket
             </a>
         </div>
 
         {{--SEARCH--}}
         <div class="bg-white rounded-lg border border-[#D9D9D9] p-4 mt-4">
-            <div class="flex items-stretch gap-3">
-                <div class="flex-1 relative">
+            <div class="flex flex-col lg:flex-row lg:items-stretch gap-3">
+                <div class="flex-1 relative min-w-0">
                     <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#757575] text-base pointer-events-none"></i>
                     <input type="text" id="ticket-search" placeholder="Search ticket code, customer, or technician"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
-                <div id="ticket-priority-chips" class="flex items-center gap-2">
+                <div id="ticket-priority-chips" class="flex flex-wrap items-center gap-2">
                     <button type="button" class="ticket-filter-chip" data-priority="low">Low</button>
                     <button type="button" class="ticket-filter-chip" data-priority="medium">Medium</button>
                     <button type="button" class="ticket-filter-chip" data-priority="high">High</button>
                 </div>
-                <button type="button" id="btn-search-ticket"
-                class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
-                    Search
-                </button>
-                <button type="button" id="btn-reset-ticket"
-                class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-5 rounded-lg hover:bg-[#F5F5F5] transition-colors">
-                    Reset
-                </button>
+                <div class="grid grid-cols-2 lg:flex gap-3">
+                    <button type="button" id="btn-search-ticket"
+                    class="bg-[#115640] text-white px-6 py-2 rounded-lg hover:bg-[#0d4633] transition-colors">
+                        Search
+                    </button>
+                    <button type="button" id="btn-reset-ticket"
+                    class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-5 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
+                        Reset
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -69,9 +71,9 @@
         </div>
 
         {{--PAGINATION--}}
-        <div class="flex items-center justify-between mt-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
             <div id="ticket-showing" class="text-[#757575]">Showing 0 to 0 entries</div>
-            <div id="ticket-pagination" class="flex items-center gap-2"></div>
+            <div id="ticket-pagination" class="flex flex-wrap items-center gap-2"></div>
         </div>
     </div>
     </div>
@@ -227,7 +229,7 @@
             const technician = row.technician || {};
 
             return `
-            <tr class="border-t border-t-[#D9D9D9] align-top">
+            <tr class="border-t border-t-[#D9D9D9] align-middle">
                 <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
                 <td class="p-3 text-center">${escapeHtml(customer.name)}</td>
                 <td class="p-3 text-center">${escapeHtml(machine.product?.name)}</td>
