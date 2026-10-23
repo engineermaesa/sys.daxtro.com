@@ -115,6 +115,81 @@
         html.sidebar-precollapsed #headerSidebar {
             justify-content: center !important;
         }
+
+        #mobileSidebarToggle,
+        #sidebarBackdrop {
+            display: none;
+        }
+
+        @media (max-width: 639px) {
+            #mobileSidebarToggle {
+                display: flex;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 1040;
+                width: 44px;
+                height: 44px;
+                align-items: center;
+                justify-content: center;
+                background: #fff;
+                border: 1px solid #D9D9D9;
+                border-radius: 10px;
+                color: #115640;
+                font-size: 26px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            }
+
+            #sidebarBackdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 1045;
+                background: rgba(0,0,0,0.4);
+            }
+
+            #sidebarBackdrop.show {
+                display: block;
+            }
+
+            #sidebarWrapper,
+            html.sidebar-precollapsed #sidebarWrapper,
+            html.sidebar-precollapsed #sidebarInner {
+                width: 280px !important;
+                transition: transform 0.3s ease-in-out;
+            }
+
+            html.sidebar-precollapsed #sidebarLogoLink {
+                display: block !important;
+                width: auto !important;
+                opacity: 1 !important;
+            }
+
+            html.sidebar-precollapsed .sidebar-label,
+            html.sidebar-precollapsed .sidebar-sub-label,
+            html.sidebar-precollapsed .sidebar-user-meta,
+            html.sidebar-precollapsed .sidebar-chevron,
+            html.sidebar-precollapsed .sidebar-submenu {
+                display: revert !important;
+            }
+
+            html.sidebar-precollapsed #headerSidebar {
+                justify-content: space-between !important;
+            }
+
+            /* menu items are icon-over-label (grid) below lg; make them a row in the drawer */
+            #sidebarMenuContainer li > a,
+            #sidebarMenuContainer li > button {
+                display: flex !important;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 12px;
+                text-align: left;
+            }
+
+            #mainWrapper #content {
+                padding-top: 64px;
+            }
+        }
     </style>
 
     {{-- bg-[#E8EFEC] --}}
@@ -122,6 +197,11 @@
 </head>
 <body id="page-top">
 	<div id="loader" class="loader hidden"></div>
+
+    <button id="mobileSidebarToggle" type="button" aria-label="Open menu" aria-controls="sidebarWrapper" aria-expanded="false">
+        <i class="bi bi-list"></i>
+    </button>
+    <div id="sidebarBackdrop"></div>
 
     <div id="appLayout" class="flex">
         <aside
@@ -172,6 +252,7 @@
             let sidebarWasOpen = false;
 
             function toggleSidebarForModal() {
+                if (window.innerWidth < 640) return;
                 const saved = localStorage.getItem('sidebar-collapsed');
                 const btn = document.getElementById('toggleSidepanel');
                 if (btn) btn.click();
@@ -195,6 +276,28 @@
                     toggleSidebarForModal();
                     sidebarWasOpen = false;
                 }
+            });
+
+            // Mobile drawer: hamburger opens the sidebar, backdrop / close / Esc / link click closes it
+            const mobileWrap = document.getElementById('sidebarWrapper');
+            const mobileToggle = document.getElementById('mobileSidebarToggle');
+            const mobileBackdrop = document.getElementById('sidebarBackdrop');
+
+            function setMobileSidebar(open) {
+                if (!mobileWrap) return;
+                mobileWrap.classList.toggle('mobile-open', open);
+                mobileBackdrop.classList.toggle('show', open);
+                mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                document.body.style.overflow = open ? 'hidden' : '';
+            }
+            window.closeMobileSidebar = () => setMobileSidebar(false);
+
+            mobileToggle.addEventListener('click', () => setMobileSidebar(!mobileWrap.classList.contains('mobile-open')));
+            mobileBackdrop.addEventListener('click', () => setMobileSidebar(false));
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMobileSidebar(false); });
+            window.addEventListener('resize', () => { if (window.innerWidth >= 640) setMobileSidebar(false); });
+            mobileWrap.addEventListener('click', (e) => {
+                if (e.target.closest('a[href]:not([href="#"])')) setMobileSidebar(false);
             });
 
             // Handle sidebar toggle for header positioning
