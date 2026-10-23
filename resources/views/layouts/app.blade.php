@@ -115,6 +115,356 @@
         html.sidebar-precollapsed #headerSidebar {
             justify-content: center !important;
         }
+
+        #mobileSidebarToggle,
+        #sidebarBackdrop {
+            display: none;
+        }
+
+        @media (max-width: 639px) {
+            #mobileSidebarToggle {
+                display: flex;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                z-index: 1040;
+                width: 44px;
+                height: 44px;
+                align-items: center;
+                justify-content: center;
+                background: #fff;
+                border: 1px solid #D9D9D9;
+                border-radius: 10px;
+                color: #115640;
+                font-size: 26px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            }
+
+            #sidebarBackdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 1045;
+                background: rgba(0,0,0,0.4);
+            }
+
+            #sidebarBackdrop.show {
+                display: block;
+            }
+
+            #sidebarWrapper,
+            html.sidebar-precollapsed #sidebarWrapper,
+            html.sidebar-precollapsed #sidebarInner {
+                width: 280px !important;
+                transition: transform 0.3s ease-in-out;
+            }
+
+            html.sidebar-precollapsed #sidebarLogoLink {
+                display: block !important;
+                width: auto !important;
+                opacity: 1 !important;
+            }
+
+            html.sidebar-precollapsed .sidebar-label,
+            html.sidebar-precollapsed .sidebar-sub-label,
+            html.sidebar-precollapsed .sidebar-user-meta,
+            html.sidebar-precollapsed .sidebar-chevron,
+            html.sidebar-precollapsed .sidebar-submenu {
+                display: revert !important;
+            }
+
+            html.sidebar-precollapsed #headerSidebar {
+                justify-content: space-between !important;
+            }
+
+            /* menu items are icon-over-label (grid) below lg; make them a row in the drawer */
+            #sidebarMenuContainer li > a,
+            #sidebarMenuContainer li > button {
+                display: flex !important;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 12px;
+                text-align: left;
+            }
+
+            /* drawer header: close (X) at the left, logo next to it */
+            #sidebarInner #headerSidebar {
+                justify-content: flex-start !important;
+                gap: 12px;
+            }
+
+            #headerSidebar > button[aria-label="Close menu"] {
+                order: -1;
+            }
+
+            /* the collapse/expand toggle is desktop-only; the drawer has the X instead */
+            #toggleSidepanel {
+                display: none !important;
+            }
+
+            /* drawer is always "expanded": beat the .sidebar-collapsed rules from partials/sidebar */
+            html #sidebarWrapper.sidebar-collapsed .sidebar-label,
+            html #sidebarWrapper.sidebar-collapsed .sidebar-sub-label,
+            html #sidebarWrapper.sidebar-collapsed .sidebar-user-meta {
+                display: revert !important;
+            }
+
+            html #sidebarWrapper.sidebar-collapsed .sidebar-chevron {
+                display: inline-block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                width: auto !important;
+                min-width: 0 !important;
+                overflow: visible !important;
+            }
+
+            html #sidebarWrapper.sidebar-collapsed .sidebar-submenu {
+                display: block !important;
+                max-height: none;
+            }
+
+            html #sidebarWrapper.sidebar-collapsed #sidebarLogoLink {
+                display: block !important;
+                width: auto !important;
+                opacity: 1 !important;
+            }
+
+            html #sidebarWrapper.sidebar-collapsed #sidebarLogo {
+                opacity: 1;
+                transform: none;
+            }
+
+            html #sidebarWrapper.sidebar-collapsed #sidebarMenuContainer {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            /* one row per item: icon + name side by side, never wrapped */
+            html #sidebarWrapper #sidebarMenuContainer li > a,
+            html #sidebarWrapper #sidebarMenuContainer li > button {
+                display: flex !important;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: center;
+                justify-content: flex-start !important;
+                gap: 12px;
+                white-space: nowrap;
+                text-align: left !important;
+            }
+
+            #sidebarMenuContainer li > button > div {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-start !important;
+                gap: 12px !important;
+            }
+
+            #sidebarMenuContainer li > button .sidebar-chevron {
+                margin-left: auto;
+            }
+
+            #sidebarMenuContainer li svg,
+            #sidebarMenuContainer li i {
+                flex-shrink: 0;
+            }
+
+            #sidebarMenuContainer .sidebar-label {
+                white-space: nowrap;
+            }
+
+            html #sidebarWrapper #toggleUserInfo {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between !important;
+                text-align: left !important;
+            }
+
+            #toggleUserInfo > div:first-child {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            #userMeta {
+                display: flex !important;
+                flex-direction: column;
+            }
+
+            #chevronUserInfo {
+                display: inline-block !important;
+            }
+
+            /* the sidebar is an overlay drawer on mobile: never reserve a left gutter for it, even when collapsed */
+            #mainWrapper,
+            #sidebarWrapper.sidebar-collapsed ~ #mainWrapper,
+            html.sidebar-precollapsed #mainWrapper {
+                margin-left: 0 !important;
+            }
+
+            #mainWrapper #content {
+                padding-top: 64px;
+                padding-bottom: 40px;
+            }
+
+            #mainWrapper #content > div {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+        }
+
+        /* Responsive table -> cards (mobile). Opt in with .table-cards on <table> and .table-cards-wrap on its wrapper;
+           cells need data-label, plus optional data-primary / data-actions / data-secondary. */
+        .table-cards .card-more-cell { display: none; }
+
+        @media (max-width: 639px) {
+            .table-cards-wrap {
+                overflow-x: visible !important;
+                border: 0 !important;
+                background: transparent !important;
+            }
+
+            .table-cards { white-space: normal !important; width: 100% !important; min-width: 0 !important; }
+
+            .table-cards,
+            .table-cards tbody,
+            .table-cards tbody tr,
+            .table-cards tbody td {
+                display: block;
+                width: 100%;
+            }
+
+            .table-cards thead {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+            }
+
+            .table-cards tbody tr {
+                position: relative;
+                background: #fff;
+                border: 1px solid #D9D9D9 !important;
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-bottom: 12px;
+            }
+
+            .table-cards tbody td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 6px 0 !important;
+                border: 0;
+                text-align: right !important;
+            }
+
+            .table-cards tbody td::before {
+                content: attr(data-label);
+                flex-shrink: 0;
+                color: #757575;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                text-align: left;
+            }
+
+            /* cells without a label (empty / loading rows) are plain centered text */
+            .table-cards tbody td:not([data-label]) { justify-content: center; text-align: center !important; }
+            .table-cards tbody td:not([data-label])::before { display: none; }
+
+            .table-cards tbody td[data-primary] {
+                display: block;
+                padding: 0 44px 8px 0 !important;
+                font-size: 14px;
+                text-align: left !important;
+            }
+            .table-cards tbody td[data-primary]::before { display: none; }
+
+            .table-cards tbody td[data-actions] {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: auto;
+                padding: 0 !important;
+            }
+            .table-cards tbody td[data-actions]::before { display: none; }
+
+            .table-cards tbody td[data-secondary] { display: none; }
+            .table-cards tbody tr.is-open td[data-secondary] { display: flex; }
+
+            .table-cards tbody td.card-more-cell {
+                display: flex;
+                justify-content: center;
+                padding-top: 8px !important;
+            }
+            .table-cards tbody td.card-more-cell::before { display: none; }
+
+            .table-cards .card-more {
+                background: transparent;
+                border: 0;
+                color: #115640;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            /* Service Form inspection sheet: item card (tr.sf-row) with an attached detail panel (tr.sf-detail) */
+            .sf-table tbody tr.sf-row { display: flex; flex-wrap: wrap; align-items: center; }
+            .sf-table tbody tr.sf-row:has(+ tr.sf-detail:not(.hidden)) {
+                margin-bottom: 0;
+                border-bottom: 0 !important;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+
+            .sf-table tbody td.sf-no {
+                width: auto;
+                padding-right: 8px !important;
+            }
+            .sf-table tbody td.sf-no::before { display: none; }
+
+            .sf-table tbody td.sf-name {
+                display: block;
+                flex: 1;
+                width: auto;
+                min-width: 0;
+                font-size: 14px;
+                text-align: left !important;
+                white-space: normal;
+            }
+            .sf-table tbody td.sf-name::before { display: none; }
+
+            .sf-table tbody td.sf-status-cell > div { flex: 1; justify-content: flex-end; }
+
+            .sf-table tbody td.sf-result { white-space: normal; }
+
+            .sf-table tbody tr.sf-detail {
+                background: #FCFCFC;
+                border-top: 0 !important;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+            }
+            .table-cards tbody tr.sf-detail.hidden { display: none; }
+
+            .sf-table tbody td.sf-detail-cell {
+                display: block;
+                padding: 0 !important;
+                text-align: left !important;
+                white-space: normal;
+            }
+            .sf-table tbody td.sf-detail-cell::before { display: none; }
+
+            .sf-table .sf-status-btn {
+                flex: 1;
+                min-width: 0 !important;
+                padding: 10px 8px !important;
+            }
+        }
+        @media (max-width: 639px) {
+            .sf-table .sf-detail .sf-prev,
+            .sf-table .sf-detail .sf-next { white-space: nowrap; }
+        }
     </style>
 
     {{-- bg-[#E8EFEC] --}}
@@ -122,6 +472,11 @@
 </head>
 <body id="page-top">
 	<div id="loader" class="loader hidden"></div>
+
+    <button id="mobileSidebarToggle" type="button" aria-label="Open menu" aria-controls="sidebarWrapper" aria-expanded="false">
+        <i class="bi bi-list"></i>
+    </button>
+    <div id="sidebarBackdrop"></div>
 
     <div id="appLayout" class="flex">
         <aside
@@ -172,6 +527,7 @@
             let sidebarWasOpen = false;
 
             function toggleSidebarForModal() {
+                if (window.innerWidth < 640) return;
                 const saved = localStorage.getItem('sidebar-collapsed');
                 const btn = document.getElementById('toggleSidepanel');
                 if (btn) btn.click();
@@ -195,6 +551,28 @@
                     toggleSidebarForModal();
                     sidebarWasOpen = false;
                 }
+            });
+
+            // Mobile drawer: hamburger opens the sidebar, backdrop / close / Esc / link click closes it
+            const mobileWrap = document.getElementById('sidebarWrapper');
+            const mobileToggle = document.getElementById('mobileSidebarToggle');
+            const mobileBackdrop = document.getElementById('sidebarBackdrop');
+
+            function setMobileSidebar(open) {
+                if (!mobileWrap) return;
+                mobileWrap.classList.toggle('mobile-open', open);
+                mobileBackdrop.classList.toggle('show', open);
+                mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                document.body.style.overflow = open ? 'hidden' : '';
+            }
+            window.closeMobileSidebar = () => setMobileSidebar(false);
+
+            mobileToggle.addEventListener('click', () => setMobileSidebar(!mobileWrap.classList.contains('mobile-open')));
+            mobileBackdrop.addEventListener('click', () => setMobileSidebar(false));
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMobileSidebar(false); });
+            window.addEventListener('resize', () => { if (window.innerWidth >= 640) setMobileSidebar(false); });
+            mobileWrap.addEventListener('click', (e) => {
+                if (e.target.closest('a[href]:not([href="#"])')) setMobileSidebar(false);
             });
 
             // Handle sidebar toggle for header positioning
@@ -229,6 +607,60 @@
             });
         });
     </script>
+    {{-- Mobile table -> card: label every cell from its column header so the shared .table-cards CSS applies to all tables.
+         Opt out with data-no-cards on <table>. Skipped (stay scrollable): no single-row <thead>, header with colspan/rowspan, <tfoot>. --}}
+    <script>
+        (function () {
+            var ACTION_RE = /^(action|actions|aksi)$/i;
+
+            function prepare(table) {
+                if (table.hasAttribute('data-no-cards') || table.classList.contains('table-cards')) return;
+                if (table.tHead === null || table.tHead.rows.length !== 1 || table.tFoot) return;
+
+                var heads = Array.prototype.slice.call(table.tHead.rows[0].cells);
+                if (!heads.length) return;
+                for (var i = 0; i < heads.length; i++) {
+                    if (heads[i].colSpan > 1 || heads[i].rowSpan > 1) return;
+                }
+
+                var labels = heads.map(function (th) { return (th.textContent || '').replace(/\s+/g, ' ').trim(); });
+                if (!labels.some(Boolean)) return;
+
+                var parent = table.parentElement;
+                table.classList.add('table-cards');
+                if (parent && parent.children.length === 1) parent.classList.add('table-cards-wrap');
+
+                Array.prototype.forEach.call(table.tBodies, function (body) {
+                    Array.prototype.forEach.call(body.rows, function (row) {
+                        if (row.cells.length !== labels.length) return; // empty / loading / sub rows stay plain
+                        Array.prototype.forEach.call(row.cells, function (cell, idx) {
+                            if (cell.hasAttribute('data-label')) return;
+                            cell.setAttribute('data-label', labels[idx]);
+                            if (ACTION_RE.test(labels[idx])) cell.setAttribute('data-actions', '');
+                        });
+                    });
+                });
+            }
+
+            function run() {
+                Array.prototype.forEach.call(document.querySelectorAll('#content table'), prepare);
+            }
+
+            var queued = false;
+            function schedule() {
+                if (queued) return;
+                queued = true;
+                window.requestAnimationFrame(function () { queued = false; run(); });
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                run();
+                // rows are rendered later by AJAX / DataTables: relabel when the DOM changes
+                new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+            });
+        })();
+    </script>
+
     @yield('scripts')
     @stack('scripts')
 

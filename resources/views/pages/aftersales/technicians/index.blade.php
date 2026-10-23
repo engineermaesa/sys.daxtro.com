@@ -1,42 +1,42 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="min-h-screen sm:text-xs lg:text-sm">
+<section class="min-h-screen min-w-0 sm:text-xs lg:text-sm">
     <div class="pt-4">
-        <div class="flex items-center justify-between">
-            <div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div class="min-w-0">
                 <h1 class="text-[#115640] font-semibold text-2xl">Technician</h1>
                 <p class="text-[#757575] mt-1">Manage technician profiles, skills, and assignments.</p>
             </div>
-            <a href="{{ route('aftersales.pages.technicians.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
+            <a href="{{ route('aftersales.pages.technicians.create') }}" class="self-start sm:self-auto shrink-0 whitespace-nowrap bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
                 <i class="bi bi-plus-lg"></i> Add Technician
             </a>
         </div>
 
         {{--SEARCH--}}
         <div class="bg-white rounded-lg border border-[#D9D9D9] p-4 mt-4">
-            <div class="flex items-stretch gap-3">
-                <div class="flex-1 relative">
+            <div class="flex flex-col lg:flex-row lg:items-stretch gap-3">
+                <div class="flex-1 relative min-w-0">
                     <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#757575] text-base pointer-events-none"></i>
                     <input type="text" id="technician-search" placeholder="Search technician name"
                     class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
-                <button type="button" id="btn-search-technician"
-                class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
-                    Search
-                </button>
-                <select id="technician-period" class="border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
+                <select id="technician-period" class="w-full lg:w-auto border border-[#D9D9D9] rounded-lg px-3 py-2 bg-white cursor-pointer text-[#1E1E1E]">
                     <option value="all">All time</option>
                     <option value="30">Last 30 days</option>
                     <option value="90">Last 90 days</option>
                     <option value="365">Last 12 months</option>
                 </select>
+                <button type="button" id="btn-search-technician"
+                class="w-full lg:w-auto bg-[#115640] text-white px-6 py-2 rounded-lg hover:bg-[#0d4633] transition-colors">
+                    Search
+                </button>
             </div>
         </div>
 
         {{--TABLE--}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-center uppercase text-xs">Technician Name</th>
@@ -62,9 +62,9 @@
         </div>
 
         {{--PAGINATION--}}
-        <div class="flex items-center justify-between mt-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
             <div id="technician-showing" class="text-[#757575]">Showing 0 to 0 entries</div>
-            <div id="technician-pagination" class="flex items-center gap-2"></div>
+            <div id="technician-pagination" class="flex flex-wrap items-center gap-2"></div>
         </div>
     </div>
 </section>
@@ -133,7 +133,7 @@
         const completion = row.completion === null || row.completion === undefined
             ? '—'
             : `${row.completion}% (${row.completion_closed}/${row.completion_total})`;
-        return `<td class="p-3 text-center">${rating}</td><td class="p-3 text-center">${completion}</td>`;
+        return `<td class="p-3 text-center" data-label="Rating">${rating}</td><td class="p-3 text-center" data-label="First Visit Completion">${completion}</td>`;
     }
 
     function renderTechnicianRows(rows) {
@@ -147,19 +147,19 @@
         const html = rows.map(row => {
             const user = row.user || {};
             const region = row.region || {};
-            const skillCells = SKILL_COLUMNS.map(col => `<td class="p-3 text-center">${skillCell(row.skills, col.key)}</td>`).join('');
+            const skillCells = SKILL_COLUMNS.map(col => `<td class="p-3 text-center" data-label="${col.label}" data-secondary>${skillCell(row.skills, col.key)}</td>`).join('');
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-technician-id="${row.id}">
-                <td class="p-3 font-semibold text-[#115640] text-left">${escapeHtml(user.name)}</td>
-                <td class="p-3 text-center">${levelBadge(user.grade)}</td>
+                <td class="p-3 font-semibold text-[#115640] text-left" data-primary data-label="Technician Name">${escapeHtml(user.name)}</td>
+                <td class="p-3 text-center" data-label="Level">${levelBadge(user.grade)}</td>
                 ${skillCells}
-                <td class="p-3 text-center">${escapeHtml(region.name || '-')}</td>
-                <td class="p-3 text-center">${escapeHtml(row.certification || '—')}</td>
-                <td class="p-3 text-center">${statusBadge(row.status)}</td>
-                <td class="p-3 text-center">${row.total_tickets ?? 0}</td>
+                <td class="p-3 text-center" data-label="Area Coverage" data-secondary>${escapeHtml(region.name || '-')}</td>
+                <td class="p-3 text-center" data-label="Certification" data-secondary>${escapeHtml(row.certification || '—')}</td>
+                <td class="p-3 text-center" data-label="Status">${statusBadge(row.status)}</td>
+                <td class="p-3 text-center" data-label="Total Ticket">${row.total_tickets ?? 0}</td>
                 ${scoreCells(row)}
-                <td class="p-3 text-center">
+                <td class="p-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
                         <button class="btn-technician-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-three-dots"></i>
@@ -173,6 +173,7 @@
                         </ul>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `;
         }).join('');
@@ -251,6 +252,12 @@
             technicianState.period = this.value;
             technicianState.page = 1;
             loadTechnicians();
+        });
+
+        // mobile card view: expand / collapse the secondary fields of one technician
+        $(document).on('click', '#technician-table-body .card-more', function () {
+            const $row = $(this).closest('tr').toggleClass('is-open');
+            $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
         });
 
         $(document).on('click', '#technician-pagination button', function () {

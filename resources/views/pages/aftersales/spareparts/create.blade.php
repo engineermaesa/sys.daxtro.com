@@ -3,9 +3,12 @@
 @section('content')
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div class="pt-4">
+        <a href="{{ route('aftersales.pages.spareparts.index') }}" class="sm:hidden inline-flex items-center gap-2 text-[#115640] font-semibold mb-3">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
         <div class="mb-1">
             <h1 id="page-heading" class="text-[#115640] font-bold text-2xl">Sparepart</h1>
-            <p class="text-[#757575] text-sm mt-1">
+            <p class="hidden sm:block text-[#757575] text-sm mt-1">
                 <a href="{{ route('aftersales.pages.spareparts.index') }}" class="hover:underline">Sparepart</a>
                 <span class="mx-1">&gt;</span>
                 <span id="breadcrumb-current" class="font-semibold text-[#1E1E1E] underline">Add Sparepart</span>

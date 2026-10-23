@@ -15,13 +15,21 @@
                 id="sidebarLogo"
                 src="{{ asset('assets/images/Logo Daxtro Ice Machine.png') }}"
                 alt="DAXTRO Logo"
-                class="max-lg:hidden h-10 transition-all duration-300 ease-in-out">
+                class="max-lg:hidden max-sm:block h-10 transition-all duration-300 ease-in-out">
         </a>
+
+        <button
+            type="button"
+            aria-label="Close menu"
+            onclick="window.closeMobileSidebar && window.closeMobileSidebar()"
+            class="sm:hidden cursor-pointer hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0 text-[#115640] text-xl">
+            <i class="bi bi-x-lg"></i>
+        </button>
 
         <button
             id="toggleSidepanel"
             type="button"
-            class="cursor-pointer duration-300 hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0">
+            class="max-sm:hidden cursor-pointer duration-300 hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0">
             <span id="iconClosed">
                 <x-icon.right-closed/>
             </span>

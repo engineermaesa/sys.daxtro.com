@@ -805,15 +805,15 @@
         const fields = (item.fields || []).map(function (f) { return renderFieldCard(item, f, roItem); }).join('');
 
         return '<tr class="sf-row border-b border-[#EDEDED] cursor-pointer" data-item="' + item.number + '">'
-            + '<td class="text-[#9CA3AF]" style="padding: 14px 16px;">' + item.number + '</td>'
-            + '<td class="font-semibold" style="padding: 14px 16px;">' + esc(item.name) + '</td>'
-            + '<td class="text-[#757575]" style="padding: 14px 16px;">' + esc(dash(item.standard)) + '</td>'
-            + '<td class="sf-result text-[#757575]" style="padding: 14px 16px;">' + esc(itemSummary(item)) + '</td>'
-            + '<td style="padding: 14px 16px;"><div class="flex items-center justify-between" style="gap: 12px;">'
+            + '<td class="sf-no text-[#9CA3AF]" data-label="No" style="padding: 14px 16px;">' + item.number + '</td>'
+            + '<td class="sf-name font-semibold" data-label="Inspection Item" style="padding: 14px 16px;">' + esc(item.name) + '</td>'
+            + '<td class="text-[#757575]" data-label="Standard" style="padding: 14px 16px;">' + esc(dash(item.standard)) + '</td>'
+            + '<td class="sf-result text-[#757575]" data-label="Result" style="padding: 14px 16px;">' + esc(itemSummary(item)) + '</td>'
+            + '<td class="sf-status-cell" data-label="Status" style="padding: 14px 16px;"><div class="flex items-center justify-between" style="gap: 12px;">'
             + '<span class="sf-badge rounded-full font-semibold text-xs" style="padding: 3px 12px; ' + STATUS_STYLE[statusKey] + '">' + statusText + '</span>'
             + '<i class="bi bi-chevron-down text-[#115640] sf-chevron" style="transition: transform .15s;' + (open ? 'transform: rotate(180deg);' : '') + '"></i></div></td></tr>'
             + '<tr class="sf-detail ' + (open ? '' : 'hidden') + ' border-b border-[#EDEDED]" data-item="' + item.number + '" style="background: #FCFCFC;">'
-            + '<td colspan="5" style="padding: 18px 24px 22px; white-space: normal;">'
+            + '<td colspan="5" class="sf-detail-cell" data-label="" style="padding: 18px 24px 22px; white-space: normal;">'
             + '<p class="text-[#4B5563] text-xs" style="margin-bottom: 14px;">Standard: ' + esc(dash(item.standard)) + (lockedNa ? ' &middot; Not applicable to this machine type' : '') + '</p>'
             + '<div class="flex flex-wrap" style="gap: 10px; margin-bottom: 16px;">' + statusButtons + '</div>'
             + '<div class="grid grid-cols-1 lg:grid-cols-3" style="gap: 16px;">' + fields + '</div>'
@@ -864,8 +864,8 @@
 
         $('#sfPanels').html('<datalist id="sf-volt-list">' + Array.from({ length: 41 }, function (_, i) { return '<option value="' + (360 + i) + '">'; }).join('') + '</datalist>'
             + groups.map(function (g) {
-                return '<div class="sf-panel overflow-x-auto ' + (g.code === S.activeTab ? '' : 'hidden') + '" data-tab="' + esc(g.code) + '">'
-                    + '<table class="w-full whitespace-nowrap"><thead><tr class="text-left border-y border-[#EDEDED] text-[#1E1E1E]" style="background: #FAFAFA;">'
+                return '<div class="sf-panel table-cards-wrap overflow-x-auto ' + (g.code === S.activeTab ? '' : 'hidden') + '" data-tab="' + esc(g.code) + '">'
+                    + '<table class="table-cards sf-table w-full whitespace-nowrap"><thead><tr class="text-left border-y border-[#EDEDED] text-[#1E1E1E]" style="background: #FAFAFA;">'
                     + '<th style="padding: 12px 16px;">No</th><th style="padding: 12px 16px;">Inspection Item &amp; Component</th>'
                     + '<th style="padding: 12px 16px;">Parameter / Reference Standard</th><th style="padding: 12px 16px;">Measurement Result / Condition</th>'
                     + '<th style="padding: 12px 16px;">Status</th></tr></thead><tbody>'

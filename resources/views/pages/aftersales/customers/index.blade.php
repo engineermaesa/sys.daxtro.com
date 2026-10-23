@@ -46,8 +46,8 @@
         </div>
 
         {{-- TABLE --}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs font-bold">No.</th>
@@ -170,14 +170,14 @@
 
         const html = rows.map((row, index) => `
             <tr class="border-t border-t-[#D9D9D9]">
-                <td class="p-3 text-center text-black">${startNumber + index + 1}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.name)}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.pic_name) || '-'}</td>
-                <td class="p-3 text-left text-black">${renderContact(row.phone)}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.region?.name) || '-'}</td>
-                <td class="p-3 text-left text-black">${escapeHtml(row.province?.name) || '-'}</td>
-                <td class="p-3 text-left text-black">${renderSource(row)}</td>
-                <td class="p-3 text-center text-black">
+                <td class="p-3 text-center text-black" data-label="No." data-secondary>${startNumber + index + 1}</td>
+                <td class="p-3 text-left text-black font-semibold text-[#115640]" data-label="Customer Name" data-primary>${escapeHtml(row.name)}</td>
+                <td class="p-3 text-left text-black" data-label="PIC">${escapeHtml(row.pic_name) || '-'}</td>
+                <td class="p-3 text-left text-black" data-label="Contact">${renderContact(row.phone)}</td>
+                <td class="p-3 text-left text-black" data-label="Region" data-secondary>${escapeHtml(row.region?.name) || '-'}</td>
+                <td class="p-3 text-left text-black" data-label="Province" data-secondary>${escapeHtml(row.province?.name) || '-'}</td>
+                <td class="p-3 text-left text-black" data-label="Source">${renderSource(row)}</td>
+                <td class="p-3 text-center text-black" data-label="Action" data-actions>
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
                             type="button" id="customerActionsDropdown${row.id}"
@@ -201,6 +201,7 @@
                         </div>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `).join('');
 
@@ -243,6 +244,12 @@
             }
         });
     }
+
+    // mobile card view: expand / collapse the secondary fields of one customer
+    $(document).on('click', '#customer-table-body .card-more', function () {
+        const $row = $(this).closest('tr').toggleClass('is-open');
+        $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
+    });
 
     $(function () {
         loadCustomers();
