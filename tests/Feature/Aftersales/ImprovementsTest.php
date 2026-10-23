@@ -332,6 +332,7 @@ class ImprovementsTest extends TestCase
         $this->actingAs($this->user());
         $upload = $this->postJson('/api/aftersales/customers/imports', ['file' => $this->file([['Phone' => '6.28139E+24']])])->assertCreated()->json('data');
         $this->assertSame(1, $upload['summary']['error']);
+        $this->assertSame(0, $upload['import']['lock_version']);
         $url = '/api/aftersales/customers/imports/'.$upload['import']['id'];
         $review = $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $upload['rows'][0]['id'], 'input' => ['Phone' => '08123456789']]]])->assertOk()->json('data');
         $this->assertSame(0, $review['summary']['error']);

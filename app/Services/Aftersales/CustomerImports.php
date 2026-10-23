@@ -51,7 +51,7 @@ class CustomerImports
         $context = $this->context($inputs);
 
         return DB::transaction(function () use ($file, $userId, $inputs, $context) {
-            $batch = CustomerImport::create(['file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId]);
+            $batch = CustomerImport::create(['file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId, 'lock_version' => 0]);
             $now = now();
             $pending = [];
             foreach ($inputs as $number => $input) {
