@@ -270,6 +270,78 @@ class ImprovementsTest extends TestCase
         $this->assertSame(2, ServiceCustomerProduct::count());
     }
 
+    public function test_machine_warranty_defaults_and_product_period_survive_manual_edits(): void
+    {
+        $this->actingAs($this->user());
+        $customer = ServiceCustomer::create(['name' => 'Warranty Customer']);
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'machine_name' => 'Manual Machine', 'serial_number' => 'WARRANTY-DEFAULT',
+            'warranty_start' => '2026-10-23',
+        ])->assertCreated();
+        $manual = $customer->products()->first();
+        $this->assertSame('2027-10-23', $manual->warranty_end->toDateString());
+        $this->assertSame('1 Year', $manual->warranty_period);
+
+        DB::table('ref_products')->insert(['id' => 1, 'name' => '24 Month Machine', 'warranty_available' => true, 'warranty_time_month' => 24]);
+        $machine = $customer->products()->create([
+            'product_id' => 1, 'machine_name' => 'Product Machine', 'serial_number' => 'WARRANTY-PRODUCT',
+        ]);
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $input = ['machine_name' => 'Product Machine', 'serial_number' => 'WARRANTY-PRODUCT', 'warranty_start' => '2026-10-23'];
+        $this->putJson($url, $input)->assertOk();
+        $machine->refresh();
+        $this->assertEquals(1, $machine->product_id);
+        $this->assertSame('2028-10-23', $machine->warranty_end->toDateString());
+        $this->assertSame('2 Years', $machine->warranty_period);
+
+        $this->putJson($url, array_replace($input, ['warranty_end' => '2027-10-01']))->assertOk();
+        $machine->refresh();
+        $this->assertSame('2027-10-01', $machine->warranty_end->toDateString());
+        $this->assertSame('11 Months', $machine->warranty_period);
+    }
+
+    public function test_standalone_machine_and_note_are_available_after_create_and_edit(): void
+    {
+        $this->actingAs($this->user());
+        $customer = ServiceCustomer::create(['name' => 'Machine Note Customer']);
+        $input = [
+            'machine_name' => 'Custom Machine', 'serial_number' => 'NOTE-MACHINE',
+            'note' => "Previously owned by A\nCheck valve <B> & pump",
+        ];
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', $input)->assertCreated();
+        $machine = $customer->products()->firstOrFail();
+        $this->assertNull($machine->product_id);
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.id', $machine->id)
+            ->assertJsonPath('data.products.0.machine_name', 'Custom Machine')
+            ->assertJsonPath('data.products.0.note', $input['note']);
+
+        $input['note'] = "Updated after inspection\nKeep this note.";
+        $this->putJson('/api/aftersales/customers/products/'.$machine->id, $input)->assertOk();
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.note', $input['note']);
+        $this->assertSame($input['note'], $machine->fresh()->note);
+    }
+
+    public function test_move_api_returns_open_ticket_warning_without_changing_machine_or_note(): void
+    {
+        $this->actingAs($this->user());
+        $owner = ServiceCustomer::create(['name' => 'Owner']);
+        $destination = ServiceCustomer::create(['name' => 'Destination']);
+        $machine = $owner->products()->create(['machine_name' => 'Machine', 'serial_number' => 'OPEN-TICKET', 'note' => 'Original note']);
+        $ticket = Ticket::create(['customer_id' => $owner->id, 'customer_product_id' => $machine->id]);
+        $ticket->logs()->create(['step' => 'assigned']);
+
+        $this->postJson('/api/aftersales/customers/products/'.$machine->id.'/move', [
+            'customer_id' => $destination->id, 'note' => 'Transfer note',
+        ])->assertStatus(422)->assertJsonPath('message', 'This machine has open tickets. Close them first.');
+
+        $machine->refresh();
+        $this->assertSame($owner->id, $machine->customer_id);
+        $this->assertSame('Original note', $machine->note);
+        $this->assertSame(0, DB::table('aftersales_customer_audits')->where('action', 'machine_moved')->count());
+    }
+
     public function test_move_blocks_open_tickets_then_preserves_history_and_contract(): void
     {
         $a = ServiceCustomer::create(['name' => 'Owner A']);

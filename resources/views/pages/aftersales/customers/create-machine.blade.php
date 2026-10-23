@@ -93,13 +93,13 @@
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Start Date</label>
-                        <input type="text" id="machine-warranty-start" readonly
+                        <input type="date" id="machine-warranty-start"
                             value="{{ $product?->warranty_start ? \Illuminate\Support\Carbon::parse($product?->warranty_start)->format('Y-m-d') : '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none! bg-white">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Finish Date</label>
-                        <input type="text" id="machine-warranty-end" placeholder="Start Date + product warranty" readonly
+                        <input type="date" id="machine-warranty-end" placeholder="Start Date + product warranty"
                             value="{{ $product?->warranty_end ? \Illuminate\Support\Carbon::parse($product->warranty_end)->format('Y-m-d') : '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none! bg-white">
                     </div>
@@ -141,6 +141,8 @@
     'customerId' => $customer->id,
     'machineId' => $product->id ?? null,
     'machinesPageUrl' => route('aftersales.pages.customers.machines', $customer->id),
+    'warrantyMonths' => $product?->product?->warranty_available && $product->product->warranty_time_month
+        ? (int) $product->product->warranty_time_month : 12,
     'record' => $product ? [
         'ref_product_type_id' => $product->ref_product_type_id,
         'pm_contract_status' => $product->pm_contract_status,
@@ -200,30 +202,48 @@
         });
     }
 
+    function syncWarrantyEnd() {
+        const start = $('#machine-warranty-start').val();
+        const endInput = document.getElementById('machine-warranty-end');
+        let finish = '';
+
+        if (start) {
+            const [year, month, day] = start.split('-').map(Number);
+            
+            const target = new Date(year, month - 1 + pageConfig.warrantyMonths, 1);
+            const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+            target.setDate(Math.min(day, lastDay));
+            finish = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+        }
+
+        if (endInput._flatpickr) {
+            endInput._flatpickr.setDate(finish, false);
+        } else {
+            endInput.value = finish;
+        }
+        calculateWarrantyPeriod();
+    }
+
     function initDatePickers() {
+        $('#machine-warranty-start').on('change', syncWarrantyEnd);
+        $('#machine-warranty-end').on('change', calculateWarrantyPeriod);
+
         if (typeof flatpickr === 'undefined') {
             return;
         }
 
-        const endPicker = flatpickr('#machine-warranty-end', {
+        flatpickr('#machine-warranty-end', {
             dateFormat: 'Y-m-d',
             allowInput: false,
+            disableMobile: true,
             onChange: calculateWarrantyPeriod,
         });
 
-        // Warranty defaults to 1 year after the start date; Finish Date can still be changed manually.
         flatpickr('#machine-warranty-start', {
             dateFormat: 'Y-m-d',
             allowInput: false,
-            onChange: function (selectedDates) {
-                if (selectedDates.length) {
-                    const finish = new Date(selectedDates[0]);
-                    finish.setFullYear(finish.getFullYear() + 1);
-                    endPicker.setDate(finish, true);
-                } else {
-                    calculateWarrantyPeriod();
-                }
-            },
+            disableMobile: true,
+            onChange: syncWarrantyEnd,
         });
     }
 
@@ -294,6 +314,9 @@
     $(function () {
         initSelect2();
         initDatePickers();
+        if ($('#machine-warranty-start').val() && !$('#machine-warranty-end').val()) {
+            syncWarrantyEnd();
+        }
         calculateWarrantyPeriod();
         loadMachineReferences();
 
@@ -323,7 +346,6 @@
 
                 // machine_code, warranty_period and pm_frequency are read-only: never sent (API contract 5.2).
                 const payload = {
-                    product_id: null, // manual/imported machines are not tied to a Product
                     machine_name: $('#machine-name').val(),
                     serial_number: $('#machine-serial-number').val(),
                     ref_product_type_id: $('#machine-product-type-id').val() || null,

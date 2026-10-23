@@ -16,7 +16,7 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Average Score</p>
-                <p class="mt-1"><span id="dAvg" class="text-2xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 5</span></p>
+                <p class="mt-1"><span id="dAvg" class="text-2xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 3</span></p>
             </div>
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Customer</p>

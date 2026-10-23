@@ -83,6 +83,7 @@
         let current = null;     // { id, row, detail }
         const recomingIds = {}; // response ids that were scheduled for Recoming in this session
 
+        const RATING_SCALE_MAX = 3;
         const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed', rejected: 'Rejected' };
         const REVIEW_REASON_TEXT = {
             fast_completion: 'Completed in under 30 seconds',
@@ -143,7 +144,7 @@
                 : (row.review_status === 'normal' ? 'text-[#757575]' : 'text-[#D97706]');
         }
         function scoreColor(score) {
-            return score >= 4 ? '#115640' : (score >= 3 ? '#E8B931' : '#EC221F');
+            return score >= 3 ? '#115640' : (score >= 2 ? '#E8B931' : '#EC221F');
         }
         function machineText(v, long) {
             if (v === true) return long ? 'Yes, machine is working properly' : 'Working properly';
@@ -171,7 +172,7 @@
                         <td class="text-center p-3 text-[#757575]">${esc(dash(r.technician))}</td>
                         <td class="p-3 text-center text-[#757575]">${esc(dash(r.service_date))}</td>
                         <td class="p-3 text-center text-[#757575]">${esc(fmtDateTime(r.submitted_at))}</td>
-                        <td class="p-3 font-semibold text-[#115640] text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / 5'}</td>
+                        <td class="p-3 font-semibold text-[#115640] text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / ' + RATING_SCALE_MAX}</td>
                         <td class="p-3 text-center">${machineBadge(r.machine_ok)}</td>
                         <td class="p-3 text-center text-[#757575]">${esc(dash(r.source_label))}</td>
                         <td class="p-3 text-center">
@@ -305,7 +306,7 @@
             set('dReason', reasons.length ? reasons.map(function (c) { return REVIEW_REASON_TEXT[c] || c; }).join(', ') : 'High confidence response');
 
             document.getElementById('dBreakdown').innerHTML = (f.ratings || []).map(function (item) {
-                const width = item.score / 5 * 100;
+                const width = item.score / RATING_SCALE_MAX * 100;
                 return `<li class="flex items-center gap-4">
                     <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
                     <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
@@ -407,7 +408,7 @@
                 return `<li class="flex items-center gap-4">
                     <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
                     <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
-                        <span class="block h-full rounded-full" style="width:${item.score / 5 * 100}%; background-color:${scoreColor(item.score)}"></span>
+                        <span class="block h-full rounded-full" style="width:${item.score / RATING_SCALE_MAX * 100}%; background-color:${scoreColor(item.score)}"></span>
                     </span>
                     <span style="flex:0 0 40px; width:40px; text-align:right;" class="font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
                 </li>`;

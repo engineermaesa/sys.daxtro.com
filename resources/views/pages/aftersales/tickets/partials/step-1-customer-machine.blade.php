@@ -128,9 +128,11 @@
                     return;
                 }
 
-                const options = currentProducts.map(product =>
-                    `<option value="${product.id}">${escapeHtml(product.product?.name)}</option>`
-                ).join('');
+                const options = currentProducts.map(product => {
+                    const name = product.machine_name || product.product?.name || product.machine_code || `Machine #${product.id}`;
+                    const label = product.serial_number ? `${name} — ${product.serial_number}` : name;
+                    return `<option value="${product.id}">${escapeHtml(label)}</option>`;
+                }).join('');
 
                 $('#field-machine').prop('disabled', false).html('<option value="">Select machine</option>' + options).trigger('change.select2');
             },

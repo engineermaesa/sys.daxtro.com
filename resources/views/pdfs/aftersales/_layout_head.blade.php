@@ -16,4 +16,6 @@
     .photo { width: 33%; text-align: center; font-size: 7pt; border: 1px solid #D9D9D9; padding: 3px; }
     .photo img { width: 100%; }
 </style>
+@unless ($watermarkCopy ?? false)
 <div class="copy">{{ $copyLabel }}</div>
+@endunless

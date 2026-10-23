@@ -33,7 +33,7 @@
     <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
         <div class="flex items-center justify-between">
             <h2 class="font-bold tracking-wide">B. RATINGS</h2>
-            <p><span id="rvAvg" class="text-xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 5</span></p>
+            <p><span id="rvAvg" class="text-xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 3</span></p>
         </div>
         <ul id="rvRatings" class="mt-4 space-y-3"></ul>
     </div>

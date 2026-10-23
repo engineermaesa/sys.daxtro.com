@@ -48,6 +48,25 @@
     </div>
 </section>
 
+{{-- Machine details --}}
+<div class="modal fade" id="machineDetailModal" tabindex="-1" role="dialog" aria-labelledby="machine-detail-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content rounded-2xl! border-0!">
+            <div class="modal-header">
+                <h5 id="machine-detail-title" class="text-[#115640] font-semibold">Machine Detail</h5>
+                <button type="button" data-dismiss="modal" aria-label="Close" class="border border-[#D9D9D9] rounded-lg bg-white p-2 cursor-pointer"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body max-h-[70vh] overflow-y-auto">
+                <dl id="machine-detail-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="border border-[#D9D9D9] rounded-lg px-4 py-2 bg-white cursor-pointer">Close</button>
+                <a id="machine-detail-edit" class="bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633]">Edit Machine</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Move Machine modal --}}
 <div class="modal fade" id="moveMachineModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:520px">
@@ -63,14 +82,18 @@
                         class="border border-[#D9D9D9] rounded-lg bg-white flex items-center justify-center cursor-pointer"><i class="bi bi-x-lg"></i></button>
                 </div>
 
+                <div id="move-machine-error" role="alert" aria-live="assertive" aria-atomic="true" tabindex="-1" hidden
+                    style="margin-top:16px;padding:12px 14px;border:1px solid #F0B8B3;border-radius:8px;background:#FBEAEA;color:#900B09;font-size:13px;line-height:1.5">
+                    <strong class="block mb-1"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Unable to move machine</strong>
+                    <span id="move-machine-error-message"></span>
+                </div>
+
                 <div style="margin-top:18px">
                     <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Move to<span class="text-red-600">*</span></label>
                     <select id="move-machine-target" style="width:100%">
                         <option value=""></option>
                     </select>
                 </div>
-
-                <p id="move-machine-error" class="hidden text-[#C0281F] mb-0" style="font-size:11px;margin-top:10px"></p>
 
                 <div style="margin-top:14px">
                     <label class="block font-semibold text-[#2D3748] mb-1" style="font-size:12px">Note</label>
@@ -103,6 +126,7 @@
     const customerId = pageConfig.id;
     const apiBaseUrl = '/api/aftersales/customers';
     const machineCreateBaseUrl = pageConfig.machineCreateUrl;
+    const machinesById = new Map();
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -130,8 +154,38 @@
     }
 
 
+    function renderMachineDetails(machine) {
+        const fields = [
+            ['Machine Name', machine.product_name],
+            ['Machine Code', machine.machine_code],
+            ['Model', machine.product_type_name],
+            ['Serial Number', machine.serial_number],
+            ['Brand', machine.brand],
+            ['Capacity (ton)', machine.capacity],
+            ['Industry', machine.industry?.name],
+            ['Refrigerant Type', machine.refrigerant],
+            ['Warranty Period', machine.warranty_period],
+            ['Warranty Start', machine.warranty_start],
+            ['Warranty End', machine.warranty_end],
+            ['Warranty Status', machine.warranty_end ? (machine.warranty_active ? 'Active' : 'Expired') : '-'],
+            ['PM Contract', { none: 'None', basic: 'Basic', premium: 'Premium' }[machine.pm_contract_status] || machine.pm_contract_status],
+            ['PM Frequency', machine.pm_frequency],
+            ['Note', machine.note],
+        ];
+
+        $('#machine-detail-fields').html(fields.map(([label, value]) => `
+            <div class="${label === 'Note' ? 'sm:col-span-2' : ''} min-w-0">
+                <dt class="text-xs font-semibold text-[#757575] mb-1">${label}</dt>
+                <dd class="text-sm text-[#1E1E1E] whitespace-pre-wrap break-words">${escapeHtml(value ?? '') || '-'}</dd>
+            </div>
+        `).join(''));
+        $('#machine-detail-edit').attr('href', `${machineCreateBaseUrl}?product=${machine.id}`);
+    }
+
     function renderMachineRows(rows) {
         const $body = $('#machine-table-body');
+        machinesById.clear();
+        (rows || []).forEach(row => machinesById.set(String(row.id), row));
 
         if (!rows || rows.length === 0) {
             $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
@@ -158,6 +212,9 @@
                             <i class="bi bi-three-dots"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-right mt-2">
+                            <button type="button" class="dropdown-item btn-detail-machine flex! items-center! gap-2! cursor-pointer" data-id="${row.id}">
+                                <i class="bi bi-eye"></i> Detail
+                            </button>
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${machineCreateBaseUrl}?product=${row.id}">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
@@ -192,6 +249,7 @@
                 renderHeaderExtras(customer);
 
                 renderMachineRows(products.map(p => ({
+                    ...p,
                     id: p.id,
                     // Machine Name is typed by the user; Product name is only a fallback for older/Deal machines.
                     product_name: p.machine_name || p.product?.name,
@@ -214,6 +272,16 @@
         });
     }
 
+    function setMachineMoveError(message = '') {
+        const alert = document.getElementById('move-machine-error');
+        document.getElementById('move-machine-error-message').textContent = message;
+        alert.hidden = !message;
+        if (message) {
+            alert.focus({ preventScroll: true });
+            alert.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
     function renderHeaderExtras(customer) {
         let html = '';
         if (customer.lead_no_longer_deal) {
@@ -229,6 +297,13 @@
 
     $(function () {
         loadMachines();
+
+        $(document).on('click', '.btn-detail-machine', function () {
+            const machine = machinesById.get(String($(this).data('id')));
+            if (!machine) return;
+            renderMachineDetails(machine);
+            $('#machineDetailModal').modal('show');
+        });
 
         // ---- Move Machine (M04) ----
         let moveMachineId = null;
@@ -265,7 +340,7 @@
             const type = $(this).data('type') || '';
             $('#move-machine-subtitle').text([name, type].filter(Boolean).join(' | '));
             $('#move-machine-note').val(`Previously owned by ${pageConfig.name}`);
-            $('#move-machine-error').addClass('hidden').text('');
+            setMachineMoveError();
             initMoveTarget();
             $('#move-machine-target').val(null).trigger('change');
             $('#moveMachineModal').modal('show');
@@ -284,12 +359,14 @@
 
             const destination = $('#move-machine-target').find('option:selected').text();
             const $submit = $('#move-machine-submit').prop('disabled', true);
-            $('#move-machine-error').addClass('hidden').text('');
+            setMachineMoveError();
 
             // M04: the row is only removed after the server confirms (reload below), never optimistically.
             $.ajax({
                 url: `${apiBaseUrl}/products/${moveMachineId}/move`,
                 method: 'POST',
+                dataType: 'json',
+                headers: { Accept: 'application/json' },
                 data: {
                     customer_id: $('#move-machine-target').val(),
                     note: $('#move-machine-note').val() || null,
@@ -308,7 +385,7 @@
                     // 422 (open tickets / same destination): keep the modal open and show the message.
                     const fieldErrors = Object.values(xhr.responseJSON?.errors || {}).flat();
                     const message = fieldErrors.length ? fieldErrors.join(' ') : (xhr.responseJSON?.message || 'Failed to move machine');
-                    $('#move-machine-error').text(message).removeClass('hidden');
+                    setMachineMoveError(message);
                 },
                 complete: function () {
                     $submit.prop('disabled', false);
