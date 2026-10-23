@@ -1,7 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8">@include('pdfs.aftersales._layout_head')</head>
+<head>
+    <meta charset="UTF-8">
+    @include('pdfs.aftersales._layout_head', ['watermarkCopy' => true])
+    <style>
+        .agreement-watermark {
+            position: fixed;
+            top: 42%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 40pt;
+            font-weight: bold;
+            color: #115640;
+            opacity: 0.10;
+            transform: rotate(-35deg);
+            z-index: -1;
+            white-space: nowrap;
+        }
+    </style>
+</head>
 <body>
+    <div class="agreement-watermark">{{ $copyLabel }}</div>
     <h1>{{ $doc->template->title }}</h1>
     <p class="sub">No. {{ $docNumber }} · Version {{ $doc->template_version }}</p>
 
