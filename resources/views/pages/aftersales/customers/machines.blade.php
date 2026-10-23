@@ -45,6 +45,25 @@
     </div>
 </section>
 
+{{-- Machine details --}}
+<div class="modal fade" id="machineDetailModal" tabindex="-1" role="dialog" aria-labelledby="machine-detail-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content rounded-2xl! border-0!">
+            <div class="modal-header">
+                <h5 id="machine-detail-title" class="text-[#115640] font-semibold">Machine Detail</h5>
+                <button type="button" data-dismiss="modal" aria-label="Close" class="border border-[#D9D9D9] rounded-lg bg-white p-2 cursor-pointer"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body max-h-[70vh] overflow-y-auto">
+                <dl id="machine-detail-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="border border-[#D9D9D9] rounded-lg px-4 py-2 bg-white cursor-pointer">Close</button>
+                <a id="machine-detail-edit" class="bg-[#115640] text-white rounded-lg px-4 py-2 hover:bg-[#0d4633]">Edit Machine</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Move Machine modal --}}
 <div class="modal fade" id="moveMachineModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document" style="max-width:520px">
@@ -100,6 +119,7 @@
     const customerId = pageConfig.id;
     const apiBaseUrl = '/api/aftersales/customers';
     const machineCreateBaseUrl = pageConfig.machineCreateUrl;
+    const machinesById = new Map();
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -127,8 +147,38 @@
     }
 
 
+    function renderMachineDetails(machine) {
+        const fields = [
+            ['Machine Name', machine.product_name],
+            ['Machine Code', machine.machine_code],
+            ['Model', machine.product_type_name],
+            ['Serial Number', machine.serial_number],
+            ['Brand', machine.brand],
+            ['Capacity (ton)', machine.capacity],
+            ['Industry', machine.industry?.name],
+            ['Refrigerant Type', machine.refrigerant],
+            ['Warranty Period', machine.warranty_period],
+            ['Warranty Start', machine.warranty_start],
+            ['Warranty End', machine.warranty_end],
+            ['Warranty Status', machine.warranty_end ? (machine.warranty_active ? 'Active' : 'Expired') : '-'],
+            ['PM Contract', { none: 'None', basic: 'Basic', premium: 'Premium' }[machine.pm_contract_status] || machine.pm_contract_status],
+            ['PM Frequency', machine.pm_frequency],
+            ['Note', machine.note],
+        ];
+
+        $('#machine-detail-fields').html(fields.map(([label, value]) => `
+            <div class="${label === 'Note' ? 'sm:col-span-2' : ''} min-w-0">
+                <dt class="text-xs font-semibold text-[#757575] mb-1">${label}</dt>
+                <dd class="text-sm text-[#1E1E1E] whitespace-pre-wrap break-words">${escapeHtml(value ?? '') || '-'}</dd>
+            </div>
+        `).join(''));
+        $('#machine-detail-edit').attr('href', `${machineCreateBaseUrl}?product=${machine.id}`);
+    }
+
     function renderMachineRows(rows) {
         const $body = $('#machine-table-body');
+        machinesById.clear();
+        (rows || []).forEach(row => machinesById.set(String(row.id), row));
 
         if (!rows || rows.length === 0) {
             $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
@@ -155,6 +205,9 @@
                             <i class="bi bi-three-dots"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-right mt-2">
+                            <button type="button" class="dropdown-item btn-detail-machine flex! items-center! gap-2! cursor-pointer" data-id="${row.id}">
+                                <i class="bi bi-eye"></i> Detail
+                            </button>
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="${machineCreateBaseUrl}?product=${row.id}">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
@@ -189,6 +242,7 @@
                 renderHeaderExtras(customer);
 
                 renderMachineRows(products.map(p => ({
+                    ...p,
                     id: p.id,
                     // Machine Name is typed by the user; Product name is only a fallback for older/Deal machines.
                     product_name: p.machine_name || p.product?.name,
@@ -226,6 +280,13 @@
 
     $(function () {
         loadMachines();
+
+        $(document).on('click', '.btn-detail-machine', function () {
+            const machine = machinesById.get(String($(this).data('id')));
+            if (!machine) return;
+            renderMachineDetails(machine);
+            $('#machineDetailModal').modal('show');
+        });
 
         // ---- Move Machine (M04) ----
         let moveMachineId = null;

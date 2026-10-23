@@ -300,6 +300,29 @@ class ImprovementsTest extends TestCase
         $this->assertSame('11 Months', $machine->warranty_period);
     }
 
+    public function test_standalone_machine_and_note_are_available_after_create_and_edit(): void
+    {
+        $this->actingAs($this->user());
+        $customer = ServiceCustomer::create(['name' => 'Machine Note Customer']);
+        $input = [
+            'machine_name' => 'Custom Machine', 'serial_number' => 'NOTE-MACHINE',
+            'note' => "Previously owned by A\nCheck valve <B> & pump",
+        ];
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', $input)->assertCreated();
+        $machine = $customer->products()->firstOrFail();
+        $this->assertNull($machine->product_id);
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.id', $machine->id)
+            ->assertJsonPath('data.products.0.machine_name', 'Custom Machine')
+            ->assertJsonPath('data.products.0.note', $input['note']);
+
+        $input['note'] = "Updated after inspection\nKeep this note.";
+        $this->putJson('/api/aftersales/customers/products/'.$machine->id, $input)->assertOk();
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.note', $input['note']);
+        $this->assertSame($input['note'], $machine->fresh()->note);
+    }
+
     public function test_move_blocks_open_tickets_then_preserves_history_and_contract(): void
     {
         $a = ServiceCustomer::create(['name' => 'Owner A']);
