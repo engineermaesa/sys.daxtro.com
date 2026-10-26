@@ -56,17 +56,10 @@
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Refrigerant Type</label>
-                        {{-- Refrigerant is free text in the API; this list only suggests common values and keeps any saved value. --}}
-                        <select id="machine-refrigerant" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
-                            <option value="">Select Refrigerant Type</option>
-                            @php($refrigerants = ['R404A', 'R134a', 'R290', 'R507A', 'R717', 'R22'])
-                            @if (!empty($product->refrigerant) && !in_array($product->refrigerant, $refrigerants, true))
-                                <option value="{{ $product->refrigerant }}" selected>{{ $product->refrigerant }}</option>
-                            @endif
-                            @foreach ($refrigerants as $refrigerant)
-                                <option value="{{ $refrigerant }}" {{ ($product->refrigerant ?? '') === $refrigerant ? 'selected' : '' }}>{{ $refrigerant }}</option>
-                            @endforeach
-                        </select>
+                        <input type="text" id="machine-refrigerant" maxlength="255"
+                            value="{{ $product->refrigerant ?? '' }}"
+                            placeholder="Enter Refrigerant Type (e.g. R404A)"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Serial Number<span class="text-red-600">*</span></label>
