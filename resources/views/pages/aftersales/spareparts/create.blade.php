@@ -27,15 +27,23 @@
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
                     <div class="mb-3">
+                        <label class="block text-sm font-medium mb-1">Part Code</label>
+                        <input type="text"
+                        id="field-code"
+                        placeholder="eg. PRT-R22-001"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
+                    </div>
+                    <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">Brand</label>
                         <input type="text" id="field-brand" placeholder="e.g. Emerson"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
-                    <div>
+                    <div class="mb-3">
                         <label class="block text-sm font-medium mb-1">Supplier</label>
                         <input type="text" id="field-supplier" placeholder="Supplier name"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                     </div>
+                    
                 </div>
 
                 {{-- INVENTORY & PRICING --}}
@@ -109,6 +117,7 @@
             success: function (response) {
                 const data = response.data || {};
                 $('#field-name').val(data.name || '');
+                $('#field-code').val(data.part_number || '');
                 $('#field-brand').val(data.brand || '');
                 $('#field-supplier').val(data.supplier || '');
                 $('#field-price').val(data.price || 0);
@@ -118,7 +127,7 @@
             },
             error: function (xhr) {
                 alert(formatApiErrors(xhr));
-                window.location.href = '{{ route('aftersales.pages.spareparts.index') }}';
+                window.location.href = "{{ route('aftersales.pages.spareparts.index') }}";
             }
         });
     }
@@ -134,6 +143,7 @@
 
             const payload = {
                 name: $('#field-name').val(),
+                part_number: $('#field-code').val() || null,
                 brand: $('#field-brand').val() || null,
                 supplier: $('#field-supplier').val() || null,
                 price: $('#field-price').val() || 0,
@@ -155,7 +165,7 @@
                 method: sparepartId ? 'PUT' : 'POST',
                 data: payload,
                 success: function () {
-                    window.location.href = '{{ route('aftersales.pages.spareparts.index') }}';
+                    window.location.href = "{{ route('aftersales.pages.spareparts.index') }}";
                 },
                 error: function (xhr) {
                     alert(formatApiErrors(xhr));

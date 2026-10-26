@@ -34,6 +34,7 @@
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Sparepart Name</th>
+                        <th class="p-3 text-center uppercase text-xs">Code</th>
                         <th class="p-3 text-center uppercase text-xs">Brand</th>
                         <th class="p-3 text-center uppercase text-xs">Supplier</th>
                         <th class="p-3 text-center uppercase text-xs">Price (IDR)</th>
@@ -98,6 +99,7 @@
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-sparepart-id="${row.id}">
                 <td class="p-3">${escapeHtml(row.name)}</td>
+                <td class="p-3 text-center">${escapeHtml(row.part_number || '-')}</td>
                 <td class="p-3 text-center">${escapeHtml(row.brand || '-')}</td>
                 <td class="p-3 text-center">${escapeHtml(row.supplier || '-')}</td>
                 <td class="p-3 text-center">${formatCurrency(row.price)}</td>
