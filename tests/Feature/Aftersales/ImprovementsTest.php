@@ -794,6 +794,136 @@ class ImprovementsTest extends TestCase
         $this->assertSame(1, CustomerDeal::pendingReview()->count());
     }
 
+    private function ticketContactTables(): void
+    {
+        $this->ticketAuxiliaryTables(true);
+        Schema::table('tickets', function (Blueprint $table) {
+            foreach (['category', 'priority', 'description', 'sla_value', 'sla_unit', 'cost_display_currency'] as $field) {
+                $table->string($field)->nullable();
+            }
+            $table->timestamp('sla_due_at')->nullable();
+            foreach (['supervisor_id', 'created_by', 'updated_by'] as $field) {
+                $table->unsignedBigInteger($field)->nullable();
+            }
+        });
+        Schema::table('ticket_logs', fn (Blueprint $table) => $table->unsignedBigInteger('created_by')->nullable());
+        (require database_path('migrations/2026_09_03_010500_create_document_counters_table.php'))->up();
+        (require database_path('migrations/2026_09_03_010000_create_ref_spareparts_table.php'))->up();
+    }
+
+    private function ticketContactInput(ServiceCustomer $customer, ServiceCustomerProduct $machine): array
+    {
+        return ['customer_id' => $customer->id, 'customer_product_id' => $machine->id, 'category' => 'electrical', 'priority' => 'high', 'description' => 'Check machine', 'sla_value' => 1, 'sla_unit' => 'day'];
+    }
+
+    public function test_customer_list_and_detail_expose_ticket_contact_readiness_without_extra_reads(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Incomplete', 'phone' => '   ', 'email' => null]);
+        $complete = ServiceCustomer::create(['name' => 'Complete', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id;
+        $this->getJson($url)->assertOk()->assertJsonPath('data.ticket_creation.can_create', false)
+            ->assertJsonPath('data.ticket_creation.missing_fields', ['phone', 'email'])
+            ->assertJsonPath('data.ticket_creation.edit_customer_url', '/aftersales/customers/'.$customer->id.'/edit');
+        $response = $this->getJson('/api/aftersales/customers')->assertOk()->json('data');
+        $this->assertFalse(collect($response)->firstWhere('id', $customer->id)['ticket_creation']['can_create']);
+        $this->assertTrue(collect($response)->firstWhere('id', $complete->id)['ticket_creation']['can_create']);
+        [, $queries] = $this->measureQueries(fn () => $this->getJson('/api/aftersales/customers/'.$complete->id)->assertOk()
+            ->assertJsonPath('data.ticket_creation.missing_fields', [])->assertJsonPath('data.ticket_creation.message', null));
+        $this->assertSame(1, $this->reads($queries, 'service_customers'));
+    }
+
+    public function test_new_ticket_rejects_each_missing_contact_without_number_logs_stock_or_cost_mutations(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Incomplete']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $part = \App\Models\Aftersales\RefSparepart::create(['name' => 'Contactor', 'stock' => 10, 'price' => 100]);
+        $input = $this->ticketContactInput($customer, $machine) + [
+            'parts' => [['ref_sparepart_id' => $part->id, 'qty' => 2, 'unit' => 'pieces']],
+            'costs' => [['category' => 'labor', 'amount' => 100, 'currency' => 'idr']],
+            'ticket_creation' => ['can_create' => true],
+        ];
+        $this->actingAs($this->user());
+        foreach ([[null, null, ['phone', 'email']], ['08123456789', ' ', ['email']], ['---', 'customer@example.com', ['phone']]] as [$phone, $email, $missing]) {
+            $customer->update(['phone' => $phone, 'email' => $email]);
+            $this->postJson('/api/aftersales/tickets', $input)->assertUnprocessable()
+                ->assertJsonPath('code', 'customer_contact_incomplete')->assertJsonPath('customer_id', $customer->id)
+                ->assertJsonPath('ticket_creation.can_create', false)->assertJsonPath('ticket_creation.missing_fields', $missing)
+                ->assertJsonValidationErrors(array_map(fn ($field) => 'customer.'.$field, $missing));
+        }
+        $this->assertSame(1, Ticket::count()); // Only the legacy fixture ticket remains.
+        foreach (['document_counters', 'ticket_logs', 'ticket_parts', 'ticket_costs', 'part_stock_movements', 'ticket_service_forms', 'ticket_agreements'] as $table) {
+            $this->assertSame(0, DB::table($table)->count(), $table.' must not change when the contact gate fails.');
+        }
+        $this->assertSame(10, $part->fresh()->stock);
+    }
+
+    public function test_ticket_gate_reads_latest_customer_and_allows_creation_after_email_is_completed(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $this->actingAs($this->user());
+        $input = $this->ticketContactInput($customer, $machine);
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()->assertJsonPath('data.ticket_creation.can_create', true);
+        DB::table('service_customers')->where('id', $customer->id)->update(['email' => null]);
+        $this->postJson('/api/aftersales/tickets', $input)->assertUnprocessable()->assertJsonValidationErrors('customer.email');
+        $this->putJson('/api/aftersales/customers/'.$customer->id, ['email' => 'fixed@example.com'])->assertOk();
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()->assertJsonPath('data.ticket_creation.can_create', true);
+        $this->postJson('/api/aftersales/tickets', $input)->assertCreated()->assertJsonPath('data.data.customer.email', 'fixed@example.com');
+        $this->assertSame(2, Ticket::count());
+        $this->assertSame(1, DB::table('document_counters')->value('last_number'));
+        $this->assertSame(1, DB::table('ticket_logs')->where('step', 'published')->count());
+    }
+
+    public function test_complete_contacts_allow_daxtro_and_non_daxtro_tickets_without_serial_or_warranty(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $this->actingAs($this->user());
+        foreach ([true, false] as $isDaxtro) {
+            $machine = $customer->products()->create(['is_daxtro' => $isDaxtro, 'machine_name' => 'Machine', 'brand' => $isDaxtro ? null : 'Other Brand']);
+            $this->assertNull($machine->serial_number);
+            $this->assertNull($machine->warranty_start);
+            $this->postJson('/api/aftersales/tickets', $this->ticketContactInput($customer, $machine))
+                ->assertCreated()->assertJsonPath('data.data.customer_product.serial_number', null);
+        }
+        $this->assertSame(3, Ticket::count());
+    }
+
+    public function test_existing_ticket_update_does_not_require_customer_phone_or_email(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Legacy customer']);
+        $machine = $customer->products()->create(['machine_name' => 'Legacy machine']);
+        $ticket = Ticket::create(['ticket_code' => 'LEGACY-CONTACT', 'customer_id' => $customer->id, 'customer_product_id' => $machine->id]);
+        $this->actingAs($this->user());
+        $input = $this->ticketContactInput($customer, $machine);
+        $input['description'] = 'Updated legacy complaint';
+        $this->putJson('/api/aftersales/tickets/'.$ticket->id, $input)->assertOk()->assertJsonPath('data.data.description', 'Updated legacy complaint');
+        $this->assertSame('Updated legacy complaint', $ticket->fresh()->description);
+        $this->assertSame(0, DB::table('document_counters')->count());
+    }
+
+    public function test_new_ticket_contact_gate_preserves_permission_ownership_and_deleted_customer_checks(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $input = $this->ticketContactInput($customer, $machine);
+        $this->actingAs($this->user(false));
+        $this->postJson('/api/aftersales/tickets', $input)->assertForbidden();
+        $this->actingAs($this->user());
+        $other = ServiceCustomer::create(['name' => 'Other']);
+        $this->postJson('/api/aftersales/tickets', array_replace($input, ['customer_id' => $other->id]))
+            ->assertUnprocessable()->assertJsonValidationErrors('customer_product_id');
+        $customer->delete();
+        $this->postJson('/api/aftersales/tickets', $input)->assertNotFound();
+        $this->assertSame(1, Ticket::count());
+        $this->assertSame(0, DB::table('document_counters')->count());
+    }
+
     private function file(array $rows): UploadedFile
     {
         $book = new Spreadsheet;

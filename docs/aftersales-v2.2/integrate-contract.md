@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin), task 2 (Generator Machine Name), task 3 (Import Customer), dan task 4 (Deals Review) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–5 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, dan gate kontak Customer untuk tiket baru) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -423,3 +423,76 @@ Resolve sukses HTTP 200 mempertahankan objek CustomerDeal di `data`, dengan `rev
 Keputusan ulang setelah resolved, updated_at usang, Lead yang tidak lagi aktif sebagai Deal, atau identitas yang berubah selama penyimpanan mendapat 409. Pada 409, muat ulang detail dan jumlah pending sebelum menawarkan aksi lagi. Target Customer soft-deleted tidak dapat ditautkan (404); ID customer_id yang tidak ada mendapat 422. Transaksi gagal tidak meninggalkan Customer/mesin baru atau audit keputusan sebagian.
 
 GET detail bersifat read-only dan dapat dibuka untuk data yang sudah resolved/tidak aktif; perhatikan allowed_actions. Resolusi dan pembacaan count tidak memerlukan endpoint khusus untuk tiap pengguna karena permission After Sales berlaku pada antrean global.
+
+## Task 5: Gate kontak Customer saat membuat tiket
+
+Meliputi IM-89 / AC-IM26. Pembuatan tiket baru memerlukan **Phone dan Email pada Customer tersimpan**. Data serial, warranty, PM, dan jenis Daxtro/non-Daxtro tidak menjadi syarat tambahan gate ini. Tidak ada migrasi schema pada task ini.
+
+### Data Step 1 untuk FE
+
+Endpoint existing `GET /api/aftersales/customers` dan `GET /api/aftersales/customers/{customer}` mendapat field tambahan `ticket_creation` pada setiap Customer. Permission endpoint Customer tetap `masters.service-customers`; tidak ada perubahan envelope/pagination existing.
+
+| Endpoint | Path pada body JSON |
+|---|---|
+| GET list Customer | `data[].ticket_creation` |
+| GET detail Customer | `data.ticket_creation` |
+
+Contoh Customer belum lengkap:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 42,
+    "name": "Customer A",
+    "phone": null,
+    "email": null,
+    "ticket_creation": {
+      "can_create": false,
+      "missing_fields": ["phone", "email"],
+      "edit_customer_url": "/aftersales/customers/42/edit",
+      "message": "Customer data is incomplete. Phone and Email are required because surveys and notifications are sent by email and phone."
+    }
+  }
+}
+```
+
+Jika hanya Email kosong, `missing_fields=["email"]`. Jika lengkap, `can_create=true`, `missing_fields=[]`, dan `message=null`; edit_customer_url tetap tersedia. Field ini dihitung dari data saat dibaca, tidak disimpan dan tidak menambah query database per Customer.
+
+`can_create` menunjukkan kelengkapan kontak saja, bukan pemberian permission. Permission membuat tiket tetap diperiksa terpisah pada server. Null, string kosong, atau whitespace dianggap belum diisi; nomor berupa placeholder tanda hubung (`-`, `---`) juga dianggap belum diisi. Gate ini tidak menambah aturan format Phone/Email baru; validasi format pada pengelolaan Customer/import tetap mengikuti endpoint masing-masing.
+
+### Validasi saat Save Ticket
+
+`POST /api/aftersales/tickets` tetap memakai request existing dan permission `aftersales.tickets.manage`. Server membaca ulang Customer aktif dan menguncinya dalam transaksi sebelum membuat nomor tiket, tiket, log, biaya, atau mutasi sparepart. Nilai Phone/Email maupun `ticket_creation.can_create` yang dikirim oleh FE dalam payload tiket bukan sumber validasi; gate selalu memakai data Customer tersimpan terbaru.
+
+Kontak tidak lengkap mengembalikan HTTP 422:
+
+```json
+{
+  "message": "Customer data is incomplete. Phone and Email are required because surveys and notifications are sent by email and phone.",
+  "code": "customer_contact_incomplete",
+  "customer_id": 42,
+  "errors": {
+    "customer.phone": ["Customer Phone is required before creating a new ticket."],
+    "customer.email": ["Customer Email is required before creating a new ticket."]
+  },
+  "ticket_creation": {
+    "can_create": false,
+    "missing_fields": ["phone", "email"],
+    "edit_customer_url": "/aftersales/customers/42/edit",
+    "message": "Customer data is incomplete. Phone and Email are required because surveys and notifications are sent by email and phone."
+  }
+}
+```
+
+Key errors adalah string literal `customer.phone` / `customer.email` (flat keys, bukan objek customer bersarang), dan hanya field yang kurang yang disertakan. FE dapat mengenali gate melalui `code`, menampilkan message, memperbarui kondisi Step 1 dari `ticket_creation`, dan memakai edit_customer_url. Error validasi request lain tetap memakai bentuk existing dan tidak selalu memiliki code ini.
+
+Jika kontak lengkap, response sukses tetap HTTP 201 dengan objek tiket pada `data.data`. Nomor tiket tidak terpakai pada kegagalan gate dan stok tidak berkurang. Customer soft-deleted tidak boleh dipakai membuat tiket baru (404); pemeriksaan ownership mesin serta permission existing tetap berlaku.
+
+### Alur integrasi FE dan kompatibilitas
+
+1. Setelah Customer dipilih pada Add Ticket Step 1, baca `ticket_creation`. Jika `can_create=false`, nonaktifkan Next dan tampilkan pesan beserta tautan Edit Customer.
+2. Simpan pilihan Customer/mesin dan isian wizard saat pengguna melengkapi kontak, lalu ambil ulang GET detail Customer sebelum mengaktifkan Next. Pengubahan Phone tetap mengikuti permission `aftersales.customer-phone.change` dan audit existing.
+3. Saat Save, tetap tangani 422 `customer_contact_incomplete`, karena data Customer dapat berubah setelah Step 1 dibuka. Jika Customer diganti, periksa ulang status Customer yang baru.
+4. `PUT /api/aftersales/tickets/{ticket}` tidak terkena gate ini, termasuk tiket existing yang Customer-nya belum memiliki Phone/Email. Jangan menonaktifkan alur Edit Ticket existing hanya karena metadata Customer menunjukkan can_create=false.
+5. Add/Edit Customer, Import Customer, dan konversi Deal tetap boleh menghasilkan kontak yang belum lengkap sesuai aturan existing; kewajiban baru ini berlaku saat membuat tiket. Tidak ada perubahan retroaktif pada tiket atau dokumen yang sudah ada.

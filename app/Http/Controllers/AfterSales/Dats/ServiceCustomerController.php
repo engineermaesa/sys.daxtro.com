@@ -90,7 +90,7 @@ class ServiceCustomerController extends Controller
 
         $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $paginated = $query->orderByDesc('id')->paginate($perPage);
-        $paginated->getCollection()->each->append(['lead_no_longer_deal', 'lead_updated']);
+        $paginated->getCollection()->each->append(['lead_no_longer_deal', 'lead_updated', 'ticket_creation']);
 
         return response()->json([
             'status' => 'success',
@@ -106,7 +106,7 @@ class ServiceCustomerController extends Controller
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
         $customer->load(['province', 'region', 'deals.lead.quotation', 'products.industry', 'products.product', 'products.productType']);
-        $customer->append(['lead_no_longer_deal', 'lead_updated']);
+        $customer->append(['lead_no_longer_deal', 'lead_updated', 'ticket_creation']);
 
         return response()->json(['status' => 'success', 'data' => $customer]);
     }

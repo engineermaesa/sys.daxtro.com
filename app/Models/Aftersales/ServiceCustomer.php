@@ -4,6 +4,7 @@ namespace App\Models\Aftersales;
 
 use App\Models\Masters\Province;
 use App\Models\Masters\Region;
+use App\Services\Aftersales\TicketCustomerContact;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -73,5 +74,10 @@ class ServiceCustomer extends Model
     public function getLeadUpdatedAttribute(): bool
     {
         return $this->relationLoaded('deals') ? $this->deals->contains(fn ($d) => ! empty($d->pending_changes)) : $this->deals()->whereNotNull('pending_changes')->exists();
+    }
+
+    public function getTicketCreationAttribute(): array
+    {
+        return TicketCustomerContact::summary($this);
     }
 }
