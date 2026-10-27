@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin), task 2 (Generator Machine Name), dan task 3 (Import Customer) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin), task 2 (Generator Machine Name), task 3 (Import Customer), dan task 4 (Deals Review) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -316,3 +316,110 @@ Possible match harus diberi keputusan sebelum Apply melalui `decision.action`: `
 Apply memakai `{ "lock_version": 1 }` sesuai versi terbaru. Lock version usang atau review lama tanpa `template_version=2.2` mendapat 409; batch lama yang belum diterapkan perlu diunggah ulang dengan template terbaru atau direview ulang memakai field v2.2 yang benar. Batch lama yang sudah applied tetap idempotent. Tidak ada migrasi schema baru pada task ini.
 
 Export memuat seluruh 21 kolom input ditambah Row/Status/Errors/Warnings/Decision/Result. File export bukan template upload karena memiliki kolom metadata; salin data koreksi ke template terbaru untuk upload ulang.
+
+## Task 4: Deals Review
+
+Meliputi IM-86–87. Backend menyediakan jumlah pending, daftar terfilter, detail perbandingan, dan keputusan. Tab, badge merah, serta modal/halaman review dibuat tim FE.
+
+### Status dan antrean
+
+`CustomerDeal.review_status` adalah field baru dengan nilai `pending_review` atau `resolved`. `service_customer_id` tetap nullable selama pending. Field `status` existing (`needs_review`/`linked`) tetap tersedia untuk kompatibilitas.
+
+- Pending Deals Review: `review_status=pending_review`, belum memiliki Customer, `left_deal_at` kosong, dan Lead masih berstatus Deal dengan `deal_at` terisi.
+- Lead updates: Deal yang sudah memiliki Customer dan `pending_changes` terisi. Ini antrean Apply/Ignore existing, **tidak dihitung pada badge Deals Review**.
+- Jika Lead keluar stage Deal atau `deal_at` kosong, Deal tidak dihitung sebagai pending aktif. Data tidak dihapus. Lead pending yang masuk Deal lagi kembali ke antrean tanpa membuat Customer/mesin ganda.
+- Perubahan data Lead yang belum ditautkan memperbarui snapshot/candidates pending, bukan membuat Lead updates. Detail review menghitung kandidat dari Customer aktif terbaru, termasuk jumlah mesin aktifnya.
+- Migrasi mengisi `review_status=pending_review` untuk data legacy `status=needs_review` tanpa Customer; lainnya resolved. Relasi, snapshot, dan pending_changes existing dipertahankan.
+
+### Endpoint dan permission
+
+Semua endpoint memerlukan login dan permission `masters.service-customers` (After Sales/Supervisor yang memiliki permission tersebut). Tidak memiliki permission: 403. Mutasi menggunakan CSRF dan `Accept: application/json`.
+
+| Method | Endpoint | Kegunaan |
+|---|---|---|
+| GET | `/api/aftersales/customers/deal-reviews/pending-count` | Jumlah global untuk sidebar/tab. |
+| GET | `/api/aftersales/customers/deal-reviews?queue=pending` | Tab Deals Review; paginator Laravel existing. |
+| GET | `/api/aftersales/customers/deal-reviews?queue=lead_updates` | Antrean perubahan Lead yang sudah ditautkan. |
+| GET | `/api/aftersales/customers/deal-reviews` | Default `queue=all`, gabungan pending aktif dan Lead updates untuk kompatibilitas. |
+| GET | `/api/aftersales/customers/deal-reviews/{deal}` | Detail perbandingan dan aksi yang tersedia. |
+| POST | `/api/aftersales/customers/deal-reviews/{deal}/resolve` | Keputusan Link/Create new atau Apply/Ignore existing. |
+
+Parameter `{deal}` adalah ID `CustomerDeal`, bukan ID Lead atau Customer. List menerima `page` dan `per_page` (1–100, default 25), urutan ID paling awal dahulu. `queue` hanya menerima `all`, `pending`, `lead_updates`; query invalid mendapat 422. Jumlah badge selalu global, tidak mengikuti halaman atau filter queue.
+
+### Payload jumlah badge
+
+Response pending-count HTTP 200:
+
+```json
+{
+  "data": {
+    "pending_count": 3,
+    "badge_label": "3",
+    "has_pending": true
+  }
+}
+```
+
+`pending_count` selalu jumlah asli. `badge_label` menjadi `"99+"` jika lebih dari 99; saat nol menjadi null dan `has_pending=false`. FE menyembunyikan badge pada nol. Nilai yang sama tersedia pada **root body JSON** di response list, detail, dan resolve:
+
+```json
+{
+  "data": [],
+  "current_page": 1,
+  "per_page": 25,
+  "total": 0,
+  "pending_count": 0,
+  "badge_label": null,
+  "has_pending": false
+}
+```
+
+Contoh list di atas dipersingkat; metadata paginator Laravel lainnya tetap tersedia. Item list mempertahankan field CustomerDeal dan relasi `lead.quotation`, `lead.factory_city`, serta `customer`. Nomor quotation berada di `lead.quotation.quotation_no`, lokasi pabrik di `lead.factory_city`, dan telepon Lead di `lead.phone`.
+
+### Detail perbandingan
+
+Response HTTP 200 berbentuk `data.deal`, `data.from_deal`, `data.candidates`, `data.customer`, `data.allowed_actions`, dengan metadata badge pada root.
+
+| Path body JSON | Isi |
+|---|---|
+| `data.deal` | CustomerDeal tanpa relasi, termasuk `id`, `review_status`, `status`, `service_customer_id`, `updated_at`, snapshot, dan pending_changes. |
+| `data.from_deal` | Data Lead saat ini: name, phone ternormalisasi, email, address, ref_region_id/ref_province_id, region/province, lead_id, quotation_no, deal_at. |
+| `data.from_deal.machine_count` | Jumlah unit mesin eligible dari quotation; hanya Product dengan product_type_id dan item yang tidak di-merge. |
+| `data.from_deal.machines[]` | Ringkasan item: quotation_item_id, product_id, machine_name (nama Product), ref_product_type_id, quantity. Belum membuat unit mesin. |
+| `data.candidates[]` | `{ "match_status": "possible", "customer": {...} }`; match_status juga dapat exact jika data berubah setelah Deal masuk antrean. |
+| `data.candidates[].customer` | Customer aktif dengan kontak, source, region, province, dan `products_count` (jumlah mesin aktif). Customer soft-deleted tidak ditawarkan. |
+| `data.customer` | Customer yang sudah ditautkan untuk review Lead updates; null untuk Deal pending. |
+| `data.allowed_actions` | Pending aktif: `["link","create_new"]`; Lead updates: `["apply","ignore"]`; selain itu `[]`. |
+
+Kandidat ditinjau berdasarkan data terbaru saat detail dibuka. Link dapat memilih Customer aktif dari kandidat atau pencarian Customer existing; backend tetap memeriksa target dan status Deal saat Save.
+
+### Keputusan dan pembaruan badge
+
+Link to existing:
+
+```json
+{
+  "action": "link",
+  "customer_id": 42,
+  "updated_at": "2026-10-27T03:00:00.000000Z"
+}
+```
+
+Create new:
+
+```json
+{
+  "action": "create_new",
+  "updated_at": "2026-10-27T03:00:00.000000Z"
+}
+```
+
+Kirim `updated_at` persis dari `data.deal.updated_at` hasil detail atau item list terbaru; timestamp adalah pemeriksaan optimistic concurrency existing. Jangan membentuk ulang dari tanggal tampilan lokal.
+
+Resolve sukses HTTP 200 mempertahankan objek CustomerDeal di `data`, dengan `review_status=resolved`, `status=linked`, dan `service_customer_id` terisi. Root `pending_count`/`badge_label`/`has_pending` sudah diperbarui setelah transaksi; gunakan untuk memperbarui sidebar dan tab serta keluarkan baris yang selesai dari queue pending. Mesin dibuat per unit quotation eligible satu kali, dalam transaksi yang sama; audit `lead_link` atau `lead_create_new` dicatat.
+
+`skip` tidak diterima (422). `apply`/`ignore` hanya untuk perubahan Lead yang sudah memiliki Customer, bukan alternatif melewati keputusan pending. Untuk Apply yang mengubah nomor telepon, permission tambahan `aftersales.customer-phone.change` tetap diperlukan dan perubahan nomor tetap diaudit.
+
+Keputusan ulang setelah resolved, updated_at usang, Lead yang tidak lagi aktif sebagai Deal, atau identitas yang berubah selama penyimpanan mendapat 409. Pada 409, muat ulang detail dan jumlah pending sebelum menawarkan aksi lagi. Target Customer soft-deleted tidak dapat ditautkan (404); ID customer_id yang tidak ada mendapat 422. Transaksi gagal tidak meninggalkan Customer/mesin baru atau audit keputusan sebagian.
+
+GET detail bersifat read-only dan dapat dibuka untuk data yang sudah resolved/tidak aktif; perhatikan allowed_actions. Resolusi dan pembacaan count tidak memerlukan endpoint khusus untuk tiap pengguna karena permission After Sales berlaku pada antrean global.

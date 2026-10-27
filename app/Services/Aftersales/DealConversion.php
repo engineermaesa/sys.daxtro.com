@@ -34,7 +34,7 @@ class DealConversion
             try {
                 return $this->syncWithIdentity($lead, $keys);
             } catch (CustomerIdentityChanged) {
-               
+
             }
         }
         abort(409, 'The Lead changed during conversion. Retry from its current data.');
@@ -59,6 +59,11 @@ class DealConversion
             }
             $data = $this->snapshot($lead);
             if ($link) {
+                if ($link->review_status === CustomerDeal::REVIEW_PENDING && ! $link->service_customer_id) {
+                    $link->update(['left_deal_at' => null, 'lead_snapshot' => $data, 'pending_changes' => null, 'candidates' => app(CustomerMatching::class)->candidates($data, false)]);
+
+                    return $link;
+                }
                 $pending = $data !== $link->lead_snapshot ? $data : null;
                 $link->update(['left_deal_at' => null, 'pending_changes' => $pending]);
 
@@ -69,7 +74,7 @@ class DealConversion
             if ($exact->count() === 1) {
                 $customer = ServiceCustomer::findOrFail($exact->first()['id']);
             } elseif ($matches) {
-                return CustomerDeal::create(['lead_id' => $lead->id, 'status' => 'needs_review', 'candidates' => $matches, 'lead_snapshot' => $data]);
+                return CustomerDeal::create(['lead_id' => $lead->id, 'status' => 'needs_review', 'review_status' => CustomerDeal::REVIEW_PENDING, 'candidates' => $matches, 'lead_snapshot' => $data]);
             } else {
                 $customer = ServiceCustomer::create($data + ['source' => 'deal_conversion']);
             }
@@ -85,7 +90,7 @@ class DealConversion
         $link = CustomerDeal::firstOrNew(['lead_id' => $lead->id]);
         abort_if($link->exists && $link->service_customer_id && (int) $link->service_customer_id !== $customer->id, 409, 'This Deal is already linked to another customer.');
         $alreadyLinked = $link->exists && $link->service_customer_id;
-        $link->fill(['service_customer_id' => $customer->id, 'status' => 'linked', 'lead_snapshot' => $this->snapshot($lead), 'pending_changes' => null, 'candidates' => null, 'left_deal_at' => (int) $lead->status_id === LeadStatus::DEAL ? null : now()])->save();
+        $link->fill(['service_customer_id' => $customer->id, 'status' => 'linked', 'review_status' => CustomerDeal::REVIEW_RESOLVED, 'lead_snapshot' => $this->snapshot($lead), 'pending_changes' => null, 'candidates' => null, 'left_deal_at' => (int) $lead->status_id === LeadStatus::DEAL ? null : now()])->save();
         if (! $alreadyLinked) {
             $lead->load('quotation.items.product');
             foreach ($lead->quotation?->items ?? [] as $item) {

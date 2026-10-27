@@ -526,6 +526,8 @@ Route::group([
         Route::post('/imports/{import}/apply', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'apply'])->name('imports.apply');
         Route::get('/imports/{import}/export', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'export'])->name('imports.export');
         Route::get('/deal-reviews', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'index'])->name('deal-reviews.index');
+        Route::get('/deal-reviews/pending-count', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'pendingCount'])->name('deal-reviews.pending-count');
+        Route::get('/deal-reviews/{deal}', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'show'])->name('deal-reviews.show');
         Route::post('/deal-reviews/{deal}/resolve', [\App\Http\Controllers\AfterSales\Dats\CustomerDealController::class, 'resolve'])->name('deal-reviews.resolve');
         Route::post('/products/{product}/move', [ServiceCustomerController::class, 'moveProduct'])->name('products.move');
         Route::get('/', [ServiceCustomerController::class, 'index'])->name('index');

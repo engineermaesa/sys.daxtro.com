@@ -61,6 +61,7 @@ class ImprovementsTest extends TestCase
                 }
                 if ($table === 'quotations') {
                     $t->unsignedBigInteger('lead_id');
+                    $t->string('quotation_no')->nullable();
                 }
                 if ($table === 'quotation_items') {
                     $t->unsignedBigInteger('quotation_id');
@@ -138,6 +139,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_10_23_000000_optimize_aftersales_matching.php'))->up();
         (require database_path('migrations/2026_10_27_000000_add_daxtro_machine_fields.php'))->up();
         (require database_path('migrations/2026_10_27_000100_add_machine_name_mode.php'))->up();
+        (require database_path('migrations/2026_10_27_000200_add_customer_deal_review_status.php'))->up();
     }
 
     public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void
@@ -615,6 +617,181 @@ class ImprovementsTest extends TestCase
         $this->assertStringContainsString('Brand is required.', $sheet->getCell('X2')->getValue());
         $this->assertSame(0, ServiceCustomerProduct::count());
         $book->disconnectWorksheets();
+    }
+
+    private function pendingDeal(): array
+    {
+        $customer = ServiceCustomer::firstOrCreate(['name' => 'Pak Rusman', 'phone' => '0811440148'], ['ref_region_id' => 1]);
+        $lead = Lead::withoutEvents(fn () => Lead::create(['name' => 'Mr Rusman', 'phone' => '0811440149', 'status_id' => 5, 'deal_at' => now(), 'factory_city_id' => 1]));
+        $deal = app(DealConversion::class)->sync($lead);
+
+        return [$deal, $lead, $customer];
+    }
+
+    public function test_deal_review_migration_backfills_pending_and_preserves_linked_data(): void
+    {
+        [$pending, $lead, $customer] = $this->pendingDeal();
+        $other = Lead::withoutEvents(fn () => Lead::create(['name' => 'Different', 'status_id' => 5, 'deal_at' => now()]));
+        $resolved = DB::transaction(fn () => app(DealConversion::class)->link($other, $customer));
+        $resolved->update(['pending_changes' => ['name' => 'Changed']]);
+        $migration = require database_path('migrations/2026_10_27_000200_add_customer_deal_review_status.php');
+        $migration->down();
+        $migration->up();
+        $this->assertSame('pending_review', $pending->fresh()->review_status);
+        $this->assertNull($pending->fresh()->service_customer_id);
+        $this->assertSame('resolved', $resolved->fresh()->review_status);
+        $this->assertSame($customer->id, $resolved->fresh()->service_customer_id);
+        $this->assertSame(['name' => 'Changed'], $resolved->fresh()->pending_changes);
+        $this->assertSame(2, CustomerDeal::count());
+    }
+
+    public function test_pending_deal_list_and_badge_exclude_lead_updates_and_inactive_deals(): void
+    {
+        [$pending] = $this->pendingDeal();
+        [$left, $leftLead] = $this->pendingDeal();
+        $leftLead->update(['status_id' => 1]);
+        [$unrecorded, $unrecordedLead] = $this->pendingDeal();
+        Lead::withoutEvents(fn () => $unrecordedLead->update(['deal_at' => null]));
+        [$update, $updateLead, $customer] = $this->pendingDeal();
+        DB::transaction(fn () => app(DealConversion::class)->link($updateLead, $customer));
+        $update->refresh()->update(['pending_changes' => ['name' => 'New name']]);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews';
+        $this->getJson($url.'?queue=pending&per_page=1')->assertOk()->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.id', $pending->id)->assertJsonPath('data.0.review_status', 'pending_review')
+            ->assertJsonPath('pending_count', 1)->assertJsonPath('badge_label', '1')->assertJsonPath('has_pending', true);
+        $this->getJson($url.'?queue=lead_updates')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $update->id)->assertJsonPath('pending_count', 1);
+        $this->getJson($url)->assertOk()->assertJsonPath('total', 2);
+        $this->getJson($url.'/pending-count')->assertOk()->assertJsonPath('data.pending_count', 1);
+        $this->getJson($url.'?queue=invalid')->assertUnprocessable()->assertJsonValidationErrors('queue');
+        $this->getJson($url.'?per_page=101')->assertUnprocessable()->assertJsonValidationErrors('per_page');
+    }
+
+    public function test_deal_pending_badge_caps_display_at_99_and_hides_at_zero(): void
+    {
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews/pending-count';
+        $this->getJson($url)->assertOk()->assertJsonPath('data.pending_count', 0)->assertJsonPath('data.badge_label', null)->assertJsonPath('data.has_pending', false);
+        for ($i = 0; $i < 100; $i++) {
+            $id = DB::table('leads')->insertGetId(['name' => 'Pending '.$i, 'status_id' => 5, 'deal_at' => now()]);
+            DB::table('customer_deals')->insert(['lead_id' => $id, 'status' => 'needs_review', 'review_status' => 'pending_review']);
+        }
+        $this->getJson($url)->assertOk()->assertJsonPath('data.pending_count', 100)->assertJsonPath('data.badge_label', '99+')->assertJsonPath('data.has_pending', true);
+        DB::table('customer_deals')->where('id', 1)->update(['review_status' => 'resolved']);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.pending_count', 99)->assertJsonPath('data.badge_label', '99');
+    }
+
+    public function test_deal_review_detail_compares_live_customers_and_eligible_quotation_machine_counts(): void
+    {
+        [$deal, $lead, $customer] = $this->pendingDeal();
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        DB::table('ref_products')->insert([['id' => 1, 'name' => 'Tube product', 'product_type_id' => $type], ['id' => 2, 'name' => 'Accessory', 'product_type_id' => null]]);
+        $quote = DB::table('quotations')->insertGetId(['lead_id' => $lead->id, 'quotation_no' => 'QT_DEAL_001']);
+        DB::table('quotation_items')->insert([
+            ['quotation_id' => $quote, 'product_id' => 1, 'qty' => 2, 'merge_into_item_id' => null],
+            ['quotation_id' => $quote, 'product_id' => 2, 'qty' => 5, 'merge_into_item_id' => null],
+            ['quotation_id' => $quote, 'product_id' => 1, 'qty' => 3, 'merge_into_item_id' => 1],
+        ]);
+        for ($i = 0; $i < 3; $i++) {
+            $customer->products()->create(['machine_name' => 'Existing '.$i]);
+        }
+        $deleted = ServiceCustomer::create(['name' => 'Rusman', 'phone' => '0811440149']);
+        $deleted->delete();
+        $this->actingAs($this->user());
+        $this->getJson('/api/aftersales/customers/deal-reviews/'.$deal->id)->assertOk()
+            ->assertJsonPath('data.deal.id', $deal->id)->assertJsonPath('data.from_deal.quotation_no', 'QT_DEAL_001')
+            ->assertJsonPath('data.from_deal.machine_count', 2)->assertJsonCount(1, 'data.from_deal.machines')
+            ->assertJsonPath('data.from_deal.region.name', 'Ponorogo')->assertJsonPath('data.from_deal.province.name', 'Jawa Timur')
+            ->assertJsonCount(1, 'data.candidates')->assertJsonPath('data.candidates.0.customer.id', $customer->id)
+            ->assertJsonPath('data.candidates.0.customer.products_count', 3)->assertJsonPath('data.candidates.0.match_status', 'possible')
+            ->assertJsonPath('data.allowed_actions', ['link', 'create_new']);
+        $this->assertSame(3, ServiceCustomerProduct::count());
+    }
+
+    public function test_resolving_deals_decrements_badge_and_rejects_repeat_decisions_without_duplicate_units(): void
+    {
+        [$deal, $lead, $customer] = $this->pendingDeal();
+        [$second] = $this->pendingDeal();
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        DB::table('ref_products')->insert(['id' => 1, 'name' => 'Tube product', 'product_type_id' => $type]);
+        $quote = DB::table('quotations')->insertGetId(['lead_id' => $lead->id]);
+        DB::table('quotation_items')->insert(['quotation_id' => $quote, 'product_id' => 1, 'qty' => 2]);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews/'.$deal->id.'/resolve';
+        $input = ['action' => 'link', 'customer_id' => $customer->id, 'updated_at' => $deal->updated_at->toJSON()];
+        $this->postJson($url, $input)->assertOk()->assertJsonPath('data.review_status', 'resolved')
+            ->assertJsonPath('data.service_customer_id', $customer->id)->assertJsonPath('pending_count', 1)->assertJsonPath('badge_label', '1');
+        $this->assertSame(2, ServiceCustomerProduct::count());
+        $this->postJson($url, $input)->assertConflict();
+        $this->assertSame(2, ServiceCustomerProduct::count());
+        $this->postJson('/api/aftersales/customers/deal-reviews/'.$second->id.'/resolve', ['action' => 'create_new', 'updated_at' => $second->updated_at->toJSON()])
+            ->assertOk()->assertJsonPath('data.review_status', 'resolved')->assertJsonPath('pending_count', 0)->assertJsonPath('badge_label', null)->assertJsonPath('has_pending', false);
+        $this->assertSame(2, ServiceCustomer::count());
+        $this->assertSame(2, DB::table('aftersales_customer_audits')->whereIn('action', ['lead_link', 'lead_create_new'])->count());
+    }
+
+    public function test_deal_review_disallows_skip_stale_decisions_deleted_customers_and_inactive_deals(): void
+    {
+        [$deal, $lead, $customer] = $this->pendingDeal();
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews/'.$deal->id.'/resolve';
+        $this->postJson($url, ['action' => 'skip', 'updated_at' => $deal->updated_at->toJSON()])->assertUnprocessable()->assertJsonValidationErrors('action');
+        $this->postJson($url, ['action' => 'ignore', 'updated_at' => $deal->updated_at->toJSON()])->assertConflict();
+        $this->postJson($url, ['action' => 'create_new', 'updated_at' => 'stale'])->assertConflict();
+        $customer->delete();
+        $this->postJson($url, ['action' => 'link', 'customer_id' => $customer->id, 'updated_at' => $deal->updated_at->toJSON()])->assertNotFound();
+        $lead->update(['status_id' => 1]);
+        $deal->refresh();
+        $this->postJson($url, ['action' => 'create_new', 'updated_at' => $deal->updated_at->toJSON()])->assertConflict();
+        $this->assertNull($deal->fresh()->service_customer_id);
+        $this->assertSame(0, ServiceCustomer::count());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+    }
+
+    public function test_pending_deals_refresh_matching_without_becoming_lead_updates_and_reenter_the_queue(): void
+    {
+        [$deal, $lead] = $this->pendingDeal();
+        $lead->update(['phone' => '0811440147']);
+        $deal->refresh();
+        $this->assertSame('pending_review', $deal->review_status);
+        $this->assertNull($deal->pending_changes);
+        $this->assertSame('62811440147', $deal->lead_snapshot['phone']);
+        $this->assertNotEmpty($deal->candidates);
+        $lead->update(['status_id' => 1]);
+        $this->assertSame(0, CustomerDeal::pendingReview()->count());
+        $lead->update(['status_id' => 5]);
+        $this->assertSame(1, CustomerDeal::pendingReview()->count());
+        $this->assertSame(1, CustomerDeal::count());
+        $this->assertSame(1, ServiceCustomer::count());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+    }
+
+    public function test_lead_updates_remain_separate_and_ignore_does_not_affect_pending_badge(): void
+    {
+        [$pending] = $this->pendingDeal();
+        [$linked, $lead, $customer] = $this->pendingDeal();
+        DB::transaction(fn () => app(DealConversion::class)->link($lead, $customer));
+        $lead->update(['name' => 'Updated name']);
+        $linked->refresh();
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/deal-reviews/'.$linked->id;
+        $this->getJson($url)->assertOk()->assertJsonPath('data.allowed_actions', ['apply', 'ignore']);
+        $this->postJson($url.'/resolve', ['action' => 'ignore', 'updated_at' => $linked->updated_at->toJSON()])
+            ->assertOk()->assertJsonPath('pending_count', 1)->assertJsonPath('data.pending_changes', null);
+        $this->assertSame('Pak Rusman', $customer->fresh()->name);
+        $this->assertSame(1, CustomerDeal::pendingReview()->count());
+    }
+
+    public function test_deal_review_apis_require_customer_permission(): void
+    {
+        [$deal] = $this->pendingDeal();
+        $this->actingAs($this->user(false));
+        $url = '/api/aftersales/customers/deal-reviews';
+        $this->getJson($url)->assertForbidden();
+        $this->getJson($url.'/pending-count')->assertForbidden();
+        $this->getJson($url.'/'.$deal->id)->assertForbidden();
+        $this->postJson($url.'/'.$deal->id.'/resolve', ['action' => 'create_new', 'updated_at' => $deal->updated_at->toJSON()])->assertForbidden();
+        $this->assertSame(1, CustomerDeal::pendingReview()->count());
     }
 
     private function file(array $rows): UploadedFile
