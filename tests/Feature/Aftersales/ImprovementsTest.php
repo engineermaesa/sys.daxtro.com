@@ -137,6 +137,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_10_22_100000_aftersales_improvements.php'))->up();
         (require database_path('migrations/2026_10_23_000000_optimize_aftersales_matching.php'))->up();
         (require database_path('migrations/2026_10_27_000000_add_daxtro_machine_fields.php'))->up();
+        (require database_path('migrations/2026_10_27_000100_add_machine_name_mode.php'))->up();
     }
 
     public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void
@@ -296,6 +297,126 @@ class ImprovementsTest extends TestCase
         $this->putJson('/api/aftersales/customers/products/'.$machine->id, $input)->assertForbidden();
         $this->assertTrue($machine->fresh()->is_daxtro);
         $this->assertSame(1, ServiceCustomerProduct::count());
+    }
+
+    public function test_auto_machine_creation_generates_name_and_keeps_machine_code_formula(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Generator owner']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        DB::table('ref_products')->insert(['id' => 1, 'name' => 'Tube product', 'product_type_id' => $type, 'warranty_available' => true, 'warranty_time_month' => 24]);
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'serial_number' => 'AUTO-1', 'ref_product_type_id' => $type, 'capacity' => 15,
+            'compressor' => 'Bitzer', 'refrigerant' => 'R404A',
+            'product_id' => 1, 'warranty_start' => '2026-10-27',
+        ])->assertCreated()->assertJsonPath('data.data.machine_name', 'TD150 | Bitzer R404A')
+            ->assertJsonPath('data.data.machine_name_mode', 'auto')->assertJsonPath('data.data.machine_code', 'TD 15');
+        $machine = $customer->products()->firstOrFail();
+        $this->assertSame('2028-10-27', $machine->warranty_end->toDateString());
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.machine_name_mode', 'auto');
+        // Older FE clients resend the unchanged name; auto mode must still regenerate on field changes.
+        $input = ['machine_name' => $machine->machine_name, 'serial_number' => 'AUTO-1', 'capacity' => 7];
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $this->putJson($url, $input)->assertOk()->assertJsonPath('data.data.machine_name', 'TD70 | Bitzer R404A');
+        $this->putJson($url, ['serial_number' => 'AUTO-1', 'compressor' => null, 'refrigerant' => null])
+            ->assertOk()->assertJsonPath('data.data.machine_name', 'TD70');
+        $coldRoom = DB::table('ref_product_types')->where('code_prefix', 'RD')->value('id');
+        $this->putJson($url, ['serial_number' => 'AUTO-1', 'ref_product_type_id' => $coldRoom, 'capacity' => 6])
+            ->assertOk()->assertJsonPath('data.data.machine_name', 'RD20')->assertJsonPath('data.data.machine_code', 'RD 6');
+    }
+
+    public function test_manually_edited_names_survive_driver_changes_until_auto_is_explicitly_requested(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Manual owner']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'serial_number' => 'MANUAL-1', 'ref_product_type_id' => $type, 'capacity' => 15,
+        ])->assertCreated();
+        $machine = $customer->products()->firstOrFail();
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $this->putJson($url, ['serial_number' => 'MANUAL-1', 'machine_name' => 'Customer custom name', 'capacity' => 7])
+            ->assertOk()->assertJsonPath('data.data.machine_name_mode', 'manual')->assertJsonPath('data.data.machine_name', 'Customer custom name');
+        $this->putJson($url, ['serial_number' => 'MANUAL-1', 'capacity' => 15, 'compressor' => 'Bitzer', 'refrigerant' => 'R404A'])
+            ->assertOk()->assertJsonPath('data.data.machine_name', 'Customer custom name');
+        $this->putJson($url, ['serial_number' => 'MANUAL-1', 'machine_name_mode' => 'auto', 'machine_name' => 'Stale browser name'])
+            ->assertOk()->assertJsonPath('data.data.machine_name_mode', 'auto')->assertJsonPath('data.data.machine_name', 'TD150 | Bitzer R404A');
+    }
+
+    public function test_existing_names_and_capacities_are_preserved_until_a_driver_changes(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Legacy owner']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        $machine = $customer->products()->create([
+            'machine_name' => 'Existing TD 50', 'serial_number' => 'LEGACY-NAME', 'capacity' => '50', 'ref_product_type_id' => $type,
+        ]);
+        $migration = require database_path('migrations/2026_10_27_000100_add_machine_name_mode.php');
+        $machine->delete();
+        $migration->down();
+        $migration->up();
+        $this->assertSame('Existing TD 50', $machine->fresh()->machine_name);
+        $this->assertSame('auto', $machine->fresh()->machine_name_mode);
+        $this->assertSame('50', $machine->fresh()->capacity);
+        $machine->restore();
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $this->putJson($url, ['serial_number' => 'LEGACY-NAME', 'note' => 'Only change note'])
+            ->assertOk()->assertJsonPath('data.data.machine_name', 'Existing TD 50');
+        $this->putJson($url, ['serial_number' => 'LEGACY-NAME', 'capacity' => 5])
+            ->assertOk()->assertJsonPath('data.data.machine_name', 'TD50');
+    }
+
+    public function test_manual_create_is_backward_compatible_and_non_daxtro_never_generates(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Manual owner']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id.'/products';
+        $this->postJson($url, ['machine_name' => 'Free name', 'serial_number' => 'FREE-1'])
+            ->assertCreated()->assertJsonPath('data.data.machine_name_mode', 'manual')->assertJsonPath('data.data.machine_name', 'Free name');
+        $this->postJson($url, [
+            'is_daxtro' => false, 'brand' => 'Other', 'machine_name' => 'Other chiller', 'machine_name_mode' => 'auto',
+            'ref_product_type_id' => $type, 'capacity' => 15, 'compressor' => 'Bitzer',
+        ])->assertCreated()->assertJsonPath('data.data.machine_name', 'Other chiller')->assertJsonPath('data.data.machine_name_mode', 'manual');
+        $this->postJson($url, ['is_daxtro' => false, 'brand' => 'Other', 'ref_product_type_id' => $type, 'capacity' => 15])
+            ->assertUnprocessable()->assertJsonValidationErrors('machine_name');
+    }
+
+    public function test_auto_name_requires_generator_inputs_and_failed_update_preserves_saved_state(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Validation owner']);
+        $type = DB::table('ref_product_types')->where('code_prefix', 'TD')->value('id');
+        $noPrefix = DB::table('ref_product_types')->insertGetId(['name' => 'No prefix']);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id.'/products';
+        $this->postJson($url, ['serial_number' => 'INVALID-1', 'capacity' => 15])->assertUnprocessable()->assertJsonValidationErrors('ref_product_type_id');
+        $this->postJson($url, ['serial_number' => 'INVALID-1', 'ref_product_type_id' => $type])->assertUnprocessable()->assertJsonValidationErrors('capacity');
+        $this->postJson($url, ['serial_number' => 'INVALID-1', 'ref_product_type_id' => $noPrefix, 'capacity' => 15])->assertUnprocessable()->assertJsonValidationErrors('ref_product_type_id');
+        $this->postJson($url, ['serial_number' => 'INVALID-1', 'machine_name_mode' => 'manual'])->assertUnprocessable()->assertJsonValidationErrors('machine_name');
+        $this->postJson($url, ['serial_number' => 'INVALID-1', 'machine_name_mode' => 'unknown'])->assertUnprocessable()->assertJsonValidationErrors('machine_name_mode');
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->postJson($url, ['serial_number' => 'VALID-1', 'ref_product_type_id' => $type, 'capacity' => 15])->assertCreated();
+        $machine = $customer->products()->firstOrFail();
+        $this->putJson('/api/aftersales/customers/products/'.$machine->id, ['serial_number' => 'VALID-1', 'capacity' => null])
+            ->assertUnprocessable()->assertJsonValidationErrors('capacity');
+        $this->assertSame('15', $machine->fresh()->capacity);
+        $this->assertSame('TD150', $machine->fresh()->machine_name);
+        $this->assertSame('auto', $machine->fresh()->machine_name_mode);
+    }
+
+    public function test_preview_uses_the_same_generator_without_persisting_data_and_checks_permission(): void
+    {
+        $type = DB::table('ref_product_types')->where('code_prefix', 'RD')->value('id');
+        $input = ['ref_product_type_id' => $type, 'capacity' => 6, 'compressor' => 'Copeland', 'refrigerant' => 'R22'];
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/machine-name-preview', $input)->assertOk()
+            ->assertJsonPath('data.machine_name', 'RD20 | Copeland R22')->assertJsonPath('data.machine_name_mode', 'auto');
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->postJson('/api/aftersales/customers/machine-name-preview', ['ref_product_type_id' => $type, 'capacity' => -1])
+            ->assertUnprocessable()->assertJsonValidationErrors('capacity');
+        $this->actingAs($this->user(false));
+        $this->postJson('/api/aftersales/customers/machine-name-preview', $input)->assertForbidden();
     }
 
     private function file(array $rows): UploadedFile

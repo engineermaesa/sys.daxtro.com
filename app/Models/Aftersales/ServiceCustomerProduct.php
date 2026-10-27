@@ -31,6 +31,7 @@ class ServiceCustomerProduct extends Model
         'refrigerant',
         'is_daxtro',
         'compressor',
+        'machine_name_mode',
         'condenser_type',
         'voltage',
         'phase',

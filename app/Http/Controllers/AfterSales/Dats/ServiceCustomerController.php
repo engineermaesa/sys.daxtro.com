@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Aftersales\ServiceCustomer;
 use App\Models\Aftersales\ServiceCustomerPhoneChange;
 use App\Models\Aftersales\ServiceCustomerProduct;
+use App\Services\Aftersales\MachineNames;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -298,6 +299,23 @@ class ServiceCustomerController extends Controller
         return response()->json(['data' => ['categories' => \App\Models\Masters\ProductType::orderBy('name')->get(['id', 'name', 'code_prefix']), 'industries' => \App\Models\Masters\Industry::orderBy('name')->get(['id', 'name']), 'pm_contracts' => ['none' => null, 'basic' => '6 months', 'premium' => '3 months']]]);
     }
 
+    public function machineNamePreview(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $data = $request->validate([
+            'ref_product_type_id' => 'required|integer|exists:ref_product_types,id',
+            'capacity' => 'required|numeric|min:0',
+            'compressor' => 'nullable|string|max:255',
+            'refrigerant' => 'nullable|string|max:255',
+        ]);
+        $name = MachineNames::generate(
+            \App\Models\Masters\ProductType::findOrFail($data['ref_product_type_id'])->code_prefix,
+            $data['capacity'], $data['compressor'] ?? null, $data['refrigerant'] ?? null,
+        );
+
+        return response()->json(['data' => ['machine_name' => $name, 'machine_name_mode' => 'auto']]);
+    }
+
     private function normalizeMapsInput(Request $request): void
     {
         if (! $request->exists('maps_link')) {
@@ -329,7 +347,8 @@ class ServiceCustomerController extends Controller
         $validated = $request->validate([
             'is_daxtro' => 'sometimes|required|boolean',
             'product_id' => 'nullable|integer|exists:ref_products,id',
-            'machine_name' => 'required|string|max:255',
+            'machine_name' => [Rule::requiredIf(! $isDaxtro), 'nullable', 'string', 'max:255'],
+            'machine_name_mode' => 'sometimes|required|in:auto,manual',
             'serial_number' => [Rule::excludeIf(! $isDaxtro), 'required', 'string', 'max:255'],
             'brand' => [Rule::excludeIf($isDaxtro), 'required', 'string', 'max:255'],
             'compressor' => 'nullable|string|max:255',
@@ -364,7 +383,8 @@ class ServiceCustomerController extends Controller
                 $machine = ServiceCustomerProduct::whereKey($machine->id)->lockForUpdate()->firstOrFail();
             }
             $machine ??= new ServiceCustomerProduct;
-            $machine->fill($data)->save();
+            MachineNames::apply($machine, $data);
+            $machine->save();
 
             return $machine;
         }, 3);

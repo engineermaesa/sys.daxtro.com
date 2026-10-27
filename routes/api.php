@@ -517,6 +517,7 @@ Route::group([
 
     // SERVICE CUSTOMERS + PRODUCT UNITS (API)
     Route::prefix('customers')->name('customers.')->group(function () {
+        Route::post('/machine-name-preview', [ServiceCustomerController::class, 'machineNamePreview'])->name('machine-name-preview');
         Route::get('/machine-references', [ServiceCustomerController::class, 'machineReferences'])->name('machine-references');
         Route::get('/imports/template', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'template'])->name('imports.template');
         Route::post('/imports', [\App\Http\Controllers\AfterSales\Dats\CustomerImportController::class, 'upload'])->name('imports.upload');
