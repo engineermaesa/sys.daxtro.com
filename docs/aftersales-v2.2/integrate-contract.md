@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–5 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, dan gate kontak Customer untuk tiket baru) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–6 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, dan filter Visit Date) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -496,3 +496,60 @@ Jika kontak lengkap, response sukses tetap HTTP 201 dengan objek tiket pada `dat
 3. Saat Save, tetap tangani 422 `customer_contact_incomplete`, karena data Customer dapat berubah setelah Step 1 dibuka. Jika Customer diganti, periksa ulang status Customer yang baru.
 4. `PUT /api/aftersales/tickets/{ticket}` tidak terkena gate ini, termasuk tiket existing yang Customer-nya belum memiliki Phone/Email. Jangan menonaktifkan alur Edit Ticket existing hanya karena metadata Customer menunjukkan can_create=false.
 5. Add/Edit Customer, Import Customer, dan konversi Deal tetap boleh menghasilkan kontak yang belum lengkap sesuai aturan existing; kewajiban baru ini berlaku saat membuat tiket. Tidak ada perubahan retroaktif pada tiket atau dokumen yang sudah ada.
+
+## Task 6: Filter Visit Date
+
+Meliputi bagian backend IM-92 / AC-IM28. `GET /api/aftersales/tickets` menerima parameter query baru `visit_date` untuk satu tanggal kunjungan. Tidak ada migrasi atau perubahan frontend pada task ini.
+
+### Parameter dan aturan tanggal
+
+| Parameter | Aturan |
+|---|---|
+| `visit_date` | Opsional, satu tanggal kalender dengan format tepat `YYYY-MM-DD`, misalnya `2026-10-27`. |
+| Tidak dikirim / kosong | Tidak menerapkan filter tanggal; perilaku list existing dipertahankan. |
+| Nilai invalid | HTTP 422 dengan key `errors.visit_date`: tanggal tidak valid (`2026-02-30`), format lokal (`27/10/2026`), timestamp, rentang, atau array tanggal ditolak. |
+
+Tanggal mengikuti **Asia/Jakarta (WIB)** dan jadwal yang disimpan aplikasi: mulai pukul 00:00:00 pada tanggal tersebut sampai sebelum 00:00:00 hari berikutnya. Kirim tanggal pilihan date picker apa adanya; jangan mengubahnya menjadi timestamp UTC.
+
+Filter memakai tanggal visit aktif terbaru yang sama dengan `visit_date` pada response existing, yaitu **`scheduled_at` terbesar** di antara visit yang belum soft-deleted. Bukan Created Date, SLA Due, actual_start/actual_end, atau sembarang tanggal pada Visit History. Task ini mempertahankan definisi Visit Date existing.
+
+- Jika visit awal 20 Oktober dan follow-up Recoming 27 Oktober, tiket cocok untuk `visit_date=2026-10-27`, bukan 20 Oktober.
+- Jika jadwal follow-up diubah, filter mengikuti jadwal terbaru yang tersimpan.
+- Tiket tanpa visit aktif atau dengan semua scheduled_at kosong tidak masuk hasil saat filter tanggal aktif.
+- Visit soft-deleted tidak memengaruhi pemilihan tanggal; tiket soft-deleted tetap dikecualikan.
+- Beberapa visit pada hari yang sama tidak menggandakan baris tiket.
+
+### Kombinasi filter dan pagination
+
+Filter tanggal diterapkan di database **sebelum pagination**, sehingga `total`, `current_page`, dan `last_page` mengikuti hasil filter tanggal. Digabung dengan AND bersama parameter existing: `search`, `priority[]`, `supervisor=me` atau `supervisor_id`, serta filter kategori/teknisi/Customer jika dikirim.
+
+Contoh:
+
+```http
+GET /api/aftersales/tickets?visit_date=2026-10-27&search=Rusman&priority[]=high&priority[]=medium&supervisor_id=12&per_page=15&page=1
+Accept: application/json
+```
+
+Search tetap mencari Ticket Code, nama Customer, atau nama Technician dalam satu grup OR; hasil grup tersebut digabung AND dengan filter tanggal dan lainnya. Priority tetap menerima array seperti request existing (`priority[]=high&priority[]=medium`); tidak menambahkan format comma-separated baru pada API.
+
+Response sukses tetap HTTP 200 dengan envelope existing:
+
+```json
+{
+  "status": "success",
+  "data": [],
+  "total": 0,
+  "current_page": 1,
+  "last_page": 1
+}
+```
+
+Contoh di atas adalah hasil kosong. Pada hasil berisi tiket, seluruh field existing dipertahankan, termasuk `visit_date`, `visit_no`, `current_recoming`, dan `priority`. `visit_date` pada JSON tetap timestamp dengan format existing; saat ditampilkan sebagai tanggal, FE menggunakan zona Asia/Jakarta.
+
+### Permission dan integrasi FE
+
+- Permission tetap `aftersales.tickets.manage` untuk seluruh tiket, atau `aftersales.tickets.view-own` untuk tiket teknisi sendiri. Query tanggal maupun filter assigned_technician_id tidak dapat melewati batas ownership teknisi. Tanpa permission mendapat 403.
+- FE menambahkan date picker satu tanggal dan mengirim `visit_date` pada request list. Ketika filter berubah, kembalikan page ke 1.
+- Simpan `visit_date` bersama search/Priority/Supervisor di query URL halaman, kemudian pulihkan nilainya saat reload. Penyimpanan state URL adalah tanggung jawab FE; backend membaca query pada setiap request.
+- Reset menghapus visit_date beserta filter lain dari URL dan request, lalu memuat halaman pertama. Mengirim `visit_date=` juga menghilangkan filter tanggal, tetapi tidak menghapus filter lain yang masih dikirim.
+- Backend tidak memindahkan posisi badge Priority atau mengubah layout tabel; pekerjaan tersebut tetap menjadi scope FE.
