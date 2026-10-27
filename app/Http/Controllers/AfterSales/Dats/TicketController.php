@@ -146,6 +146,8 @@ class TicketController extends Controller
         $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
         abort_unless($isManager || $ownOnly, 403);
 
+        $filters = $request->validate(['visit_date' => 'nullable|date_format:Y-m-d']);
+
         $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction']);
 
         if ($ownOnly) {
@@ -173,6 +175,14 @@ class TicketController extends Controller
 
         if ($request->filled('customer_id')) {
             $query->where('customer_id', $request->input('customer_id'));
+        }
+
+        if (! empty($filters['visit_date'])) {
+            $day = Carbon::createFromFormat('!Y-m-d', $filters['visit_date'], 'Asia/Jakarta');
+            $latestVisit = TicketVisit::query()->selectRaw('MAX(ticket_visits.scheduled_at)')
+                ->whereColumn('ticket_visits.ticket_id', 'tickets.id');
+            $query->where($latestVisit, '>=', $day->toDateTimeString())
+                ->where($latestVisit, '<', $day->copy()->addDay()->toDateTimeString());
         }
 
         if ($request->filled('search')) {

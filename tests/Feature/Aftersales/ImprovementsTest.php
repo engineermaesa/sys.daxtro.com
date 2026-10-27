@@ -924,6 +924,106 @@ class ImprovementsTest extends TestCase
         $this->assertSame(0, DB::table('document_counters')->count());
     }
 
+    private function visitDateTicket(string $code, array $dates, array $attributes = []): Ticket
+    {
+        $ticket = Ticket::create($attributes + ['ticket_code' => $code]);
+        foreach ($dates as $date) {
+            DB::table('ticket_visits')->insert(['ticket_id' => $ticket->id, 'scheduled_at' => $date]);
+        }
+
+        return $ticket;
+    }
+
+    public function test_visit_date_filter_uses_latest_active_visit_including_recoming_and_rescheduled_dates(): void
+    {
+        $this->ticketAuxiliaryTables();
+        Schema::table('ticket_recomings', function (Blueprint $table) {
+            $table->integer('visit_no')->nullable();
+            $table->timestamp('planned_visit_at')->nullable();
+            $table->string('reason')->nullable();
+            $table->string('from_step')->nullable();
+        });
+        $ticket = $this->visitDateTicket('RECOMING-DATE', ['2026-10-20 10:00:00', '2026-10-27 09:00:00']);
+        DB::table('ticket_recomings')->insert(['ticket_id' => $ticket->id, 'visit_no' => 2, 'planned_visit_at' => '2026-10-27 09:00:00']);
+        \App\Models\Aftersales\TicketLog::create(['ticket_id' => $ticket->id, 'step' => 'recoming']);
+        $this->actingAs($this->user());
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-20')->assertOk()->assertJsonPath('total', 0);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $ticket->id)->assertJsonPath('data.0.current_recoming.visit_no', 2)
+            ->assertJsonPath('data.0.visit_date', '2026-10-27T02:00:00.000000Z');
+        DB::table('ticket_visits')->where('ticket_id', $ticket->id)->where('scheduled_at', '2026-10-27 09:00:00')->update(['scheduled_at' => '2026-10-28 14:00:00']);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertOk()->assertJsonPath('total', 0);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-28')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $ticket->id);
+    }
+
+    public function test_visit_date_filter_handles_day_boundaries_missing_visits_and_soft_deletes(): void
+    {
+        $this->ticketAuxiliaryTables();
+        $start = $this->visitDateTicket('START', ['2026-10-27 00:00:00']);
+        $end = $this->visitDateTicket('END', ['2026-10-27 23:59:59']);
+        $this->visitDateTicket('PREVIOUS', ['2026-10-26 23:59:59']);
+        $this->visitDateTicket('NEXT', ['2026-10-28 00:00:00']);
+        $this->visitDateTicket('NO-DATE', [null]);
+        $this->visitDateTicket('NO-VISITS', []);
+        $deletedTicket = $this->visitDateTicket('DELETED-TICKET', ['2026-10-27 12:00:00']);
+        $deletedTicket->delete();
+        $active = $this->visitDateTicket('DELETED-LATER-VISIT', ['2026-10-27 12:00:00']);
+        DB::table('ticket_visits')->insert(['ticket_id' => $active->id, 'scheduled_at' => '2026-10-28 12:00:00', 'deleted_at' => now()]);
+        $onlyDeleted = $this->visitDateTicket('ONLY-DELETED-VISIT', ['2026-10-27 12:00:00']);
+        DB::table('ticket_visits')->where('ticket_id', $onlyDeleted->id)->update(['deleted_at' => now()]);
+        $this->actingAs($this->user());
+        $response = $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertOk()->assertJsonPath('total', 3);
+        $this->assertSame([$active->id, $end->id, $start->id], array_column($response->json('data'), 'id'));
+    }
+
+    public function test_visit_date_combines_with_search_priority_and_supervisor_before_pagination(): void
+    {
+        $this->ticketContactTables();
+        $customer = ServiceCustomer::create(['name' => 'Search customer']);
+        $attributes = ['customer_id' => $customer->id, 'priority' => 'high', 'supervisor_id' => 1];
+        $first = $this->visitDateTicket('MATCH-1', ['2026-10-27 08:00:00', '2026-10-27 10:00:00'], $attributes);
+        $second = $this->visitDateTicket('MATCH-2', ['2026-10-27 11:00:00'], array_replace($attributes, ['priority' => 'medium']));
+        $this->visitDateTicket('WRONG-PRIORITY', ['2026-10-27 11:00:00'], array_replace($attributes, ['priority' => 'low']));
+        $this->visitDateTicket('WRONG-SUPERVISOR', ['2026-10-27 11:00:00'], array_replace($attributes, ['supervisor_id' => null]));
+        $this->visitDateTicket('WRONG-DATE', ['2026-10-28 11:00:00'], $attributes);
+        $this->visitDateTicket('WRONG-SEARCH', ['2026-10-27 11:00:00'], array_replace($attributes, ['customer_id' => null]));
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/tickets?'.http_build_query(['visit_date' => '2026-10-27', 'search' => 'Search customer', 'priority' => ['high', 'medium'], 'supervisor_id' => 1, 'per_page' => 1]);
+        $this->getJson($url)->assertOk()->assertJsonPath('total', 2)->assertJsonPath('last_page', 2)
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $second->id);
+        $this->getJson($url.'&page=2')->assertOk()->assertJsonPath('total', 2)->assertJsonPath('data.0.id', $first->id);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27&search=MATCH&supervisor=me')->assertOk()->assertJsonPath('total', 2);
+    }
+
+    public function test_visit_date_filter_validates_single_iso_date_and_empty_value_resets_it(): void
+    {
+        $this->ticketAuxiliaryTables();
+        $this->visitDateTicket('DATED', ['2026-10-27 10:00:00']);
+        $this->visitDateTicket('UNDATED', []);
+        $this->actingAs($this->user());
+        foreach (['2026-02-30', '27/10/2026', '2026-10-27T00:00:00Z', '2026-10', ['2026-10-27', '2026-10-28']] as $invalid) {
+            $this->getJson('/api/aftersales/tickets?'.http_build_query(['visit_date' => $invalid]))
+                ->assertUnprocessable()->assertJsonValidationErrors('visit_date');
+        }
+        $this->getJson('/api/aftersales/tickets?search=DATE')->assertOk()->assertJsonPath('total', 2);
+        $this->getJson('/api/aftersales/tickets?search=DATE&visit_date=')->assertOk()->assertJsonPath('total', 2);
+    }
+
+    public function test_visit_date_filter_keeps_technician_ownership_and_permission_boundaries(): void
+    {
+        $this->ticketAuxiliaryTables();
+        $mine = $this->visitDateTicket('MY-VISIT', ['2026-10-27 10:00:00'], ['assigned_technician_id' => 1]);
+        $this->visitDateTicket('OTHER-VISIT', ['2026-10-27 10:00:00'], ['assigned_technician_id' => 2]);
+        $technician = Mockery::mock(User::class)->makePartial();
+        $technician->setRawAttributes(['id' => 1]);
+        $technician->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $code === 'aftersales.tickets.view-own');
+        $this->actingAs($technician);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $mine->id);
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27&assigned_technician_id=2')->assertOk()->assertJsonPath('total', 0);
+        $this->actingAs($this->user(false));
+        $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertForbidden();
+    }
+
     private function file(array $rows): UploadedFile
     {
         $book = new Spreadsheet;
