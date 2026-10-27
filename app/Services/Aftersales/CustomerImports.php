@@ -14,12 +14,15 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class CustomerImports
 {
-    public const HEADERS = ['Customer Name*', 'PIC Name', 'Phone', 'Email', 'Address', 'Google Maps Link', 'Province', 'City / Region', 'Industry', 'Machine Category*', 'Machine Name*', 'Brand', 'Capacity', 'Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract', 'Note'];
+    public const TEMPLATE_VERSION = '2.2';
+
+    public const HEADERS = ['Customer Name*', 'PIC Name', 'Phone', 'Email', 'Address', 'Google Maps Link', 'Province', 'City / Region', 'Industry', 'Daxtro Machine', 'Machine Category*', 'Machine Name', 'Brand', 'Capacity', 'Compressor', 'Refrigerant Type', 'Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract', 'Note'];
 
     public function upload(UploadedFile $file, int $userId): CustomerImport
     {
@@ -31,7 +34,8 @@ class CustomerImports
             throw ValidationException::withMessages(['file' => 'The file must be a readable .xlsx template.']);
         }
         $sheet = $book->getSheetByName('Import Customer');
-        if (! $sheet || $sheet->rangeToArray('A1:R1', null, false, false)[0] !== self::HEADERS || $sheet->getHighestDataColumn() !== 'R') {
+        $lastColumn = Coordinate::stringFromColumnIndex(count(self::HEADERS));
+        if (! $sheet || $sheet->rangeToArray('A1:'.$lastColumn.'1', null, false, false)[0] !== self::HEADERS || $sheet->getHighestDataColumn() !== $lastColumn) {
             throw ValidationException::withMessages(['file' => 'Headers must exactly match the Import Customer template.']);
         }
         $last = $sheet->getHighestDataRow();
@@ -41,7 +45,7 @@ class CustomerImports
 
         $inputs = [];
         for ($row = 2; $row <= $last; $row++) {
-            $values = $sheet->rangeToArray('A'.$row.':R'.$row, null, false, false)[0];
+            $values = $sheet->rangeToArray('A'.$row.':'.$lastColumn.$row, null, false, false)[0];
             if (count(array_filter($values, fn ($v) => $v !== null && $v !== ''))) {
                 $inputs[$row] = array_combine(self::HEADERS, $values);
             }
@@ -76,7 +80,9 @@ class CustomerImports
     {
         $serials = [];
         foreach ($inputs as $input) {
-            $serials[] = (string) ($input['Serial Number'] ?? '');
+            if (strtolower(trim((string) ($input['Daxtro Machine'] ?? ''))) !== 'no') {
+                $serials[] = (string) ($input['Serial Number'] ?? '');
+            }
         }
 
         $snapshot = MachineSerials::importSnapshot($serials);
@@ -109,18 +115,29 @@ class CustomerImports
         }
         $errors = $warnings = [];
         $get = fn ($key) => trim((string) ($input[$key] ?? ''));
-        foreach (['Customer Name*', 'Machine Category*', 'Machine Name*'] as $key) {
+        $kind = strtolower($get('Daxtro Machine'));
+        $isDaxtro = $kind !== 'no';
+        if (! in_array($kind, ['', 'yes', 'no'], true)) {
+            $errors[] = 'Daxtro Machine must be Yes, No, or empty (Yes).';
+        }
+        $required = $isDaxtro ? ['Customer Name*', 'Machine Category*', 'Capacity'] : ['Customer Name*', 'Machine Name', 'Brand'];
+        $ignored = $isDaxtro ? ['Brand'] : ['Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract'];
+        foreach ($required as $key) {
             if ($get($key) === '') {
                 $errors[] = $key.' is required.';
             }
         }
         foreach (self::HEADERS as $key) {
-            if ($get($key) === '' && ! str_ends_with($key, '*')) {
-                $warnings[] = $key.' is empty.';
+            if (in_array($key, $ignored, true)) {
+                if ($get($key) !== '') {
+                    $warnings[] = $key.' is ignored for '.($isDaxtro ? 'Daxtro' : 'non-Daxtro').' machines.';
+                }
+            } elseif ($get($key) === '' && ! in_array($key, array_merge($required, ['Daxtro Machine', 'Machine Name', 'Compressor', 'Refrigerant Type']), true)) {
+                $warnings[] = $key.' is empty.'.(in_array($key, ['Phone', 'Email'], true) ? ' Complete the customer contact before creating a new ticket.' : '');
             }
         }
-        foreach (['Customer Name*', 'PIC Name', 'Machine Name*', 'Brand', 'Serial Number'] as $key) {
-            if (mb_strlen($get($key)) > 255) {
+        foreach (['Customer Name*', 'PIC Name', 'Machine Name', 'Brand', 'Serial Number', 'Compressor', 'Refrigerant Type'] as $key) {
+            if (! in_array($key, $ignored, true) && mb_strlen($get($key)) > 255) {
                 $errors[] = $key.' exceeds 255 characters.';
             }
         }
@@ -129,6 +146,9 @@ class CustomerImports
         } catch (\InvalidArgumentException $e) {
             $phone = null;
             $errors[] = $e->getMessage();
+        }
+        if ($phone === null && $get('Phone') !== '') {
+            $warnings[] = 'Phone is empty after normalization. Complete the customer contact before creating a new ticket.';
         }
         $validator = Validator::make(['email' => $get('Email') ?: null, 'maps' => $get('Google Maps Link') ?: null], ['email' => 'nullable|email|max:255', 'maps' => ['nullable', 'max:2048', new GoogleMapsUrl]]);
         $errors = array_merge($errors, $validator->errors()->all());
@@ -151,18 +171,15 @@ class CustomerImports
             $warnings[] = 'Industry not found; it will be left empty.';
         }
         $category = $context->categoryFor($get('Machine Category*'));
-        if (! $category) {
+        if (! $category && $get('Machine Category*') !== '') {
             $errors[] = 'Machine Category was not found.';
         }
         $capacity = $get('Capacity');
-        if ($capacity !== '' && (! is_numeric($capacity) || (float) $capacity < 0)) {
+        if ($capacity !== '' && (! is_numeric($capacity) || ! is_finite((float) $capacity) || (float) $capacity < 0)) {
             $errors[] = 'Capacity must be a non-negative number in tons.';
         }
-        if ($capacity === '' && preg_match('/(?:TD|CD|BD|FD|SD|VCD|RD|RO)\s*(\d+(?:\.\d+)?)/i', $get('Machine Name*'), $m)) {
-            $capacity = $m[1];
-        }
         $start = $end = null;
-        foreach (['Warranty Start' => 'start', 'Warranty End' => 'end'] as $key => $target) {
+        foreach ($isDaxtro ? ['Warranty Start' => 'start', 'Warranty End' => 'end'] : [] as $key => $target) {
             try {
                 $$target = $this->date($input[$key] ?? null);
             } catch (\InvalidArgumentException $e) {
@@ -178,13 +195,22 @@ class CustomerImports
         if ($start && $end && $end < $start) {
             $errors[] = 'Warranty End must be on or after Warranty Start.';
         }
-        $pm = strtolower($get('PM Contract')) ?: 'none';
+        $pm = $isDaxtro ? (strtolower($get('PM Contract')) ?: 'none') : 'none';
         if (! in_array($pm, ['none', 'basic', 'premium'], true)) {
             $errors[] = 'PM Contract must be Basic, Premium, or empty.';
         }
-        $serial = CustomerMatching::serial($get('Serial Number'));
+        $serial = $isDaxtro ? CustomerMatching::serial($get('Serial Number')) : null;
+        $name = $get('Machine Name');
+        $nameMode = $isDaxtro && $name === '' ? 'auto' : 'manual';
+        if ($nameMode === 'auto' && $category && $capacity !== '') {
+            try {
+                $name = MachineNames::generate($category->code_prefix, $capacity, $get('Compressor'), $get('Refrigerant Type'));
+            } catch (ValidationException $e) {
+                $errors = array_merge($errors, $e->validator->errors()->all());
+            }
+        }
         $data = ['name' => $get('Customer Name*'), 'pic_name' => $get('PIC Name') ?: null, 'phone' => $phone, 'email' => $get('Email') ?: null, 'address' => $get('Address') ?: null, 'address_maps_url' => $get('Google Maps Link') ?: null, 'ref_province_id' => $province?->id, 'ref_region_id' => $region?->id];
-        $machine = ['product_id' => null, 'machine_name' => $get('Machine Name*'), 'ref_product_type_id' => $category?->id, 'industry_id' => $industry?->id, 'brand' => $get('Brand') ?: null, 'capacity' => $capacity === '' ? null : $capacity, 'serial_number' => $serial, 'warranty_start' => $start, 'warranty_end' => $end, 'pm_contract_status' => $pm, 'note' => $get('Note') ?: null];
+        $machine = ['product_id' => null, 'is_daxtro' => $isDaxtro, 'machine_name' => $name, 'machine_name_mode' => $nameMode, 'ref_product_type_id' => $category?->id, 'industry_id' => $industry?->id, 'brand' => $isDaxtro ? null : ($get('Brand') ?: null), 'capacity' => $capacity === '' ? null : $capacity, 'compressor' => $get('Compressor') ?: null, 'refrigerant' => $get('Refrigerant Type') ?: null, 'serial_number' => $serial, 'warranty_start' => $start, 'warranty_end' => $end, 'pm_contract_status' => $pm, 'note' => $get('Note') ?: null];
         $candidates = array_merge($context->matches->candidates($data), $context->prior->candidates($data));
         for ($i = 0; $i < ($context->priorSerialCounts[$serial] ?? 0); $i++) {
             $warnings[] = 'Serial repeated in this file: one machine, last applied row owns it; earliest warranty is preserved.';
@@ -201,7 +227,7 @@ class CustomerImports
         }
         $status = $existingSerial && ! $keepMachineArchived ? 'already_exists' : ($targets->count() === 1 ? 'exact' : ($candidates ? 'possible' : 'new'));
 
-        return ['status' => $errors ? 'error' : $status, 'errors' => $errors, 'warnings' => $warnings, 'customer' => $data, 'machine' => $machine, 'candidates' => $candidates, 'keep_machine_archived' => (bool) $keepMachineArchived];
+        return ['template_version' => self::TEMPLATE_VERSION, 'status' => $errors ? 'error' : $status, 'errors' => array_values(array_unique($errors)), 'warnings' => $warnings, 'customer' => $data, 'machine' => $machine, 'candidates' => $candidates, 'keep_machine_archived' => (bool) $keepMachineArchived];
     }
 
     public function date(mixed $value): ?string
@@ -252,6 +278,7 @@ class CustomerImports
             }
             abort_unless($batch->lock_version === $version, 409, 'Review changed. Reload before Apply.');
             $rows = $batch->rows()->orderBy('row_number')->lockForUpdate()->get();
+            abort_if($rows->contains(fn ($row) => ($row->review['template_version'] ?? null) !== self::TEMPLATE_VERSION), 409, 'The import template changed. Upload the latest Customer template and review again.');
             foreach ($rows as $row) {
                 if ($row->review['status'] === 'possible' && ! $row->decision) {
                     throw ValidationException::withMessages(['rows' => 'Resolve all Possible matches before Apply (row '.$row->row_number.').']);

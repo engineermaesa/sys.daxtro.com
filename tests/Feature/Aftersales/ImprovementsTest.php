@@ -419,6 +419,204 @@ class ImprovementsTest extends TestCase
         $this->postJson('/api/aftersales/customers/machine-name-preview', $input)->assertForbidden();
     }
 
+    public function test_import_v22_generates_daxtro_names_and_persists_manual_or_auto_modes(): void
+    {
+        $batch = $this->upload([
+            ['Daxtro Machine' => '', 'Machine Name' => '', 'Capacity' => '15', 'Compressor' => 'Bitzer', 'Refrigerant Type' => 'R404A', 'Brand' => 'Ignored'],
+            ['Daxtro Machine' => 'yEs', 'Machine Category*' => 'Cold Room', 'Machine Name' => '', 'Capacity' => '6'],
+            ['Machine Name' => 'Custom Tube unit', 'Capacity' => '7.25'],
+        ]);
+        $rows = $batch->rows()->orderBy('row_number')->get();
+        $this->assertSame(['TD150 | Bitzer R404A', 'RD20', 'Custom Tube unit'], $rows->pluck('review.machine.machine_name')->all());
+        $this->assertSame(['auto', 'auto', 'manual'], $rows->pluck('review.machine.machine_name_mode')->all());
+        $this->assertNull($rows[0]->review['machine']['brand']);
+        $this->assertSame(CustomerImports::TEMPLATE_VERSION, $rows[0]->review['template_version']);
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->assertSame(0, ServiceCustomer::count());
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $machines = ServiceCustomerProduct::orderBy('id')->get();
+        $this->assertTrue($machines[0]->is_daxtro);
+        $this->assertSame('TD150 | Bitzer R404A', $machines[0]->machine_name);
+        $this->assertSame('auto', $machines[0]->machine_name_mode);
+        $this->assertSame('Bitzer', $machines[0]->compressor);
+        $this->assertSame('R404A', $machines[0]->refrigerant);
+        $this->assertSame('RD20', $machines[1]->machine_name);
+        $this->assertSame('manual', $machines[2]->machine_name_mode);
+        $this->assertSame('7.25', $machines[2]->capacity);
+        $this->assertNull($machines[0]->product_id);
+    }
+
+    public function test_import_non_daxtro_ignores_hidden_values_and_never_matches_or_merges_serials(): void
+    {
+        $owner = ServiceCustomer::create(['name' => 'Other owner']);
+        $owner->products()->create(['machine_name' => 'Existing Daxtro', 'serial_number' => 'SAME']);
+        $input = [
+            'Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Machine Name' => 'Other chiller',
+            'Machine Category*' => '', 'Capacity' => '', 'Serial Number' => 'SAME',
+            'Warranty Start' => 'invalid date', 'Warranty End' => 'not a date', 'PM Contract' => 'bad value',
+            'Compressor' => 'Copeland', 'Refrigerant Type' => 'R22',
+        ];
+        $batch = $this->upload([$input, $input]);
+        foreach ($batch->rows as $row) {
+            $this->assertNotSame('error', $row->review['status']);
+            $this->assertNotSame('already_exists', $row->review['status']);
+            $this->assertSame([], $row->review['errors']);
+            $this->assertFalse($row->review['machine']['is_daxtro']);
+            $this->assertSame('manual', $row->review['machine']['machine_name_mode']);
+            foreach (['serial_number', 'warranty_start', 'warranty_end', 'ref_product_type_id', 'capacity'] as $key) {
+                $this->assertNull($row->review['machine'][$key]);
+            }
+            $warnings = implode(' ', $row->review['warnings']);
+            foreach (['Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract'] as $field) {
+                $this->assertStringContainsString($field.' is ignored for non-Daxtro machines.', $warnings);
+            }
+            $this->assertStringNotContainsString('Serial repeated', $warnings);
+        }
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame(3, ServiceCustomerProduct::count());
+        foreach (ServiceCustomerProduct::where('is_daxtro', false)->get() as $machine) {
+            $this->assertSame('Brand X', $machine->brand);
+            $this->assertSame('Other chiller', $machine->machine_name);
+            $this->assertSame('Copeland', $machine->compressor);
+            $this->assertSame('R22', $machine->refrigerant);
+            $this->assertNull($machine->serial_number);
+            $this->assertNull($machine->warranty_active);
+            $this->assertSame('none', $machine->pm_contract_status);
+        }
+    }
+
+    public function test_import_v22_conditional_requirements_and_numeric_validation_become_row_errors(): void
+    {
+        $batch = $this->upload([
+            ['Capacity' => '', 'Machine Name' => 'TD50'],
+            ['Machine Category*' => ''],
+            ['Daxtro Machine' => 'No', 'Machine Name' => '', 'Brand' => 'Brand X'],
+            ['Daxtro Machine' => 'No', 'Brand' => ''],
+            ['Daxtro Machine' => 'Maybe'],
+            ['Capacity' => 'not a number'],
+            ['Capacity' => '-1'],
+            ['Capacity' => '1e309'],
+            ['Compressor' => str_repeat('X', 256)],
+            ['Refrigerant Type' => str_repeat('X', 256)],
+            ['Machine Name' => '', 'Compressor' => str_repeat('X', 250), 'Refrigerant Type' => 'R404A'],
+        ]);
+        $this->assertSame(11, $batch->rows()->where('review->status', 'error')->count());
+        $rows = $batch->rows()->orderBy('row_number')->get();
+        $this->assertContains('Capacity is required.', $rows[0]->review['errors']);
+        $this->assertNull($rows[0]->review['machine']['capacity']);
+        $this->assertContains('Machine Category* is required.', $rows[1]->review['errors']);
+        $this->assertContains('Machine Name is required.', $rows[2]->review['errors']);
+        $this->assertContains('Brand is required.', $rows[3]->review['errors']);
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame(0, ServiceCustomer::count());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->assertSame(11, $batch->fresh()->error_count);
+    }
+
+    public function test_missing_contact_is_warning_and_daxtro_serial_can_be_empty_during_import(): void
+    {
+        $batch = $this->upload([['Phone' => '', 'Email' => '', 'Serial Number' => '', 'Machine Name' => '', 'Capacity' => '7']]);
+        $review = $batch->rows->first()->review;
+        $this->assertSame('new', $review['status']);
+        $this->assertSame([], $review['errors']);
+        $this->assertStringContainsString('Phone is empty.', implode(' ', $review['warnings']));
+        $this->assertStringContainsString('Email is empty.', implode(' ', $review['warnings']));
+        $this->assertStringContainsString('before creating a new ticket', implode(' ', $review['warnings']));
+        $this->assertSame(1, app(CustomerImports::class)->payload($batch)['summary']['warning']);
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame('TD70', ServiceCustomerProduct::firstOrFail()->machine_name);
+        $this->assertNull(ServiceCustomerProduct::firstOrFail()->serial_number);
+        $this->assertNull(ServiceCustomer::firstOrFail()->phone);
+        $this->assertNull(ServiceCustomer::firstOrFail()->email);
+    }
+
+    public function test_v22_review_can_change_machine_type_and_regenerates_preview_from_corrected_input(): void
+    {
+        $this->actingAs($this->user());
+        $batch = $this->upload([['Machine Name' => '', 'Capacity' => '15']]);
+        $row = $batch->rows()->first();
+        $url = '/api/aftersales/customers/imports/'.$batch->id;
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Capacity' => '7', 'Compressor' => 'Bitzer', 'Refrigerant Type' => 'R404A']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.machine.machine_name', 'TD70 | Bitzer R404A');
+        $this->putJson($url.'/review', ['lock_version' => 1, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Machine Name' => 'Manual chiller']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.machine.is_daxtro', false)
+            ->assertJsonPath('data.rows.0.review.machine.serial_number', null)->assertJsonPath('data.rows.0.review.machine.machine_name_mode', 'manual');
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->postJson($url.'/apply', ['lock_version' => 2])->assertOk();
+        $machine = ServiceCustomerProduct::firstOrFail();
+        $this->assertFalse($machine->is_daxtro);
+        $this->assertSame('Manual chiller', $machine->machine_name);
+    }
+
+    public function test_downloaded_v22_template_matches_parser_and_documents_legacy_capacity_conversion(): void
+    {
+        $this->actingAs($this->user());
+        $response = $this->get('/api/aftersales/customers/imports/template')->assertOk();
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($response->baseResponse->getFile()->getPathname());
+        $this->assertSame(['Import Customer', 'Guide', 'Reference'], $book->getSheetNames());
+        $sheet = $book->getSheetByName('Import Customer');
+        $this->assertSame(CustomerImports::HEADERS, $sheet->rangeToArray('A1:U1', null, false, false)[0]);
+        $this->assertSame('@', $sheet->getStyle('C2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('@', $sheet->getStyle('Q2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('"Yes,No"', $sheet->getDataValidation('J2')->getFormula1());
+        $guide = implode(' ', array_column($book->getSheetByName('Guide')->toArray(), 0));
+        $this->assertStringContainsString('dibagi 10', $guide);
+        $this->assertStringContainsString('dikali 3', $guide);
+        $this->assertStringContainsString('TD50', $guide);
+        $this->assertStringContainsString('VCD20', $guide);
+        $this->assertStringNotContainsString('Machine Code dibuat otomatis', $guide);
+        $book->disconnectWorksheets();
+        $path = $response->baseResponse->getFile()->getPathname();
+        $batch = app(CustomerImports::class)->upload(new UploadedFile($path, 'template.xlsx', null, null, true), 1);
+        $this->assertSame(2, $batch->rows()->count());
+        $this->assertSame(0, app(CustomerImports::class)->payload($batch)['summary']['error']);
+    }
+
+    public function test_legacy_headers_and_unapplied_legacy_reviews_cannot_bypass_v22_rules(): void
+    {
+        $file = $this->file([[]]);
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+        $sheet = $book->getActiveSheet();
+        $sheet->removeColumn('J');
+        $sheet->removeColumn('N', 2);
+        $sheet->setCellValue('K1', 'Machine Name*');
+        (new Xlsx($book))->save($file->getRealPath());
+        try {
+            app(CustomerImports::class)->upload($file, 1);
+            $this->fail('Old templates must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('file', $exception->errors());
+        }
+        $batch = $this->upload([[]]);
+        $row = $batch->rows()->first();
+        $review = $row->review;
+        unset($review['template_version']);
+        $row->update(['review' => $review]);
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/imports/'.$batch->id.'/apply', ['lock_version' => 0])->assertConflict();
+        $this->assertSame(0, ServiceCustomer::count());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->assertSame('review', $batch->fresh()->status);
+    }
+
+    public function test_v22_export_contains_new_input_columns_and_errors_without_creating_machines(): void
+    {
+        $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => '']]);
+        $this->actingAs($this->user());
+        $response = $this->get('/api/aftersales/customers/imports/'.$batch->id.'/export')->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'v22-review');
+        $this->beforeApplicationDestroyed(fn () => @unlink($path));
+        file_put_contents($path, $response->streamedContent());
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $sheet = $book->getActiveSheet();
+        $this->assertSame('Daxtro Machine', $sheet->getCell('J1')->getValue());
+        $this->assertSame('Compressor', $sheet->getCell('O1')->getValue());
+        $this->assertSame('Refrigerant Type', $sheet->getCell('P1')->getValue());
+        $this->assertStringContainsString('Brand is required.', $sheet->getCell('X2')->getValue());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $book->disconnectWorksheets();
+    }
+
     private function file(array $rows): UploadedFile
     {
         $book = new Spreadsheet;
@@ -426,7 +624,7 @@ class ImprovementsTest extends TestCase
         $sheet->setTitle('Import Customer');
         $sheet->fromArray(CustomerImports::HEADERS, null, 'A1');
         foreach ($rows as $i => $row) {
-            $input = array_replace(['Customer Name*' => 'Mr Rusman', 'Phone' => '0811440149', 'Province' => 'Jawa Timur', 'City / Region' => 'Ponorogo', 'Machine Category*' => 'Tube', 'Machine Name*' => 'TD 50', 'Serial Number' => 'SN-'.$i, 'Warranty Start' => '27-Des-25'], $row);
+            $input = array_replace(['Customer Name*' => 'Mr Rusman', 'Phone' => '0811440149', 'Province' => 'Jawa Timur', 'City / Region' => 'Ponorogo', 'Machine Category*' => 'Tube', 'Machine Name' => 'TD 50', 'Capacity' => '5', 'Serial Number' => 'SN-'.$i, 'Warranty Start' => '27-Des-25'], $row);
             foreach (CustomerImports::HEADERS as $j => $key) {
                 $sheet->setCellValueExplicit([$j + 1, $i + 2], (string) ($input[$key] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
             }
@@ -496,7 +694,7 @@ class ImprovementsTest extends TestCase
         $this->assertSame(3, ServiceCustomerProduct::count());
         $machine = ServiceCustomerProduct::first();
         $this->assertSame('2025-12-27', $machine->warranty_start->toDateString());
-        $this->assertSame('TD 50', $machine->machine_code);
+        $this->assertSame('TD 5', $machine->machine_code);
         app(CustomerImports::class)->apply($batch, 0, 1);
         $this->assertSame(3, ServiceCustomerProduct::count());
         $again = $this->upload([[]]);
@@ -835,7 +1033,7 @@ class ImprovementsTest extends TestCase
     {
         $rows = [];
         for ($i = 0; $i < 276; $i++) {
-            $rows[] = ['Serial Number' => 'LEGACY-'.$i];
+            $rows[] = ['Serial Number' => 'LEGACY-'.$i, 'Machine Name' => ''];
         }
         [$batch, $uploadQueries] = $this->measureQueries(fn () => $this->upload($rows));
         foreach (['ref_provinces', 'ref_regions', 'ref_industries', 'ref_product_types', 'service_customers', 'leads', 'service_customer_products', 'customer_import_rows'] as $table) {

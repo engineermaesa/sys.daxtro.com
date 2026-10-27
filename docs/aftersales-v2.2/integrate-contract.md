@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin) dan task 2 (Generator Machine Name) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin), task 2 (Generator Machine Name), dan task 3 (Import Customer) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -14,7 +14,7 @@ Dokumen khusus integrasi backend v2.2. Task 1 (jenis mesin) dan task 2 (Generato
 
 ## Task 1: Mesin Daxtro dan non-Daxtro
 
-Scope bagian ini: penyimpanan, validasi, response mesin, dan matching serial (IM-74–76, IM-79–80, IM-82–83). Ketentuan Machine Name diperluas pada task 2 di bawah. Template Import Customer v2.2 dan perubahan tampilan/PDF dikerjakan pada task berikutnya.
+Scope bagian ini: penyimpanan, validasi, response mesin, dan matching serial (IM-74–76, IM-79–80, IM-82–83). Ketentuan Machine Name diperluas pada task 2, dan Import Customer pada task 3 di bawah. Perubahan tampilan/PDF dikerjakan pada task berikutnya.
 
 ### Endpoint dan akses
 
@@ -112,7 +112,7 @@ Gunakan key `errors` untuk pemetaan ke input; teks pesan validasi dapat mengikut
 
 ## Task 2: Generator Machine Name
 
-Meliputi IM-77–78 dan perlindungan data existing pada IM-82. Generator berjalan pada endpoint Add/Edit Machine yang sama, melalui service `MachineNames` yang dapat dipakai kembali pada task Import Customer. Import Customer v2.2 belum diubah pada task ini.
+Meliputi IM-77–78 dan perlindungan data existing pada IM-82. Generator berjalan pada endpoint Add/Edit Machine yang sama, melalui service `MachineNames` yang juga dipakai oleh Import Customer pada task 3.
 
 ### Rumus dan format
 
@@ -202,3 +202,117 @@ Validasi generator mengembalikan 422 dengan key `errors.ref_product_type_id` jik
 3. Ketika pengguna mengedit nama secara manual, ubah mode lokal ke manual dan hentikan auto-fill.
 4. Saat Save, kirim mode secara eksplisit. Mode auto membuat backend menghitung ulang; mode manual mempertahankan nama pengguna. Mengirim hasil preview sebagai nama tanpa mode pada Add dianggap input manual.
 5. Jika menyediakan aksi kembali ke nama otomatis, kirim `machine_name_mode: auto` untuk mengaktifkan generator kembali.
+
+## Task 3: Pembaruan Import Customer
+
+Meliputi IM-84–85 dan penerapan aturan mesin task 1–2 pada import. Endpoint existing dipertahankan; template baru dan payload review diperluas. Tidak ada perubahan frontend pada task ini.
+
+### Endpoint dan alur
+
+Semua endpoint memerlukan login dan permission `masters.service-customers`. Untuk batch existing, hanya uploader yang dapat membaca, mengoreksi, Apply, dan export (pengguna lain mendapat 403). Mutasi memerlukan CSRF.
+
+| Method | Endpoint | Request / hasil |
+|---|---|---|
+| GET | `/api/aftersales/customers/imports/template` | Binary `.xlsx` terbaru; gunakan blob/Content-Disposition untuk download. |
+| POST | `/api/aftersales/customers/imports` | Multipart FormData field `file`, `.xlsx` maksimal 20 MB dan 5000 baris data; HTTP 201. Jangan set multipart boundary secara manual. |
+| GET | `/api/aftersales/customers/imports/{import}` | Baca batch, summary, dan seluruh row review; HTTP 200. |
+| PUT | `/api/aftersales/customers/imports/{import}/review` | JSON `lock_version` dan `rows[]` koreksi/keputusan; HTTP 200, lock_version bertambah. |
+| POST | `/api/aftersales/customers/imports/{import}/apply` | JSON `lock_version` terbaru; HTTP 200. Apply ulang batch yang sudah applied tidak membuat data ganda. |
+| GET | `/api/aftersales/customers/imports/{import}/export` | Binary Excel review semua baris beserta status, errors, warnings, keputusan, dan result. FE dapat menggunakannya sebagai Download Error/Review File. |
+
+Response JSON pada Upload/Show/Review/Apply berbentuk `{ "data": { "import": {...}, "summary": {...}, "rows": [...] } }`, bukan envelope mutasi mesin `data.data`. Upload dan review hanya menyimpan staging/log import; Customer dan mesin belum dimutasi sampai Apply.
+
+### Template v2.2 dan perubahan header
+
+File download memiliki tiga sheet: `Import Customer`, `Guide`, dan `Reference`. Data dibaca dari `Import Customer`, header di baris 1. Urutan dan nama header harus tepat; file lama atau tambahan kolom data ditolak 422 dengan `errors.file`.
+
+```text
+Customer Name* | PIC Name | Phone | Email | Address | Google Maps Link |
+Province | City / Region | Industry | Daxtro Machine | Machine Category* |
+Machine Name | Brand | Capacity | Compressor | Refrigerant Type |
+Serial Number | Warranty Start | Warranty End | PM Contract | Note
+```
+
+Jumlah kolom menjadi 21 (A–U). `Machine Name*` lama diganti `Machine Name` karena wajibnya kondisional. `Machine Category*` tetap nama header literal; kewajibannya mengikuti jenis mesin di bawah. Sheet Guide/Reference merupakan bantuan pengisian, bukan sumber master database. Kedua baris contoh berwarna biru harus dihapus atau diganti sebelum upload.
+
+| Kolom | Aturan v2.2 |
+|---|---|
+| `Daxtro Machine` | `Yes`/`No`, tidak peka huruf besar/kecil, spasi luar diabaikan. Kosong = Yes. Nilai selain itu menjadi Error baris. Ini teks Excel, berbeda dari boolean JSON `is_daxtro` pada API mesin. |
+| `Customer Name*` | Wajib di semua baris. |
+| `Machine Category*` | Wajib pada Yes; harus cocok dengan master kategori. Pada No boleh kosong, tetapi jika diisi tetap harus cocok dengan master. |
+| `Capacity` | Wajib pada Yes, termasuk bila Machine Name manual diisi. Pada No opsional. Jika diisi: angka finite >= 0 dalam ton, boleh pecahan. |
+| `Machine Name` | Yes: opsional; kosong dibuat oleh generator task 2 dan mode auto. Jika diisi dipertahankan sebagai manual. No: wajib dan selalu manual. |
+| `Brand` | Wajib pada No. Pada Yes diabaikan dan menghasilkan Warning jika diisi; tidak disimpan. |
+| `Compressor`, `Refrigerant Type` | Teks bebas opsional, maksimal 255 karakter per field. Disimpan sebagai `compressor` dan `refrigerant`. |
+| `Serial Number` | Pada Yes boleh kosong; normalisasi/matching serial tetap berlaku. Pada No diabaikan dan menghasilkan Warning jika diisi; tidak digunakan untuk duplicate/matching/transfer mesin. |
+| `Warranty Start`, `Warranty End`, `PM Contract` | Pada No diabaikan dan menghasilkan Warning jika diisi, termasuk tanggal/PM yang tidak valid. Pada Yes mengikuti aturan tanggal dan PM existing. |
+| `Phone`, `Email` | Kosong menjadi Warning, tidak memblokir import. Nomor placeholder yang menjadi kosong setelah normalisasi juga diberi Warning. Nilai terisi yang tidak valid tetap Error sesuai validasi existing. |
+
+Matching Customer (Exact/Possible/New), normalisasi telepon, master lokasi/Industry, tanggal Indonesia, pemindahan serial Daxtro dalam file, dan Already exists tetap mengikuti mekanisme existing. `product_id` mesin hasil import tetap null. Serial existing pada Customer aktif dilewati tanpa update; mesin pada Customer terhapus tetap archived sesuai Warning `keep_machine_archived`.
+
+Tidak ada fallback Capacity dari angka pada nama mesin lagi. Konversi data lama dilakukan sebelum upload: TD/CD/BD/FD/SD/RO dibagi 10; RD/VCD dibagi 10 lalu dikali 3. Contoh `TD50` → Capacity `5`, `RD20`/`VCD20` → Capacity `6`. Kapasitas kosong pada Yes tetap Error walaupun nama berisi kode. Import tidak melakukan perbaikan massal kapasitas mesin existing.
+
+### Payload review untuk FE
+
+`rows[].input` menggunakan nama header Excel terbaru di atas, sedangkan `rows[].review.machine` memakai nama field backend. Contoh potongan row Daxtro dengan nama otomatis:
+
+```json
+{
+  "id": 101,
+  "row_number": 2,
+  "input": {
+    "Daxtro Machine": "Yes",
+    "Machine Category*": "Tube",
+    "Machine Name": "",
+    "Capacity": "15",
+    "Compressor": "Bitzer",
+    "Refrigerant Type": "R404A"
+  },
+  "review": {
+    "template_version": "2.2",
+    "status": "new",
+    "errors": [],
+    "warnings": ["Email is empty. Complete the customer contact before creating a new ticket."],
+    "machine": {
+      "product_id": null,
+      "is_daxtro": true,
+      "machine_name": "TD150 | Bitzer R404A",
+      "machine_name_mode": "auto",
+      "capacity": "15",
+      "compressor": "Bitzer",
+      "refrigerant": "R404A",
+      "brand": null
+    }
+  }
+}
+```
+
+Contoh ini hanya memuat field relevan; response juga memuat data Customer, candidates, keputusan/result, dan field mesin lainnya. Pada No, review menyediakan `is_daxtro=false`, `machine_name_mode=manual`, serial/warranty null, dan `pm_contract_status=none`. Pada mesin tersimpan, `warranty_active=null` serta `pm_frequency=null` mengikuti task 1.
+
+`review.status` tetap salah satu `new`, `exact`, `possible`, `already_exists`, `error`. **Warning merupakan array terpisah**, bukan status baru. `summary.warning` menghitung jumlah row yang memiliki Warning, bukan jumlah pesan; satu row dapat masuk hitungan status sekaligus Warning. Baris Error tetap dikembalikan dalam response upload HTTP 201, ditandai di review, dan tidak diterapkan saat Apply. Header/file invalid ditolak pada level request (422).
+
+### Koreksi review dan Apply
+
+Contoh koreksi menggunakan ID row staging (`rows[].id`), bukan `row_number`:
+
+```json
+{
+  "lock_version": 0,
+  "rows": [{
+    "id": 101,
+    "input": {
+      "Capacity": "7",
+      "Compressor": "Bitzer",
+      "Refrigerant Type": "R404A"
+    }
+  }]
+}
+```
+
+Koreksi memakai label header persis (misalnya `Daxtro Machine`, bukan `is_daxtro`). Backend menghitung ulang review beserta nama hasil generator. Selama `input["Machine Name"]` kosong, generator mengikuti koreksi empat field pembentuk nama. Jangan menyalin nama hasil `review.machine.machine_name` ke input tersebut kecuali pengguna memang ingin menyimpannya sebagai manual. Jika ingin kembali otomatis, kosongkan `input["Machine Name"]`; tidak ada kolom input `machine_name_mode` pada template import.
+
+Possible match harus diberi keputusan sebelum Apply melalui `decision.action`: `link`, `create_new`, atau `skip`. Link memakai tepat satu target `customer_id`, `lead_id`, atau `row_id` (row sebelumnya pada batch yang sama). Gunakan struktur keputusan existing. Review dapat membatalkan keputusan sebelumnya ketika data baris berubah, sehingga FE perlu membaca ulang payload response terbaru.
+
+Apply memakai `{ "lock_version": 1 }` sesuai versi terbaru. Lock version usang atau review lama tanpa `template_version=2.2` mendapat 409; batch lama yang belum diterapkan perlu diunggah ulang dengan template terbaru atau direview ulang memakai field v2.2 yang benar. Batch lama yang sudah applied tetap idempotent. Tidak ada migrasi schema baru pada task ini.
+
+Export memuat seluruh 21 kolom input ditambah Row/Status/Errors/Warnings/Decision/Result. File export bukan template upload karena memiliki kolom metadata; salin data koreksi ke template terbaru untuk upload ulang.

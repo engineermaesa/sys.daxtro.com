@@ -33,7 +33,7 @@ class CustomerImportContext
             }
         }
         $this->categories = [];
-        foreach (ProductType::get(['id', 'name']) as $type) {
+        foreach (ProductType::get(['id', 'name', 'code_prefix']) as $type) {
             $this->categories[self::category($type->name)] ??= $type;
         }
     }
