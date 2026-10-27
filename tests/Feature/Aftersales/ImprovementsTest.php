@@ -136,6 +136,166 @@ class ImprovementsTest extends TestCase
         DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => 1, 'type' => 'rating', 'value_number' => 4]);
         (require database_path('migrations/2026_10_22_100000_aftersales_improvements.php'))->up();
         (require database_path('migrations/2026_10_23_000000_optimize_aftersales_matching.php'))->up();
+        (require database_path('migrations/2026_10_27_000000_add_daxtro_machine_fields.php'))->up();
+    }
+
+    public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void
+    {
+        $migration = require database_path('migrations/2026_10_27_000000_add_daxtro_machine_fields.php');
+        $migration->down();
+        $customer = ServiceCustomer::create(['name' => 'Legacy owner']);
+        foreach ([null, now()] as $deletedAt) {
+            DB::table('service_customer_products')->insert([
+                'customer_id' => $customer->id, 'machine_name' => 'Existing TD 50',
+                'capacity' => '50', 'brand' => 'Legacy brand', 'serial_number' => 'LEGACY',
+                'warranty_start' => '2026-01-01', 'warranty_end' => '2027-01-01', 'deleted_at' => $deletedAt,
+            ]);
+        }
+        $migration->up();
+        foreach (ServiceCustomerProduct::withTrashed()->get() as $machine) {
+            $this->assertTrue($machine->is_daxtro);
+            $this->assertNull($machine->compressor);
+            $this->assertSame('Existing TD 50', $machine->machine_name);
+            $this->assertSame('50', $machine->capacity);
+            $this->assertSame('Legacy brand', $machine->brand);
+            $this->assertSame('LEGACY', $machine->serial_number);
+            $this->assertSame('2027-01-01', $machine->warranty_end->toDateString());
+        }
+    }
+
+    public function test_manual_daxtro_create_defaults_type_and_returns_compressor_and_refrigerant(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $this->actingAs($this->user());
+        $response = $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'machine_name' => 'Existing custom name', 'serial_number' => ' sn - 22 ',
+            'brand' => 'Ignored', 'compressor' => 'Bitzer', 'refrigerant' => 'R404A', 'capacity' => 7.5,
+            'warranty_start' => '2026-10-27', 'pm_contract_status' => 'basic',
+        ])->assertCreated()->assertJsonPath('data.data.is_daxtro', true)
+            ->assertJsonPath('data.data.brand', null)->assertJsonPath('data.data.compressor', 'Bitzer')
+            ->assertJsonPath('data.data.refrigerant', 'R404A')->assertJsonPath('data.data.serial_number', 'SN-22');
+        $machine = $customer->products()->firstOrFail();
+        $this->assertSame('Existing custom name', $machine->machine_name);
+        $this->assertSame('2027-10-27', $machine->warranty_end->toDateString());
+        $this->assertSame('6 months', $machine->pm_frequency);
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.is_daxtro', true)->assertJsonPath('data.products.0.compressor', 'Bitzer');
+    }
+
+    public function test_non_daxtro_create_ignores_hidden_fields_and_requires_no_category_capacity_or_serial(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
+            'is_daxtro' => false, 'machine_name' => 'Other chiller', 'brand' => 'Other Brand',
+            'serial_number' => ['invalid hidden value'], 'warranty_start' => 'invalid', 'warranty_end' => 'invalid',
+            'warranty_period' => '99 Years', 'pm_contract_status' => 'invalid', 'pm_frequency' => 'monthly',
+        ])->assertCreated()->assertJsonPath('data.data.is_daxtro', false)
+            ->assertJsonPath('data.data.brand', 'Other Brand')->assertJsonPath('data.data.serial_number', null)
+            ->assertJsonPath('data.data.warranty_active', null)->assertJsonPath('data.data.warranty_end', null)
+            ->assertJsonPath('data.data.pm_contract_status', 'none')->assertJsonPath('data.data.pm_frequency', null);
+        $machine = $customer->products()->firstOrFail();
+        $this->assertNull($machine->warranty_period);
+        $this->assertNull($machine->warranty_start);
+        $this->assertNull($machine->getRawOriginal('normalized_serial'));
+        $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()
+            ->assertJsonPath('data.products.0.is_daxtro', false)->assertJsonPath('data.products.0.warranty_active', null);
+    }
+
+    public function test_machine_type_and_conditional_required_fields_are_validated(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id.'/products';
+        $this->postJson($url, ['is_daxtro' => false])->assertUnprocessable()->assertJsonValidationErrors(['brand', 'machine_name']);
+        foreach ([[], ['is_daxtro' => true], ['is_daxtro' => '1']] as $input) {
+            $this->postJson($url, $input + ['machine_name' => 'Daxtro'])->assertUnprocessable()->assertJsonValidationErrors('serial_number');
+        }
+        foreach (['yes', null, 2] as $invalid) {
+            $this->postJson($url, ['is_daxtro' => $invalid, 'machine_name' => 'Machine', 'brand' => 'Brand', 'serial_number' => 'SN'])
+                ->assertUnprocessable()->assertJsonValidationErrors('is_daxtro');
+        }
+        $this->postJson($url, ['is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand', 'capacity' => -1, 'compressor' => str_repeat('x', 256)])
+            ->assertUnprocessable()->assertJsonValidationErrors(['capacity', 'compressor']);
+        $this->assertSame(0, ServiceCustomerProduct::count());
+    }
+
+    public function test_switching_machine_type_clears_inapplicable_data_and_requires_serial_when_switching_back(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $machine = $customer->products()->create([
+            'machine_name' => 'Keep name', 'serial_number' => 'SWITCH-1', 'capacity' => '50',
+            'warranty_start' => '2026-01-01', 'pm_contract_status' => 'premium',
+        ]);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/products/'.$machine->id;
+        $this->putJson($url, ['is_daxtro' => false, 'machine_name' => 'Keep name', 'brand' => 'Other'])
+            ->assertOk()->assertJsonPath('data.data.serial_number', null)->assertJsonPath('data.data.warranty_period', null)
+            ->assertJsonPath('data.data.warranty_start', null)->assertJsonPath('data.data.warranty_end', null)
+            ->assertJsonPath('data.data.pm_contract_status', 'none')->assertJsonPath('data.data.pm_frequency', null);
+        $this->assertSame('50', $machine->fresh()->capacity);
+        // Omitted type preserves a non-Daxtro unit, rather than reverting it to the create default.
+        $this->putJson($url, ['machine_name' => 'Keep name', 'brand' => 'Other', 'compressor' => 'Copeland'])
+            ->assertOk()->assertJsonPath('data.data.is_daxtro', false)->assertJsonPath('data.data.compressor', 'Copeland');
+        $this->putJson($url, ['is_daxtro' => true, 'machine_name' => 'Keep name'])
+            ->assertUnprocessable()->assertJsonValidationErrors('serial_number');
+        $this->assertFalse($machine->fresh()->is_daxtro);
+        $this->putJson($url, ['is_daxtro' => true, 'machine_name' => 'Keep name', 'serial_number' => 'SWITCH-1', 'brand' => 'Ignored'])
+            ->assertOk()->assertJsonPath('data.data.is_daxtro', true)->assertJsonPath('data.data.brand', null);
+    }
+
+    public function test_daxtro_serials_remain_unique_including_soft_deleted_units(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $machine = $customer->products()->create(['machine_name' => 'First', 'serial_number' => 'UNIQUE-1']);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id.'/products';
+        $input = ['machine_name' => 'Duplicate', 'serial_number' => ' unique - 1 '];
+        $this->postJson($url, $input)->assertUnprocessable()->assertJsonValidationErrors('serial_number');
+        $machine->delete();
+        $this->postJson($url, $input)->assertUnprocessable()->assertJsonValidationErrors('serial_number');
+    }
+
+    public function test_serial_matching_excludes_non_daxtro_rows_even_if_legacy_serial_data_remains(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        DB::table('service_customer_products')->insert([
+            'customer_id' => $customer->id, 'is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand',
+            'serial_number' => 'STALE', 'normalized_serial' => 'STALE',
+        ]);
+        $this->assertFalse(\App\Services\Aftersales\MachineSerials::exists('STALE'));
+        $this->assertSame([], \App\Services\Aftersales\MachineSerials::existing(['STALE']));
+        $this->assertSame(['existing' => [], 'archived' => []], \App\Services\Aftersales\MachineSerials::importSnapshot(['STALE']));
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', ['machine_name' => 'Daxtro', 'serial_number' => 'STALE'])->assertCreated();
+    }
+
+    public function test_non_daxtro_rules_apply_to_direct_model_saves_and_daxtro_deal_units_may_have_no_serial(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $machine = $customer->products()->create([
+            'is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand', 'serial_number' => 'NO-SERIAL',
+            'warranty_start' => '2026-01-01', 'warranty_end' => '2025-01-01', 'pm_contract_status' => 'premium',
+        ]);
+        $this->assertNull($machine->serial_number);
+        $this->assertNull($machine->warranty_active);
+        $this->assertNull($machine->warranty_end);
+        $this->assertNull($machine->pm_frequency);
+        $dealMachine = $customer->products()->create(['machine_name' => 'From Deal']);
+        $this->assertTrue($dealMachine->fresh()->is_daxtro);
+        $this->assertNull($dealMachine->serial_number);
+    }
+
+    public function test_machine_mutations_still_require_customer_permission(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $machine = $customer->products()->create(['machine_name' => 'Existing']);
+        $this->actingAs($this->user(false));
+        $input = ['is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand'];
+        $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', $input)->assertForbidden();
+        $this->putJson('/api/aftersales/customers/products/'.$machine->id, $input)->assertForbidden();
+        $this->assertTrue($machine->fresh()->is_daxtro);
+        $this->assertSame(1, ServiceCustomerProduct::count());
     }
 
     private function file(array $rows): UploadedFile
