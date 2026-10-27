@@ -8,9 +8,15 @@
                 <h1 class="text-[#115640] font-semibold text-2xl">Sparepart</h1>
                 <p class="text-[#757575] mt-1">Manage sparepart inventory, suppliers, and stock levels.</p>
             </div>
-            <a href="{{ route('aftersales.pages.spareparts.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
-                <i class="bi bi-plus-lg"></i> Add Sparepart
-            </a>
+            <div class="flex items-center gap-2">
+                <button type="button" data-toggle="modal" data-target="#sparepartImportModal"
+                    class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
+                    Import Sparepart
+                </button>
+                <a href="{{ route('aftersales.pages.spareparts.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
+                    <i class="bi bi-plus-lg"></i> Add Sparepart
+                </a>
+            </div>
         </div>
 
         {{--SEARCH--}}
@@ -56,6 +62,7 @@
         </div>
     </div>
 </section>
+@include('pages.aftersales.spareparts.partials.import-modal')
 @endsection
 
 @section('scripts')

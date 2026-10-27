@@ -16,9 +16,6 @@
                 <p class="text-[#757575] mt-1">Manage and monitor your customers' complete information here.</p>
             </div>
             <div class="flex items-center gap-2">
-                <button type="button" class="btn-open-deal-review bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
-                    Deal Reviews
-                </button>
                 <button type="button" data-toggle="modal" data-target="#customerImportModal"
                     class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
                     Import Customer
@@ -30,6 +27,17 @@
             </div>
         </div>
 
+        {{-- TABS (IM-86): All Customers | Deals Review with the red pending badge --}}
+        <div class="flex items-center gap-1 border-b border-b-[#D9D9D9] mt-4" id="customer-tabs">
+            <button type="button" data-tab="customers" class="customer-tab px-4 py-2 font-semibold cursor-pointer border-b-2 -mb-px">All Customers</button>
+            <button type="button" data-tab="deals" class="customer-tab px-4 py-2 font-semibold cursor-pointer border-b-2 -mb-px inline-flex items-center gap-2">
+                Deals Review
+                <span class="deal-review-badge hidden items-center justify-center rounded-full bg-[#D92D20] text-white font-bold"
+                    style="min-width:18px;height:18px;padding:0 5px;font-size:10px;line-height:1"></span>
+            </button>
+        </div>
+
+        <div id="tab-customers">
         {{-- SEARCH --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9] p-4 mt-4">
             <div class="flex items-stretch gap-3">
@@ -89,6 +97,9 @@
                 </div>
             </div>
         </div>
+        </div>{{-- /#tab-customers --}}
+
+        @include('pages.aftersales.customers.partials.deals-review-tab')
     </div>
 </section>
 @include('pages.aftersales.customers.partials.import-modal')
@@ -293,8 +304,26 @@
         $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
     });
 
+    // Tabs: All Customers | Deals Review (kept in the URL hash so a reload stays on the tab).
+    function showCustomerTab(tab) {
+        const deals = tab === 'deals';
+        $('#tab-customers').toggleClass('hidden', deals);
+        $('#tab-deals').toggleClass('hidden', !deals);
+        $('.customer-tab').each(function () {
+            const on = $(this).data('tab') === (deals ? 'deals' : 'customers');
+            $(this).toggleClass('border-[#115640] text-[#115640]', on).toggleClass('border-transparent text-[#757575]', !on);
+        });
+        history.replaceState(null, '', deals ? '#deals-review' : location.pathname + location.search);
+        if (deals && window.loadDealsReviewTab) window.loadDealsReviewTab();
+    }
+
+    $(document).on('click', '.customer-tab', function () {
+        showCustomerTab($(this).data('tab'));
+    });
+
     $(function () {
         loadCustomers();
+        showCustomerTab(location.hash === '#deals-review' ? 'deals' : 'customers');
 
         let searchTimer = null;
         $('#customer-search').on('input', function () {

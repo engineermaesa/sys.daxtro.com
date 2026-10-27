@@ -1,5 +1,12 @@
 {{-- STEP 1: DATA CUSTOMER & MESIN --}}
-<div class="wizard-step grid grid-cols-1 lg:grid-cols-2 gap-4" data-step="1">
+<div class="wizard-step" data-step="1">
+{{-- Gate (IM-89): Phone and Email of the Customer must be complete before a NEW ticket can continue --}}
+<div id="customer-gate-alert" class="hidden mb-4 rounded-lg border border-[#F0B8B3] bg-[#FBEAEA] text-[#900B09] px-4 py-3" role="alert">
+    <i class="bi bi-exclamation-triangle"></i>
+    Customer data is incomplete. Phone and Email are required because the survey and notifications are sent by email and phone.
+    <a id="customer-gate-link" href="#" class="font-semibold underline ml-1">Edit Customer</a>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
         <h6 class="text-[#1E1E1E] font-bold uppercase text-sm tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">1. Customer Data</h6>
 
@@ -16,7 +23,7 @@
                 class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
         </div>
         <div class="mb-3">
-            <label class="block text-sm font-medium mb-1">PIC Email</label>
+            <label class="block text-sm font-medium mb-1">Email<span class="text-red-600">*</span></label>
             <input type="text" id="field-pic-email" readonly placeholder="pic@company.com"
                 class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
         </div>
@@ -64,10 +71,32 @@
         </div>
     </div>
 </div>
+</div>
 
 <script>
     let customersCache = [];
     let currentProducts = [];
+
+    /*
+     * IM-89 gate. Only for NEW tickets (existing tickets are not affected).
+     * TODO(API): POST /api/aftersales/tickets must also reject (422, errors.customer_id) a customer without phone or email;
+     *            the Save Ticket error handler (create.blade.php submitTicket) already shows that message.
+     */
+    function customerGateBlocked() {
+        if (typeof EDIT_TICKET_ID !== 'undefined' && EDIT_TICKET_ID) return false;
+        const customerId = $('#field-customer').val();
+        if (!customerId) return false;
+        const customer = customersCache.find(c => String(c.id) === String(customerId));
+        return !!customer && (!String(customer.phone || '').trim() || !String(customer.email || '').trim());
+    }
+
+    function applyCustomerGate() {
+        const blocked = customerGateBlocked();
+        $('#customer-gate-alert').toggleClass('hidden', !blocked);
+        $('#customer-gate-link').attr('href', `/aftersales/customers/${$('#field-customer').val()}/edit`);
+        $('#btn-wizard-next').prop('disabled', blocked && typeof currentStep !== 'undefined' && currentStep === 1)
+            .toggleClass('opacity-50 cursor-not-allowed', blocked && currentStep === 1);
+    }
 
     function resetCustomerFields() {
         $('#field-pic-name').val('');
@@ -129,7 +158,7 @@
                 }
 
                 const options = currentProducts.map(product => {
-                    const name = product.machine_name || product.product?.name || product.machine_code || `Machine #${product.id}`;
+                    const name = product.machine_name || product.product?.name || `Machine #${product.id}`;
                     const label = product.serial_number ? `${name} — ${product.serial_number}` : name;
                     return `<option value="${product.id}">${escapeHtml(label)}</option>`;
                 }).join('');
@@ -149,6 +178,7 @@
         $('#field-customer').on('change', function () {
             const selected = $(this).val();
             resetCustomerFields();
+            applyCustomerGate();
 
             if (!selected) {
                 currentProducts = [];
@@ -163,6 +193,7 @@
                 $('#field-phone').val(customer.phone || '');
                 $('#field-location').val([customer.region?.name, customer.province?.name].filter(Boolean).join(', '));
             }
+            applyCustomerGate();
 
             loadMachineOptions(selected, function () {
                 if (EDIT_TICKET && EDIT_TICKET.customer_product_id && String(selected) === String(EDIT_TICKET.customer_id)) {

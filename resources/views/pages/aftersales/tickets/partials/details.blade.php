@@ -15,21 +15,30 @@
             <h2 class="font-bold tracking-wide">TICKET INFORMATION</h2>
             <hr class="border-[#EDEDED]" style="margin: 12px 0 20px;">
 
-            <div class="grid grid-cols-2 lg:grid-cols-4" style="gap: 20px 24px;">
+            {{-- IM-90: two-column grid (one column on narrow screens). Row order follows wireframe W8. --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2" style="gap: 20px 24px;">
+                <div>
+                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Ticket ID</p>
+                    <p class="font-semibold flex items-center flex-wrap" style="margin-top: 6px; gap: 8px;">
+                        <span id="tdInfoCode"></span><span id="tdPriority"></span>
+                    </p>
+                </div>
                 @foreach ([
-                    ['Customer', 'tdCustomer'], ['Machine', 'tdMachine'], ['Technician', 'tdTechnician'], ['Supervisor', 'tdSupervisor'],
-                    ['Complaint Category', 'tdCategory'], ['Visit Schedule', 'tdVisit'], ['SLA Target', 'tdSla'], ['Priority', 'tdPriority'],
+                    ['Progress', 'tdProgress'], ['Customer', 'tdCustomer'], ['Machine', 'tdMachine'],
+                    ['Province · Region', 'tdProvinceRegion'], ['Technician', 'tdTechnician'],
+                    ['Supervisor', 'tdSupervisor'], ['SLA Target', 'tdSla'],
+                    ['Visit Schedule', 'tdVisit'], ['Warranty', 'tdWarranty'], ['Complaint Category', 'tdCategory'],
                 ] as [$label, $id])
                     <div>
                         <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">{{ $label }}</p>
                         <p id="{{ $id }}" class="font-semibold" style="margin-top: 6px;"></p>
                     </div>
                 @endforeach
+                <div class="sm:col-span-2">
+                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Complaint</p>
+                    <p id="tdDescription" style="margin-top: 6px;"></p>
+                </div>
             </div>
-
-            <hr class="border-[#EDEDED]" style="margin: 20px 0;">
-            <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Problem Description</p>
-            <p id="tdDescription" style="margin-top: 6px;"></p>
         </div>
 
         {{-- FINAL COST (rincian sparepart + category, dirender oleh documents-script) --}}

@@ -23,45 +23,58 @@
                 <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-xs tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Machine Information</h6>
 
+                    {{-- TODO(API): is_daxtro (bool) and compressor (string|null) are sent on POST/PUT products; see the API notes above the script. --}}
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Model<span class="text-red-600">*</span></label>
+                        <label class="block text-xs font-medium mb-1">Daxtro Machine<span class="text-red-600">*</span></label>
+                        <div class="flex items-center gap-4">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="machine-is-daxtro" value="1" {{ ($product->is_daxtro ?? true) ? 'checked' : '' }}> Yes
+                            </label>
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="machine-is-daxtro" value="0" {{ ($product->is_daxtro ?? true) ? '' : 'checked' }}> No
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="machine-brand-group" hidden>
+                        <label class="block text-xs font-medium mb-1">Brand<span class="text-red-600">*</span></label>
+                        <input type="text" id="machine-brand" placeholder="e.g. [brand]"
+                            value="{{ $product->brand ?? '' }}"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs font-medium mb-1">Model (Machine Category)<span class="text-red-600">*</span></label>
                         <select id="machine-product-type-id" required
                             class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                             <option value="">Select Model</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Machine Name<span class="text-red-600">*</span></label>
-                        <input type="text" id="machine-name" required placeholder="e.g. CD 50 – Cube Ice Machine"
-                            value="{{ $product->machine_name ?? '' }}"
-                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
-                    </div>
-                    <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Capacity (ton)</label>
-                        <input type="number" min="0" step="any" id="machine-capacity" placeholder="e.g. 50"
+                        <input type="number" min="0" step="any" id="machine-capacity" placeholder="e.g. 15"
                             value="{{ $product->capacity ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Machine Code</label>
-                        <input type="text" id="machine-code" placeholder="Auto-generated from model" disabled
-                            value="{{ $product->machine_code ?? '' }}"
-                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs bg-[#F5F5F5] text-[#757575] focus:outline-none!">
-                    </div>
-                    <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Brand</label>
-                        <input type="text" id="machine-brand" placeholder="e.g. Refcomp"
-                            value="{{ $product->brand ?? '' }}"
+                        <label class="block text-xs font-medium mb-1">Compressor</label>
+                        <input type="text" id="machine-compressor" maxlength="255" placeholder="Optional (e.g. Bitzer)"
+                            value="{{ $product->compressor ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Refrigerant Type</label>
                         <input type="text" id="machine-refrigerant" maxlength="255"
                             value="{{ $product->refrigerant ?? '' }}"
-                            placeholder="Enter Refrigerant Type (e.g. R404A)"
+                            placeholder="Optional (e.g. R404A)"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
+                        <label class="block text-xs font-medium mb-1">Machine Name<span class="text-red-600">*</span></label>
+                        <input type="text" id="machine-name" required placeholder="e.g. TD150 | Bitzer R404A"
+                            value="{{ $product->machine_name ?? '' }}"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
+                        <p id="machine-name-hint" class="text-[#757575] mt-1" style="font-size:11px"></p>
+                    </div>
+                    <div class="mb-3" id="machine-serial-group">
                         <label class="block text-xs font-medium mb-1">Serial Number<span class="text-red-600">*</span></label>
                         <input type="text" id="machine-serial-number" placeholder="e.g. SN-XXXXXX" required
                             value="{{ $product->serial_number ?? '' }}"
@@ -74,8 +87,8 @@
                     </div>
                 </div>
 
-                {{-- WARRANTY & CONTRACT --}}
-                <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
+                {{-- WARRANTY & CONTRACT (hidden for non-Daxtro machines) --}}
+                <div class="bg-white rounded-lg border border-[#D9D9D9] p-5" id="machine-warranty-card">
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-xs tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Warranty & Contract</h6>
 
                     <div class="mb-3">
@@ -139,10 +152,21 @@
     'record' => $product ? [
         'ref_product_type_id' => $product->ref_product_type_id,
         'pm_contract_status' => $product->pm_contract_status,
+        'is_daxtro' => $product->is_daxtro ?? true,
     ] : null,
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) !!}
 </script>
 <script>
+    /*
+     * TODO(API) — backend contract still pending (PRD v2.2 IM-74..83). Placement of each endpoint call:
+     *  1. GET  /api/aftersales/customers/machine-references  -> loadMachineReferences(): categories[].code_prefix (exists).
+     *  2. POST /api/aftersales/customers/{customer}/products -> submit handler (create).
+     *  3. PUT  /api/aftersales/customers/products/{id}       -> submit handler (edit).
+     *     Both must accept & store: is_daxtro (bool, default true), compressor (string|null),
+     *     brand (required only when is_daxtro = false), serial_number (required only when is_daxtro = true),
+     *     machine_name (required); warranty_start, warranty_end and pm_contract_status ignored when is_daxtro = false.
+     *  Until then the extra fields are sent but ignored by the server; records read back default to is_daxtro = true.
+     */
     const pageConfig = JSON.parse(document.getElementById('machine-page-config').textContent);
     const customerId = pageConfig.customerId;
     const machineId = pageConfig.machineId;
@@ -250,12 +274,49 @@
         $('#machine-pm-frequency').val(pmFrequencies[$('#machine-pm-contract-status').val()] || '');
     }
 
-    // Machine Code preview = category code_prefix + Capacity, e.g. Cube + 50 = "CD 50". The saved value comes from the API.
-    function syncMachineCode() {
-        const prefix = categoryPrefixes[$('#machine-product-type-id').val()];
-        const capacity = $('#machine-capacity').val();
+    const isDaxtro = () => $('input[name="machine-is-daxtro"]:checked').val() !== '0';
+    let nameTouched = !!pageConfig.machineId; // saved names are never overwritten until one of the four source fields changes
 
-        $('#machine-code').val(prefix ? `${prefix}${capacity !== '' ? ' ' + capacity : ''}` : '');
+    // Series: RD (Cold Room) = ton / 3 x 10, every other prefix = ton x 10 (TD 15 ton -> TD150, RD 6 ton -> RD20).
+    function machineSeries(prefix, ton) {
+        return Math.round(prefix === 'RD' ? ton / 3 * 10 : ton * 10);
+    }
+
+    // Machine Name (Daxtro only): "[Prefix][series] | [Compressor] [Refrigerant]", e.g. "TD150 | Bitzer R404A".
+    function buildMachineName() {
+        const prefix = (categoryPrefixes[$('#machine-product-type-id').val()] || '').replace(/\s+/g, '');
+        const ton = parseFloat($('#machine-capacity').val());
+        if (!prefix || isNaN(ton)) {
+            return '';
+        }
+        const detail = [$('#machine-compressor').val(), $('#machine-refrigerant').val()]
+            .map(v => (v || '').trim()).filter(Boolean).join(' ');
+        return `${prefix}${machineSeries(prefix, ton)}${detail ? ' | ' + detail : ''}`;
+    }
+
+    // Called when Model, Capacity, Compressor or Refrigerant Type changes.
+    function syncMachineName() {
+        if (!isDaxtro()) {
+            return;
+        }
+        nameTouched = false;
+        const name = buildMachineName();
+        if (name) {
+            $('#machine-name').val(name);
+        }
+    }
+
+    // Daxtro Machine = No: Brand required, no Serial Number, no Warranty & Contract, free Machine Name.
+    function applyDaxtroMode() {
+        const daxtro = isDaxtro();
+        $('#machine-brand-group').prop('hidden', daxtro);
+        $('#machine-brand').prop('required', !daxtro);
+        $('#machine-serial-group').prop('hidden', !daxtro);
+        $('#machine-serial-number').prop('required', daxtro);
+        $('#machine-warranty-card').prop('hidden', !daxtro);
+        $('#machine-name-hint').text(daxtro
+            ? 'Auto-filled from Model, Capacity, Compressor, Refrigerant Type. Still editable.'
+            : '');
     }
 
     function loadMachineReferences() {
@@ -293,7 +354,6 @@
             }
 
             syncServiceFrequency();
-            syncMachineCode();
         }).fail(function (xhr) {
             Swal.fire({
                 title: 'Failed',
@@ -317,8 +377,14 @@
             pmTouched = true;
             syncServiceFrequency();
         });
-        $('#machine-product-type-id').on('change', syncMachineCode);
-        $('#machine-capacity').on('input', syncMachineCode);
+        applyDaxtroMode();
+        $('input[name="machine-is-daxtro"]').on('change', function () {
+            applyDaxtroMode();
+            syncMachineName();
+        });
+        $('#machine-product-type-id').on('change', syncMachineName);
+        $('#machine-capacity, #machine-compressor, #machine-refrigerant').on('input', syncMachineName);
+        $('#machine-name').on('input', function () { nameTouched = true; });
 
         $('#machine-form').on('submit', function (e) {
             e.preventDefault();
@@ -338,20 +404,25 @@
                 }
 
                 // machine_code, warranty_period and pm_frequency are read-only: never sent (API contract 5.2).
+                const daxtro = isDaxtro();
                 const payload = {
+                    is_daxtro: daxtro ? 1 : 0, // TODO(API): new field
                     machine_name: $('#machine-name').val(),
-                    serial_number: $('#machine-serial-number').val(),
+                    serial_number: daxtro ? $('#machine-serial-number').val() : null,
                     ref_product_type_id: $('#machine-product-type-id').val() || null,
-                    brand: $('#machine-brand').val() || null,
+                    brand: daxtro ? null : ($('#machine-brand').val() || null),
                     capacity: $('#machine-capacity').val() || null,
+                    compressor: $('#machine-compressor').val() || null, // TODO(API): new field
                     refrigerant: $('#machine-refrigerant').val() || null,
                     note: $('#machine-note').val() || null,
-                    warranty_start: $('#machine-warranty-start').val() || null,
-                    warranty_end: $('#machine-warranty-end').val() || null,
+                    warranty_start: daxtro ? ($('#machine-warranty-start').val() || null) : null,
+                    warranty_end: daxtro ? ($('#machine-warranty-end').val() || null) : null,
                 };
 
-                // Create always sends PM; Edit only sends it once the user picked a (new) value.
-                if (!machineId || pmTouched) {
+                // Create always sends PM; Edit only sends it once the user picked a (new) value. Non-Daxtro has no PM contract.
+                if (!daxtro) {
+                    payload.pm_contract_status = 'none';
+                } else if (!machineId || pmTouched) {
                     payload.pm_contract_status = $('#machine-pm-contract-status').val() || 'none';
                 }
 

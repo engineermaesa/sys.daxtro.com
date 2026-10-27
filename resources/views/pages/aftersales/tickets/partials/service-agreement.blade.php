@@ -12,8 +12,14 @@
                 <h1 id="saTitle" class="text-[#115640] font-bold text-2xl">Service / Repair Work Agreement Sheet</h1>
                 <p id="saSubtitle" class="text-[#757575]" style="margin-top: 4px;"></p>
             </div>
-            <span id="saStatusBadge" class="rounded-full bg-[#FFF3CD] text-[#D97706] font-semibold text-xs shrink-0" style="padding: 4px 12px;">Draft</span>
+            <div class="flex items-center flex-wrap justify-end" style="gap: 10px;">
+                @include('pages.aftersales.tickets.partials.language-switcher', ['doc' => 'agreement'])
+                <span id="saStatusBadge" class="rounded-full bg-[#FFF3CD] text-[#D97706] font-semibold text-xs shrink-0" style="padding: 4px 12px;">Draft</span>
+            </div>
         </div>
+
+        {{-- shown when the chosen language could not be produced and the source text is displayed instead --}}
+        <div id="saLangNotice" class="hidden rounded-md bg-[#FFF3CD] text-[#8A6D00] text-xs" style="margin-top: 12px; padding: 10px 14px;" data-no-i18n></div>
 
         <div id="saLoading" class="text-[#757575]" style="margin-top: 20px;">Loading...</div>
 
@@ -30,7 +36,8 @@
                 <label class="flex items-center cursor-pointer border-b border-[#EDEDED]" style="padding: 14px 16px; gap: 12px;">
                     <input type="checkbox" id="saCheckAll" style="width: 18px; height: 18px;">
                     <span class="font-semibold text-[#115640]">Check all</span>
-                    <span id="saTemplateVersion" class="text-[#9CA3AF] text-xs"></span>
+                    <span id="saTemplateVersion" class="text-[#9CA3AF] text-xs" data-no-i18n></span>
+                    <span id="saCheckedSummary" class="text-[#9CA3AF] text-xs ml-auto" data-no-i18n></span>
                 </label>
                 <div id="saSections"></div>
             </div>

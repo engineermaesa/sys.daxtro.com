@@ -183,7 +183,10 @@
         {{-- CUSTOMER MENU (AFTER SALES) --}}
         @if(auth()->check() && auth()->user()->hasPermission('masters.service-customers'))
         <li
-            class="{{ request()->routeIs('aftersales.pages.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            class="{{ request()->routeIs('aftersales.pages.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3 relative">
+            {{-- Deals Review badge (IM-86): number of Deals pending review; hidden at 0, "99+" above 99 --}}
+            <span class="deal-review-badge absolute top-1 right-1 hidden items-center justify-center rounded-full bg-[#D92D20] text-white font-bold"
+                style="min-width:18px;height:18px;padding:0 5px;font-size:10px;line-height:1"></span>
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
                 href="{{ route('aftersales.pages.customers.index') }}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -195,6 +198,34 @@
                     class="sidebar-label {{ request()->routeIs('aftersales.pages.customers.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Customer</span>
             </a>
         </li>
+        <script>
+            // Shared by the sidebar and the Deals Review tab (customers/index): one source for the badge number.
+            window.setDealBadge = function (count) {
+                var text = count > 99 ? '99+' : String(count);
+                document.querySelectorAll('.deal-review-badge').forEach(function (el) {
+                    el.textContent = text;
+                    el.classList.toggle('hidden', count <= 0);
+                    el.classList.toggle('inline-flex', count > 0);
+                });
+            };
+            // TODO(API): replace with a count-only endpoint, e.g. GET /api/aftersales/customers/deal-reviews/count -> { data: { pending_review: n } }.
+            // Until then the badge counts status = needs_review from GET /api/aftersales/customers/deal-reviews (paginated).
+            window.refreshDealBadge = function () {
+                var pending = 0;
+                (function page(n) {
+                    fetch('/api/aftersales/customers/deal-reviews?page=' + n, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                        .then(function (res) { return res.ok ? res.json() : null; })
+                        .then(function (res) {
+                            if (!res) return;
+                            pending += (res.data || []).filter(function (i) { return i.status === 'needs_review'; }).length;
+                            if (n < (res.last_page || 1)) return page(n + 1);
+                            window.setDealBadge(pending);
+                        })
+                        .catch(function () {});
+                })(1);
+            };
+            document.addEventListener('DOMContentLoaded', window.refreshDealBadge);
+        </script>
         @endif
 
         {{-- TICKETING MENU (admin/supervisor, atau teknisi yang hanya melihat tiket miliknya) --}}

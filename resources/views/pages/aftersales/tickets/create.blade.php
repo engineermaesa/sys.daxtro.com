@@ -124,6 +124,9 @@
         $('#btn-wizard-next').html(currentStep === TOTAL_STEPS
             ? `${saveLabel} <i class="bi bi-check-lg"></i>`
             : 'Next <i class="bi bi-arrow-right"></i>');
+
+        // IM-89: Next stays disabled on step 1 while the selected customer has no Phone or Email
+        if (typeof applyCustomerGate === 'function') applyCustomerGate();
     }
 
     const REQUIRED_FIELDS_BY_STEP = {
@@ -266,6 +269,19 @@
             Swal.fire({
                 title: 'Data incomplete',
                 text: 'Please select a customer and machine in Step 1 first.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 1;
+            updateStepper();
+            return;
+        }
+
+        // IM-89: checked again on Save Ticket
+        if (customerGateBlocked()) {
+            Swal.fire({
+                title: 'Customer data is incomplete',
+                text: 'Phone and Email are required. Please complete the customer data first.',
                 icon: 'warning',
                 confirmButtonColor: '#115640'
             });

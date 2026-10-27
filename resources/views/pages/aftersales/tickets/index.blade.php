@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    // Technician = may only see own tickets (view-own without manage)
+    $isTechnician = ! hasPermission(auth()->user(), 'aftersales.tickets.manage') && hasPermission(auth()->user(), 'aftersales.tickets.view-own');
+@endphp
 <style>
     .ticket-filter-chip { padding: 6px 14px; border: 1px solid #D9D9D9; border-radius: 9999px; background: #fff; color: #1E1E1E; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .ticket-filter-chip.is-active { border-color: #115640; background: #E7F3EE; color: #115640; }
@@ -10,9 +14,16 @@
     <div class="pt-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div class="min-w-0">
-                <h1 class="text-[#115640] font-semibold text-2xl">All Ticket</h1>
-                <p class="text-[#757575] mt-1">Track and manage all your service tickets in one place.</p>
+                <h1 class="text-[#115640] font-semibold text-2xl">{{ $isTechnician ? 'Ticket' : 'All Ticket' }}</h1>
+                <p class="text-[#757575] mt-1">{{ $isTechnician ? 'Your assigned tickets.' : 'Track and manage all your service tickets in one place.' }}</p>
             </div>
+            @if ($isTechnician)
+            {{-- Overall Rating (IM-93): one read-only average number, scale 3. No score, comment or customer name per response (BR-S6). --}}
+            <div class="self-start sm:self-auto shrink-0 bg-white rounded-lg border border-[#D9D9D9] px-4 py-2 text-right">
+                <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Overall Rating</p>
+                <p class="text-[#115640] font-bold text-xl mb-0" id="technician-overall-rating">&mdash;</p>
+            </div>
+            @endif
             @if (hasPermission(auth()->user(), 'aftersales.tickets.manage'))
             <a href="{{ route('aftersales.pages.tickets.create') }}" class="self-start sm:self-auto shrink-0 whitespace-nowrap bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
                 <i class="bi bi-plus-lg"></i> Add Ticket
@@ -32,6 +43,11 @@
                     <button type="button" class="ticket-filter-chip" data-priority="low">Low</button>
                     <button type="button" class="ticket-filter-chip" data-priority="medium">Medium</button>
                     <button type="button" class="ticket-filter-chip" data-priority="high">High</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="ticket-visit-date" class="text-[#757575] whitespace-nowrap">Visit date</label>
+                    <input type="date" id="ticket-visit-date"
+                        class="border border-[#D9D9D9] rounded-lg px-3 py-2 text-[#1E1E1E] focus:outline-none!">
                 </div>
                 <div class="grid grid-cols-2 lg:flex gap-3">
                     <button type="button" id="btn-search-ticket"
@@ -63,7 +79,6 @@
                         <th class="p-3 text-center uppercase text-xs">Close Date</th>
                         <th class="p-3 text-center uppercase text-xs">SLA</th>
                         <th class="p-3 text-center uppercase text-xs">Aging</th>
-                        <th class="p-3 text-center uppercase text-xs">Priority</th>
                         <th class="p-3 text-center uppercase text-xs">Steps</th>
                         <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
@@ -111,6 +126,7 @@
         perPage: 10,
         search: '',
         priority: [],      // multi-select: low | medium | high
+        visitDate: '',     // YYYY-MM-DD, one specific Visit Date (IM-92)
     };
 
     // filter disimpan di URL query (FR-E24): ?search=..&priority=high,medium
@@ -118,12 +134,14 @@
         const params = new URLSearchParams();
         if (ticketState.search) params.set('search', ticketState.search);
         if (ticketState.priority.length) params.set('priority', ticketState.priority.join(','));
+        if (ticketState.visitDate) params.set('visit_date', ticketState.visitDate);
         const query = params.toString();
         history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
     }
 
     function paintTicketFilters() {
         $('#ticket-search').val(ticketState.search);
+        $('#ticket-visit-date').val(ticketState.visitDate);
         $('#ticket-priority-chips .ticket-filter-chip').each(function () {
             $(this).toggleClass('is-active', ticketState.priority.includes($(this).data('priority')));
         });
@@ -134,6 +152,8 @@
         const allowed = ['low', 'medium', 'high'];
         ticketState.search = params.get('search') || '';
         ticketState.priority = (params.get('priority') || '').split(',').filter(v => allowed.includes(v));
+        const visitDate = params.get('visit_date') || '';
+        ticketState.visitDate = /^\d{4}-\d{2}-\d{2}$/.test(visitDate) ? visitDate : '';
         paintTicketFilters();
     }
 
@@ -221,7 +241,7 @@
         const $body = $('#ticket-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
+            $body.html('<tr><td colspan="14" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
             return;
         }
 
@@ -232,9 +252,9 @@
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
-                <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID">${escapeHtml(row.ticket_code)}</td>
+                <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}</div></td>
                 <td class="p-3 text-center" data-label="Customer">${escapeHtml(customer.name)}</td>
-                <td class="p-3 text-center" data-label="Machine">${escapeHtml(machine.product?.name)}</td>
+                <td class="p-3 text-center" data-label="Machine">${escapeHtml(machine.machine_name || machine.product?.name)}</td>
                 <td class="p-3 text-center" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
                 <td class="p-3 text-center" data-label="Province" data-secondary>${escapeHtml(customer.province?.name)}</td>
                 <td class="p-3 text-center" data-label="Region" data-secondary>${escapeHtml(customer.region?.name)}</td>
@@ -244,7 +264,6 @@
                 <td class="p-3 text-center" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
                 <td class="p-3 text-center" data-label="SLA">${slaBadge(row.sla_status)}</td>
                 <td class="p-3 text-center" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
-                <td class="p-3 text-center" data-label="Priority">${priorityBadge(row.priority)}</td>
                 <td class="p-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
                 <td class="p-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
@@ -322,7 +341,7 @@
 
     function loadTickets() {
         syncTicketUrl();
-        $('#ticket-table-body').html('<tr><td colspan="15" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#ticket-table-body').html('<tr><td colspan="14" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/tickets',
@@ -332,6 +351,8 @@
                 per_page: ticketState.perPage,
                 search: ticketState.search,
                 priority: ticketState.priority.length ? ticketState.priority : undefined, // jadi priority[]=..
+                // TODO(API): GET /api/aftersales/tickets must accept visit_date (YYYY-MM-DD) and match the ticket's Visit Date, ANDed with the other filters.
+                visit_date: ticketState.visitDate || undefined,
             },
             success: function (response) {
                 renderTicketRows(response.data);
@@ -339,7 +360,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load tickets';
-                $('#ticket-table-body').html(`<tr><td colspan="15" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#ticket-table-body').html(`<tr><td colspan="14" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }
@@ -357,9 +378,24 @@
         recoming: 'Recoming',
     };
 
+    // Overall Rating of the logged-in technician (IM-93): format "2.7 / 3", "—" when no counted response yet.
+    // TODO(API): GET /api/aftersales/tickets/overall-rating -> { data: { overall_rating: 2.7 | null } }
+    //            average of current valid responses only (FR-E02/E03 v2.0, scale 3); the endpoint must return only this number.
+    function loadOverallRating() {
+        const $el = $('#technician-overall-rating');
+        if (!$el.length) return;
+        $.getJSON('/api/aftersales/tickets/overall-rating').done(function (response) {
+            const value = response.data?.overall_rating;
+            $el.text(value === null || value === undefined ? '—' : `${Number(value).toFixed(1)} / 3`);
+        }).fail(function () {
+            $el.text('—');
+        });
+    }
+
     $(function () {
         readTicketUrl();
         loadTickets();
+        loadOverallRating();
 
         let searchTimer = null;
         $('#ticket-search').on('input', function () {
@@ -382,10 +418,17 @@
             loadTickets();
         });
 
-        // Reset: kosongkan search dan priority (dan URL-nya)
+        $('#ticket-visit-date').on('change', function () {
+            ticketState.visitDate = $(this).val();
+            ticketState.page = 1;
+            loadTickets();
+        });
+
+        // Reset: kosongkan search, priority, dan visit date (dan URL-nya)
         $('#btn-reset-ticket').on('click', function () {
             ticketState.search = '';
             ticketState.priority = [];
+            ticketState.visitDate = '';
             ticketState.page = 1;
             paintTicketFilters();
             loadTickets();
@@ -434,14 +477,19 @@
             const text = function (id, value) { $(id).text(value || '-'); };
 
             text('#tdCode', t.ticket_code);
+            text('#tdInfoCode', t.ticket_code);
+            text('#tdProgress', STEP_LABEL[t.progress] || t.progress);
             text('#tdCustomer', t.customer?.name);
-            text('#tdMachine', t.customer_product?.product?.name);
+            text('#tdMachine', t.customer_product?.machine_name || t.customer_product?.product?.name);
+            text('#tdProvinceRegion', [t.customer?.province?.name, t.customer?.region?.name].filter(Boolean).join(' · '));
+            // TODO(API): ticket row's customer_product should return is_daxtro and warranty_active (appended attribute exists on the model).
+            text('#tdWarranty', t.customer_product?.is_daxtro === false || !t.customer_product?.warranty_end ? '' : (t.customer_product.warranty_active ? 'Active' : 'Expired'));
             text('#tdTechnician', t.technician?.name);
             text('#tdSupervisor', t.supervisor?.name); // TODO: supervisor belum di-load oleh API index
             text('#tdCategory', CATEGORY_LABEL[t.category] || t.category);
             text('#tdVisit', t.visit_date ? formatDate(t.visit_date) : '');
             text('#tdSla', slaLabel(t, slaUnit));
-            text('#tdPriority', t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : '');
+            $('#tdPriority').html(t.priority ? priorityBadge(t.priority) : '');
             text('#tdDescription', t.description);
             loadTicketSurveyLink(t.id);
             $('#tdWoView, #tdWoDownload').attr('href', woUrl);

@@ -55,14 +55,16 @@
                     <div class="bg-white border border-[#D9D9D9] rounded-xl mt-3" style="padding:20px">
                         <div class="flex items-center justify-between" style="margin-bottom:14px">
                             <p class="text-[#1E1E1E] mb-0" style="font-size:12px">Before you fill the file</p>
-                            <span class="bg-[#F0F0F0] text-[#757575] rounded-full" style="font-size:9px;padding:4px 10px">4 formatting rules</span>
+                            <span class="bg-[#F0F0F0] text-[#757575] rounded-full" style="font-size:9px;padding:4px 10px">5 formatting rules</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2" style="gap:10px">
+                            {{-- TODO(API): rule texts follow the v2.2 template (IM-84). The template file and its Guide sheet come from GET /api/aftersales/customers/imports/template. --}}
                             @foreach ([
                                 ['01', 'One machine per row', 'Repeat the customer details when a customer has multiple machines.'],
-                                ['02', 'Complete required fields', 'Customer Name, Machine Category, and Machine Name are required.'],
-                                ['03', 'Keep formats consistent', 'Phone and Serial Number are text. Dates use dd/mm/yyyy.'],
-                                ['04', 'Use valid contract values', 'Enter Basic or Premium. Leave the cell empty for None.'],
+                                ['02', 'Complete required fields', 'Customer Name, Machine Category, and Capacity (Daxtro machines) are required.'],
+                                ['03', 'Daxtro Machine column', 'Yes or empty = Daxtro. For No, Brand and Machine Name are required; Serial Number, Warranty, and PM Contract are ignored.'],
+                                ['04', 'Keep formats consistent', 'Phone and Serial Number are text. Dates use dd/mm/yyyy. Machine Name is optional for Daxtro machines (generated automatically).'],
+                                ['05', 'Use valid contract values', 'Enter Basic or Premium. Leave the cell empty for None.'],
                             ] as [$no, $title, $desc])
                                 <div class="flex items-center" style="gap:12px;padding:10px 12px;background:#FAFAFA;border:1px solid #EDEDED;border-radius:8px">
                                     <span style="width:28px;height:28px;font-size:10px;background:#CFE5DB;color:#115640" class="rounded-md font-bold flex items-center justify-center shrink-0">{{ $no }}</span>
@@ -72,6 +74,10 @@
                                     </div>
                                 </div>
                             @endforeach
+                        </div>
+                        <div style="margin-top:10px;padding:10px 12px;background:#FFFCF3;border:1px solid #EBE3C8;border-radius:8px">
+                            <p class="font-semibold mb-1" style="font-size:11px;color:#7A5F00">Capacity is in tons</p>
+                            <p class="mb-0" style="font-size:10px;color:#757575">When converting an old spreadsheet, divide the number in the TD, CD, BD, FD, SD, and RO codes by 10 (TD 150 = 15 ton). For RD/VCD codes, divide by 10 then multiply by 3 (RD 20 = 6 ton).</p>
                         </div>
                         <p class="text-[#9A9A9A] mb-0" style="font-size:9.5px;margin:18px 0 0">Do not rename, remove, or reorder columns in the downloaded template. Leave Warranty End empty to use Warranty Start + 12 months.</p>
                     </div>
@@ -330,7 +336,21 @@
         return (row.review.customer && row.review.customer.name) || row.input['Customer Name*'] || '-';
     }
 
+    // TODO(API): import preview rows (I02-I05) should return review.machine.is_daxtro, compressor and refrigerant.
+    // Until then the Daxtro Machine column of the uploaded template (row.input) is read directly; empty = Yes.
+    function rowIsDaxtro(row) {
+        var m = row.review.machine;
+        if (m && typeof m.is_daxtro !== 'undefined' && m.is_daxtro !== null) return !!m.is_daxtro && m.is_daxtro !== '0';
+        var raw = String(row.input['Daxtro Machine'] || '').trim().toLowerCase();
+        return raw !== 'no' && raw !== 'n' && raw !== '0';
+    }
+
+    function rowBrand(row) {
+        return (row.review.machine && row.review.machine.brand) || row.input['Brand'] || '';
+    }
+
     function rowSerial(row) {
+        if (!rowIsDaxtro(row)) return '-';
         return (row.review.machine && row.review.machine.serial_number) || row.input['Serial Number'] || '-';
     }
 
@@ -418,8 +438,9 @@
         preview.rows.forEach(function (row) {
             var r = row.review;
             var type = needsDecision(row) ? 'decision' : (r.errors.length ? 'error' : (r.warnings.length ? 'warning' : r.status));
-            var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name*'] || '-';
+            var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name*'] || row.input['Machine Name'] || '-';
             var category = row.input['Machine Category*'] ? ' · ' + row.input['Machine Category*'] : '';
+            var nonDaxtro = rowIsDaxtro(row) ? '' : '<div style="font-size:9.5px;color:#757575">Non-Daxtro' + (rowBrand(row) ? ' · ' + esc(rowBrand(row)) : '') + '</div>';
             var resultLabel = row.result && row.result.machine_status === 'kept_archived' ? 'Customer saved; machine kept archived' : (row.result && row.result.status);
             var result = row.result ? ' <span style="color:#115640;font-size:9px">[' + esc(resultLabel) + ']</span>' : '';
 
@@ -427,7 +448,7 @@
                 '<td style="padding:10px 12px">' + esc(row.row_number) + '</td>' +
                 '<td style="padding:10px 12px">' + esc(rowCustomer(row)) + '</td>' +
                 '<td style="padding:10px 12px;white-space:nowrap">' + esc((r.customer && r.customer.phone) || row.input.Phone || '-') + '</td>' +
-                '<td style="padding:10px 12px">' + esc(machineName + category) + '</td>' +
+                '<td style="padding:10px 12px">' + esc(machineName + category) + nonDaxtro + '</td>' +
                 '<td style="padding:10px 12px;white-space:nowrap">' + esc(rowSerial(row)) + '</td>' +
                 '<td style="padding:10px 12px">' + badge(r.status) + result + '</td>' +
                 '<td style="padding:10px 12px">' + detailText(row) + '</td></tr>';

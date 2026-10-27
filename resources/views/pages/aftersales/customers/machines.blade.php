@@ -29,7 +29,6 @@
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-center uppercase text-xs font-bold">Machine Name</th>
-                        <th class="p-3 text-center uppercase text-xs font-bold">Machine Code</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Brand</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Serial Number</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Model</th>
@@ -128,6 +127,12 @@
     const machineCreateBaseUrl = pageConfig.machineCreateUrl;
     const machinesById = new Map();
 
+    /*
+     * TODO(API) — backend contract still pending (PRD v2.2 IM-74..83):
+     *  GET /api/aftersales/customers/{customer} -> loadMachines(): products[] must also return is_daxtro (bool) and compressor (string|null).
+     *  Until then is_daxtro defaults to true (every existing machine is a Daxtro machine).
+     */
+
     function escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -155,21 +160,24 @@
 
 
     function renderMachineDetails(machine) {
+        const daxtro = machine.is_daxtro;
         const fields = [
             ['Machine Name', machine.product_name],
-            ['Machine Code', machine.machine_code],
+            ['Daxtro Machine', daxtro ? 'Yes' : 'No'],
             ['Model', machine.product_type_name],
-            ['Serial Number', machine.serial_number],
-            ['Brand', machine.brand],
+            ...(daxtro ? [['Serial Number', machine.serial_number]] : [['Brand', machine.brand]]),
             ['Capacity (ton)', machine.capacity],
             ['Industry', machine.industry?.name],
+            ['Compressor', machine.compressor],
             ['Refrigerant Type', machine.refrigerant],
-            ['Warranty Period', machine.warranty_period],
-            ['Warranty Start', machine.warranty_start],
-            ['Warranty End', machine.warranty_end],
-            ['Warranty Status', machine.warranty_end ? (machine.warranty_active ? 'Active' : 'Expired') : '-'],
-            ['PM Contract', { none: 'None', basic: 'Basic', premium: 'Premium' }[machine.pm_contract_status] || machine.pm_contract_status],
-            ['PM Frequency', machine.pm_frequency],
+            ...(daxtro ? [
+                ['Warranty Period', machine.warranty_period],
+                ['Warranty Start', machine.warranty_start],
+                ['Warranty End', machine.warranty_end],
+                ['Warranty Status', machine.warranty_end ? (machine.warranty_active ? 'Active' : 'Expired') : '-'],
+                ['PM Contract', { none: 'None', basic: 'Basic', premium: 'Premium' }[machine.pm_contract_status] || machine.pm_contract_status],
+                ['PM Frequency', machine.pm_frequency],
+            ] : []),
             ['Note', machine.note],
         ];
 
@@ -188,23 +196,23 @@
         (rows || []).forEach(row => machinesById.set(String(row.id), row));
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
+            $body.html('<tr><td colspan="11" class="text-center p-4 text-[#757575]">No machines found</td></tr>');
             return;
         }
 
+        const dash = '<span class="text-[#B0B0B0]">&mdash;</span>';
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
-                <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.machine_code) || '-'}</td>
+                <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}</div>`}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.brand) || '-'}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.serial_number) || '-'}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.serial_number) || '-') : dash}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_period) || '-'}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_start) || '-'}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.warranty_end) || '-'}</td>
-                <td class="p-3 text-center">${machineBadge(row.warranty_active, 'Active', 'Expired')}</td>
-                <td class="p-3 text-center">${pmContractBadge(row.pm_contract_status)}</td>
-                <td class="p-3 text-center text-black">${row.pm_frequency ? escapeHtml(row.pm_frequency) : '<span class="text-[#B0B0B0]">&mdash;</span>'}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_period) || '-') : dash}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_start) || '-') : dash}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_end) || '-') : dash}</td>
+                <td class="p-3 text-center">${row.is_daxtro ? machineBadge(row.warranty_active, 'Active', 'Expired') : dash}</td>
+                <td class="p-3 text-center">${row.is_daxtro ? pmContractBadge(row.pm_contract_status) : dash}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro && row.pm_frequency ? escapeHtml(row.pm_frequency) : dash}</td>
                 <td class="p-3 text-center">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -235,7 +243,7 @@
     }
 
     function loadMachines() {
-        $('#machine-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#machine-table-body').html('<tr><td colspan="11" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: `${apiBaseUrl}/${customerId}`,
@@ -253,7 +261,8 @@
                     id: p.id,
                     // Machine Name is typed by the user; Product name is only a fallback for older/Deal machines.
                     product_name: p.machine_name || p.product?.name,
-                    machine_code: p.machine_code,
+                    is_daxtro: p.is_daxtro !== false && p.is_daxtro !== 0, // TODO(API): returned by the customer detail endpoint
+                    compressor: p.compressor ?? null,                       // TODO(API): returned by the customer detail endpoint
                     brand: p.brand,
                     serial_number: p.serial_number,
                     product_type_name: p.product_type?.name,
@@ -267,7 +276,7 @@
             },
             error: function (xhr) {
                 console.error('Failed to load customer machines', xhr.responseJSON?.message || xhr.statusText);
-                $('#machine-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#900B09]">Failed to load machines</td></tr>');
+                $('#machine-table-body').html('<tr><td colspan="11" class="text-center p-4 text-[#900B09]">Failed to load machines</td></tr>');
             }
         });
     }

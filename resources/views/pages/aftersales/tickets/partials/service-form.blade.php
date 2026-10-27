@@ -19,8 +19,13 @@
                 <h1 class="text-[#115640] font-bold text-2xl">Service &amp; Machine Inspection Form</h1>
                 <p id="sfSubtitle" class="text-[#757575]" style="margin-top: 4px;"></p>
             </div>
-            <span id="sfStatusBadge" class="rounded-full bg-[#FFF3CD] text-[#D97706] font-semibold text-xs shrink-0" style="padding: 4px 12px;">Draft</span>
+            <div class="flex items-center flex-wrap justify-end" style="gap: 10px;">
+                @include('pages.aftersales.tickets.partials.language-switcher', ['doc' => 'service_form'])
+                <span id="sfStatusBadge" class="rounded-full bg-[#FFF3CD] text-[#D97706] font-semibold text-xs shrink-0" style="padding: 4px 12px;">Draft</span>
+            </div>
         </div>
+
+        <div id="sfLangNotice" class="hidden rounded-md bg-[#FFF3CD] text-[#8A6D00] text-xs" style="margin-top: 12px; padding: 10px 14px;" data-no-i18n></div>
 
         <div id="sfLoading" class="text-[#757575]" style="margin-top: 20px;">Loading...</div>
 

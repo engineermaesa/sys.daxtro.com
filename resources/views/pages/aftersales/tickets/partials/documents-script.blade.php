@@ -12,6 +12,127 @@
     const API = '/api/aftersales';
     const S = { ticketId: null, docs: null, agreement: null, form: null, activeTab: null, openItem: null, ssDoc: null, ssData: null };
     const VIEWS = ['ticketListView', 'ticketDetailsView', 'ticketWorkOrderView', 'ticketAgreementView', 'ticketServiceFormView', 'ticketSupervisorSignView'];
+
+    // ---------- document language (PRD v2.2 IM-99..104) ----------
+    // Templates stay in one source language (English). Page labels are translated here; the template text itself (clauses,
+    // section titles, inspection points) must come translated from the backend.
+    // TODO(API): GET /api/aftersales/tickets/{id}/agreement?lang=id|en|zh and GET .../service-form?lang=id|en|zh return the
+    //            template text translated and echo `data.language` (the language actually served; the source language when the
+    //            translation failed). POST .../documents/{type}/save accepts { language } and stores it on the document, and the
+    //            PDF is produced in that language.
+    const SOURCE_LANG = 'en';
+    const DOC_ROOT = { agreement: '#ticketAgreementView', service_form: '#ticketServiceFormView' };
+    const NOTICE = { agreement: '#saLangNotice', service_form: '#sfLangNotice' };
+    S.lang = { agreement: SOURCE_LANG, service_form: SOURCE_LANG };
+
+    const I18N = {
+        id: {
+            'Ticket Detail': 'Detail Tiket',
+            'Service / Repair Work Agreement Sheet': 'Lembar Persetujuan Kerja Servis / Perbaikan',
+            'Service & Machine Inspection Form': 'Formulir Servis & Inspeksi Mesin',
+            'Customer representative name': 'Nama perwakilan pelanggan',
+            'Name of the customer who signs this agreement': 'Nama pelanggan yang menandatangani persetujuan ini',
+            'Check all': 'Centang semua',
+            'Save Draft': 'Simpan Draf', 'Save': 'Simpan', 'Back': 'Kembali', 'Save Service Form': 'Simpan Formulir Servis',
+            'Draft': 'Draf', 'Saved': 'Tersimpan', 'Loading...': 'Memuat...',
+            'FORM INFORMATION': 'INFORMASI FORMULIR', 'Form Number': 'Nomor Formulir', 'Service Date': 'Tanggal Servis',
+            'Technician': 'Teknisi', 'Supervisor': 'Supervisor',
+            '1. CUSTOMER INFORMATION & JOB CATEGORY': '1. INFORMASI PELANGGAN & KATEGORI PEKERJAAN',
+            'Customer Name': 'Nama Pelanggan', 'PIC': 'PIC', 'Phone': 'Telepon', 'Address': 'Alamat',
+            'Service Type': 'Jenis Servis', 'Select service type': 'Pilih jenis servis', 'Preventive': 'Preventif', 'Repair': 'Perbaikan',
+            '2. DAXTRO ICE MACHINE SPECIFICATION & IDENTITY': '2. SPESIFIKASI & IDENTITAS MESIN ES DAXTRO',
+            'Machine Type': 'Tipe Mesin', 'Serial Number': 'Nomor Seri', 'Capacity': 'Kapasitas', 'Refrigerant Type': 'Jenis Refrigeran',
+            'Condenser Type': 'Jenis Kondensor', 'Voltage (V)': 'Tegangan (V)', 'Phase': 'Fase', 'Frequency (Hz)': 'Frekuensi (Hz)',
+            'Fill machine identity data according to the nameplate. It is remembered for this machine on the next ticket.':
+                'Isi data identitas mesin sesuai pelat nama. Data ini diingat untuk mesin ini pada tiket berikutnya.',
+            '3. INSPECTION SHEET & DETAILED TECHNICAL CHECK': '3. LEMBAR INSPEKSI & PEMERIKSAAN TEKNIS RINCI',
+            'No': 'No', 'Inspection Item & Component': 'Item Inspeksi & Komponen',
+            'Parameter / Reference Standard': 'Parameter / Standar Acuan', 'Measurement Result / Condition': 'Hasil Pengukuran / Kondisi', 'Status': 'Status',
+        },
+        zh: {
+            'Ticket Detail': '工单详情',
+            'Service / Repair Work Agreement Sheet': '服务 / 维修工作协议书',
+            'Service & Machine Inspection Form': '服务与设备检查表',
+            'Customer representative name': '客户代表姓名',
+            'Name of the customer who signs this agreement': '签署本协议的客户姓名',
+            'Check all': '全选',
+            'Save Draft': '保存草稿', 'Save': '保存', 'Back': '返回', 'Save Service Form': '保存服务表',
+            'Draft': '草稿', 'Saved': '已保存', 'Loading...': '加载中...',
+            'FORM INFORMATION': '表单信息', 'Form Number': '表单编号', 'Service Date': '服务日期',
+            'Technician': '技术员', 'Supervisor': '主管',
+            '1. CUSTOMER INFORMATION & JOB CATEGORY': '1. 客户信息与工作类别',
+            'Customer Name': '客户名称', 'PIC': '联系人', 'Phone': '电话', 'Address': '地址',
+            'Service Type': '服务类型', 'Select service type': '选择服务类型', 'Preventive': '预防性维护', 'Repair': '维修',
+            '2. DAXTRO ICE MACHINE SPECIFICATION & IDENTITY': '2. DAXTRO 制冰机规格与标识',
+            'Machine Type': '机器类型', 'Serial Number': '序列号', 'Capacity': '产能', 'Refrigerant Type': '制冷剂类型',
+            'Condenser Type': '冷凝器类型', 'Voltage (V)': '电压 (V)', 'Phase': '相数', 'Frequency (Hz)': '频率 (Hz)',
+            'Fill machine identity data according to the nameplate. It is remembered for this machine on the next ticket.':
+                '请按铭牌填写机器标识信息，下次该机器开单时将自动记住。',
+            '3. INSPECTION SHEET & DETAILED TECHNICAL CHECK': '3. 检查表与详细技术检查',
+            'No': '序号', 'Inspection Item & Component': '检查项目与部件',
+            'Parameter / Reference Standard': '参数 / 参考标准', 'Measurement Result / Condition': '测量结果 / 状况', 'Status': '状态',
+        },
+    };
+
+    const FMT = {
+        en: { checked: (a, b) => a + ' of ' + b + ' clauses checked', items: (n) => n + ' inspection items',
+            unavailable: (l) => 'Translation to ' + l + ' is not available right now. The source text (English) is shown instead.' },
+        id: { checked: (a, b) => a + ' dari ' + b + ' klausul dicentang', items: (n) => n + ' butir inspeksi',
+            unavailable: (l) => 'Terjemahan ke ' + l + ' belum tersedia. Teks sumber (Inggris) ditampilkan.' },
+        zh: { checked: (a, b) => '已勾选 ' + a + ' / ' + b + ' 条条款', items: (n) => n + ' 项检查',
+            unavailable: (l) => '暂无法翻译为' + l + '，当前显示源文本（英文）。' },
+    };
+    const LANG_NAME = { id: 'Indonesia', en: 'Inggris', zh: 'Mandarin' };
+
+    function tr(type, text) { return (I18N[S.lang[type]] || {})[text] || text; }
+    function fmt(type) { return FMT[S.lang[type]] || FMT.en; }
+
+    function langStoreKey(type) { return 'aftersales.doc.lang.' + currentId() + '.' + type; }
+    function readStoredLang(type) {
+        try { const v = sessionStorage.getItem(langStoreKey(type)); return I18N[v] || v === SOURCE_LANG ? v : null; } catch (e) { return null; }
+    }
+    function storeLang(type, lang) {
+        try { sessionStorage.setItem(langStoreKey(type), lang); } catch (e) { /* storage may be blocked */ }
+    }
+
+    // Containers whose text comes from the backend or from users: never translated by the label dictionary.
+    function markNoI18n() {
+        $('#saTitle, #saSubtitle, #saSections, #saClosing, #saSignatures, #saCompleteness, #sfSubtitle, #sfTabs, #sfPanels, #sfDiagnosis, #sfSignatures, #sfCompleteness').attr('data-no-i18n', '');
+    }
+
+    // Replaces every static label under the document root by its translation (original text is kept on the node).
+    function applyLang(type) {
+        const root = document.querySelector(DOC_ROOT[type]);
+        if (!root) return;
+        const dict = I18N[S.lang[type]] || {};
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest('textarea, script, style, [data-no-i18n]')) continue;
+            if (node._orig === undefined) node._orig = node.nodeValue;
+            const trimmed = node._orig.trim();
+            node.nodeValue = (trimmed && dict[trimmed]) ? node._orig.replace(trimmed, dict[trimmed]) : node._orig;
+        }
+        root.querySelectorAll('[placeholder]').forEach(function (el) {
+            if (el.dataset.phEn === undefined) el.dataset.phEn = el.getAttribute('placeholder');
+            el.setAttribute('placeholder', dict[el.dataset.phEn] || el.dataset.phEn);
+        });
+        $(root).find('.doc-lang-btn').each(function () {
+            const on = $(this).data('lang') === S.lang[type];
+            $(this).toggleClass('bg-[#115640] text-white', on).toggleClass('bg-white text-[#4B5563]', !on);
+        });
+    }
+
+    // Shows the notice when the backend did not serve the language the user chose.
+    function langNotice(type, doc) {
+        const lang = S.lang[type];
+        const served = doc && doc.language;
+        const failed = lang !== SOURCE_LANG && served !== lang;
+        $(NOTICE[type]).toggleClass('hidden', !failed).text(failed ? fmt(type).unavailable(LANG_NAME[lang]) : '');
+    }
+
+    function langQuery(type) { return S.lang[type] !== SOURCE_LANG ? '?lang=' + S.lang[type] : ''; }
     const TYPE_TITLE = { agreement: 'Service Agreement', service_form: 'Service Form' };
     const ROLES = [['technician', 'Serviced by / Technician'], ['supervisor', 'Checked by / Supervisor'], ['customer', 'Approved by / Customer']];
     const STATUS_LABEL = { ok: 'OK', rep: 'Rep', na: 'N/A' };
@@ -214,7 +335,7 @@
 
     function statusBadge(sel, doc) {
         const saved = doc.status === 'saved';
-        $(sel).text(saved ? 'Saved' : 'Draft')
+        $(sel).text(saved ? 'Saved' : 'Draft')   // translated by applyLang() after render
             .attr('style', 'padding: 4px 12px;' + (saved ? 'background:#E7F3EE;color:#115640;' : 'background:#FFF3CD;color:#D97706;'));
     }
 
@@ -578,13 +699,31 @@
 
     // Save dokumen (POST .../save); callback dipanggil setelah sukses
     function saveDocument(type, done) {
-        call('POST', '/tickets/' + currentId() + '/documents/' + type + '/save')
+        // TODO(API): POST .../documents/{type}/save accepts { language: 'id'|'en'|'zh' } and stores it on the document.
+        call('POST', '/tickets/' + currentId() + '/documents/' + type + '/save', { language: S.lang[type] || SOURCE_LANG })
             .done(function (res) {
                 const d = res.data || {};
-                let text = TYPE_TITLE[type] + ' has been saved and locked.';
-                if ((d.warnings || []).length) text += '\n' + d.warnings.join('\n');
-                if (d.documentation_published) text += '\nDocumentation Published: both documents are saved.';
-                Swal.fire({ title: 'Saved', text: text, icon: 'success', confirmButtonColor: '#115640' });
+                const extra = [];
+                if ((d.warnings || []).length) extra.push(d.warnings.join('\n'));
+                if (d.documentation_published) extra.push('Documentation Published: both documents are saved.');
+
+                if (type === 'agreement') {
+                    // IM-106/107: "Saved!" modal; the status badge changes Draft -> Saved after OK, without a page reload.
+                    Swal.fire({
+                        title: 'Saved!',
+                        text: 'Service Agreement for ticket ' + ((currentTicket || {}).ticket_code || '') + ' has been saved successfully.',
+                        footer: extra.length ? esc(extra.join(' ')) : undefined,
+                        icon: 'success',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#115640'
+                    }).then(function () {
+                        reloadDocument(type);
+                        if (done) done();
+                    });
+                    return;
+                }
+
+                Swal.fire({ title: 'Saved', text: TYPE_TITLE[type] + ' has been saved and locked.' + (extra.length ? '\n' + extra.join('\n') : ''), icon: 'success', confirmButtonColor: '#115640' });
                 reloadDocument(type);
                 if (done) done();
             })
@@ -593,6 +732,8 @@
 
     // ---------- Service Agreement ----------
     function openAgreement() {
+        markNoI18n();
+        S.lang.agreement = readStoredLang('agreement') || SOURCE_LANG;
         const t = currentTicket || {};
         $('#saSubtitle').text((t.ticket_code || '-') + ' · ' + ((t.customer || {}).name || '-'));
         $('#saBody').addClass('hidden');
@@ -602,7 +743,8 @@
     }
 
     function loadAgreement() {
-        call('GET', '/tickets/' + currentId() + '/agreement')
+        // TODO(API): ?lang=id|en|zh returns the template text translated (see the language notes at the top).
+        return call('GET', '/tickets/' + currentId() + '/agreement' + langQuery('agreement'))
             .done(function (res) { S.agreement = res.data; renderAgreement(); })
             .fail(function (xhr) { $('#saLoading').removeClass('hidden').text(errMsg(xhr, 'Failed to load agreement.')); });
     }
@@ -610,7 +752,8 @@
     function renderAgreement() {
         const d = S.agreement;
         const readOnly = !!d.locked || !(d.can && d.can.fill);
-        const accepted = d.accepted_clauses || [];
+        // a language switch re-renders the sheet: keep what the user already ticked/typed and has not saved yet
+        const accepted = S.pendingAgreement ? S.pendingAgreement.keys : (d.accepted_clauses || []);
         const tpl = d.template || {};
 
         $('#saLoading').addClass('hidden');
@@ -618,7 +761,7 @@
         statusBadge('#saStatusBadge', d);
         $('#saTitle').text(tpl.title || 'Service / Repair Work Agreement Sheet');
         $('#saTemplateVersion').text(tpl.version ? '(template v' + tpl.version + ')' : '');
-        $('#saCustomerName').val(d.customer_name || '').prop('disabled', readOnly);
+        $('#saCustomerName').val(S.pendingAgreement ? S.pendingAgreement.name : (d.customer_name || '')).prop('disabled', readOnly);
         $('#saClosing').text(tpl.closing_statement || '');
 
         $('#saSections').html((tpl.sections || []).map(function (sec) {
@@ -631,12 +774,16 @@
                 + '<div class="flex items-center justify-between" style="padding: 14px 16px; background: #FAFAFA;">'
                 + '<label class="flex items-center cursor-pointer" style="gap: 12px;"><input type="checkbox" class="sa-section-check" ' + (readOnly ? 'disabled' : '') + ' style="width: 18px; height: 18px;">'
                 + '<span class="font-bold">' + esc(sec.code) + '. ' + esc(sec.title) + '</span></label>'
-                + '<span class="sa-count text-[#9CA3AF] text-xs"></span></div>'
-                + '<div style="padding: 8px 16px 12px 36px;">' + clauses + '</div></div>';
+                + '<button type="button" class="sa-toggle flex items-center cursor-pointer" style="gap: 10px;" aria-expanded="true">'
+                + '<span class="sa-count text-[#9CA3AF] text-xs"></span><i class="bi bi-chevron-up text-[#9CA3AF] text-xs"></i></button></div>'
+                + '<div class="sa-body" style="padding: 8px 16px 12px 36px;">' + clauses + '</div></div>';
         }).join(''));
 
         $('#saCheckAll').prop('disabled', readOnly);
+        S.pendingAgreement = null;
         refreshAgreement();
+        langNotice('agreement', d);
+        applyLang('agreement');
 
         renderSignatureCards('#saSignatures', 'agreement', d);
         completenessBox('#saCompleteness', d);
@@ -652,7 +799,7 @@
             const done = $c.filter(':checked').length;
             all += $c.length;
             checked += done;
-            $(this).find('.sa-count').text(done + ' / ' + $c.length + ' clauses');
+            $(this).find('.sa-count').text(done + '/' + $c.length);
             $(this).find('.sa-section-check')
                 .prop('checked', $c.length > 0 && done === $c.length)
                 .prop('indeterminate', done > 0 && done < $c.length);
@@ -660,7 +807,20 @@
         $('#saCheckAll')
             .prop('checked', all > 0 && checked === all)
             .prop('indeterminate', checked > 0 && checked < all);
+        $('#saCheckedSummary').text(fmt('agreement').checked(checked, all));
     }
+
+    // IM-105: open/close one section; the user can always re-open a collapsed section by hand.
+    function setSectionOpen($section, open) {
+        $section.find('.sa-body').toggleClass('hidden', !open);
+        $section.find('.sa-toggle').attr('aria-expanded', open ? 'true' : 'false')
+            .find('.bi').toggleClass('bi-chevron-up', open).toggleClass('bi-chevron-down', !open);
+    }
+
+    $(document).on('click', '#ticketAgreementView .sa-toggle', function () {
+        const $section = $(this).closest('.sa-section');
+        setSectionOpen($section, $section.find('.sa-body').hasClass('hidden'));
+    });
 
     $(document).on('change', '#ticketAgreementView .sa-clause', refreshAgreement);
     $(document).on('change', '#ticketAgreementView .sa-section-check', function () {
@@ -670,6 +830,35 @@
     $(document).on('change', '#saCheckAll', function () {
         $('#ticketAgreementView .sa-clause').prop('checked', this.checked);
         refreshAgreement();
+        // after Check all every clause is ticked: collapse all sections (A to O) to save scrolling
+        if (this.checked) $('#ticketAgreementView .sa-section').each(function () { setSectionOpen($(this), false); });
+    });
+
+    // ---------- language switcher (agreement + service form) ----------
+    $(document).on('click', '.doc-lang-btn', function () {
+        const type = $(this).closest('.doc-lang').data('doc');
+        const lang = $(this).data('lang');
+        if (!lang || lang === S.lang[type]) return;
+        S.lang[type] = lang;
+        storeLang(type, lang);
+
+        if (type === 'agreement') {
+            S.pendingAgreement = {
+                keys: $('#ticketAgreementView .sa-clause:checked').map(function () { return $(this).data('key'); }).get(),
+                name: $('#saCustomerName').val() || '',
+            };
+            applyLang('agreement');
+            loadAgreement().fail(function () { S.pendingAgreement = null; });
+            return;
+        }
+
+        // Service Form: persist what the technician typed first, so reloading the translated template loses nothing
+        applyLang('service_form');
+        const reload = function () { loadForm(); };
+        if (formReadOnly()) { reload(); return; }
+        putForm({ service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect() })
+            .done(reload)
+            .fail(function (xhr) { fail(xhr, 'Failed to save before switching language.'); });
     });
 
     function saveAgreementDraft() {
@@ -709,6 +898,8 @@
 
     // ---------- Service Form ----------
     function openForm() {
+        markNoI18n();
+        S.lang.service_form = readStoredLang('service_form') || SOURCE_LANG;
         const t = currentTicket || {};
         $('#sfSubtitle').text((t.ticket_code || '-') + ' · ' + (((t.customer_product || {}).product || {}).name || '-'));
         $('#sfBody').addClass('hidden');
@@ -720,7 +911,8 @@
     }
 
     function loadForm() {
-        return call('GET', '/tickets/' + currentId() + '/service-form')
+        // TODO(API): ?lang=id|en|zh returns labels, group titles and inspection points translated (see the language notes at the top).
+        return call('GET', '/tickets/' + currentId() + '/service-form' + langQuery('service_form'))
             .done(function (res) { S.form = res.data; renderForm(); })
             .fail(function (xhr) { $('#sfLoading').removeClass('hidden').text(errMsg(xhr, 'Failed to load service form.')); });
     }
@@ -854,7 +1046,7 @@
         const groups = f.groups || [];
         if (!S.activeTab || !groups.some(function (g) { return g.code === S.activeTab; })) S.activeTab = groups.length ? groups[0].code : null;
 
-        $('#sfItemCount').text(itemsFlat().length + ' inspection items');
+        $('#sfItemCount').text(fmt('service_form').items(itemsFlat().length));
 
         $('#sfTabs').html(groups.map(function (g) {
             const on = g.code === S.activeTab;
@@ -866,9 +1058,9 @@
             + groups.map(function (g) {
                 return '<div class="sf-panel table-cards-wrap overflow-x-auto ' + (g.code === S.activeTab ? '' : 'hidden') + '" data-tab="' + esc(g.code) + '">'
                     + '<table class="table-cards sf-table w-full whitespace-nowrap"><thead><tr class="text-left border-y border-[#EDEDED] text-[#1E1E1E]" style="background: #FAFAFA;">'
-                    + '<th style="padding: 12px 16px;">No</th><th style="padding: 12px 16px;">Inspection Item &amp; Component</th>'
-                    + '<th style="padding: 12px 16px;">Parameter / Reference Standard</th><th style="padding: 12px 16px;">Measurement Result / Condition</th>'
-                    + '<th style="padding: 12px 16px;">Status</th></tr></thead><tbody>'
+                    + '<th style="padding: 12px 16px;">' + tr('service_form', 'No') + '</th><th style="padding: 12px 16px;">' + tr('service_form', 'Inspection Item & Component') + '</th>'
+                    + '<th style="padding: 12px 16px;">' + tr('service_form', 'Parameter / Reference Standard') + '</th><th style="padding: 12px 16px;">' + tr('service_form', 'Measurement Result / Condition') + '</th>'
+                    + '<th style="padding: 12px 16px;">' + tr('service_form', 'Status') + '</th></tr></thead><tbody>'
                     + (g.items || []).map(function (it) { return renderItemRows(it, ro); }).join('')
                     + '</tbody></table></div>';
             }).join(''));
@@ -882,6 +1074,8 @@
         });
         renderSignatureCards('#sfSignatures', 'service_form', f);
         completenessBox('#sfCompleteness', f);
+        langNotice('service_form', f);
+        applyLang('service_form');
         $('#sfSaveDraft').toggleClass('hidden', ro);
         $('#sfSaveForm').toggleClass('hidden', !(f.can && f.can.save) || !!f.locked);
         setSaveState($('#sfSaveForm'), f);
