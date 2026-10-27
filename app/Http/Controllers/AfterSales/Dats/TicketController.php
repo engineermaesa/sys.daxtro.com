@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Aftersales\DocumentCounter;
 use App\Models\Aftersales\RefSparepart;
 use App\Models\Aftersales\SatisfactionLink;
+use App\Models\Aftersales\ServiceCustomer;
 use App\Models\Aftersales\ServiceCustomerProduct;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCost;
@@ -17,6 +18,7 @@ use App\Models\Aftersales\TicketRecoming;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketVisit;
 use App\Models\Aftersales\TicketWorkOrder;
+use App\Services\Aftersales\TicketCustomerContact;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketStock;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -338,6 +340,8 @@ class TicketController extends Controller
         $ticket = DB::transaction(function () use ($validated, $request) {
             $machine = ServiceCustomerProduct::whereKey($validated['customer_product_id'])->lockForUpdate()->firstOrFail();
             abort_unless($machine->customer_id === (int) $validated['customer_id'], 409, 'The machine owner changed. Reload before creating the ticket.');
+            $customer = ServiceCustomer::whereKey($validated['customer_id'])->lockForUpdate()->firstOrFail();
+            TicketCustomerContact::assertComplete($customer);
             $now = Carbon::now('Asia/Jakarta');
             $sequence = DocumentCounter::nextNumber(DocumentCounter::TYPE_TICKET, $now);
             $ticketCode = 'DAX-AF-'.$now->format('Ymd').'-'.$sequence;

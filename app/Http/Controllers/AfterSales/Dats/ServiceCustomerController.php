@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Aftersales\ServiceCustomer;
 use App\Models\Aftersales\ServiceCustomerPhoneChange;
 use App\Models\Aftersales\ServiceCustomerProduct;
+use App\Services\Aftersales\MachineNames;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ServiceCustomerController extends Controller
 {
@@ -88,7 +90,7 @@ class ServiceCustomerController extends Controller
 
         $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $paginated = $query->orderByDesc('id')->paginate($perPage);
-        $paginated->getCollection()->each->append(['lead_no_longer_deal', 'lead_updated']);
+        $paginated->getCollection()->each->append(['lead_no_longer_deal', 'lead_updated', 'ticket_creation']);
 
         return response()->json([
             'status' => 'success',
@@ -104,7 +106,7 @@ class ServiceCustomerController extends Controller
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
         $customer->load(['province', 'region', 'deals.lead.quotation', 'products.industry', 'products.product', 'products.productType']);
-        $customer->append(['lead_no_longer_deal', 'lead_updated']);
+        $customer->append(['lead_no_longer_deal', 'lead_updated', 'ticket_creation']);
 
         return response()->json(['status' => 'success', 'data' => $customer]);
     }
@@ -249,20 +251,7 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $validated = $request->validate([
-            'product_id' => 'nullable|integer|exists:ref_products,id',
-            'machine_name' => 'required|string|max:255',
-            'serial_number' => 'required|string|max:255',
-            'brand' => 'nullable|string|max:255',
-            'capacity' => 'nullable|numeric|min:0',
-            'refrigerant' => 'nullable|string|max:255',
-            'note' => 'nullable|string|max:10000',
-            'ref_product_type_id' => 'nullable|integer|exists:ref_product_types,id',
-            'industry_id' => 'nullable|integer|exists:ref_industries,id',
-            'warranty_start' => 'nullable|date',
-            'warranty_end' => 'nullable|date',
-            'pm_contract_status' => 'sometimes|required|in:none,basic,premium',
-        ]);
+        $validated = $this->validateMachine($request);
 
         $validated['customer_id'] = $customer->id;
         $validated['created_by'] = $request->user()->id;
@@ -276,20 +265,7 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $validated = $request->validate([
-            'product_id' => 'nullable|integer|exists:ref_products,id',
-            'machine_name' => 'required|string|max:255',
-            'serial_number' => 'required|string|max:255',
-            'brand' => 'nullable|string|max:255',
-            'capacity' => 'nullable|numeric|min:0',
-            'refrigerant' => 'nullable|string|max:255',
-            'note' => 'nullable|string|max:10000',
-            'ref_product_type_id' => 'nullable|integer|exists:ref_product_types,id',
-            'industry_id' => 'nullable|integer|exists:ref_industries,id',
-            'warranty_start' => 'nullable|date',
-            'warranty_end' => 'nullable|date',
-            'pm_contract_status' => 'sometimes|required|in:none,basic,premium',
-        ]);
+        $validated = $this->validateMachine($request, $product);
 
         $validated['updated_by'] = $request->user()->id;
 
@@ -323,6 +299,23 @@ class ServiceCustomerController extends Controller
         return response()->json(['data' => ['categories' => \App\Models\Masters\ProductType::orderBy('name')->get(['id', 'name', 'code_prefix']), 'industries' => \App\Models\Masters\Industry::orderBy('name')->get(['id', 'name']), 'pm_contracts' => ['none' => null, 'basic' => '6 months', 'premium' => '3 months']]]);
     }
 
+    public function machineNamePreview(Request $request)
+    {
+        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
+        $data = $request->validate([
+            'ref_product_type_id' => 'required|integer|exists:ref_product_types,id',
+            'capacity' => 'required|numeric|min:0',
+            'compressor' => 'nullable|string|max:255',
+            'refrigerant' => 'nullable|string|max:255',
+        ]);
+        $name = MachineNames::generate(
+            \App\Models\Masters\ProductType::findOrFail($data['ref_product_type_id'])->code_prefix,
+            $data['capacity'], $data['compressor'] ?? null, $data['refrigerant'] ?? null,
+        );
+
+        return response()->json(['data' => ['machine_name' => $name, 'machine_name_mode' => 'auto']]);
+    }
+
     private function normalizeMapsInput(Request $request): void
     {
         if (! $request->exists('maps_link')) {
@@ -348,13 +341,41 @@ class ServiceCustomerController extends Controller
         return $data;
     }
 
+    private function validateMachine(Request $request, ?ServiceCustomerProduct $machine = null): array
+    {
+        $isDaxtro = $request->exists('is_daxtro') ? $request->boolean('is_daxtro') : ($machine?->is_daxtro ?? true);
+        $validated = $request->validate([
+            'is_daxtro' => 'sometimes|required|boolean',
+            'product_id' => 'nullable|integer|exists:ref_products,id',
+            'machine_name' => [Rule::requiredIf(! $isDaxtro), 'nullable', 'string', 'max:255'],
+            'machine_name_mode' => 'sometimes|required|in:auto,manual',
+            'serial_number' => [Rule::excludeIf(! $isDaxtro), 'required', 'string', 'max:255'],
+            'brand' => [Rule::excludeIf($isDaxtro), 'required', 'string', 'max:255'],
+            'compressor' => 'nullable|string|max:255',
+            'capacity' => 'nullable|numeric|min:0',
+            'refrigerant' => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:10000',
+            'ref_product_type_id' => 'nullable|integer|exists:ref_product_types,id',
+            'industry_id' => 'nullable|integer|exists:ref_industries,id',
+            'warranty_start' => [Rule::excludeIf(! $isDaxtro), 'nullable', 'date'],
+            'warranty_end' => [Rule::excludeIf(! $isDaxtro), 'nullable', 'date'],
+            'pm_contract_status' => [Rule::excludeIf(! $isDaxtro), 'sometimes', 'required', 'in:none,basic,premium'],
+        ]);
+        $validated['is_daxtro'] = $isDaxtro;
+        if ($isDaxtro) {
+            $validated['brand'] = null;
+        }
+
+        return $validated;
+    }
+
     private function saveMachine(array $data, ?ServiceCustomerProduct $machine = null): ServiceCustomerProduct
     {
         return \Illuminate\Support\Facades\DB::transaction(function () use ($data, $machine) {
-            $serial = \App\Services\Aftersales\CustomerMatching::serial($data['serial_number']);
+            $serial = $data['is_daxtro'] ? \App\Services\Aftersales\CustomerMatching::serial($data['serial_number']) : null;
             \App\Services\Aftersales\CustomerMutationLocks::acquire(\App\Services\Aftersales\CustomerMutationLocks::serialKey($serial));
             $duplicate = $serial && \App\Services\Aftersales\MachineSerials::exists($serial, $machine?->id);
-            if (! $serial || $duplicate) {
+            if (($data['is_daxtro'] && ! $serial) || $duplicate) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['serial_number' => $serial ? 'This serial number already exists.' : 'Serial Number is required.']);
             }
             $data['serial_number'] = $serial;
@@ -362,7 +383,8 @@ class ServiceCustomerController extends Controller
                 $machine = ServiceCustomerProduct::whereKey($machine->id)->lockForUpdate()->firstOrFail();
             }
             $machine ??= new ServiceCustomerProduct;
-            $machine->fill($data)->save();
+            MachineNames::apply($machine, $data);
+            $machine->save();
 
             return $machine;
         }, 3);

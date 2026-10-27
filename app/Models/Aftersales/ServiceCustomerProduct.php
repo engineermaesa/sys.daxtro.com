@@ -29,6 +29,9 @@ class ServiceCustomerProduct extends Model
         'pm_frequency',
         'capacity',
         'refrigerant',
+        'is_daxtro',
+        'compressor',
+        'machine_name_mode',
         'condenser_type',
         'voltage',
         'phase',
@@ -38,6 +41,7 @@ class ServiceCustomerProduct extends Model
 
     protected $casts = [
         'customer_id' => 'integer',
+        'is_daxtro' => 'boolean',
         'warranty_start' => 'date',
         'warranty_end' => 'date',
     ];
@@ -49,7 +53,21 @@ class ServiceCustomerProduct extends Model
     protected static function booted(): void
     {
         static::saving(function (self $machine) {
-            if (! $machine->exists || $machine->isDirty('serial_number')) {
+            if (! $machine->is_daxtro) {
+                $machine->serial_number = null;
+                $machine->normalized_serial = null;
+                $machine->warranty_period = null;
+                $machine->warranty_start = null;
+                $machine->warranty_end = null;
+                $machine->pm_contract_status = 'none';
+                $machine->pm_frequency = null;
+
+                return;
+            }
+            if ($machine->isDirty(['is_daxtro', 'brand'])) {
+                $machine->brand = null;
+            }
+            if (! $machine->exists || $machine->isDirty(['serial_number', 'is_daxtro'])) {
                 $machine->normalized_serial = \App\Services\Aftersales\CustomerMatching::serial($machine->serial_number);
             }
             if ($machine->isDirty('pm_contract_status') || ! $machine->exists) {
@@ -110,8 +128,17 @@ class ServiceCustomerProduct extends Model
         return $this->hasMany(Ticket::class, 'customer_product_id');
     }
 
-    public function getWarrantyActiveAttribute(): bool
+    public function getIsDaxtroAttribute(mixed $value): bool
     {
+        return $value === null ? true : (bool) $value;
+    }
+
+    public function getWarrantyActiveAttribute(): ?bool
+    {
+        if (! $this->is_daxtro) {
+            return null;
+        }
+
         return $this->warranty_end !== null && $this->warranty_end->greaterThanOrEqualTo(Carbon::today());
     }
 }
