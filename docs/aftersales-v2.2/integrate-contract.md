@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–10 sudah diimplementasikan, termasuk upload/review dan Apply Import Sparepart beserta opening stock. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–10 dan task 13 sudah diimplementasikan. Task 11 (terjemahan) dan 12 (bahasa tersimpan/PDF) ditunda. Finalisasi seluruh kontrak dilakukan pada task 14.
 
 ## Aturan umum
 
@@ -875,3 +875,75 @@ Untuk menutup perlombaan antara Apply dan input manual, `POST /api/aftersales/sp
 Part Number kosong tetap diperbolehkan pada CRUD manual sesuai kontrak existing; import tetap mewajibkannya. Data legacy yang sudah memiliki duplicate key tidak dibersihkan massal: import melewati key existing, dan edit field lain tanpa mengganti key tetap diperbolehkan. Penanganan ini memakai validasi aplikasi dan lock `aftersales_mutation_locks` existing, bukan menambah unique constraint yang memaksa perubahan data legacy. Penulisan internal yang membuat/mengubah Part Number perlu mengikuti jalur lock yang sama.
 
 Tidak ada migrasi schema baru task 10. Tabel lock dari migrasi optimasi Aftersales sebelumnya dan kolom type log import task 8 harus sudah tersedia sebelum deployment. UI Apply dan pesan hasilnya tetap dikerjakan tim FE berdasarkan kontrak ini.
+
+## Task 13: Response Save Service Agreement
+
+Mendukung feedback Save sesuai IM-106/107. Modal sukses dan pembaruan badge dikerjakan FE; backend memberikan pesan dengan nomor tiket dan status dokumen yang telah tersimpan. Tidak ada migrasi atau konfigurasi deployment baru.
+
+### Endpoint dan alur
+
+`POST /api/aftersales/tickets/{ticket}/documents/agreement/save`
+
+Session login dan CSRF mengikuti aturan umum. Tidak memerlukan payload baru. Endpoint ini memfinalisasi draft existing, bukan menyimpan input form. Simpan perubahan checklist/nama terlebih dahulu melalui `PUT /api/aftersales/tickets/{ticket}/agreement`, lengkapi tanda tangan melalui endpoint existing, lalu panggil Save. Jika penyimpanan draft gagal, FE tidak boleh melanjutkan finalisasi.
+
+Hanya teknisi yang ditugaskan dengan permission `aftersales.documents.fill`, atau supervisor tiket dengan permission `aftersales.tickets.manage` sesuai aturan existing yang dapat Save. Permission manage tanpa penugasan supervisor tidak cukup; akses view-own saja tidak cukup. Aturan supervisor terkait happy call tetap berlaku.
+
+### Response sukses
+
+HTTP 200. Field berikut ditambahkan khusus pada final Save Agreement: top-level `title`, `data.ticket_id`, `data.ticket_code`, dan `data.status_label`. Field `message` menjadi pesan spesifik Agreement; summary existing tetap tersedia.
+
+```json
+{
+  "status": "success",
+  "title": "Saved!",
+  "message": "Service Agreement for ticket DAX-AF-000123 has been saved successfully.",
+  "data": {
+    "type": "agreement",
+    "ticket_id": 1,
+    "ticket_code": "DAX-AF-000123",
+    "status": "saved",
+    "status_label": "Saved",
+    "locked": true,
+    "saved_at": "2026-10-28T03:00:00.000000Z",
+    "template_version": 1,
+    "warnings": [],
+    "documentation_published": false
+  }
+}
+```
+
+Contoh dipersingkat: `data.signatures`, `data.completeness`, `data.can`, dan `data.dispatches` tetap disertakan seperti response existing. `ticket_code` memakai nilai tiket sebenarnya, tanpa menyusun atau menambahkan prefix kembali. `saved_at` mengikuti serialisasi timestamp model existing.
+
+Integrasi FE:
+
+1. Hanya setelah HTTP 200 dengan `status=success` dan `data.status=saved`, tampilkan modal ikon centang hijau, judul dari `title`, teks dari `message`, tombol OK. Modal ini menggantikan modal ceklis sebelumnya.
+2. Setelah OK, ubah badge dari Draft ke `data.status_label` (Saved) tanpa reload halaman. Terapkan `data.locked` serta `data.can` untuk menyesuaikan kontrol. Gunakan `data.status` (`saved`) untuk logika, bukan label tampilan. FE juga dapat menyegarkan data dokumen melalui GET existing bila diperlukan.
+3. Cegah klik Save bertumpuk selama request berjalan. Save berulang pada dokumen yang sudah saved tetap ditolak 422 sesuai perilaku existing; bukan respons sukses idempotent.
+4. `warnings` tetap informasi non-blocking, misalnya alamat email penerima kosong sehingga pengiriman dilewati. Dokumen tetap saved dan modal sukses tetap ditampilkan; warning dapat ditampilkan sebagai informasi tambahan.
+5. `documentation_published=true` berarti progress tiket setelah Save berada pada Documentation Published. Alur existing tetap menerbitkan dokumentasi dan link survei ketika kedua dokumen tersimpan. Field ini bukan penanda email telah terkirim.
+
+Status saved berarti dokumen telah disimpan dan dikunci, bukan jaminan seluruh email sudah terkirim. Email menggunakan antrean existing dan status pengiriman mengikuti dispatches. Save Draft (`PUT agreement`) tetap mengembalikan detail draft existing tanpa modal final Saved!.
+
+### Error
+
+Format error existing Laravel dipertahankan. Respons error tidak memiliki `title=Saved!` maupun envelope sukses. FE menampilkan pesan error melalui pola yang sudah ada dan tidak menampilkan modal sukses atau mengganti badge menjadi Saved.
+
+| HTTP | Kondisi |
+|---|---|
+| 401 | Session tidak valid/tidak login. |
+| 403 | Bukan teknisi/supervisor yang berhak menyimpan. |
+| 404 | Tiket/dokumen tidak tersedia atau tipe dokumen tidak dikenal. |
+| 422 | Klausul/nama/tanda tangan belum lengkap, sudah saved, tiket closed, atau masih Recoming. |
+| 5xx | Kegagalan server mengikuti penanganan existing; jangan dianggap sukses. |
+
+Contoh validasi kelengkapan (HTTP 422):
+
+```json
+{
+  "message": "Cannot save yet: 1 clause(s) are not checked; Customer signature is missing"
+}
+```
+
+Respons error dapat memiliki field tambahan dari framework sesuai environment. Gunakan HTTP status dan `message`; jangan bergantung pada pencocokan teks error. Jika respons terputus/timeout, muat ulang status dokumen sebelum mencoba Save kembali karena server mungkin sudah menyimpan dokumen.
+
+Response Save Service Form (`POST .../documents/service_form/save`) tetap memakai `message=Document saved and locked`, tanpa field tambahan Agreement di atas. Fitur terjemahan, payload simpan bahasa, dan PDF bahasa pilihan tetap ditunda sebagai task 11–12.

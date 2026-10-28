@@ -63,14 +63,26 @@ class DocumentController extends Controller
         $result = TicketDocuments::save($ticket, $type, $request->user());
         $ticket->refresh();
 
-        return response()->json([
+        $response = [
             'status' => 'success',
             'message' => 'Document saved and locked',
             'data' => $this->summary($request, $ticket, $type, $result['document']) + [
                 'warnings' => $result['warnings'],
                 'documentation_published' => $ticket->progress === \App\Models\Aftersales\TicketLog::STEP_DOCUMENTATION_PUBLISHED,
             ],
-        ]);
+        ];
+
+        if ($type === TicketDocuments::TYPE_AGREEMENT) {
+            $response['title'] = 'Saved!';
+            $response['message'] = 'Service Agreement for ticket '.$ticket->ticket_code.' has been saved successfully.';
+            $response['data'] += [
+                'ticket_id' => $ticket->id,
+                'ticket_code' => $ticket->ticket_code,
+                'status_label' => 'Saved',
+            ];
+        }
+
+        return response()->json($response);
     }
 
     public function unlock(Request $request, Ticket $ticket, string $type)
