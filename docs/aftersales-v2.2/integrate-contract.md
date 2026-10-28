@@ -1,6 +1,26 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–10 dan task 13 sudah diimplementasikan. Task 11 (terjemahan) dan 12 (bahasa tersimpan/PDF) ditunda. Finalisasi seluruh kontrak dilakukan pada task 14.
+Kontrak handoff backend ke tim frontend untuk Aftersales PRD v2.2, difinalisasi pada task 14 dan diverifikasi terhadap implementasi repository pada 28 Oktober 2026. Task 1–10 dan task 13 tersedia; task 11–12 ditunda. Dokumen ini tidak menyatakan perubahan sudah di-deploy pada hosting produksi.
+
+## Status scope dan indeks integrasi
+
+| Task | Status | Referensi |
+|---|---|---|
+| 1 | Selesai: jenis mesin, field, validasi, dan normalisasi. | [Mesin Daxtro/non-Daxtro](#task-1-mesin-daxtro-dan-non-daxtro) |
+| 2 | Selesai: generator dan preview nama mesin. | [Generator Machine Name](#task-2-generator-machine-name) |
+| 3 | Selesai: template, review, dan Apply Customer v2.2. | [Import Customer](#task-3-pembaruan-import-customer) |
+| 4 | Selesai: antrean, badge, detail, dan keputusan. | [Deals Review](#task-4-deals-review) |
+| 5 | Selesai: metadata kontak dan penolakan tiket baru. | [Gate kontak Customer](#task-5-gate-kontak-customer-saat-membuat-tiket) |
+| 6 | Selesai: filter kunjungan terbaru. | [Visit Date](#task-6-filter-visit-date) |
+| 7 | Selesai: agregat milik teknisi login. | [Overall Rating](#task-7-overall-rating-teknisi) |
+| 8 | Selesai: tipe batch dan batas akses import. | [Log import bersama](#task-8-fondasi-log-import-bersama) |
+| 9 | Selesai: template, upload, review, dan export Sparepart. | [Review Sparepart](#task-9-upload-dan-review-import-sparepart) |
+| 10 | Selesai: Apply Sparepart dan opening stock. | [Apply Sparepart](#task-10-apply-import-sparepart) |
+| 11–12 | Ditunda: belum menjadi fitur integrasi yang tersedia. | [Scope ditunda](#scope-ditunda-dan-batas-handoff) |
+| 13 | Selesai: feedback final Save Agreement. | [Save Agreement](#task-13-response-save-service-agreement) |
+| 14 | Selesai: kontrak, pemeriksaan route/payload, dan panduan handoff. | [Verifikasi FE](#skenario-verifikasi-bersama-fe) dan [deployment](#catatan-deployment-cpanel) |
+
+Prioritas integrasi FE: referensi dan form mesin → import Customer/Deals → gate dan filter tiket/rating → import Sparepart → feedback Save Agreement. Tiap bagian di bawah mencantumkan request, response, permission, konflik, dan tanggung jawab FE.
 
 ## Aturan umum
 
@@ -9,8 +29,65 @@ Dokumen khusus integrasi backend v2.2. Task 1–10 dan task 13 sudah diimplement
 - Kirim header `Accept: application/json` pada semua request.
 - Request POST/PUT/DELETE wajib menyertakan token CSRF, misalnya header `X-CSRF-TOKEN` dari meta `csrf-token` pada halaman aplikasi.
 - Session tidak valid: HTTP 401; permission tidak mencukupi: 403; resource tidak ditemukan: 404; validasi gagal: 422.
-- Response create/update menggunakan `{ "message": "...", "data": { "data": { ... } } }`. Objek mesin berada di `response.data.data` pada body JSON.
+- Khusus mutasi Add/Edit Machine dan create/update Ticket yang memakai helper existing, objek hasil berada dalam `{ "message": "...", "data": { "data": { ... } } }`. Envelope ini bukan aturan untuk semua endpoint.
 - Response GET Customer menggunakan `{ "status": "success", "data": { "products": [...] } }`.
+
+### Membaca response dan menangani kegagalan
+
+Semua path pada dokumen ini dihitung dari **body JSON**. Jika memakai Axios, buka `response.data` dahulu untuk memperoleh body; hindari menganggap jumlah nesting `data` selalu sama antar-endpoint. Contoh JSON dipersingkat dan ID hanya ilustrasi; gunakan ID dari respons backend.
+
+| Kelompok endpoint | Path hasil pada body JSON |
+|---|---|
+| Add/Edit Machine, create/update Ticket | `data.data` untuk objek hasil. |
+| GET list Customer / Ticket | `data[]`; pagination `total`, `current_page`, `last_page` pada root. |
+| GET detail Customer | `data`; daftar mesin `data.products[]`. |
+| Referensi mesin / preview nama / Overall Rating | `data`. |
+| Upload / Show / Review / Apply import | `data.import`, `data.summary`, `data.rows[]`. |
+| Deals list | `data[]`; metadata paginator dan badge pada root. |
+| Deals detail | `data.deal`, `data.from_deal`, `data.candidates`, `data.customer`, `data.allowed_actions`; badge pada root. |
+| Deals resolve | `data` berisi CustomerDeal; badge pada root. |
+| Final Save Agreement | `status`, `title`, `message`, dan `data` berisi summary dokumen. |
+| Template/export Excel | Binary, bukan JSON. Baca sebagai blob dan gunakan Content-Disposition. |
+
+Untuk request JSON gunakan `Content-Type: application/json`. Untuk upload gunakan FormData dan biarkan browser membentuk header multipart beserta boundary. Session harus ikut terkirim; jika FE memakai origin terpisah, konfigurasi cookie/CORS/CSRF deployment perlu disiapkan terlebih dahulu. Kontrak ini memakai session aplikasi existing, tidak menambahkan login API atau bearer token baru.
+
+- `422`: gunakan `errors` jika tersedia untuk pemetaan field; sebagian aturan bisnis existing hanya memiliki `message`. Jangan mengharuskan semua error mempunyai `code` atau `errors`.
+- `409`: snapshot/version berubah. Muat ulang data terbaru, tampilkan perubahan untuk ditinjau, lalu gunakan version/timestamp baru; jangan mengulang mutasi otomatis dengan versi baru tanpa review.
+- `401`/`419`: pulihkan login/session atau token CSRF sebelum mencoba kembali. `419` dapat terjadi pada request mutasi yang token CSRF-nya tidak valid.
+- `403`/`404`: hentikan aksi dan tampilkan error; FE tidak boleh mengasumsikan role UI memberikan permission endpoint.
+- Timeout/koneksi terputus/`5xx`: jangan langsung menampilkan sukses. Periksa ulang GET resource untuk mengetahui apakah transaksi sudah selesai sebelum mengulang Apply/Save.
+
+Validasi dan otorisasi dapat dijalankan berurutan; jika request melanggar beberapa aturan, jangan bergantung pada satu urutan error tertentu. Tidak ada endpoint polling job/progress import baru. Upload, Review, dan Apply mengembalikan hasil request secara sinkron.
+
+### Permission yang dipakai
+
+| Fitur | Permission/ownership |
+|---|---|
+| Customer, mesin, preview/referensi, import Customer, Deals Review | `masters.service-customers`. Batch import hanya dapat diakses uploader. |
+| Import Sparepart dan CRUD Sparepart | `masters.spareparts`. Batch import hanya dapat diakses uploader. |
+| Create/Edit Ticket | `aftersales.tickets.manage`; gate kontak hanya pada create. |
+| List Ticket | `aftersales.tickets.manage`, atau `aftersales.tickets.view-own` untuk tiket assigned milik login. |
+| Overall Rating sendiri | `aftersales.tickets.view-own`; identitas selalu user login. |
+| Final Save Agreement | Teknisi assigned dengan `aftersales.documents.fill`, atau supervisor tiket yang memenuhi aturan existing dengan `aftersales.tickets.manage`. |
+| Mengubah Phone Customer / Apply perubahan Phone dari Lead | Permission tambahan `aftersales.customer-phone.change` dan audit existing. |
+
+Role bernama After Sales/Supervisor tidak menggantikan pemeriksaan permission. Badge/count Deals bersifat global bagi pengguna yang berhak; batch import tetap privat milik uploader, termasuk untuk supervisor.
+
+### Referensi pilihan mesin
+
+`GET /api/aftersales/customers/machine-references`, membutuhkan `masters.service-customers`:
+
+```json
+{
+  "data": {
+    "categories": [{"id": 1, "name": "Tube", "code_prefix": "TD"}],
+    "industries": [{"id": 2, "name": "Food"}],
+    "pm_contracts": {"none": null, "basic": "6 months", "premium": "3 months"}
+  }
+}
+```
+
+Kategori/industry diurutkan berdasarkan nama. Isi dropdown dari respons ini, bukan dari ID contoh atau isi sheet Reference Excel. Endpoint ini tidak menyediakan katalog Product. Category dikirim sebagai `ref_product_type_id`, Industry sebagai `industry_id`, dan Refrigerant Type sebagai `refrigerant` pada API mesin. Label header Excel untuk field yang sama tetap mengikuti bagian import.
 
 ## Task 1: Mesin Daxtro dan non-Daxtro
 
@@ -316,6 +393,52 @@ Possible match harus diberi keputusan sebelum Apply melalui `decision.action`: `
 Apply memakai `{ "lock_version": 1 }` sesuai versi terbaru. Lock version usang atau review lama tanpa `template_version=2.2` mendapat 409; batch lama yang belum diterapkan perlu diunggah ulang dengan template terbaru atau direview ulang memakai field v2.2 yang benar. Batch lama yang sudah applied tetap idempotent. Tidak ada migrasi schema baru pada task ini.
 
 Export memuat seluruh 21 kolom input ditambah Row/Status/Errors/Warnings/Decision/Result. File export bukan template upload karena memiliki kolom metadata; salin data koreksi ke template terbaru untuk upload ulang.
+
+### Keputusan, kandidat, dan hasil Apply Customer
+
+`summary` Customer mempunyai enam counter: `exact`, `possible`, `new`, `already_exists`, `error`, dan `warning`. Lima counter status pertama saling eksklusif; warning dapat tumpang tindih. Tidak ada field `summary.applicable` atau `review.can_apply` pada import Customer. Jangan memakai schema Sparepart untuk layar Customer.
+
+`review.candidates[]` memakai `type=customer|lead|row`, `id` target, `status=exact|possible`, dan `name`. Kandidat Customer juga memuat phone/ref_region_id; kandidat Lead memuat phone/customer_id jika sudah ditautkan; kandidat row memuat row_number. Kandidat `type=row` menunjuk **ID row staging** sebelumnya, bukan nomor Excel. Key field yang tidak relevan dapat tidak hadir.
+
+Contoh keputusan untuk satu Possible match:
+
+```json
+{
+  "lock_version": 1,
+  "rows": [{
+    "id": 101,
+    "decision": {"action": "link", "customer_id": 42}
+  }]
+}
+```
+
+Alternatif keputusan pada item row yang sama:
+
+| Keputusan | Isi `decision` |
+|---|---|
+| Link Customer | `{"action":"link","customer_id":42}` |
+| Link Deal/Lead | `{"action":"link","lead_id":12}` |
+| Link baris sebelumnya | `{"action":"link","row_id":99}` |
+| Buat Customer baru | `{"action":"create_new"}` |
+| Lewati baris | `{"action":"skip"}` |
+| Hapus keputusan sebelumnya | `null`; Possible harus diputuskan lagi sebelum Apply. |
+
+PUT Review menerima maksimal 5000 item, ID wajib distinct dan harus milik batch. `input` opsional sehingga keputusan dapat dikirim tanpa koreksi sel. Jika action=link, tepat satu target harus dipilih; row target wajib lebih awal pada batch yang sama. ID Customer/Lead diperiksa keberadaannya saat Review, dan kelayakan target diperiksa kembali saat Apply. Key input Customer yang tidak termasuk header tidak diterapkan; FE tetap harus mengirim header literal yang benar. Pembatasan key ini berbeda dengan Sparepart yang menolak key tidak dikenal dengan 422.
+
+Apply dengan Possible tanpa keputusan mendapat 422 pada `errors.rows` dan tidak menerapkan batch. Jika data master berubah sejak Review, Apply dapat mendapat 409 agar ditinjau ulang. Review dapat menghapus keputusan row yang hasil normalisasinya berubah; selalu gunakan hasil response terbaru. Customer existing yang ditautkan tidak ditimpa dengan kontak dari spreadsheet.
+
+Setelah Apply, `import.status=applied`, `applied_at` terisi, dan `lock_version` bertambah satu. `created_count` menghitung Customer baru; `matched_count` menghitung row yang memakai Customer existing, bukan jumlah mesin maupun semua row skipped; `error_count` menghitung row Error yang dilewati. `summary` tetap counter review; hasil aktual dibaca dari `rows[].result`:
+
+| `result` | Makna |
+|---|---|
+| `{"status":"applied","customer_id":42,"machine_id":123}` | Row diproses, dengan Customer dan mesin hasil. Beberapa row dapat menunjuk mesin yang sama karena aturan serial dalam file. |
+| `{"status":"applied","customer_id":42,"machine_id":null,"machine_status":"kept_archived"}` | Customer diproses, mesin tetap archived. |
+| `{"status":"skipped"}` | Row Error, Already exists pada preview, atau keputusan skip. Lihat review/decision untuk penyebab. |
+| `{"status":"already_exists"}` | Serial aktif ditemukan pada pemeriksaan ulang saat Apply; row dilewati. |
+
+Retry pada batch applied oleh uploader tetap mengembalikan hasil tersimpan tanpa membuat data ganda, termasuk dengan lock_version lama yang valid secara format. Jangan menerapkan pola ini pada final Save Agreement yang menolak Save berulang. Batch applied tidak dapat dikoreksi melalui PUT Review; untuk perbaikan gunakan batch baru. GET Show tidak menghitung ulang matching secara otomatis.
+
+Export Customer selalu seluruh row. Tidak ada filter `errors_only` untuk Customer; jika UI menyebutnya Download Error, jelaskan bahwa file juga berisi row non-error beserta metadata. Export Sparepart berbeda: default hanya Error dan mendukung `errors_only=0` untuk semua row.
 
 ## Task 4: Deals Review
 
@@ -757,7 +880,7 @@ Contoh dipersingkat pada field yang relevan; ID dan data merupakan ilustrasi:
 }
 ```
 
-Input mempertahankan nilai asli; normalisasi ditampilkan melalui review.part. Angka stok valid dikembalikan sebagai integer, Price sebagai string dua desimal. Angka invalid pada part menjadi null, dengan alasannya pada errors. skip_reason dapat berupa `already_exists`, `soft_deleted`, `duplicate_part_number`, `validation_error`, atau null. Field decision/result log tetap tersedia tetapi belum dipakai untuk Apply pada task ini.
+Input mempertahankan nilai asli; normalisasi ditampilkan melalui review.part. Angka stok valid dikembalikan sebagai integer, Price sebagai string dua desimal. Angka invalid pada part menjadi null, dengan alasannya pada errors. skip_reason dapat berupa `already_exists`, `soft_deleted`, `duplicate_part_number`, `validation_error`, atau null. Field decision log tidak dipakai untuk menentukan kelayakan Sparepart; result null sebelum Apply dan diisi oleh task 10.
 
 ### Koreksi review
 
@@ -947,3 +1070,75 @@ Contoh validasi kelengkapan (HTTP 422):
 Respons error dapat memiliki field tambahan dari framework sesuai environment. Gunakan HTTP status dan `message`; jangan bergantung pada pencocokan teks error. Jika respons terputus/timeout, muat ulang status dokumen sebelum mencoba Save kembali karena server mungkin sudah menyimpan dokumen.
 
 Response Save Service Form (`POST .../documents/service_form/save`) tetap memakai `message=Document saved and locked`, tanpa field tambahan Agreement di atas. Fitur terjemahan, payload simpan bahasa, dan PDF bahasa pilihan tetap ditunda sebagai task 11–12.
+
+## Scope ditunda dan batas handoff
+
+| Bagian | Status untuk FE |
+|---|---|
+| Task 11: terjemahan label/klausul/inspeksi, provider, cache, endpoint konten ID/EN/CHN | Ditunda. Tidak ada endpoint `/agreement/content` atau `/service-form/content` pada implementasi yang diserahkan. Jangan memanggilnya sebagai bagian integrasi rilis ini. |
+| Task 12: penyimpanan bahasa dokumen dan PDF sesuai bahasa, termasuk font Mandarin | Ditunda. Jangan mengandalkan field `language` tersimpan atau parameter bahasa pada Save/PDF. Dokumen memakai konten sumber existing. |
+| Penyesuaian identitas mesin pada PDF, termasuk Machine Code/Daxtro/non-Daxtro | Bagian task 12 dan masih tertunda. Field mesin v2.2 pada API tidak berarti layout/konten PDF telah disesuaikan. |
+| Disclaimer terjemahan otomatis | Belum diterapkan; dibahas kembali jika fitur terjemahan dilanjutkan. |
+
+Tidak dibutuhkan Google Translation API key, aktivasi billing penerjemah, LibreTranslate, Docker, atau VPS tambahan untuk scope yang tersedia pada rilis ini. Backend belum mengganti penerjemah ke file lokal atau LibreTranslate. Rencana alternatif penerjemahan sebelumnya merupakan diskusi, bukan fitur yang sudah diimplementasikan.
+
+Tim FE tetap menangani switch/tampilan field mesin sesuai jenis, mode nama dan preview, badge/tab Deals, wizard kontak, date picker dan state URL, posisi badge Priority, header rating, layar import, serta modal Saved!. Menyembunyikan Machine Code pada layar, menampilkan Compressor/Refrigerant, dan collapse bagian klausul setelah Check all (IM-105) adalah pekerjaan tampilan; backend tetap menyimpan `accepted_clauses` berdasarkan key. Jangan mengubah nilai tersimpan hanya karena field disembunyikan, kecuali normalisasi jenis mesin yang memang dilakukan backend.
+
+Fondasi log import menyediakan batch per ID dan isolasi akses; rilis ini tidak menambahkan endpoint daftar/pencarian seluruh riwayat batch. Jika FE membutuhkan halaman log import dengan list/pagination lintas batch, kebutuhan endpoint tersebut masih perlu dijadwalkan. Jangan mengandalkan URL list yang belum tersedia.
+
+## Skenario verifikasi bersama FE
+
+Gunakan environment uji dan akun dengan permission yang sesuai. Angka ID pada contoh harus diganti dari data aktual. Kriteria berikut memeriksa perilaku integrasi; tampilan akhirnya tetap dikerjakan tim FE.
+
+| Alur | Hasil yang perlu dibuktikan |
+|---|---|
+| Mesin Daxtro auto → manual | Preview sesuai rumus; Save auto dihitung backend; edit nama manual tidak ditimpa saat spesifikasi berubah. |
+| Daxtro → non-Daxtro → Daxtro | Brand/nama manual wajib pada non-Daxtro; serial/warranty/PM dibersihkan; kembali ke Daxtro meminta serial dan tidak memulihkan data lama. |
+| Mesin existing | Membaca dan mengubah Note tidak menimpa nama existing; perubahan pembentuk nama mengikuti mode tersimpan. |
+| Import Customer | Upload hanya staging; Warning kontak tidak menjadi Error; Possible wajib diputuskan; Apply memakai version terbaru dan hasil row; retry tidak menggandakan data. |
+| Deals | Pending count global dan badge 99+/nol benar; Link/Create memperbarui badge; Lead updates terpisah; updated_at usang mendapat 409. |
+| Tiket baru vs existing | Next mengikuti ticket_creation; Save baru tetap memeriksa kontak server; error 422 menampilkan field yang kurang; Edit tiket existing tidak terkena gate baru. |
+| Visit Date | Memilih tanggal terbaru follow-up Recoming menghasilkan tiket yang tepat; kombinasi search/Priority/Supervisor dan pagination konsisten; Reset menghapus filter. |
+| Rating akun sendiri | Hasil null ditampilkan dash; angka diformat satu desimal/skala 3; filter tiket tidak mengubah agregat; tidak ada data survei individual pada payload. |
+| Review Sparepart | Duplikat/formula invalid menjadi Error; existing/soft-deleted dilewati; Price kosong Warning; REORDER tidak memblokir row valid; export default hanya Error. |
+| Apply Sparepart | Part baru dan opening stock sesuai file; stock nol tanpa movement; existing tidak ditimpa; hasil result/status batch dipakai; retry tidak menambah stok. |
+| Version dan ownership import | 409 memicu reload/review; batch milik user lain mendapat 403; tipe salah 404 untuk user berpermission; error tidak dianggap sukses. |
+| Save Agreement | Draft disimpan dahulu; sukses menampilkan Saved! dan nomor tiket; OK memperbarui badge/lock; incomplete/forbidden tidak menampilkan sukses; Service Form tetap memakai alur existing. |
+
+Pemeriksaan backend untuk kontrak ini mencakup kecocokan method/route Laravel, parse seluruh contoh JSON, key/header template, dan regresi `tests/Feature/Aftersales` beserta `tests/Unit/Aftersales/MachineNamesTest.php`. Pengujian otomatis tidak menggantikan UAT browser FE atau smoke test pada hosting cPanel sesudah deployment.
+
+## Catatan deployment cPanel
+
+Task 14 hanya memfinalisasi dokumen; tidak menambah route, migrasi, dependensi, atau perubahan runtime. Untuk deployment gabungan task 1–10 dan 13 melalui upload file, sertakan seluruh file aplikasi yang berubah/baru dari commit terkait, termasuk service, model, controller, route, dan migrasi. Mengunggah controller saja tidak cukup karena sebagian fitur memerlukan kolom dan service baru.
+
+File template download yang harus ikut diunggah pada path proyek yang sama:
+
+- `resources/imports/DAXX_Import_Customer_Template.xlsx`
+- `resources/imports/Template_Import_Sparepart.xlsx`
+
+File PRD PDF dan workbook sumber di root repository bukan file yang dibutuhkan endpoint download. Jangan mengganti template download dengan workbook lama.
+
+Empat migrasi v2.2 wajib tersedia dan sudah dijalankan sebelum fitur ini dipakai:
+
+| File migrasi | Perubahan |
+|---|---|
+| `2026_10_27_000000_add_daxtro_machine_fields.php` | `service_customer_products.is_daxtro`, `compressor`. |
+| `2026_10_27_000100_add_machine_name_mode.php` | `service_customer_products.machine_name_mode`. |
+| `2026_10_27_000200_add_customer_deal_review_status.php` | `customer_deals.review_status` dan backfill pending. |
+| `2026_10_28_000000_add_type_to_customer_imports.php` | `customer_imports.type`, default customer. |
+
+Migrasi fondasi sebelumnya juga harus sudah tersedia, khususnya `2026_10_23_000000_optimize_aftersales_matching.php` untuk `aftersales_mutation_locks` dan `normalized_serial`, serta tabel import, sparepart, stock movement, dan dokumen existing. Jika environment sudah menjalankannya, tidak perlu menjalankan migrasi individual ulang.
+
+Upload file migrasi **tidak menjalankan perubahan database secara otomatis**. Melalui Terminal/SSH cPanel dari root proyek, operator deployment dapat memeriksa dan menjalankan migrasi yang belum diterapkan:
+
+```bash
+php artisan migrate:status
+php artisan migrate --force
+php artisan optimize:clear
+```
+
+Perintah ini panduan untuk operator, bukan perintah yang sudah dieksekusi pada produksi saat finalisasi kontrak. `migrate --force` menerapkan seluruh migrasi pending; tinjau `migrate:status` untuk mengetahui cakupannya terlebih dahulu. Gunakan executable PHP versi hosting yang sesuai dengan proyek. Jika paket hosting tidak menyediakan Terminal/SSH, perubahan schema dan pembersihan cache tetap memerlukan jalur eksekusi yang disediakan pengelola hosting; mengganti file saja belum menyelesaikannya.
+
+Batas request PHP/web server pada hosting harus memungkinkan file 20 MB; `upload_max_filesize` perlu mencukupi dan `post_max_size` perlu menyediakan ruang untuk keseluruhan multipart. Batas aplikasi tetap 20 MB dan 5000 row. Resource memory/waktu request dapat membatasi import sebelum validasi Laravel; cek konfigurasi hosting jika request upload/Apply terputus. Antrean email Save dokumen tetap memakai konfigurasi queue existing; rilis ini tidak menambahkan layanan queue baru.
+
+Setelah deployment, cek download kedua template, preview nama, pending count, rating akun uji, dan alur upload/review pada data uji. Jalankan Apply serta final Save hanya pada data uji yang memang disiapkan. Bagikan file kontrak ini kepada tim FE; `docs/integrate-contract.md` dan `docs/aftersales-improvement-backend.md` tetap merupakan dokumen lain yang tidak diubah oleh finalisasi v2.2.
