@@ -3,6 +3,7 @@
 namespace App\Services\Aftersales;
 
 use App\Models\Aftersales\CustomerImport;
+use App\Models\Aftersales\PartStockMovement;
 use App\Models\Aftersales\RefSparepart;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -104,11 +105,63 @@ class SparepartImports
         });
     }
 
+    public function apply(CustomerImport $batch, int $version, int $userId): array
+    {
+        return DB::transaction(function () use ($batch, $version, $userId) {
+            $batch = CustomerImport::whereKey($batch->id)->lockForUpdate()->firstOrFail();
+            $batch->assertType(CustomerImport::TYPE_SPAREPART);
+            ImportAccess::assertOwner($batch, $userId);
+            if ($batch->status === 'applied') {
+                return $this->payload($batch);
+            }
+            abort_unless($batch->status === 'review' && $batch->lock_version === $version, 409, 'Review changed or already applied. Reload the import.');
+            $rows = $batch->rows()->orderBy('row_number')->lockForUpdate()->get();
+            abort_if($rows->contains(fn ($row) => ($row->review['template_version'] ?? null) !== self::TEMPLATE_VERSION), 409, 'Import format changed. Review this import again.');
+            $approved = $rows->mapWithKeys(fn ($row) => [$row->id => $row->review]);
+            SparepartNumbers::acquire($rows->map(fn ($row) => (string) ($row->input['Part Number*'] ?? ''))->all());
+           
+            $this->reviewRows($rows);
+            $created = $matched = $errors = 0;
+            foreach ($rows as $row) {
+                $review = $row->review;
+                $previous = $approved[$row->id];
+                if ($review['can_apply']) {
+                    abort_unless(! empty($previous['can_apply']) && $previous['part'] === $review['part'], 409, 'Import data changed. Review this import again before Apply.');
+                    $part = new RefSparepart($review['part']);
+                    $part->created_by = $userId;
+                    if (! $part->save()) {
+                        throw new \RuntimeException('Unable to save imported sparepart.');
+                    }
+                    $movement = null;
+                    if ($part->stock > 0) {
+                        $movement = new PartStockMovement([
+                            'ref_sparepart_id' => $part->id, 'type' => PartStockMovement::TYPE_IN,
+                            'qty' => $part->stock, 'note' => 'Opening stock (import)', 'created_by' => $userId,
+                        ]);
+                        if (! $movement->save()) {
+                            throw new \RuntimeException('Unable to record opening stock.');
+                        }
+                    }
+                    $row->result = ['status' => 'applied', 'sparepart_id' => $part->id, 'stock_movement_id' => $movement?->id, 'opening_stock' => $part->stock];
+                    $created++;
+                } else {
+                    $row->result = ['status' => 'skipped', 'reason' => $review['skip_reason'], 'sparepart_id' => $review['existing_sparepart_id'], 'stock_movement_id' => null];
+                    $errors += $review['status'] === 'error' ? 1 : 0;
+                    $matched += in_array($review['skip_reason'], ['already_exists', 'soft_deleted'], true) ? 1 : 0;
+                }
+            }
+            $this->persistRows($rows);
+            $batch->update(['status' => 'applied', 'applied_at' => now(), 'lock_version' => $version + 1, 'created_count' => $created, 'matched_count' => $matched, 'error_count' => $errors]);
+
+            return $this->payload($batch);
+        }, 3);
+    }
+
     private function reviewRows(Collection $rows): void
     {
         $catalogue = [];
         foreach (RefSparepart::withTrashed()->get(['id', 'part_number', 'deleted_at', 'is_deleted']) as $part) {
-            $key = mb_strtoupper(trim($part->part_number ?? ''));
+            $key = SparepartNumbers::normalize($part->part_number) ?? '';
             if ($key !== '') {
                 $state = $part->deleted_at || $part->is_deleted ? 'deleted' : 'active';
                 $catalogue[$key][$state] ??= $part->id;
@@ -124,7 +177,7 @@ class SparepartImports
     {
         $get = fn ($key) => trim((string) ($input[$key] ?? ''));
         $nullable = fn ($key) => $get($key) === '' ? null : $get($key);
-        $key = mb_strtoupper($get('Part Number*'));
+        $key = SparepartNumbers::normalize($get('Part Number*')) ?? '';
         $fields = ['part_number' => $key, 'name' => $get('Name*'), 'brand' => $nullable('Brand'), 'supplier' => $nullable('Supplier'), 'price' => $get('Price') === '' ? '0' : $get('Price'), 'stock' => $get('Stock') === '' ? '0' : $get('Stock'), 'min_stock' => $get('Min Stock') === '' ? '0' : $get('Min Stock'), 'rack_location' => $nullable('Rack Location')];
         $validator = Validator::make($fields, [
             'part_number' => 'required|string|max:255', 'name' => 'required|string|max:255',

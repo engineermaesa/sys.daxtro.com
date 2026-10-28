@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AfterSales\Dats;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\PartStockMovement;
 use App\Models\Aftersales\RefSparepart;
+use App\Services\Aftersales\SparepartNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -88,9 +89,16 @@ class SparepartController extends Controller
             'rack_location' => 'nullable|string|max:255',
         ]);
 
-        $validated['created_by'] = $request->user()->id;
+        $sparepart = DB::transaction(function () use ($validated, $request) {
+            $key = SparepartNumbers::normalize($validated['part_number'] ?? null);
+            SparepartNumbers::acquire([$key]);
+            SparepartNumbers::assertAvailable($key);
+            $part = new RefSparepart($validated);
+            $part->created_by = $request->user()->id;
+            $part->save();
 
-        $sparepart = RefSparepart::create($validated);
+            return $part;
+        }, 3);
 
         return $this->setJsonResponse('Sparepart created successfully', ['data' => $sparepart], 201);
     }
@@ -109,9 +117,19 @@ class SparepartController extends Controller
             'rack_location' => 'nullable|string|max:255',
         ]);
 
-        $validated['updated_by'] = $request->user()->id;
-
-        $sparepart->update($validated);
+        DB::transaction(function () use ($sparepart, $validated, $request) {
+            $previous = SparepartNumbers::normalize($sparepart->part_number);
+            $next = array_key_exists('part_number', $validated) ? SparepartNumbers::normalize($validated['part_number']) : $previous;
+            SparepartNumbers::acquire([$previous, $next]);
+            $locked = RefSparepart::whereKey($sparepart->id)->lockForUpdate()->firstOrFail();
+            abort_unless(SparepartNumbers::normalize($locked->part_number) === $previous, 409, 'Part Number changed. Reload the sparepart.');
+            if ($previous !== $next) {
+                SparepartNumbers::assertAvailable($next, $locked->id);
+            }
+            $locked->fill($validated);
+            $locked->updated_by = $request->user()->id;
+            $locked->save();
+        }, 3);
 
         return $this->setJsonResponse('Sparepart updated successfully', ['data' => $sparepart->fresh()]);
     }

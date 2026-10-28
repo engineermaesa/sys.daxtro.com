@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–9 sudah diimplementasikan, termasuk upload/review Import Sparepart. Penyimpanan Sparepart dan opening stock melalui Apply masih menjadi task 10. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–10 sudah diimplementasikan, termasuk upload/review dan Apply Import Sparepart beserta opening stock. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -667,13 +667,13 @@ Pengguna memerlukan permission sesuai jenis, bukan cukup salah satu permission s
 
 ### Batas scope dan kebutuhan FE
 
-Fondasi task 8 tidak menambahkan endpoint daftar seluruh log import. Endpoint upload/review Sparepart tersedia pada task 9 di bawah; Apply menyusul pada task 10. Jangan memakai endpoint Customer untuk batch sparepart.
+Fondasi task 8 tidak menambahkan endpoint daftar seluruh log import. Endpoint upload/review Sparepart tersedia pada task 9 dan Apply pada task 10 di bawah. Jangan memakai endpoint Customer untuk batch sparepart.
 
 Integrasi Customer existing tetap memakai endpoint task 3; tambahan FE hanya perlu mengenali field type jika ingin menampilkan jenis batch. Tidak ada perubahan frontend atau template Excel pada task ini. Model mendukung query `ofType(...)`, relasi uploader `createdBy`, dan relasi baris `batch` untuk penggunaan backend berikutnya, tanpa mengekspos data user tambahan di response existing.
 
 ## Task 9: Upload dan review Import Sparepart
 
-Meliputi bagian upload/review IM-94–96 dan informasi REORDER IM-97. Master `RefSparepart` dan stock movement belum dibuat/diubah pada task ini; endpoint Apply belum tersedia. Upload dan koreksi hanya menyimpan batch/staging pada log bersama task 8.
+Meliputi bagian upload/review IM-94–96 dan informasi REORDER IM-97. Upload dan koreksi hanya menyimpan batch/staging pada log bersama task 8; penyimpanan RefSparepart dan stock movement dilakukan melalui endpoint Apply task 10 di bawah.
 
 ### Endpoint
 
@@ -778,8 +778,100 @@ Backend membaca snapshot master Sparepart terbaru dan menghitung ulang seluruh b
 ### Download Error/Review File dan integrasi FE
 
 - Export default hanya baris Error; `errors_only=1` eksplisit setara. `errors_only=0` menyertakan semua status. Jika tidak ada Error, export default hanya berisi header.
-- File berisi delapan kolom input ditambah Row/Status/Errors/Warnings. Sel ditulis sebagai teks literal, termasuk input formula yang invalid. File export bukan template upload; salin koreksi ke template terbaru untuk upload ulang, atau gunakan PUT Review.
+- File berisi delapan kolom input ditambah Row/Status/Errors/Warnings/Result. Result ditambahkan pada task 10 dan berisi JSON hasil per baris setelah Apply (kosong sebelum Apply). Sel ditulis sebagai teks literal, termasuk input formula yang invalid. File export bukan template upload; salin koreksi ke template terbaru untuk upload ulang, atau gunakan PUT Review selama batch belum applied.
 - Download template/export sebagai blob dan gunakan Content-Disposition untuk nama file. Upload memakai FormData tanpa mengatur multipart boundary secara manual.
 - FE menampilkan status utama, pesan errors/warnings, REORDER, dan jumlah applicable dari payload server. Jangan menghitung ulang matching Part Number atau duplicate di FE.
-- Seluruh operasi task 9 belum mengubah RefSparepart atau PartStockMovement. `can_apply=true` hanya menyatakan kelayakan row; endpoint penyimpanan Apply belum tersedia sampai task 10 selesai.
+- Operasi upload/review task 9 tidak mengubah RefSparepart atau PartStockMovement. `can_apply=true` menyatakan kelayakan row pada snapshot review; penyimpanan hanya melalui Apply task 10.
 - Tidak ada migrasi baru pada task 9; fondasi type dari task 8 harus sudah tersedia. Dokumen kontrak Customer dan endpoint Customer existing tetap terpisah.
+
+## Task 10: Apply Import Sparepart
+
+Meliputi penyimpanan atomik IM-97 / AC-IM31. Endpoint memproses batch Sparepart milik uploader, membuat part baru yang eligible, dan mencatat opening stock. Tidak ada perubahan frontend atau migrasi baru pada task ini.
+
+### Endpoint dan request
+
+```http
+POST /api/aftersales/spareparts/imports/{import}/apply
+Accept: application/json
+Content-Type: application/json
+X-CSRF-TOKEN: <token aplikasi>
+
+{"lock_version": 0}
+```
+
+Auth session dan permission `masters.spareparts` tetap berlaku. `{import}` adalah ID batch bertipe sparepart; hanya uploader yang dapat Apply. Server mengambil part, harga, dan stok dari input staging yang divalidasi ulang, bukan dari field tambahan pada request Apply. Koreksi harus melalui PUT Review sebelum Apply.
+
+`lock_version` wajib integer >= 0 dan harus sama dengan versi review terbaru. Tidak ada mode overwrite, restore archived part, atau pilihan untuk menerapkan baris Error.
+
+### Perilaku saat Apply
+
+1. Backend mengunci batch dan memeriksa kembali tipe/uploader. Batch review harus memakai template_version 2.2 dan lock_version yang cocok.
+2. Part Number dinormalisasi seperti task 9. Backend mengambil lock per Part Number dan memeriksa katalog terbaru setelah lock, lalu memvalidasi ulang input serta duplikat dalam file.
+3. Part yang sekarang sudah ada aktif atau soft-deleted dilewati tanpa update/restock/restore, termasuk bila baru muncul setelah review dibuka. Hasil actual bisa lebih sedikit dari summary.applicable pada review sebelumnya.
+4. Baris eligible membuat satu RefSparepart, dengan Stock dari file, harga dua desimal (Price kosong tetap 0.00), dan created_by = uploader. Stock > 0 membuat tepat satu PartStockMovement bertipe `in`, qty = Stock, note persis `Opening stock (import)`, dan created_by = uploader. Stock 0 tidak membuat movement.
+5. Part dan movement disimpan dalam satu transaksi untuk seluruh batch, bersama result baris dan status batch. Kegagalan penyimpanan/movement membatalkan seluruh mutasi batch; tidak ada part atau opening stock sebagian.
+6. Jika baris yang dahulu tidak eligible sekarang menjadi eligible (misalnya part existing dihapus permanen), atau data part eligible berbeda dari snapshot yang direview, Apply ditolak 409 agar user meninjau ulang sebelum membuat part yang sebelumnya tidak disetujui. Baris Error tetap dilewati.
+
+REORDER tetap informasi dan tidak memblokir penyimpanan. Apply tidak mengurangi stok untuk tiket dan tidak membuat movement ticket_out/ticket_return.
+
+### Response hasil
+
+HTTP 200 tetap menggunakan envelope `{ "data": { "import": {...}, "summary": {...}, "rows": [...] } }`. Field hasil batch:
+
+| Field | Makna setelah Apply |
+|---|---|
+| `data.import.status` | `applied`. |
+| `data.import.applied_at` | Waktu sukses, format timestamp existing. |
+| `data.import.lock_version` | Versi review + 1. |
+| `data.import.created_count` | Jumlah sparepart baru yang dibuat. |
+| `data.import.matched_count` | Jumlah row yang dilewati karena existing aktif atau soft-deleted, tidak termasuk row Error. |
+| `data.import.error_count` | Jumlah row Error yang tidak diterapkan, termasuk duplikat dalam file. |
+
+Setiap row menyimpan `result` sebagai bukti hasil (contoh dipersingkat):
+
+```json
+{
+  "result": {
+    "status": "applied",
+    "sparepart_id": 501,
+    "stock_movement_id": 901,
+    "opening_stock": 10
+  }
+}
+```
+
+Jika Stock 0, stock_movement_id null dan opening_stock 0. Contoh row yang dilewati:
+
+```json
+{
+  "result": {
+    "status": "skipped",
+    "reason": "already_exists",
+    "sparepart_id": 502,
+    "stock_movement_id": null
+  }
+}
+```
+
+`reason` menggunakan `already_exists`, `soft_deleted`, `duplicate_part_number`, atau `validation_error`. sparepart_id pada skipped berisi ID part existing jika diketahui, selain itu null. Tidak ada movement baru untuk row skipped.
+
+`review` dan `summary` tetap merupakan hasil peninjauan/kelayakan (diperbarui berdasarkan pemeriksaan saat Apply), bukan status penyimpanan. Row yang diterapkan dapat tetap memiliki review.status=new/warning dan can_apply=true sebagai snapshot audit. **Gunakan import.status dan row.result untuk menentukan hasil serta menonaktifkan Apply**, bukan can_apply saja. GET Show setelah Apply mengembalikan hasil tersimpan yang sama.
+
+Export Error default tetap tersedia setelah Apply; file hanya memuat row review.status=error yang dilewati. Export semua baris (`errors_only=0`) menyertakan Result untuk row applied maupun skipped. Batch applied tidak dapat dikoreksi melalui PUT Review; untuk mengimpor koreksi file Error, salin ke template baru dan upload sebagai batch baru.
+
+### Idempotensi, konflik, dan error
+
+- Retry Apply pada batch yang sudah applied oleh uploader mengembalikan hasil tersimpan dengan HTTP 200, tanpa membuat part/movement tambahan. Ini juga berlaku jika request retry masih membawa lock_version awal yang valid secara format.
+- Tipe batch dan uploader tetap diperiksa sebelum respons idempotent; batch applied bukan jalan untuk membaca hasil milik pengguna lain.
+- `lock_version` hilang/invalid mendapat 422. Tidak login 401; tidak berpermission/bukan uploader 403; batch salah tipe/tidak ada 404.
+- Review version usang, format review berubah, status batch tidak dapat diproses, atau perubahan yang memerlukan persetujuan ulang mendapat 409. Muat ulang GET Show, simpan ulang Review bila perlu, lalu Apply dengan lock_version terbaru. Request yang gagal tidak mengubah status, counter, result, part, atau stok.
+- Kegagalan penyimpanan yang tidak terduga mengikuti penanganan error server existing; transaksi tetap rollback. Setelah masalah terselesaikan, batch masih review dan dapat dicoba ulang.
+- Dua batch yang mereview Part Number sama tidak membuat dua part: setelah batch pertama selesai, batch berikutnya menemukan existing dan melewati row tersebut.
+
+### Konsistensi dengan Add/Edit Sparepart manual
+
+Untuk menutup perlombaan antara Apply dan input manual, `POST /api/aftersales/spareparts` serta `PUT /api/aftersales/spareparts/{sparepart}` menggunakan lock Part Number yang sama. Pembuatan atau perubahan Part Number ke key existing (termasuk archived, trim/case sama) ditolak 422 dengan errors.part_number. Jika Part Number berubah oleh proses lain selama edit, update mendapat 409.
+
+Part Number kosong tetap diperbolehkan pada CRUD manual sesuai kontrak existing; import tetap mewajibkannya. Data legacy yang sudah memiliki duplicate key tidak dibersihkan massal: import melewati key existing, dan edit field lain tanpa mengganti key tetap diperbolehkan. Penanganan ini memakai validasi aplikasi dan lock `aftersales_mutation_locks` existing, bukan menambah unique constraint yang memaksa perubahan data legacy. Penulisan internal yang membuat/mengubah Part Number perlu mengikuti jalur lock yang sama.
+
+Tidak ada migrasi schema baru task 10. Tabel lock dari migrasi optimasi Aftersales sebelumnya dan kolom type log import task 8 harus sudah tersedia sebelum deployment. UI Apply dan pesan hasilnya tetap dikerjakan tim FE berdasarkan kontrak ini.

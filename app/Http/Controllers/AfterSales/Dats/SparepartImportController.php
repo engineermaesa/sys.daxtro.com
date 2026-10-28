@@ -58,6 +58,14 @@ class SparepartImportController extends Controller
         return response()->json(['data' => $service->updateReview($import, $input['lock_version'], $input['rows'], (int) $request->user()->id)]);
     }
 
+    public function apply(Request $request, CustomerImport $import, SparepartImports $service)
+    {
+        ImportAccess::authorize($request->user(), CustomerImport::TYPE_SPAREPART, $import);
+        $input = $request->validate(['lock_version' => 'required|integer|min:0']);
+
+        return response()->json(['data' => $service->apply($import, $input['lock_version'], (int) $request->user()->id)]);
+    }
+
     public function export(Request $request, CustomerImport $import)
     {
         ImportAccess::authorize($request->user(), CustomerImport::TYPE_SPAREPART, $import);
@@ -69,10 +77,10 @@ class SparepartImportController extends Controller
         $book = new Spreadsheet;
         $sheet = $book->getActiveSheet();
         $sheet->setTitle('Import Review');
-        $sheet->fromArray(array_merge(SparepartImports::HEADERS, ['Row', 'Status', 'Errors', 'Warnings']), null, 'A1');
+        $sheet->fromArray(array_merge(SparepartImports::HEADERS, ['Row', 'Status', 'Errors', 'Warnings', 'Result']), null, 'A1');
         foreach ($rows->values() as $offset => $row) {
             $values = array_map(fn ($header) => $row->input[$header] ?? '', SparepartImports::HEADERS);
-            $values = array_merge($values, [$row->row_number, $row->review['status'], implode('; ', $row->review['errors']), implode('; ', $row->review['warnings'])]);
+            $values = array_merge($values, [$row->row_number, $row->review['status'], implode('; ', $row->review['errors']), implode('; ', $row->review['warnings']), $row->result ? json_encode($row->result) : '']);
             foreach ($values as $column => $value) {
                 $sheet->setCellValueExplicit([$column + 1, $offset + 2], (string) $value, DataType::TYPE_STRING);
             }

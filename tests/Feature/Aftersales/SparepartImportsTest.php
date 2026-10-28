@@ -3,6 +3,7 @@
 namespace Tests\Feature\Aftersales;
 
 use App\Models\Aftersales\CustomerImport;
+use App\Models\Aftersales\PartStockMovement;
 use App\Models\Aftersales\RefSparepart;
 use App\Models\User;
 use App\Services\Aftersales\SparepartImports;
@@ -52,12 +53,15 @@ class SparepartImportsTest extends TestCase
             $table->timestamps();
             $table->unique(['customer_import_id', 'row_number']);
         });
-        Schema::create('part_stock_movements', function (Blueprint $table) {
+        Schema::create('aftersales_mutation_locks', function (Blueprint $table) {
+            $table->string('lock_key', 64)->primary();
+        });
+        Schema::create('tickets', function (Blueprint $table) {
             $table->id();
-            $table->integer('qty');
         });
         (require database_path('migrations/2026_10_28_000000_add_type_to_customer_imports.php'))->up();
         (require database_path('migrations/2026_09_03_010000_create_ref_spareparts_table.php'))->up();
+        (require database_path('migrations/2026_09_03_011400_create_part_stock_movements_table.php'))->up();
     }
 
     private function login(int $id = 1, array $permissions = ['masters.spareparts']): void
@@ -93,6 +97,220 @@ class SparepartImportsTest extends TestCase
     private function upload(array $rows): array
     {
         return $this->post(self::API, ['file' => $this->file($rows)], ['Accept' => 'application/json'])->assertCreated()->json('data');
+    }
+
+    public function test_apply_creates_parts_and_exactly_one_opening_movement_for_positive_stock(): void
+    {
+        $this->login();
+        $data = $this->upload([
+            ['Part Number*' => ' pn-open ', 'Brand' => 'Brand', 'Supplier' => 'Supplier', 'Rack Location' => 'A-01'],
+            ['Part Number*' => 'PN-ZERO', 'Stock' => '0'],
+            ['Part Number*' => 'PN-EMPTY', 'Price' => '', 'Stock' => '', 'Min Stock' => ''],
+        ]);
+        $response = $this->postJson(self::API.'/'.$data['import']['id'].'/apply', ['lock_version' => 0])->assertOk()
+            ->assertJsonPath('data.import.status', 'applied')->assertJsonPath('data.import.lock_version', 1)
+            ->assertJsonPath('data.import.created_count', 3)->assertJsonPath('data.import.matched_count', 0)
+            ->assertJsonPath('data.import.error_count', 0)->assertJsonPath('data.rows.0.result.status', 'applied')
+            ->assertJsonPath('data.rows.1.result.stock_movement_id', null)->assertJsonPath('data.rows.2.result.opening_stock', 0);
+        $this->assertNotNull($response->json('data.import.applied_at'));
+        $this->assertSame(3, RefSparepart::count());
+        $part = RefSparepart::where('part_number', 'PN-OPEN')->firstOrFail();
+        $this->assertSame('Brand', $part->brand);
+        $this->assertSame('Supplier', $part->supplier);
+        $this->assertSame('A-01', $part->rack_location);
+        $this->assertSame(1, (int) $part->created_by);
+        $this->assertSame(10, $part->stock);
+        $this->assertSame('0.00', RefSparepart::where('part_number', 'PN-EMPTY')->firstOrFail()->price);
+        $this->assertSame(1, PartStockMovement::count());
+        $movement = PartStockMovement::firstOrFail();
+        $this->assertSame($part->id, (int) $movement->ref_sparepart_id);
+        $this->assertSame(10, (int) $movement->qty);
+        $this->assertSame('in', $movement->type);
+        $this->assertSame('Opening stock (import)', $movement->note);
+        $this->assertSame(1, (int) $movement->created_by);
+        $this->assertNull($movement->ticket_id);
+    }
+
+    public function test_apply_skips_active_deleted_duplicate_and_error_rows_without_overwriting_master(): void
+    {
+        $active = RefSparepart::create(['part_number' => 'PN-EXIST', 'name' => 'Keep name', 'price' => 400, 'stock' => 50]);
+        $deleted = RefSparepart::create(['part_number' => 'PN-DELETED', 'name' => 'Archived', 'stock' => 3]);
+        $deleted->delete();
+        $this->login();
+        $data = $this->upload([
+            ['Part Number*' => 'PN-NEW'], ['Part Number*' => 'PN-EXIST', 'Name*' => 'Do not update'],
+            ['Part Number*' => 'PN-DELETED'], ['Part Number*' => ' pn-new '], ['Part Number*' => 'PN-BAD', 'Stock' => '-1'],
+        ]);
+        $this->postJson(self::API.'/'.$data['import']['id'].'/apply', ['lock_version' => 0])->assertOk()
+            ->assertJsonPath('data.import.created_count', 1)->assertJsonPath('data.import.matched_count', 2)
+            ->assertJsonPath('data.import.error_count', 2)->assertJsonPath('data.rows.1.result.reason', 'already_exists')
+            ->assertJsonPath('data.rows.2.result.reason', 'soft_deleted')->assertJsonPath('data.rows.3.result.reason', 'duplicate_part_number')
+            ->assertJsonPath('data.rows.4.result.reason', 'validation_error');
+        $this->assertSame('Keep name', $active->fresh()->name);
+        $this->assertSame('400.00', $active->fresh()->price);
+        $this->assertSame(50, $active->fresh()->stock);
+        $this->assertNotNull(RefSparepart::withTrashed()->findOrFail($deleted->id)->deleted_at);
+        $this->assertSame(3, RefSparepart::withTrashed()->count());
+        $this->assertSame(1, PartStockMovement::count());
+        $response = $this->get(self::API.'/'.$data['import']['id'].'/export')->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'applied-errors');
+        $this->beforeApplicationDestroyed(fn () => @unlink($path));
+        file_put_contents($path, $response->streamedContent());
+        $book = IOFactory::load($path);
+        $this->assertSame(3, $book->getActiveSheet()->getHighestDataRow());
+        $this->assertSame('Result', $book->getActiveSheet()->getCell('M1')->getValue());
+        $this->assertSame('skipped', json_decode($book->getActiveSheet()->getCell('M2')->getValue(), true)['status']);
+        $book->disconnectWorksheets();
+    }
+
+    public function test_apply_is_idempotent_even_when_retrying_original_version(): void
+    {
+        $this->login();
+        $data = $this->upload([[]]);
+        $url = self::API.'/'.$data['import']['id'].'/apply';
+        $first = $this->postJson($url, ['lock_version' => 0])->assertOk()->json('data');
+        $second = $this->postJson($url, ['lock_version' => 0])->assertOk()->json('data');
+        $this->assertSame($first['rows'][0]['result'], $second['rows'][0]['result']);
+        $this->assertSame($first['import']['applied_at'], $second['import']['applied_at']);
+        $this->assertSame(1, $second['import']['lock_version']);
+        $this->assertSame(1, RefSparepart::count());
+        $this->assertSame(1, PartStockMovement::count());
+        $this->assertSame(10, RefSparepart::firstOrFail()->stock);
+    }
+
+    public function test_two_batches_with_the_same_part_number_only_create_one_part_and_movement(): void
+    {
+        $this->login();
+        $first = $this->upload([['Part Number*' => 'PN-SHARED']]);
+        $second = $this->upload([['Part Number*' => ' pn-shared ', 'Stock' => '20']]);
+        $this->postJson(self::API.'/'.$first['import']['id'].'/apply', ['lock_version' => 0])->assertOk();
+        $this->postJson(self::API.'/'.$second['import']['id'].'/apply', ['lock_version' => 0])->assertOk()
+            ->assertJsonPath('data.import.created_count', 0)->assertJsonPath('data.import.matched_count', 1)
+            ->assertJsonPath('data.rows.0.review.status', 'already_exists')->assertJsonPath('data.rows.0.result.reason', 'already_exists');
+        $this->assertSame(1, RefSparepart::count());
+        $this->assertSame(10, RefSparepart::firstOrFail()->stock);
+        $this->assertSame(1, PartStockMovement::count());
+        $this->assertSame(1, DB::table('aftersales_mutation_locks')->count());
+    }
+
+    public function test_apply_rechecks_catalogue_after_manual_creation_or_soft_delete(): void
+    {
+        $this->login();
+        $data = $this->upload([['Part Number*' => 'PN-MANUAL'], ['Part Number*' => 'PN-ARCHIVED']]);
+        $this->postJson('/api/aftersales/spareparts', ['part_number' => ' pn-manual ', 'name' => 'Manual', 'stock' => 4])->assertCreated();
+        $archived = RefSparepart::create(['part_number' => 'PN-ARCHIVED', 'name' => 'Archived']);
+        $archived->delete();
+        $this->postJson(self::API.'/'.$data['import']['id'].'/apply', ['lock_version' => 0])->assertOk()
+            ->assertJsonPath('data.import.created_count', 0)->assertJsonPath('data.import.matched_count', 2)
+            ->assertJsonPath('data.rows.0.result.reason', 'already_exists')->assertJsonPath('data.rows.1.result.reason', 'soft_deleted');
+        $this->assertSame(2, RefSparepart::withTrashed()->count());
+        $this->assertSame(0, PartStockMovement::count());
+        $this->assertSame(4, RefSparepart::firstOrFail()->stock);
+    }
+
+    public function test_failed_movement_rolls_back_the_whole_batch_and_allows_a_clean_retry(): void
+    {
+        $this->login();
+        $data = $this->upload([[], []]);
+        $attempts = 0;
+        PartStockMovement::creating(function () use (&$attempts) {
+            if (++$attempts === 2) {
+                throw new \RuntimeException('Simulated movement failure');
+            }
+        });
+        try {
+            app(SparepartImports::class)->apply(CustomerImport::findOrFail($data['import']['id']), 0, 1);
+            $this->fail('A failed movement must roll back the batch.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Simulated movement failure', $exception->getMessage());
+        } finally {
+            PartStockMovement::flushEventListeners();
+        }
+        $batch = CustomerImport::findOrFail($data['import']['id']);
+        $this->assertSame('review', $batch->status);
+        $this->assertSame(0, $batch->lock_version);
+        $this->assertNull($batch->applied_at);
+        $this->assertSame(0, RefSparepart::count());
+        $this->assertSame(0, PartStockMovement::count());
+        $this->assertSame(0, DB::table('aftersales_mutation_locks')->count());
+        foreach ($batch->rows as $row) {
+            $this->assertNull($row->result);
+        }
+        $this->postJson(self::API.'/'.$batch->id.'/apply', ['lock_version' => 0])->assertOk()->assertJsonPath('data.import.created_count', 2);
+        $this->assertSame(2, RefSparepart::count());
+        $this->assertSame(2, PartStockMovement::count());
+    }
+
+    public function test_apply_enforces_permission_owner_type_version_and_current_review(): void
+    {
+        $this->login();
+        $data = $this->upload([[]]);
+        $url = self::API.'/'.$data['import']['id'].'/apply';
+        $this->postJson($url, [])->assertUnprocessable()->assertJsonValidationErrors('lock_version');
+        $this->postJson($url, ['lock_version' => -1])->assertUnprocessable();
+        $this->postJson($url, ['lock_version' => 1])->assertConflict();
+        $this->login(1, ['masters.service-customers']);
+        $this->postJson($url, ['lock_version' => 0])->assertForbidden();
+        $this->login(2);
+        $this->postJson($url, ['lock_version' => 0])->assertForbidden();
+        $this->login(1, ['masters.spareparts', 'masters.service-customers']);
+        $customer = CustomerImport::create(['file_name' => 'customer.xlsx', 'created_by_user_id' => 1]);
+        $this->postJson(self::API.'/'.$customer->id.'/apply', ['lock_version' => 0])->assertNotFound();
+        $this->putJson(self::API.'/'.$data['import']['id'].'/review', ['lock_version' => 0, 'rows' => [['id' => $data['rows'][0]['id'], 'input' => ['Stock' => '5']]]])->assertOk();
+        $this->postJson($url, ['lock_version' => 0])->assertConflict();
+        $this->postJson($url, ['lock_version' => 1])->assertOk();
+        $this->login(2);
+        $this->postJson($url, ['lock_version' => 0])->assertForbidden();
+        $this->assertSame(1, RefSparepart::count());
+        $this->assertSame(5, RefSparepart::firstOrFail()->stock);
+    }
+
+    public function test_apply_never_promotes_previously_skipped_rows_without_a_new_review(): void
+    {
+        $part = RefSparepart::create(['part_number' => 'PN-REMOVED', 'name' => 'Removed']);
+        $this->login();
+        $data = $this->upload([['Part Number*' => 'PN-REMOVED']]);
+        $part->forceDelete();
+        $url = self::API.'/'.$data['import']['id'];
+        $this->postJson($url.'/apply', ['lock_version' => 0])->assertConflict();
+        $this->assertSame(0, RefSparepart::count());
+        $this->assertSame('review', CustomerImport::findOrFail($data['import']['id'])->status);
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $data['rows'][0]['id'], 'input' => ['Name*' => 'Reviewed new part']]]])->assertOk();
+        $this->postJson($url.'/apply', ['lock_version' => 1])->assertOk()->assertJsonPath('data.import.created_count', 1);
+    }
+
+    public function test_apply_revalidates_input_instead_of_trusting_a_forged_review_flag(): void
+    {
+        $this->login();
+        $data = $this->upload([['Stock' => '-1']]);
+        $row = CustomerImport::findOrFail($data['import']['id'])->rows()->firstOrFail();
+        $review = $row->review;
+        $review['can_apply'] = true;
+        $review['part']['stock'] = 10;
+        $row->update(['review' => $review]);
+        $this->postJson(self::API.'/'.$data['import']['id'].'/apply', ['lock_version' => 0])->assertOk()
+            ->assertJsonPath('data.import.created_count', 0)->assertJsonPath('data.import.error_count', 1)
+            ->assertJsonPath('data.rows.0.result.reason', 'validation_error');
+        $this->assertSame(0, RefSparepart::count());
+        $this->assertSame(0, PartStockMovement::count());
+    }
+
+    public function test_manual_sparepart_writers_share_locks_and_reject_new_duplicate_numbers(): void
+    {
+        $this->login();
+        $data = $this->upload([['Part Number*' => 'PN-SHARED']]);
+        $this->postJson(self::API.'/'.$data['import']['id'].'/apply', ['lock_version' => 0])->assertOk();
+        $this->postJson('/api/aftersales/spareparts', ['part_number' => ' pn-shared ', 'name' => 'Duplicate'])->assertUnprocessable()->assertJsonValidationErrors('part_number');
+        $other = RefSparepart::create(['part_number' => 'PN-OTHER', 'name' => 'Other']);
+        $this->putJson('/api/aftersales/spareparts/'.$other->id, ['part_number' => 'PN-SHARED'])->assertUnprocessable()->assertJsonValidationErrors('part_number');
+        $existing = RefSparepart::where('part_number', 'PN-SHARED')->firstOrFail();
+        $existing->delete();
+        $this->postJson('/api/aftersales/spareparts', ['part_number' => 'PN-SHARED', 'name' => 'Do not recreate'])->assertUnprocessable();
+        $this->putJson('/api/aftersales/spareparts/'.$other->id, ['part_number' => ' pn-unique ', 'name' => 'Updated'])->assertOk()
+            ->assertJsonPath('data.data.part_number', 'PN-UNIQUE');
+        $this->assertSame(1, (int) $other->fresh()->updated_by);
+        $this->assertSame(2, RefSparepart::withTrashed()->count());
+        $this->assertSame(1, PartStockMovement::count());
     }
 
     public function test_upload_reviews_all_statuses_and_does_not_change_master_parts_or_stock(): void

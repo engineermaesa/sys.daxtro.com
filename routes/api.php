@@ -560,6 +560,7 @@ Route::group([
         Route::post('/imports', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'upload'])->name('imports.upload');
         Route::get('/imports/{import}', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'show'])->name('imports.show');
         Route::put('/imports/{import}/review', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'review'])->name('imports.review');
+        Route::post('/imports/{import}/apply', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'apply'])->name('imports.apply');
         Route::get('/imports/{import}/export', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'export'])->name('imports.export');
         Route::get('/', [SparepartController::class, 'index'])->name('index');
         Route::post('/', [SparepartController::class, 'store'])->name('store');
