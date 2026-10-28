@@ -140,6 +140,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_10_27_000000_add_daxtro_machine_fields.php'))->up();
         (require database_path('migrations/2026_10_27_000100_add_machine_name_mode.php'))->up();
         (require database_path('migrations/2026_10_27_000200_add_customer_deal_review_status.php'))->up();
+        (require database_path('migrations/2026_10_28_000000_add_type_to_customer_imports.php'))->up();
     }
 
     public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void
@@ -1024,6 +1025,17 @@ class ImprovementsTest extends TestCase
         $this->getJson('/api/aftersales/tickets?visit_date=2026-10-27')->assertForbidden();
     }
 
+    public function test_customer_upload_always_sets_customer_type_and_authenticated_uploader(): void
+    {
+        $this->actingAs($this->user());
+        $this->post('/api/aftersales/customers/imports', [
+            'file' => $this->file([[]]), 'type' => 'sparepart', 'created_by_user_id' => 2,
+        ], ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.import.type', CustomerImport::TYPE_CUSTOMER)->assertJsonPath('data.import.created_by_user_id', 1);
+        $this->assertSame(0, CustomerImport::ofType(CustomerImport::TYPE_SPAREPART)->count());
+        $this->assertSame(0, ServiceCustomer::count());
+    }
+
     private function file(array $rows): UploadedFile
     {
         $book = new Spreadsheet;
@@ -1093,6 +1105,7 @@ class ImprovementsTest extends TestCase
     public function test_import_preview_writes_no_customers_and_apply_groups_many_machines_idempotently(): void
     {
         $batch = $this->upload([[], ['Serial Number' => 'SN-SECOND'], ['Serial Number' => 'SN-THIRD']]);
+        $this->assertSame(CustomerImport::TYPE_CUSTOMER, $batch->type);
         $this->assertSame(0, ServiceCustomer::count());
         $this->assertSame(0, ServiceCustomerProduct::count());
         $this->assertSame(['new', 'exact', 'exact'], $batch->rows->pluck('review.status')->all());

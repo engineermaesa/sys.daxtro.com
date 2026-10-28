@@ -55,7 +55,7 @@ class CustomerImports
         $context = $this->context($inputs);
 
         return DB::transaction(function () use ($file, $userId, $inputs, $context) {
-            $batch = CustomerImport::create(['file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId, 'lock_version' => 0]);
+            $batch = CustomerImport::create(['type' => CustomerImport::TYPE_CUSTOMER, 'file_name' => $file->getClientOriginalName(), 'created_by_user_id' => $userId, 'lock_version' => 0]);
             $now = now();
             $pending = [];
             foreach ($inputs as $number => $input) {
@@ -107,6 +107,7 @@ class CustomerImports
 
     public function review(array $input, CustomerImport $batch, ?int $beforeRow = null, ?CustomerImportContext $context = null): array
     {
+        $batch->assertType(CustomerImport::TYPE_CUSTOMER);
         if ($context === null) {
             $context = $this->context([$input]);
             foreach ($batch->rows()->when($beforeRow, fn ($q) => $q->where('row_number', '<', $beforeRow))->orderBy('row_number')->get() as $prior) {
@@ -257,6 +258,7 @@ class CustomerImports
 
     public function payload(CustomerImport $batch): array
     {
+        $batch->assertType(CustomerImport::TYPE_CUSTOMER);
         $rows = $batch->rows()->orderBy('row_number')->get();
         $counts = array_fill_keys(['exact', 'possible', 'new', 'already_exists', 'error', 'warning'], 0);
         foreach ($rows as $row) {
@@ -273,6 +275,8 @@ class CustomerImports
     {
         return DB::transaction(function () use ($batch, $version, $userId) {
             $batch = CustomerImport::whereKey($batch->id)->lockForUpdate()->firstOrFail();
+            $batch->assertType(CustomerImport::TYPE_CUSTOMER);
+            ImportAccess::assertOwner($batch, $userId);
             if ($batch->status === 'applied') {
                 return $this->payload($batch);
             }

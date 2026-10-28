@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–7 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, filter Visit Date, dan Overall Rating teknisi) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–8 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, filter Visit Date, Overall Rating teknisi, dan fondasi log import bersama) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -614,3 +614,59 @@ Response hanya berisi dua field di atas. Tidak ada jumlah respons, skor/aspek pe
 - Tampilkan `overall_rating` dan `rating_scale_max` pada header secara read-only. Tidak perlu membuat dashboard teknisi.
 - Filter tanggal/search/Priority atau perpindahan halaman tiket tidak mengubah Overall Rating ini. Gunakan endpoint yang sama jika ingin memuat ulang angka.
 - Jangan menggunakan endpoint detail/rating per respons untuk header akun teknisi. Backend tetap membatasi response agregat sehingga data survei tidak perlu dikirim ke client teknisi untuk dihitung di FE.
+
+## Task 8: Fondasi log import bersama
+
+Meliputi fondasi IM-98. Model/tabel historical `CustomerImport` / `customer_imports` dan `CustomerImportRow` / `customer_import_rows` dipakai sebagai penyimpanan batch dan staging bersama. Nama tabel serta foreign key `customer_import_id` tetap, sehingga tidak memerlukan perubahan ID atau relasi existing.
+
+### Tipe batch dan kompatibilitas
+
+- Field baru `type` memiliki nilai `customer` atau `sparepart`.
+- Migrasi mengisi seluruh log existing sebagai `customer`, termasuk batch review maupun applied. Status, jumlah hasil, uploader, applied_at, lock_version, input/review/decision/result per baris, dan ID existing dipertahankan.
+- Default batch tetap `customer` untuk kompatibilitas. Service upload Customer juga menetapkan tipe secara eksplisit.
+- Tipe batch ditetapkan backend dan tidak dapat diganti setelah batch dibuat. Model menolak nilai selain kedua tipe atau perubahan tipe dengan error validasi pada field `type`.
+- Payload batch Customer pada Upload/Show/Review/Apply sekarang memuat `data.import.type = "customer"`. Envelope, header template, summary, keputusan, pagination/row identity, dan alur Apply task 3 tetap sama.
+
+Contoh field batch yang relevan (nilai selain type merupakan ilustrasi):
+
+```json
+{
+  "data": {
+    "import": {
+      "id": 12,
+      "type": "customer",
+      "file_name": "customers.xlsx",
+      "status": "review",
+      "lock_version": 0,
+      "created_by_user_id": 7
+    },
+    "summary": {},
+    "rows": []
+  }
+}
+```
+
+FE tidak perlu mengirim type maupun created_by_user_id pada upload. Jika field tersebut ikut dikirim, endpoint Customer tidak memakainya untuk memilih jenis batch atau uploader: hasilnya tetap customer dengan uploader user login.
+
+### Akses berdasarkan jenis dan uploader
+
+Backend menyediakan pemeriksaan akses bersama melalui `ImportAccess`, untuk dipakai modul Customer saat ini dan modul Sparepart pada task berikutnya.
+
+| Jenis batch | Permission |
+|---|---|
+| `customer` | `masters.service-customers` |
+| `sparepart` | `masters.spareparts` |
+
+Pengguna memerlukan permission sesuai jenis, bukan cukup salah satu permission secara bebas. Akses batch existing tetap hanya untuk uploader batch tersebut, termasuk ketika pengguna lain juga memiliki permission jenis yang sama. Auth session dan CSRF pada mutasi mengikuti aturan umum.
+
+- Endpoint Customer `/api/aftersales/customers/imports/{import}` beserta review/apply/export hanya menerima batch customer.
+- ID batch sparepart yang dikirim ke endpoint Customer menghasilkan 404, sekalipun pengguna adalah uploader dan memiliki kedua permission. Backend menolak sebelum membaca atau menafsirkan baris Sparepart sebagai Customer.
+- Tidak memiliki permission yang diperlukan atau bukan uploader mendapat 403. Tidak login pada endpoint HTTP tetap 401; ID batch tidak ditemukan tetap 404.
+- Service Customer juga menolak batch non-customer pada review/payload/Apply. Apply memeriksa ulang tipe serta uploader setelah batch dibaca dan dikunci dalam transaksi, sebelum cabang idempotent batch applied maupun mutasi bisnis.
+- Review memeriksa ulang akses pada batch yang sudah dikunci. Membaca atau memutuskan batch dengan jenis/owner yang salah tidak mengubah status, lock_version, maupun data barisnya.
+
+### Batas scope dan kebutuhan FE
+
+Task ini belum menambahkan endpoint upload/review/Apply Sparepart atau endpoint daftar seluruh log import. Jangan memakai endpoint Customer untuk batch sparepart. URL dan payload Sparepart dipublikasikan pada task 9–10 setelah implementasinya selesai.
+
+Integrasi Customer existing tetap memakai endpoint task 3; tambahan FE hanya perlu mengenali field type jika ingin menampilkan jenis batch. Tidak ada perubahan frontend atau template Excel pada task ini. Model mendukung query `ofType(...)`, relasi uploader `createdBy`, dan relasi baris `batch` untuk penggunaan backend berikutnya, tanpa mengekspos data user tambahan di response existing.

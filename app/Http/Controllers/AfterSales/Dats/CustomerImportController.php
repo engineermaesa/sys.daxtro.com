@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AfterSales\Dats;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\CustomerImport;
 use App\Services\Aftersales\CustomerImports;
+use App\Services\Aftersales\ImportAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -14,10 +15,7 @@ class CustomerImportController extends Controller
 {
     private function authorizeImport(Request $request, ?CustomerImport $import = null): void
     {
-        abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
-        if ($import) {
-            abort_unless((int) $import->created_by_user_id === $request->user()->id, 403, 'Only the uploader can access this import.');
-        }
+        ImportAccess::authorize($request->user(), CustomerImport::TYPE_CUSTOMER, $import);
     }
 
     public function template(Request $request)
@@ -55,8 +53,9 @@ class CustomerImportController extends Controller
             'rows.*.decision.row_id' => 'nullable|integer',
         ]);
         $this->validateLinkTargets($input['rows']);
-        DB::transaction(function () use ($input, $import, $service) {
+        DB::transaction(function () use ($input, $import, $service, $request) {
             $batch = CustomerImport::whereKey($import->id)->lockForUpdate()->firstOrFail();
+            $this->authorizeImport($request, $batch);
             abort_unless($batch->status === 'review' && $batch->lock_version === (int) $input['lock_version'], 409, 'Review changed or already applied. Reload the import.');
             $rows = $batch->rows()->orderBy('row_number')->get();
             $byId = $rows->keyBy('id');
