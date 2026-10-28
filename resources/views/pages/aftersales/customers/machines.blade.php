@@ -127,12 +127,6 @@
     const machineCreateBaseUrl = pageConfig.machineCreateUrl;
     const machinesById = new Map();
 
-    /*
-     * TODO(API) — backend contract still pending (PRD v2.2 IM-74..83):
-     *  GET /api/aftersales/customers/{customer} -> loadMachines(): products[] must also return is_daxtro (bool) and compressor (string|null).
-     *  Until then is_daxtro defaults to true (every existing machine is a Daxtro machine).
-     */
-
     function escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -204,7 +198,7 @@
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
                 <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}</div>`}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.brand) || '-'}</td>
+                <td class="p-3 text-center text-black">${row.is_daxtro ? 'Daxtro' : (escapeHtml(row.brand) || '-')}</td>
                 <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.serial_number) || '-') : dash}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>
                 <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_period) || '-') : dash}</td>
@@ -251,8 +245,6 @@
             success: function (response) {
                 const customer = response.data || {};
                 const products = customer.products || [];
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
 
                 renderHeaderExtras(customer);
 
@@ -261,15 +253,12 @@
                     id: p.id,
                     // Machine Name is typed by the user; Product name is only a fallback for older/Deal machines.
                     product_name: p.machine_name || p.product?.name,
-                    is_daxtro: p.is_daxtro !== false && p.is_daxtro !== 0, // TODO(API): returned by the customer detail endpoint
-                    compressor: p.compressor ?? null,                       // TODO(API): returned by the customer detail endpoint
                     brand: p.brand,
                     serial_number: p.serial_number,
                     product_type_name: p.product_type?.name,
                     warranty_period: p.warranty_period,
                     warranty_start: p.warranty_start ? String(p.warranty_start).slice(0, 10) : null,
                     warranty_end: p.warranty_end ? String(p.warranty_end).slice(0, 10) : null,
-                    warranty_active: !!p.warranty_end && new Date(p.warranty_end) >= today,
                     pm_contract_status: p.pm_contract_status,
                     pm_frequency: p.pm_frequency,
                 })));
