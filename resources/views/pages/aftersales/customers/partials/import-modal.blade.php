@@ -58,10 +58,10 @@
                             <span class="bg-[#F0F0F0] text-[#757575] rounded-full" style="font-size:9px;padding:4px 10px">5 formatting rules</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2" style="gap:10px">
-                            {{-- TODO(API): rule texts follow the v2.2 template (IM-84). The template file and its Guide sheet come from GET /api/aftersales/customers/imports/template. --}}
+                            {{-- Rule texts follow the v2.2 template (IM-84, contract Task 3). --}}
                             @foreach ([
                                 ['01', 'One machine per row', 'Repeat the customer details when a customer has multiple machines.'],
-                                ['02', 'Complete required fields', 'Customer Name, Machine Category, and Capacity (Daxtro machines) are required.'],
+                                ['02', 'Complete required fields', 'Customer Name is always required. Machine Category and Capacity are required for Daxtro machines.'],
                                 ['03', 'Daxtro Machine column', 'Yes or empty = Daxtro. For No, Brand and Machine Name are required; Serial Number, Warranty, and PM Contract are ignored.'],
                                 ['04', 'Keep formats consistent', 'Phone and Serial Number are text. Dates use dd/mm/yyyy. Machine Name is optional for Daxtro machines (generated automatically).'],
                                 ['05', 'Use valid contract values', 'Enter Basic or Premium. Leave the cell empty for None.'],
@@ -150,7 +150,8 @@
             <div class="flex items-center justify-between border-t border-t-[#D9D9D9] bg-white text-xs" style="padding:14px 28px">
                 <div>
                     <button type="button" id="ci-error-btn"
-                        class="hidden bg-white border border-[#D9D9D9] px-3 py-1.5 rounded-lg text-xs font-semibold">Download Error File</button>
+                        title="All rows with their status, errors, warnings, decision and result"
+                        class="hidden bg-white border border-[#D9D9D9] px-3 py-1.5 rounded-lg text-xs font-semibold">Download Review File</button>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" id="ci-back-btn"
@@ -326,7 +327,9 @@
             ['warning', 'Warning', '#7A5F00'], ['error', 'Error', '#C0281F']
         ];
         $('#ci-summary').html(cards.map(function (c) {
-            return '<div class="bg-white text-center" style="border:1px solid #E3E3E3;border-radius:8px;padding:10px 4px">' +
+            
+            var title = c[0] === 'warning' ? ' title="Rows with warnings (also counted in their status)"' : '';
+            return '<div class="bg-white text-center"' + title + ' style="border:1px solid #E3E3E3;border-radius:8px;padding:10px 4px">' +
                 '<p class="font-bold mb-0" style="font-size:18px;line-height:1.2;color:' + c[2] + '">' + (s[c[0]] || 0) + '</p>' +
                 '<p class="mb-0" style="font-size:9.5px;color:#9A9A9A">' + c[1] + '</p></div>';
         }).join(''));
@@ -336,13 +339,10 @@
         return (row.review.customer && row.review.customer.name) || row.input['Customer Name*'] || '-';
     }
 
-    // TODO(API): import preview rows (I02-I05) should return review.machine.is_daxtro, compressor and refrigerant.
-    // Until then the Daxtro Machine column of the uploaded template (row.input) is read directly; empty = Yes.
     function rowIsDaxtro(row) {
         var m = row.review.machine;
-        if (m && typeof m.is_daxtro !== 'undefined' && m.is_daxtro !== null) return !!m.is_daxtro && m.is_daxtro !== '0';
-        var raw = String(row.input['Daxtro Machine'] || '').trim().toLowerCase();
-        return raw !== 'no' && raw !== 'n' && raw !== '0';
+        if (m && typeof m.is_daxtro === 'boolean') return m.is_daxtro;
+        return String(row.input['Daxtro Machine'] || '').trim().toLowerCase() !== 'no';
     }
 
     function rowBrand(row) {
@@ -438,7 +438,8 @@
         preview.rows.forEach(function (row) {
             var r = row.review;
             var type = needsDecision(row) ? 'decision' : (r.errors.length ? 'error' : (r.warnings.length ? 'warning' : r.status));
-            var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name*'] || row.input['Machine Name'] || '-';
+            
+            var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name'] || '-';
             var category = row.input['Machine Category*'] ? ' · ' + row.input['Machine Category*'] : '';
             var nonDaxtro = rowIsDaxtro(row) ? '' : '<div style="font-size:9.5px;color:#757575">Non-Daxtro' + (rowBrand(row) ? ' · ' + esc(rowBrand(row)) : '') + '</div>';
             var resultLabel = row.result && row.result.machine_status === 'kept_archived' ? 'Customer saved; machine kept archived' : (row.result && row.result.status);
