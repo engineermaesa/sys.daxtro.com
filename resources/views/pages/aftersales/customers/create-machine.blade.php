@@ -23,7 +23,6 @@
                 <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-xs tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Machine Information</h6>
 
-                    {{-- TODO(API): is_daxtro (bool) and compressor (string|null) are sent on POST/PUT products; see the API notes above the script. --}}
                     <div class="mb-3">
                         <label class="block text-xs font-medium mb-1">Daxtro Machine<span class="text-red-600">*</span></label>
                         <div class="flex items-center gap-4">
@@ -49,7 +48,7 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Capacity (ton)</label>
+                        <label class="block text-xs font-medium mb-1">Capacity (ton)<span id="machine-capacity-required" class="text-red-600" hidden>*</span></label>
                         <input type="number" min="0" step="any" id="machine-capacity" placeholder="e.g. 15"
                             value="{{ $product->capacity ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
@@ -72,7 +71,10 @@
                         <input type="text" id="machine-name" required placeholder="e.g. TD150 | Bitzer R404A"
                             value="{{ $product->machine_name ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
-                        <p id="machine-name-hint" class="text-[#757575] mt-1" style="font-size:11px"></p>
+                        <p class="text-[#757575] mt-1" style="font-size:11px">
+                            <span id="machine-name-hint"></span>
+                            <button type="button" id="machine-name-reset" class="text-[#115640] font-semibold underline cursor-pointer" hidden>Use auto-generated name</button>
+                        </p>
                     </div>
                     <div class="mb-3" id="machine-serial-group">
                         <label class="block text-xs font-medium mb-1">Serial Number<span class="text-red-600">*</span></label>
@@ -153,20 +155,11 @@
         'ref_product_type_id' => $product->ref_product_type_id,
         'pm_contract_status' => $product->pm_contract_status,
         'is_daxtro' => $product->is_daxtro ?? true,
+        'machine_name_mode' => $product->machine_name_mode ?? 'auto',
     ] : null,
 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) !!}
 </script>
 <script>
-    /*
-     * TODO(API) — backend contract still pending (PRD v2.2 IM-74..83). Placement of each endpoint call:
-     *  1. GET  /api/aftersales/customers/machine-references  -> loadMachineReferences(): categories[].code_prefix (exists).
-     *  2. POST /api/aftersales/customers/{customer}/products -> submit handler (create).
-     *  3. PUT  /api/aftersales/customers/products/{id}       -> submit handler (edit).
-     *     Both must accept & store: is_daxtro (bool, default true), compressor (string|null),
-     *     brand (required only when is_daxtro = false), serial_number (required only when is_daxtro = true),
-     *     machine_name (required); warranty_start, warranty_end and pm_contract_status ignored when is_daxtro = false.
-     *  Until then the extra fields are sent but ignored by the server; records read back default to is_daxtro = true.
-     */
     const pageConfig = JSON.parse(document.getElementById('machine-page-config').textContent);
     const customerId = pageConfig.customerId;
     const machineId = pageConfig.machineId;
@@ -264,8 +257,7 @@
         });
     }
 
-    // Filled from GET /machine-references: category prefixes and PM contract frequencies.
-    let categoryPrefixes = {};   // { [categoryId]: code_prefix }
+    // Filled from GET /machine-references: PM contract frequencies.
     let pmFrequencies = {};      // { none: null, basic: '6 months', premium: '3 months' }
     let pmTouched = false;       // legacy PM values are only replaced after the user picks a new one
 
@@ -275,35 +267,62 @@
     }
 
     const isDaxtro = () => $('input[name="machine-is-daxtro"]:checked').val() !== '0';
-    let nameTouched = !!pageConfig.machineId; // saved names are never overwritten until one of the four source fields changes
 
-    // Series: RD (Cold Room) = ton / 3 x 10, every other prefix = ton x 10 (TD 15 ton -> TD150, RD 6 ton -> RD20).
-    function machineSeries(prefix, ton) {
-        return Math.round(prefix === 'RD' ? ton / 3 * 10 : ton * 10);
-    }
+    const savedNameMode = pageConfig.record ? (pageConfig.record.is_daxtro ? pageConfig.record.machine_name_mode : 'manual') : null;
+    let nameMode = savedNameMode || 'auto';
+    let nameSourceChanged = false; 
+    let previewSeq = 0;
+    let previewTimer = null;
 
-    // Machine Name (Daxtro only): "[Prefix][series] | [Compressor] [Refrigerant]", e.g. "TD150 | Bitzer R404A".
-    function buildMachineName() {
-        const prefix = (categoryPrefixes[$('#machine-product-type-id').val()] || '').replace(/\s+/g, '');
-        const ton = parseFloat($('#machine-capacity').val());
-        if (!prefix || isNaN(ton)) {
-            return '';
+    function previewMachineName() {
+        const seq = ++previewSeq;
+        const typeId = $('#machine-product-type-id').val();
+        const capacity = $('#machine-capacity').val();
+        if (!typeId || capacity === '') {
+            return;
         }
-        const detail = [$('#machine-compressor').val(), $('#machine-refrigerant').val()]
-            .map(v => (v || '').trim()).filter(Boolean).join(' ');
-        return `${prefix}${machineSeries(prefix, ton)}${detail ? ' | ' + detail : ''}`;
+        $.ajax({
+            url: `${apiBaseUrl}/machine-name-preview`,
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                ref_product_type_id: typeId,
+                capacity,
+                compressor: $('#machine-compressor').val() || null,
+                refrigerant: $('#machine-refrigerant').val() || null,
+            },
+        }).done(function (response) {
+            if (seq === previewSeq && nameMode === 'auto' && isDaxtro()) {
+                $('#machine-name').val(response.data?.machine_name || '');
+            }
+        }).fail(function (xhr) {
+            if (seq === previewSeq && nameMode === 'auto' && isDaxtro()) {
+                const errors = xhr.responseJSON?.errors || {};
+                $('#machine-name-hint').text(Object.values(errors).flat()[0] || 'Machine Name cannot be generated yet.');
+            }
+        });
     }
 
     // Called when Model, Capacity, Compressor or Refrigerant Type changes.
     function syncMachineName() {
-        if (!isDaxtro()) {
+        nameSourceChanged = true;
+        if (!isDaxtro() || nameMode !== 'auto') {
             return;
         }
-        nameTouched = false;
-        const name = buildMachineName();
-        if (name) {
-            $('#machine-name').val(name);
-        }
+        applyNameMode();
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(previewMachineName, 300);
+    }
+
+    function applyNameMode() {
+        const auto = isDaxtro() && nameMode === 'auto';
+        $('#machine-name').prop('required', !auto);
+        $('#machine-capacity').prop('required', auto);
+        $('#machine-capacity-required').prop('hidden', !auto);
+        $('#machine-name-reset').prop('hidden', !isDaxtro() || auto);
+        $('#machine-name-hint').text(!isDaxtro() ? ''
+            : auto ? 'Auto-filled from Model, Capacity, Compressor, Refrigerant Type. Still editable.'
+            : 'Typed manually; Model, Capacity, Compressor or Refrigerant Type changes no longer update it.');
     }
 
     // Daxtro Machine = No: Brand required, no Serial Number, no Warranty & Contract, free Machine Name.
@@ -314,9 +333,7 @@
         $('#machine-serial-group').prop('hidden', !daxtro);
         $('#machine-serial-number').prop('required', daxtro);
         $('#machine-warranty-card').prop('hidden', !daxtro);
-        $('#machine-name-hint').text(daxtro
-            ? 'Auto-filled from Model, Capacity, Compressor, Refrigerant Type. Still editable.'
-            : '');
+        applyNameMode();
     }
 
     function loadMachineReferences() {
@@ -329,10 +346,9 @@
             const record = pageConfig.record;
 
             const $type = $('#machine-product-type-id');
-            $type.html('<option value="">Select Model</option>' + (refs.categories || []).map(c => {
-                categoryPrefixes[c.id] = c.code_prefix;
-                return `<option value="${c.id}">${$('<div>').text(c.name).html()}</option>`;
-            }).join(''));
+            $type.html('<option value="">Select Model</option>' + (refs.categories || []).map(c =>
+                `<option value="${c.id}">${$('<div>').text(c.name).html()}</option>`
+            ).join(''));
             if (record?.ref_product_type_id) {
                 $type.val(String(record.ref_product_type_id));
             }
@@ -379,19 +395,41 @@
         });
         applyDaxtroMode();
         $('input[name="machine-is-daxtro"]').on('change', function () {
+            
+            if (isDaxtro()) {
+                nameMode = 'auto';
+            } else {
+                if (nameMode === 'auto') {
+                    $('#machine-name').val('');
+                }
+                nameMode = 'manual';
+            }
             applyDaxtroMode();
             syncMachineName();
         });
         $('#machine-product-type-id').on('change', syncMachineName);
         $('#machine-capacity, #machine-compressor, #machine-refrigerant').on('input', syncMachineName);
-        $('#machine-name').on('input', function () { nameTouched = true; });
+        $('#machine-name').on('input', function () {
+            if (nameMode !== 'manual') {
+                nameMode = 'manual';
+                ++previewSeq; 
+                applyNameMode();
+            }
+        });
+        $('#machine-name-reset').on('click', function () {
+            nameMode = 'auto';
+            syncMachineName();
+        });
 
         $('#machine-form').on('submit', function (e) {
             e.preventDefault();
 
+            const losesDaxtroData = !!pageConfig.record?.is_daxtro && !isDaxtro();
             Swal.fire({
                 title: machineId ? 'Save changes to this machine?' : 'Add this machine?',
-                text: 'Please make sure the data you entered is correct.',
+                text: losesDaxtroData
+                    ? 'This machine becomes non-Daxtro: its Serial Number, Warranty and PM Contract will be removed and cannot be restored.'
+                    : 'Please make sure the data you entered is correct.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#115640',
@@ -406,18 +444,25 @@
                 // machine_code, warranty_period and pm_frequency are read-only: never sent (API contract 5.2).
                 const daxtro = isDaxtro();
                 const payload = {
-                    is_daxtro: daxtro ? 1 : 0, // TODO(API): new field
-                    machine_name: $('#machine-name').val(),
+                    is_daxtro: daxtro ? 1 : 0,
                     serial_number: daxtro ? $('#machine-serial-number').val() : null,
                     ref_product_type_id: $('#machine-product-type-id').val() || null,
                     brand: daxtro ? null : ($('#machine-brand').val() || null),
                     capacity: $('#machine-capacity').val() || null,
-                    compressor: $('#machine-compressor').val() || null, // TODO(API): new field
+                    compressor: $('#machine-compressor').val() || null,
                     refrigerant: $('#machine-refrigerant').val() || null,
                     note: $('#machine-note').val() || null,
                     warranty_start: daxtro ? ($('#machine-warranty-start').val() || null) : null,
                     warranty_end: daxtro ? ($('#machine-warranty-end').val() || null) : null,
                 };
+
+                const mode = daxtro ? nameMode : 'manual';
+                if (mode === 'manual') {
+                    payload.machine_name = $('#machine-name').val();
+                }
+                if (!machineId || mode !== savedNameMode || nameSourceChanged) {
+                    payload.machine_name_mode = mode;
+                }
 
                 // Create always sends PM; Edit only sends it once the user picked a (new) value. Non-Daxtro has no PM contract.
                 if (!daxtro) {
