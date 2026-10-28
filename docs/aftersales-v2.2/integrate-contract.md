@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–8 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, filter Visit Date, Overall Rating teknisi, dan fondasi log import bersama) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–9 sudah diimplementasikan, termasuk upload/review Import Sparepart. Penyimpanan Sparepart dan opening stock melalui Apply masih menjadi task 10. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -667,6 +667,119 @@ Pengguna memerlukan permission sesuai jenis, bukan cukup salah satu permission s
 
 ### Batas scope dan kebutuhan FE
 
-Task ini belum menambahkan endpoint upload/review/Apply Sparepart atau endpoint daftar seluruh log import. Jangan memakai endpoint Customer untuk batch sparepart. URL dan payload Sparepart dipublikasikan pada task 9–10 setelah implementasinya selesai.
+Fondasi task 8 tidak menambahkan endpoint daftar seluruh log import. Endpoint upload/review Sparepart tersedia pada task 9 di bawah; Apply menyusul pada task 10. Jangan memakai endpoint Customer untuk batch sparepart.
 
 Integrasi Customer existing tetap memakai endpoint task 3; tambahan FE hanya perlu mengenali field type jika ingin menampilkan jenis batch. Tidak ada perubahan frontend atau template Excel pada task ini. Model mendukung query `ofType(...)`, relasi uploader `createdBy`, dan relasi baris `batch` untuk penggunaan backend berikutnya, tanpa mengekspos data user tambahan di response existing.
+
+## Task 9: Upload dan review Import Sparepart
+
+Meliputi bagian upload/review IM-94–96 dan informasi REORDER IM-97. Master `RefSparepart` dan stock movement belum dibuat/diubah pada task ini; endpoint Apply belum tersedia. Upload dan koreksi hanya menyimpan batch/staging pada log bersama task 8.
+
+### Endpoint
+
+Semua endpoint memerlukan session login dan permission `masters.spareparts`. Akses batch existing hanya untuk uploader; tipe batch harus sparepart. Mutasi menggunakan CSRF dan Accept JSON seperti aturan umum.
+
+| Method | Endpoint | Request / hasil |
+|---|---|---|
+| GET | `/api/aftersales/spareparts/imports/template` | Binary `Template_Import_Sparepart.xlsx`, memakai template yang diberikan pada brief. |
+| POST | `/api/aftersales/spareparts/imports` | Multipart FormData field `file`, `.xlsx` maksimal 20 MB; HTTP 201 dengan review. |
+| GET | `/api/aftersales/spareparts/imports/{import}` | Baca snapshot review tersimpan; HTTP 200. |
+| PUT | `/api/aftersales/spareparts/imports/{import}/review` | JSON koreksi baris + lock_version; menghitung ulang review seluruh batch, HTTP 200. |
+| GET | `/api/aftersales/spareparts/imports/{import}/export` | Binary Excel **baris Error saja** secara default. |
+| GET | `/api/aftersales/spareparts/imports/{import}/export?errors_only=0` | Binary Excel seluruh baris review. |
+
+`{import}` dan `rows[].id` adalah ID batch/baris staging, bukan ID Sparepart atau nomor Excel. Semua response JSON sukses memakai `{ "data": { "import": {...}, "summary": {...}, "rows": [...] } }`. Tidak ada pagination baru untuk review batch.
+
+Tidak login: 401; permission tidak cukup atau bukan uploader: 403; ID tidak ada atau salah jenis batch: 404. Batch Customer ditolak melalui endpoint Sparepart dan sebaliknya. Tipe serta uploader upload selalu ditetapkan server; mengirim type/created_by_user_id tidak mengubahnya.
+
+### Template, header, dan nilai
+
+Template download memiliki sheet `Import Sparepart` dan `Guide`. Data dibaca dari sheet Import Sparepart, header di baris 1. Hapus atau ganti baris 2 contoh berwarna biru sebelum upload. Header delapan kolom harus cocok persis dan urut (A–H):
+
+```text
+Part Number* | Name* | Brand | Supplier | Price | Stock | Min Stock | Rack Location
+```
+
+Header/sheet salah, tambahan kolom, file rusak, tidak ada baris data, atau data melewati baris 5001 (maksimal 5000 baris mulai baris 2) ditolak dengan HTTP 422 dan errors.file. Baris yang benar-benar kosong dilewati. Kesalahan nilai pada baris tidak menggagalkan upload: HTTP 201 tetap mengembalikan status Error pada review baris itu.
+
+| Kolom | Normalisasi / validasi |
+|---|---|
+| `Part Number*` | Wajib, trim + huruf besar, maksimal 255 karakter setelah normalisasi. Menjadi key matching. Spasi di tengah tidak dihapus. |
+| `Name*` | Wajib, trim, maksimal 255 karakter. |
+| `Brand`, `Supplier`, `Rack Location` | Opsional, trim, maksimal 255 karakter; kosong menjadi null. |
+| `Price` | Angka >= 0 dengan maksimal dua desimal, mengikuti decimal(15,2), maksimal 9999999999999.99. Tidak menerima teks mata uang/pemisah ribuan. Kosong menjadi Warning, dengan nilai rencana `0.00`. |
+| `Stock`, `Min Stock` | Integer >= 0, maksimal 2147483647 sesuai kolom DB existing. Kosong dianggap 0. Angka negatif, pecahan, atau overflow menjadi Error. |
+
+Formula Excel tidak dihitung sebagai nilai impor; sel dengan formula menjadi Error dan dapat dikoreksi menjadi nilai literal. Reader hanya membaca data, sehingga komentar/style workbook tidak menjadi bagian validasi atau perubahan data. Nilai teks `"0"` pada field teks tetap dipertahankan.
+
+### Matching dan status baris
+
+| `review.status` | Makna dan kelayakan |
+|---|---|
+| `new` | Part Number belum ada dan baris valid tanpa Warning; eligible untuk Apply task 10. |
+| `already_exists` | Key sudah ada pada sparepart aktif. Dilewati, tidak memperbarui nama, harga, atau stok existing. |
+| `warning` | Misalnya Price kosong (eligible) atau key milik sparepart soft-deleted (tidak eligible). Periksa can_apply dan skip_reason; jangan menganggap semua Warning boleh diterapkan. |
+| `error` | Field invalid atau duplikat key dalam file. Tidak eligible. |
+
+Part Number kedua dan seterusnya dalam file menjadi Error setelah normalisasi trim/uppercase; `duplicate_of_row` menunjuk nomor Excel kemunculan pertama, termasuk bila baris pertama mempunyai error lain. Part Number milik sparepart soft-deleted mendapat Warning dan dilewati. Jika data legacy memiliki key yang sama pada record aktif dan deleted, record aktif menjadi acuan Already exists dan tetap tidak diupdate.
+
+`review.stock_status` bernilai `REORDER` jika Stock <= Min Stock, selain itu SAFE; null jika angka stok tidak valid. Ini **informasi berdasarkan nilai file**, bukan Warning baru atau status stok existing yang hendak diupdate. Informasi REORDER tidak menghalangi kelayakan baris.
+
+`summary.new/already_exists/warning/error` menghitung status utama yang saling eksklusif. Berbeda dari summary Warning Customer, `summary.warning` di Sparepart bukan jumlah semua baris yang memiliki pesan warning. `summary.reorder` menghitung row dengan informasi REORDER, sedangkan `summary.applicable` menghitung row dengan can_apply=true. Kelayakan review bukan jaminan tersimpan; task 10 akan memeriksa ulang kondisi saat Apply.
+
+### Contoh payload review
+
+Contoh dipersingkat pada field yang relevan; ID dan data merupakan ilustrasi:
+
+```json
+{
+  "data": {
+    "import": {"id": 42, "type": "sparepart", "status": "review", "lock_version": 0},
+    "summary": {"new": 1, "already_exists": 0, "warning": 0, "error": 0, "reorder": 0, "applicable": 1},
+    "rows": [{
+      "id": 101,
+      "row_number": 2,
+      "input": {"Part Number*": " pn-001 ", "Name*": "Contactor", "Price": 350000, "Stock": 10, "Min Stock": 3},
+      "review": {
+        "template_version": "2.2",
+        "status": "new",
+        "errors": [],
+        "warnings": [],
+        "part": {"part_number": "PN-001", "name": "Contactor", "brand": null, "supplier": null, "price": "350000.00", "stock": 10, "min_stock": 3, "rack_location": null},
+        "existing_sparepart_id": null,
+        "duplicate_of_row": null,
+        "stock_status": "SAFE",
+        "can_apply": true,
+        "skip_reason": null
+      }
+    }]
+  }
+}
+```
+
+Input mempertahankan nilai asli; normalisasi ditampilkan melalui review.part. Angka stok valid dikembalikan sebagai integer, Price sebagai string dua desimal. Angka invalid pada part menjadi null, dengan alasannya pada errors. skip_reason dapat berupa `already_exists`, `soft_deleted`, `duplicate_part_number`, `validation_error`, atau null. Field decision/result log tetap tersedia tetapi belum dipakai untuk Apply pada task ini.
+
+### Koreksi review
+
+```json
+{
+  "lock_version": 0,
+  "rows": [{
+    "id": 101,
+    "input": {"Part Number*": "PN-002", "Price": "350000.00", "Stock": 8}
+  }]
+}
+```
+
+Kirim hanya kolom yang berubah, dengan key literal header Excel (`Part Number*`, `Name*`, `Min Stock`, dan sebagainya), bukan snake_case pada review.part. Setiap item wajib id dan input berisi kolom koreksi; nilai harus scalar/null. ID berulang, key tidak dikenal, atau sel bersarang ditolak 422. ID milik batch lain ditolak 404 dan seluruh koreksi request dibatalkan.
+
+Backend membaca snapshot master Sparepart terbaru dan menghitung ulang seluruh batch, termasuk duplikat pada row lain yang terdampak koreksi. GET Show hanya membaca snapshot tersimpan; tidak otomatis mengubah review atau lock_version. Koreksi sukses menambah lock_version; versi usang atau batch sudah applied mendapat 409. Pada 409, GET ulang batch sebelum menyimpan koreksi berikutnya.
+
+### Download Error/Review File dan integrasi FE
+
+- Export default hanya baris Error; `errors_only=1` eksplisit setara. `errors_only=0` menyertakan semua status. Jika tidak ada Error, export default hanya berisi header.
+- File berisi delapan kolom input ditambah Row/Status/Errors/Warnings. Sel ditulis sebagai teks literal, termasuk input formula yang invalid. File export bukan template upload; salin koreksi ke template terbaru untuk upload ulang, atau gunakan PUT Review.
+- Download template/export sebagai blob dan gunakan Content-Disposition untuk nama file. Upload memakai FormData tanpa mengatur multipart boundary secara manual.
+- FE menampilkan status utama, pesan errors/warnings, REORDER, dan jumlah applicable dari payload server. Jangan menghitung ulang matching Part Number atau duplicate di FE.
+- Seluruh operasi task 9 belum mengubah RefSparepart atau PartStockMovement. `can_apply=true` hanya menyatakan kelayakan row; endpoint penyimpanan Apply belum tersedia sampai task 10 selesai.
+- Tidak ada migrasi baru pada task 9; fondasi type dari task 8 harus sudah tersedia. Dokumen kontrak Customer dan endpoint Customer existing tetap terpisah.

@@ -556,6 +556,11 @@ Route::group([
 
     // SPAREPARTS + STOCK MOVEMENTS (API)
     Route::prefix('spareparts')->name('spareparts.')->group(function () {
+        Route::get('/imports/template', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'template'])->name('imports.template');
+        Route::post('/imports', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'upload'])->name('imports.upload');
+        Route::get('/imports/{import}', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'show'])->name('imports.show');
+        Route::put('/imports/{import}/review', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'review'])->name('imports.review');
+        Route::get('/imports/{import}/export', [\App\Http\Controllers\AfterSales\Dats\SparepartImportController::class, 'export'])->name('imports.export');
         Route::get('/', [SparepartController::class, 'index'])->name('index');
         Route::post('/', [SparepartController::class, 'store'])->name('store');
         Route::get('/{sparepart}', [SparepartController::class, 'show'])->name('show');
