@@ -31,6 +31,14 @@ class TechnicianScore
         return collect($userIds)->mapWithKeys(fn ($id) => [$id => self::summary($tickets->get($id, collect()), $since)])->all();
     }
 
+    public static function overallRating(int $userId): array
+    {
+        $tickets = Ticket::where('assigned_technician_id', $userId)->with('satisfactions.answers')->get(['id', 'ticket_code']);
+        $rating = self::rating($tickets, null);
+
+        return ['overall_rating' => $rating['rating'], 'rating_scale_max' => $rating['rating_scale_max']];
+    }
+
     public static function detail(int $userId, ?Carbon $since): array
     {
         $tickets = self::tickets([$userId]);
@@ -73,7 +81,6 @@ class TechnicianScore
 
     private static function summary(Collection $tickets, ?Carbon $since): array
     {
-        $counted = self::responses($tickets, $since)->where('counted', true);
         $c = 0;
         $r = 0;
 
@@ -92,20 +99,28 @@ class TechnicianScore
             }
         }
 
-        return [
-            'rating_scale_max' => 3,
-            'rating' => $counted->isEmpty() ? null : round($counted->avg(fn ($x) => $x['model']->average_score), 1),
-            'rating_count' => $counted->count(),
+        return self::rating($tickets, $since) + [
             'completion' => $c + $r > 0 ? (int) round($c / ($c + $r) * 100) : null,
             'completion_closed' => $c,
             'completion_total' => $c + $r,
         ];
     }
 
+    private static function rating(Collection $tickets, ?Carbon $since): array
+    {
+        $counted = self::responses($tickets, $since)->where('counted', true);
+
+        return [
+            'rating_scale_max' => 3,
+            'rating' => $counted->isEmpty() ? null : round($counted->avg(fn ($x) => $x['model']->average_score), 1),
+            'rating_count' => $counted->count(),
+        ];
+    }
+
     private static function responses(Collection $tickets, ?Carbon $since): Collection
     {
         return $tickets->flatMap(function (Ticket $ticket) use ($since) {
-            $currentId = $ticket->satisfactions->max('id');
+            $currentId = $ticket->satisfactions->sort(fn ($a, $b) => ($b->filled_at <=> $a->filled_at) ?: ($b->id <=> $a->id))->first()?->id;
 
             return $ticket->satisfactions
                 ->filter(fn ($s) => ! $since || ($s->filled_at && $s->filled_at >= $since))
@@ -113,8 +128,10 @@ class TechnicianScore
                     $reason = match (true) {
                         $s->id !== $currentId => 'Not current',
                         $s->source === TicketSatisfaction::SOURCE_ADMIN => 'Entered by admin',
+                        $s->source !== TicketSatisfaction::SOURCE_LINK => 'Invalid source',
                         $s->review_status === TicketSatisfaction::REVIEW_NEEDS_REVIEW => 'Needs review',
                         $s->review_status === TicketSatisfaction::REVIEW_REJECTED => 'Rejected',
+                        ! in_array($s->review_status, [TicketSatisfaction::REVIEW_NORMAL, TicketSatisfaction::REVIEW_REVIEWED], true) => 'Invalid review status',
                         default => null,
                     };
 

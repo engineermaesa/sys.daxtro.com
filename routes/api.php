@@ -545,6 +545,7 @@ Route::group([
 
     // TECHNICIANS (API)
     Route::prefix('technicians')->name('technicians.')->group(function () {
+        Route::get('/me/overall-rating', \App\Http\Controllers\AfterSales\Dats\TechnicianRatingController::class)->name('me.overall-rating');
         Route::get('/', [DatsTechnicianController::class, 'index'])->name('index');
         Route::post('/', [DatsTechnicianController::class, 'store'])->name('store');
         Route::get('/{technician}', [DatsTechnicianController::class, 'show'])->name('show');

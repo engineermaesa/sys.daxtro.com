@@ -1,6 +1,6 @@
 # Integrate Contract: Aftersales PRD v2.2 (BE ke FE)
 
-Dokumen khusus integrasi backend v2.2. Task 1–6 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, dan filter Visit Date) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
+Dokumen khusus integrasi backend v2.2. Task 1–7 (jenis mesin, Generator Machine Name, Import Customer, Deals Review, gate kontak Customer, filter Visit Date, dan Overall Rating teknisi) sudah diimplementasikan. Kontrak task berikutnya ditambahkan setelah implementasinya selesai.
 
 ## Aturan umum
 
@@ -553,3 +553,64 @@ Contoh di atas adalah hasil kosong. Pada hasil berisi tiket, seluruh field exist
 - Simpan `visit_date` bersama search/Priority/Supervisor di query URL halaman, kemudian pulihkan nilainya saat reload. Penyimpanan state URL adalah tanggung jawab FE; backend membaca query pada setiap request.
 - Reset menghapus visit_date beserta filter lain dari URL dan request, lalu memuat halaman pertama. Mengirim `visit_date=` juga menghilangkan filter tanggal, tetapi tidak menghapus filter lain yang masih dikirim.
 - Backend tidak memindahkan posisi badge Priority atau mengubah layout tabel; pekerjaan tersebut tetap menjadi scope FE.
+
+## Task 7: Overall Rating teknisi
+
+Meliputi IM-93 / AC-IM29. Endpoint khusus akun login menyediakan satu angka agregat untuk header halaman Ticket milik teknisi. Tidak ada perubahan frontend, dashboard teknisi, permission baru, atau migrasi schema pada task ini.
+
+### Endpoint dan akses
+
+```http
+GET /api/aftersales/technicians/me/overall-rating
+Accept: application/json
+```
+
+- Auth menggunakan session login aplikasi. Tidak login mendapat 401.
+- Membutuhkan permission `aftersales.tickets.view-own`. Tanpa permission mendapat 403. Teknisi tidak membutuhkan `masters.technicians` untuk membaca angka miliknya ini.
+- Identitas teknisi selalu berasal dari user login (`users.id`), bukan `TechnicianProfile.id`, parameter path, atau query request.
+- Tidak menerima pemilihan teknisi atau periode. Query tambahan seperti user_id, assigned_technician_id, period, search, Priority, dan visit_date tidak mengubah identitas maupun cakupan perhitungan. Rating ini mencakup seluruh periode dan tidak mengikuti pagination/filter daftar tiket.
+- Endpoint GET bersifat read-only, tidak memerlukan CSRF, dan tidak mengubah respons survei maupun status tiket.
+
+### Response untuk FE
+
+HTTP 200:
+
+```json
+{
+  "data": {
+    "overall_rating": 2.7,
+    "rating_scale_max": 3
+  }
+}
+```
+
+Jika belum ada respons yang dihitung:
+
+```json
+{
+  "data": {
+    "overall_rating": null,
+    "rating_scale_max": 3
+  }
+}
+```
+
+`overall_rating` adalah angka yang dibulatkan ke satu angka desimal; angka bulat pada JSON dapat muncul sebagai `3`, sehingga FE perlu memformat satu desimal untuk tampilan `3.0 / 3`. Nilai null ditampilkan `–`, bukan `0 / 3`.
+
+Response hanya berisi dua field di atas. Tidak ada jumlah respons, skor/aspek per respons, komentar, identitas Customer, nomor tiket, history, ataupun data completion rate. Endpoint profil/detail teknisi existing tetap membutuhkan `masters.technicians`; akses ke agregat sendiri tidak membuka akses ke endpoint tersebut.
+
+### Aturan perhitungan bersama After Sales
+
+1. Sumber tiket adalah tiket aktif yang saat ini assigned kepada user login; tiket soft-deleted dikecualikan. Mengganti teknisi pada tiket memindahkan kontribusi rating ke teknisi yang baru, mengikuti aturan existing.
+2. Hanya satu respons current per tiket. Untuk perhitungan rating, current dipilih berdasarkan `filled_at` (waktu submit) terbaru; jika sama, ID terbesar menjadi pembeda. Respons soft-deleted dikecualikan. Penentuan current dilakukan sebelum seleksi eligibility, sehingga tidak mengambil respons history yang valid untuk menggantikan current Needs review/Rejected/Admin.
+3. Dihitung hanya `source=link` dengan `review_status=normal` atau `reviewed`, serta memiliki skor rata-rata. Source/status lain dikecualikan. Respons admin tetap tidak dihitung walaupun telah di-Approve.
+4. Nilai per respons memakai `TicketSatisfaction.average_score` existing: jawaban rating pada respons/template yang tersimpan, atau kolom rating legacy yang sudah dinormalisasi pada migrasi sebelumnya. Jawaban Yes/No, teks, dan komentar tidak ikut dihitung.
+5. Overall Rating adalah rata-rata skor rata-rata tiap respons current yang eligible, lalu dibulatkan satu desimal. Setiap respons memiliki bobot sama, meskipun jumlah pertanyaan ratingnya berbeda. Skala tetap 3.
+6. Endpoint ini dan rating After Sales menggunakan helper perhitungan bersama agar hasilnya konsisten. Pemilihan current berdasarkan waktu submit juga berlaku pada rating After Sales; task ini tidak mengubah alur review, Close, atau link survei.
+
+### Integrasi header Ticket teknisi
+
+- Panggil endpoint rating ketika halaman daftar Ticket teknisi dibuka; GET daftar tiket tetap memakai `/api/aftersales/tickets` seperti sebelumnya.
+- Tampilkan `overall_rating` dan `rating_scale_max` pada header secara read-only. Tidak perlu membuat dashboard teknisi.
+- Filter tanggal/search/Priority atau perpindahan halaman tiket tidak mengubah Overall Rating ini. Gunakan endpoint yang sama jika ingin memuat ulang angka.
+- Jangan menggunakan endpoint detail/rating per respons untuk header akun teknisi. Backend tetap membatasi response agregat sehingga data survei tidak perlu dikirim ke client teknisi untuk dihitung di FE.
