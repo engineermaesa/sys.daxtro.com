@@ -200,29 +200,20 @@
         </li>
         <script>
             // Shared by the sidebar and the Deals Review tab (customers/index): one source for the badge number.
-            window.setDealBadge = function (count) {
-                var text = count > 99 ? '99+' : String(count);
+            
+            window.setDealBadge = function (summary) {
+                if (!summary || typeof summary.has_pending === 'undefined') return;
                 document.querySelectorAll('.deal-review-badge').forEach(function (el) {
-                    el.textContent = text;
-                    el.classList.toggle('hidden', count <= 0);
-                    el.classList.toggle('inline-flex', count > 0);
+                    el.textContent = summary.badge_label || '';
+                    el.classList.toggle('hidden', !summary.has_pending);
+                    el.classList.toggle('inline-flex', !!summary.has_pending);
                 });
             };
-            // TODO(API): replace with a count-only endpoint, e.g. GET /api/aftersales/customers/deal-reviews/count -> { data: { pending_review: n } }.
-            // Until then the badge counts status = needs_review from GET /api/aftersales/customers/deal-reviews (paginated).
             window.refreshDealBadge = function () {
-                var pending = 0;
-                (function page(n) {
-                    fetch('/api/aftersales/customers/deal-reviews?page=' + n, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-                        .then(function (res) { return res.ok ? res.json() : null; })
-                        .then(function (res) {
-                            if (!res) return;
-                            pending += (res.data || []).filter(function (i) { return i.status === 'needs_review'; }).length;
-                            if (n < (res.last_page || 1)) return page(n + 1);
-                            window.setDealBadge(pending);
-                        })
-                        .catch(function () {});
-                })(1);
+                fetch('/api/aftersales/customers/deal-reviews/pending-count', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                    .then(function (res) { return res.ok ? res.json() : null; })
+                    .then(function (res) { if (res) window.setDealBadge(res.data); })
+                    .catch(function () {});
             };
             document.addEventListener('DOMContentLoaded', window.refreshDealBadge);
         </script>
