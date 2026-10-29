@@ -46,6 +46,13 @@
                     <input type="text" id="customer-search" placeholder="Search customer name, phone, or region"
                         class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
+                {{-- AS-MCH-02: All / Daxtro / Non-Daxtro. [API] query param machine_type = all|daxtro|non_daxtro (assumed) --}}
+                <select id="customer-machine-filter" aria-label="Machine type"
+                    class="w-auto bg-white border border-[#D9D9D9] rounded-lg px-3 text-[#1E1E1E] focus:outline-none!">
+                    <option value="all">All</option>
+                    <option value="daxtro">Daxtro</option>
+                    <option value="non_daxtro">Non-Daxtro</option>
+                </select>
                 <button type="button" id="btn-search-customer"
                     class="bg-[#115640] text-white px-6 rounded-lg hover:bg-[#0d4633] transition-colors">
                     Search
@@ -64,6 +71,7 @@
                         <th class="p-3 text-left uppercase text-xs font-bold">Contact</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Region</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Province</th>
+                        <th class="p-3 text-left uppercase text-xs font-bold">Machines</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Source</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Action</th>
                     </tr>
@@ -112,6 +120,7 @@
         page: 1,
         perPage: 10,
         search: '',
+        machineType: 'all',
     };
 
     function escapeHtml(value) {
@@ -169,11 +178,23 @@
         return html;
     }
 
+    // AS-MCH-03: machine count badges. [API] daxtro_machines_count / non_daxtro_machines_count (assumed field names)
+    function renderMachines(row) {
+        const daxtro = Number(row.daxtro_machines_count) || 0;
+        const nonDaxtro = Number(row.non_daxtro_machines_count) || 0;
+        if (!daxtro && !nonDaxtro) return '-';
+
+        const parts = [];
+        if (daxtro) parts.push(badge(`${daxtro} Daxtro`, 'background:#D3E8DE;color:#115640'));
+        if (nonDaxtro) parts.push(badge(`${nonDaxtro} Non-Daxtro`, 'background:#FBEFC8;color:#7A5F00'));
+        return `<div class="flex flex-wrap gap-1">${parts.join('')}</div>`;
+    }
+
     function renderCustomerRows(rows) {
         const $body = $('#customer-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="8" class="text-center p-4 text-[#757575]">No customers found</td></tr>');
+            $body.html('<tr><td colspan="9" class="text-center p-4 text-[#757575]">No customers found</td></tr>');
             return;
         }
 
@@ -187,6 +208,7 @@
                 <td class="p-3 text-left text-black" data-label="Contact">${renderContact(row.phone)}</td>
                 <td class="p-3 text-left text-black" data-label="Region" data-secondary>${escapeHtml(row.region?.name) || '-'}</td>
                 <td class="p-3 text-left text-black" data-label="Province" data-secondary>${escapeHtml(row.province?.name) || '-'}</td>
+                <td class="p-3 text-left text-black" data-label="Machines">${renderMachines(row)}</td>
                 <td class="p-3 text-left text-black" data-label="Source">${renderSource(row)}</td>
                 <td class="p-3 text-center text-black" data-label="Action" data-actions>
                     <div class="dropdown">
@@ -239,7 +261,7 @@
     }
 
     function loadCustomers() {
-        $('#customer-table-body').html('<tr><td colspan="8" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#customer-table-body').html('<tr><td colspan="9" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/customers',
@@ -248,6 +270,7 @@
                 page: customerState.page,
                 per_page: customerState.perPage,
                 search: customerState.search,
+                machine_type: customerState.machineType,
             },
             success: function (response) {
                 const lastPage = Math.max(1, response.last_page || 1);
@@ -261,7 +284,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load customers';
-                $('#customer-table-body').html(`<tr><td colspan="8" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#customer-table-body').html(`<tr><td colspan="9" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }
@@ -333,6 +356,12 @@
                 customerState.page = 1;
                 loadCustomers();
             }, 400);
+        });
+
+        $('#customer-machine-filter').on('change', function () {
+            customerState.machineType = $(this).val();
+            customerState.page = 1;
+            loadCustomers();
         });
 
         $('#btn-search-customer').on('click', function () {

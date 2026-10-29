@@ -5,8 +5,8 @@
         <div class="modal-content rounded-2xl! overflow-hidden border-0!">
             <div class="flex items-start justify-between" style="padding:22px 28px 12px">
                 <div>
-                    <h5 class="text-[#115640] font-bold mb-1" style="font-size:20px">Fill Survey on Behalf of Customer</h5>
-                    <p class="text-[#9A9A9A] mb-0" style="font-size:11px">The response is saved as Needs review. A reason is required.</p>
+                    <h5 id="sob-title" class="text-[#115640] font-bold mb-1" style="font-size:20px">Fill Survey on Behalf of Customer</h5>
+                    <p id="sob-subtitle" class="text-[#9A9A9A] mb-0" style="font-size:11px">The response is saved as Needs review. A reason is required.</p>
                 </div>
                 <button type="button" data-dismiss="modal" aria-label="Close"
                     style="width:32px;height:32px;font-size:12px" class="border border-[#D9D9D9] rounded-lg bg-white flex items-center justify-center cursor-pointer">
@@ -59,6 +59,13 @@
         template = link && link.template ? link.template : null;
         var canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
         $('#tdFillOnBehalf').toggleClass('hidden', !(canManage && template));
+        // v3.0 AS-SVY-02: varian phone call diisi langsung setelah panggilan (tanpa link). [API] link.template.variant: site | phone_call
+        var phone = !!template && template.variant === 'phone_call';
+        $('#tdFillOnBehalf').text(phone ? 'Fill Phone Call Survey' : 'Fill on Behalf');
+        $('#sob-title').text(phone ? 'Fill Phone Call Survey' : 'Fill Survey on Behalf of Customer');
+        $('#sob-subtitle').text(phone
+            ? 'Record the customer\'s answers given by phone. The ticket becomes Satisfaction Submitted. A reason is required.'
+            : 'The response is saved as Needs review. A reason is required.');
     });
 
     function questionField(q) {

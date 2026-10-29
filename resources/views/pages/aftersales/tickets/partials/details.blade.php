@@ -26,6 +26,7 @@
                     ['Customer', 'tdCustomer'], ['Supervisor', 'tdSupervisor'], ['Visit Date', 'tdVisit'],
                     ['Complaint', 'tdCategory'], ['Progress', 'tdProgress'], ['Machine', 'tdMachine'],
                     ['Technician', 'tdTechnician'], ['SLA', 'tdSla'], ['Warranty', 'tdWarranty'],
+                    ['Document Status', 'tdDocStatus'],
                 ] as [$label, $id])
                     <div>
                         <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">{{ $label }}</p>
@@ -125,6 +126,12 @@
             </div>
         </div>
 
+        {{-- RECOMING CYCLES (v3.0 W2): satu kartu per siklus, dirender renderRecomingCycles() dari t.recoming_cycles [API] --}}
+        <div id="tdRecomingCard" class="hidden bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
+            <h2 class="font-bold tracking-wide">RECOMING CYCLES</h2>
+            <div id="tdRecomingCycles" class="flex flex-col" style="margin-top: 12px; gap: 12px;"></div>
+        </div>
+
         {{-- SUPPORTING DOCUMENTS (status dokumen dari GET /api/aftersales/tickets/{id}/documents, dirender oleh documents-script) --}}
         <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
             <h2 class="font-bold tracking-wide">SUPPORTING DOCUMENTS</h2>
@@ -194,6 +201,36 @@
                         <tbody id="tdSurveyResponsesBody"></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        {{-- HAPPY CALL & CLOSE (v3.0 AS-HC, AS-CLS): Happy Call dicatat Admin, Close hanya Head Aftersales --}}
+        <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 24px;">
+            <div class="flex items-start justify-between flex-wrap" style="gap: 12px;">
+                <div>
+                    <h2 class="font-bold text-base">Happy Call &amp; Close</h2>
+                    <p class="text-[#9CA3AF] text-xs" style="margin-top: 2px;">Happy Call due H+3 after the survey. Close is manual.</p>
+                </div>
+                <span id="tdHappyCallStatus" class="rounded-full bg-[#F0F0F0] text-[#757575] font-semibold text-xs" style="padding: 3px 12px;">-</span>
+            </div>
+            <div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 24px; margin-top: 16px;">
+                <div>
+                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Average Score</p>
+                    <p id="tdAvgScore" class="text-sm font-semibold" style="margin-top: 6px;">-</p>
+                </div>
+                <div>
+                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Happy Call Due</p>
+                    <p id="tdHappyCallDue" class="text-sm font-semibold" style="margin-top: 6px;">-</p>
+                </div>
+                <div>
+                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Happy Call Done</p>
+                    <p id="tdHappyCallDone" class="text-sm font-semibold" style="margin-top: 6px;">-</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center" style="margin-top: 16px; gap: 8px;">
+                <button type="button" id="tdHappyCallBtn" class="hidden bg-white border border-[#115640] text-[#115640] font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Record Happy Call</button>
+                <button type="button" id="tdCloseBtn" class="hidden bg-[#115640] text-white font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Close Ticket</button>
+                <p id="tdCloseHint" class="hidden text-xs text-[#8A6D00]"></p>
             </div>
         </div>
 

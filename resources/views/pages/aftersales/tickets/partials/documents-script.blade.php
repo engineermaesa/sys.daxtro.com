@@ -413,6 +413,7 @@
             S.ticket = t;
             renderVisitHistory(t);
             renderSurveyCard(t);
+            renderV3Detail(t);
 
             call('GET', '/tickets/exchange-rates')
                 .done(function (r) { if (currentId() === id) renderFinalCost(t, (r && r.data) || {}); })
@@ -423,6 +424,130 @@
             $('#tdVisitHistoryBody').html('<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#EC221F]" colspan="3">' + msg + '</td></tr>');
         });
     }
+
+    // ---------- v3.0 Ticket Detail (W2) ----------
+    // [API] field yang diasumsikan di GET /tickets/{id}:
+    //   document_status: incomplete | awaiting_spv_signature | documentation_published
+    //   sla: { state: 'stopped'|'running', stopped_at, due_at, cycle_no }
+    //   average_score: number|null
+    //   happy_call: { due_at, done_at, overdue }
+    //   recoming_cycles: [{ cycle_no, recoming_type: phone_call|visit_site, reason, scheduled_by: {name},
+    //                       scheduled_at, findings: { problem, root_cause, action }, sla: {state, due_at, stopped_at} }]
+    //   brand / trader_name ada di customer_product (hanya Non-Daxtro)
+    const V3_DOC_STATUS = {
+        incomplete: 'Incomplete',
+        awaiting_spv_signature: 'Awaiting SPV signature',
+        documentation_published: 'Documentation Published'
+    };
+    const V3_REASON = {
+        sparepart_unavailable: 'Part unavailable',
+        further_work_needed: 'Further work needed',
+        site_access: 'Site access or condition',
+        unfinished_previous_work: 'Unfinished from previous work',
+        other: 'Other'
+    };
+    const V3_TYPE = { phone_call: 'Recoming by phone call', visit_site: 'Recoming by visit site' };
+
+    function v3Date(v) { return v ? fmtVisitDate(v) : '-'; }
+
+    function v3SlaText(sla) {
+        if (!sla) return '-';
+        if (sla.state === 'stopped') return 'Stopped ' + v3Date(sla.stopped_at);
+        return ((sla.cycle_no || 1) > 1 ? 'Cycle ' + sla.cycle_no : 'Running') + ' · due ' + v3Date(sla.due_at);
+    }
+
+    function renderRecomingCycles(t) {
+        const cycles = t.recoming_cycles || [];
+        $('#tdRecomingCard').toggleClass('hidden', !cycles.length);
+        $('#tdRecomingCycles').html(cycles.map(function (c) {
+            const f = c.findings || {};
+            const findings = [['Problem', f.problem], ['Root Cause', f.root_cause], ['Action', f.action]].map(function (p) {
+                return '<div><p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">' + p[0] + '</p>'
+                    + '<p class="text-xs whitespace-pre-wrap" style="margin-top: 4px;">' + esc(dash(p[1])) + '</p></div>';
+            }).join('');
+            return '<div class="rounded-lg border border-[#EDEDED]" style="padding: 14px 16px;">'
+                + '<div class="flex flex-wrap items-center justify-between" style="gap: 8px;">'
+                + '<p class="font-semibold">Cycle ' + esc(c.cycle_no) + ' <span class="text-[#757575] font-normal">· ' + esc(V3_TYPE[c.recoming_type] || dash(c.recoming_type)) + '</span></p>'
+                + '<span class="text-xs text-[#757575]">Cycle SLA: ' + esc(v3SlaText(c.sla)) + '</span></div>'
+                + '<p class="text-xs text-[#4B5563]" style="margin-top: 6px;">Reason: ' + esc(V3_REASON[c.reason] || dash(c.reason))
+                + ' · Scheduled by ' + esc(dash(c.scheduled_by && c.scheduled_by.name)) + ' · ' + esc(v3Date(c.scheduled_at)) + '</p>'
+                + '<div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px;">' + findings + '</div></div>';
+        }).join(''));
+    }
+
+    function renderHappyCallClose(t) {
+        const hc = t.happy_call || null;
+        const canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
+        const canClose = typeof CAN_CLOSE !== 'undefined' && CAN_CLOSE;
+        const done = !!(hc && hc.done_at);
+        const published = t.document_status === 'documentation_published';
+        const recoming = t.progress === 'recoming';
+
+        let label = '-', style = 'background:#F0F0F0;color:#757575;';
+        if (done) { label = 'Done'; style = 'background:#E7F3EE;color:#115640;'; }
+        else if (hc && hc.overdue) { label = 'Overdue'; style = 'background:#FBEAEA;color:#900B09;'; }
+        else if (hc && hc.due_at) { label = 'Due (H+3)'; style = 'background:#E7ECFB;color:#3B4FA6;'; }
+        $('#tdHappyCallStatus').text(label).attr('style', 'padding: 3px 12px;' + style);
+
+        $('#tdAvgScore').text(t.average_score === null || t.average_score === undefined ? '-' : Number(t.average_score).toFixed(1) + ' / 3');
+        $('#tdHappyCallDue').text(hc && hc.due_at ? v3Date(hc.due_at) : '-');
+        $('#tdHappyCallDone').text(done ? v3Date(hc.done_at) : '-');
+
+        // AS-HC-03/04: Admin saja, diblok selama Recoming
+        $('#tdHappyCallBtn').toggleClass('hidden', !canManage || done).prop('disabled', recoming);
+        // AS-ROLE-04 / AS-CLS-01: Close hanya Head, nonaktif sampai Documentation Published + Happy Call selesai
+        const closed = t.progress === 'closed';
+        const blocked = !(published && done);
+        $('#tdCloseBtn').toggleClass('hidden', !canClose || closed).prop('disabled', blocked);
+        $('#tdCloseHint').toggleClass('hidden', !canClose || closed || !blocked)
+            .text(!published ? 'Documentation must be published first.' : 'Happy Call must be completed first.');
+    }
+
+    function renderV3Detail(t) {
+        $('#tdDocStatus').text(V3_DOC_STATUS[t.document_status] || '-');
+        if (t.sla) $('#tdSla').text(v3SlaText(t.sla));
+        renderRecomingCycles(t);
+        renderHappyCallClose(t);
+    }
+
+    function v3Reload(id) {
+        loadTicketDetail();
+        if (typeof loadTickets === 'function') loadTickets();
+    }
+
+    $(document).on('click', '#tdHappyCallBtn', function () {
+        const id = currentId();
+        Swal.fire({
+            title: 'Record Happy Call',
+            input: 'textarea',
+            inputLabel: 'Note (optional)',
+            showCancelButton: true,
+            confirmButtonText: 'Record',
+            confirmButtonColor: '#115640'
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            call('POST', '/tickets/' + id + '/happy-call', { note: r.value || null })
+                .done(function () { toast('Happy Call recorded'); v3Reload(id); })
+                .fail(function (xhr) { fail(xhr, 'Failed to record Happy Call.'); });
+        });
+    });
+
+    $(document).on('click', '#tdCloseBtn', function () {
+        const id = currentId();
+        Swal.fire({
+            title: 'Close this ticket?',
+            text: 'Closing is manual and cannot be undone from here.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Close ticket',
+            confirmButtonColor: '#115640'
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            call('POST', '/tickets/' + id + '/close', {})
+                .done(function () { toast('Ticket closed'); v3Reload(id); })
+                .fail(function (xhr) { fail(xhr, 'Failed to close ticket.'); });
+        });
+    });
 
     // ---------- Visit History + Reschedule ----------
     // "12 Jan 2025 · 09:30" (WIB); jam disembunyikan kalau 00:00 (recoming disimpan startOfDay)
@@ -519,9 +644,11 @@
             $('#tdSurveyResponsesWrap').removeClass('hidden');
             $('#tdSurveyResponsesBody').html(responses.length ? responses.map(function (r, i) {
                 const style = REVIEW_STYLE[r.review_status] || REVIEW_STYLE.normal;
+                // [API] r.variant: site | phone_call (respons lama tanpa variant dianggap site)
+                const variantLabel = r.variant === 'phone_call' ? ' · Phone call' : '';
                 const tag = i === 0
-                    ? '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current</span>'
-                    : '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">History</span>';
+                    ? '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current' + variantLabel + '</span>'
+                    : '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">History' + variantLabel + '</span>';
                 const machine = r.machine_ok === null || r.machine_ok === undefined ? '\u2014' : (r.machine_ok ? 'Yes' : 'No');
                 return '<tr class="border-t border-[#EDEDED]">'
                     + '<td class="p-2">' + tag + '</td>'
@@ -606,7 +733,7 @@
                 + (can.fill && !doc.locked ? 'Fill' : 'View') + '</button>';
 
             if (can.sign_supervisor && !doc.locked) {
-                buttons += '<button type="button" class="doc-sign-supervisor bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Supervisor Sign</button>';
+                buttons += '<button type="button" class="doc-sign-supervisor bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Review &amp; Sign</button>';
             }
             if (can.save && !doc.locked) {
                 const ready = !!(doc.completeness && doc.completeness.complete);
@@ -1430,8 +1557,14 @@
     function openSupervisorSign(type) {
         S.ssDoc = type;
         const t = currentTicket || {};
-        $('#ssTitle').text('Supervisor Signature · ' + TYPE_TITLE[type]);
+        $('#ssTitle').text('Review and Sign · ' + TYPE_TITLE[type]);
         $('#ssCrumb').text(TYPE_TITLE[type]);
+        // tab aktif = dokumen yang sedang direview
+        $('.ss-tab').each(function () {
+            const on = $(this).data('doc') === type;
+            $(this).toggleClass('border-[#115640] text-[#115640]', on).toggleClass('border-transparent text-[#757575]', !on);
+        });
+        renderSupervisorFindings();
         $('#ssTicket').text(t.ticket_code || '-');
         $('#ssCustomer').text((t.customer || {}).name || '-');
         $('#ssMachine').text(((t.customer_product || {}).product || {}).name || '-');
@@ -1453,8 +1586,18 @@
         const can = d.can || {};
         const canSign = !!can.sign_supervisor && !d.locked;
 
-        $('#ssStatusBadge').text(sig ? 'Signed' : 'Awaiting signature')
-            .css(sig ? { background: '#E7F3EE', color: '#115640' } : { background: '#FFF3CD', color: '#D97706' });
+        // status dokumen v3.0: Incomplete -> Awaiting SPV signature -> Signed (Documentation Published setelah kedua dokumen signed)
+        const complete = !!(d.completeness && d.completeness.complete);
+        $('#ssStatusBadge').text(sig ? 'Signed' : (complete ? 'Awaiting SPV signature' : 'Incomplete'))
+            .css(sig ? { background: '#E7F3EE', color: '#115640' } : (complete ? { background: '#FFF3CD', color: '#D97706' } : { background: '#FBEAEA', color: '#900B09' }));
+
+        // tanda tangan Technician (read-only)
+        const techSig = (d.signatures || {}).technician;
+        $('#ssTechCard').toggleClass('hidden', !(techSig && techSig.url));
+        if (techSig && techSig.url) {
+            $('#ssTechImage').attr('src', techSig.url);
+            $('#ssTechMeta').text((techSig.signer_name || '-') + ' · ' + fmtDateTime(techSig.signed_at));
+        }
         $('#ssCompleteness').text(d.locked ? 'Document is saved and locked.' : ((d.completeness || {}).summary || 'All requirements are complete.'));
 
         $('#ssSignArea').toggleClass('hidden', !canSign);
@@ -1467,13 +1610,30 @@
             pad.onChange = function () {
                 $('#ssPlaceholder').toggleClass('hidden', pad.ink);
                 if (pad.ink) $('#ssError').addClass('hidden');
+                // AC-DOC-04: "Save and sign" nonaktif sebelum SPV menandatangani
+                $('#ssSign').prop('disabled', !pad.ink);
             };
             pad.clear();
         }
-
-        $('#ssSave').toggleClass('hidden', !(can.save && !d.locked));
-        setSaveState($('#ssSave'), d);
     }
+
+    // Temuan Recoming siklus terakhir (read-only). [API] S.ticket.recoming_cycles dimuat oleh loadTicketDetail()
+    function renderSupervisorFindings() {
+        const cycles = (S.ticket && S.ticket.recoming_cycles) || [];
+        const last = cycles[cycles.length - 1];
+        $('#ssFindingsCard').toggleClass('hidden', !last);
+        if (!last) return;
+        const f = last.findings || {};
+        $('#ssFindingsTitle').text('RECOMING FINDINGS · CYCLE ' + last.cycle_no);
+        $('#ssFindProblem').text(dash(f.problem));
+        $('#ssFindRoot').text(dash(f.root_cause));
+        $('#ssFindAction').text(dash(f.action));
+    }
+
+    $(document).on('click', '.ss-tab', function () {
+        const type = $(this).data('doc');
+        if (type !== S.ssDoc) openSupervisorSign(type);
+    });
 
     $(document).on('click', '#ssClear', function () {
         const c = document.getElementById('ssCanvas');
@@ -1488,16 +1648,13 @@
         const $b = $(this).prop('disabled', true);
         call('POST', '/tickets/' + currentId() + '/documents/' + S.ssDoc + '/signatures', { role: 'supervisor', signature: pad.dataUrl() })
             .done(function () {
-                toast('Signature saved');
-                openSupervisorSign(S.ssDoc);
-                loadDocs();
+                // "Save and sign": setelah tanda tangan tersimpan, dokumen langsung disimpan.
+                // Bila kedua dokumen sudah signed, BE menerbitkan Documentation Published.
+                saveDocument(S.ssDoc, function () { openSupervisorSign(S.ssDoc); loadDocs(); })
+                    .fail(function () { openSupervisorSign(S.ssDoc); loadDocs(); })
+                    .always(function () { $b.prop('disabled', false); });
             })
-            .fail(function (xhr) { fail(xhr, 'Failed to save signature.'); })
-            .always(function () { $b.prop('disabled', false); });
-    });
-
-    $(document).on('click', '#ssSave', function () {
-        saveDocument(S.ssDoc, function () { openSupervisorSign(S.ssDoc); });
+            .fail(function (xhr) { fail(xhr, 'Failed to save signature.'); $b.prop('disabled', false); });
     });
 
     $(document).on('click', '.btn-ss-back', function () {

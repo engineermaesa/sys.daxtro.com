@@ -24,7 +24,7 @@
     const head = (label, title, buttons = "") =>
         `<div class="dt-card-head"><div><div class="dt-eyebrow">${esc(label)}</div><h2>${esc(title)}</h2></div>${buttons}</div>`;
     const types = {
-        rating: "Rating 1–5",
+        rating: "Rating 1–3",
         yes_no: "Yes / No",
         short_text: "Short text",
         long_text: "Long text",
@@ -49,6 +49,13 @@
                   minute: "2-digit",
               })
             : "—";
+    // v3.0 AS-SVY-02: dua varian survey. site = survey existing (9 aspek), phone_call = usulan 7 aspek.
+    // [API] tiap endpoint list/draft/question-scores menerima `variant` (site | phone_call); endpoint per-id tidak berubah.
+    const VARIANTS = { site: "Visit site", phone_call: "Phone call" };
+    let variant =
+        new URLSearchParams(location.search).get("variant") === "phone_call"
+            ? "phone_call"
+            : "site";
     let versions = [],
         audit = null,
         current = null,
@@ -88,7 +95,7 @@
         return data;
     }
     async function loadIndex(page = 1) {
-        const result = await request(`?page=${page}`);
+        const result = await request(`?page=${page}&variant=${variant}`);
         versions = result.data.versions;
         audit = result.data.audit;
     }
@@ -117,10 +124,10 @@
     }
     function render() {
         document.getElementById("dt-document-name").textContent =
-            "Satisfaction Survey";
+            `Satisfaction Survey · ${VARIANTS[variant]}`;
         document.getElementById("dt-title").textContent = listing
             ? "Template versions"
-            : `${editable() ? "Edit" : "View"} Satisfaction Survey`;
+            : `${editable() ? "Edit" : "View"} Satisfaction Survey · ${VARIANTS[variant]}`;
         document.getElementById("dt-version").textContent = listing
             ? `${versions.length} versions`
             : `v${current?.version ?? "—"}`;
@@ -136,9 +143,21 @@
             "",
             "dt-primary",
         );
-        actions.innerHTML = listing
+        const switcher = `<div class="dt-actions" role="group" aria-label="Survey variant">${Object.entries(
+            VARIANTS,
+        )
+            .map(([key, label]) =>
+                btn(
+                    label,
+                    "variant",
+                    `data-variant="${key}" aria-pressed="${key === variant}"`,
+                    key === variant ? "dt-primary" : "",
+                ),
+            )
+            .join("")}</div>`;
+        actions.innerHTML = `${switcher}${listing
             ? `${btn("Rating results", "scores")}${create}`
-            : `${btn("Version history", "versions")}${editable() ? btn("Save draft", "save") : ""}${current ? btn("◉ Preview", "preview") : ""}${editable() ? btn(`✓ Activate v${current.version}`, "activate", "", "dt-primary") : create}`;
+            : `${btn("Version history", "versions")}${editable() ? btn("Save draft", "save") : ""}${current ? btn("◉ Preview", "preview") : ""}${editable() ? btn(`✓ Activate v${current.version}`, "activate", "", "dt-primary") : create}`}`;
         if (listing) renderVersions();
         else if (current) renderEditor();
         else
@@ -150,7 +169,7 @@
     }
     function renderEditor() {
         const sections = current.content.sections;
-        content.innerHTML = `${!editable() ? '<div class="dt-banner">This version is read-only. Create a draft from the active version to make changes.</div>' : ""}<div class="dt-banner"><strong>System-managed sections</strong> &nbsp; Job Information, OTP verification, customer name, position, and signature are locked. The core machine condition question stays required and active.</div><div class="dt-card">${head("Section A", "Rating scale labels")}<div class="dt-card-body dt-scale">${current.content.scale_labels.map((x, i) => `<label><span class="dt-field">Scale ${i + 1}</span><input type="text" data-scale="${i}" value="${esc(x)}" ${dis()}></label>`).join("")}</div></div>${sections
+        content.innerHTML = `${!editable() ? '<div class="dt-banner">This version is read-only. Create a draft from the active version to make changes.</div>' : ""}${variant === "phone_call" ? '<div class="dt-banner"><strong>Phone call variant (proposal)</strong> &nbsp; Filled directly after the call, without a survey link. Same 3-level scale; every aspect is required, so both variants can share one Overall Rating.</div>' : ""}<div class="dt-banner"><strong>System-managed sections</strong> &nbsp; Job Information, OTP verification, customer name, position, and signature are locked. The core machine condition question stays required and active.</div><div class="dt-card">${head("Section A", "Rating scale labels")}<div class="dt-card-body dt-scale">${current.content.scale_labels.map((x, i) => `<label><span class="dt-field">Scale ${i + 1}</span><input type="text" data-scale="${i}" value="${esc(x)}" ${dis()}></label>`).join("")}</div></div>${sections
             .map((s, si) => {
                 const core = s.questions.some((q) => q.is_core),
                     attrs = `data-section="${si}"`;
@@ -332,6 +351,21 @@
             return;
         }
         run(async () => {
+            if (action === "variant") {
+                if (el.dataset.variant === variant) return;
+                if (!(await discard())) return;
+                variant = el.dataset.variant;
+                history.replaceState(
+                    null,
+                    "",
+                    `${location.pathname}${variant === "site" ? "" : `?variant=${variant}`}`,
+                );
+                current = null;
+                await loadIndex();
+                listing = true;
+                dirty = false;
+                message("");
+            }
             if (action === "save") {
                 await save();
                 message("Draft saved.");
@@ -345,7 +379,7 @@
             }
             if (action === "create") {
                 if (!(await discard())) return;
-                setCurrent((await request("/draft", "POST")).data);
+                setCurrent((await request("/draft", "POST", { variant })).data);
                 listing = false;
                 await loadIndex();
                 message(`Draft v${current.version} ready to edit.`);
@@ -369,10 +403,10 @@
             if (action === "audit-page")
                 await loadIndex(Number(el.dataset.page));
             if (action === "scores") {
-                const result = await request("/question-scores");
+                const result = await request(`/question-scores?variant=${variant}`);
                 dialog.querySelector("h2").textContent = "Rating results";
                 document.getElementById("dt-preview-content").innerHTML =
-                    `<p class="dt-description">Average scores across customer responses, grouped by question. Admin-assisted responses are excluded.</p><div class="dt-table-wrap"><table class="dt-table"><thead><tr><th>Question</th><th>Responses</th><th>Average</th></tr></thead><tbody>${result.data.map((row) => `<tr><td>${esc(row.label)}</td><td>${row.response_count}</td><td>${row.average_score} / 5</td></tr>`).join("") || '<tr><td colspan="3">No rating responses yet.</td></tr>'}</tbody></table></div>`;
+                    `<p class="dt-description">Average scores across customer responses, grouped by question. Admin-assisted responses are excluded.</p><div class="dt-table-wrap"><table class="dt-table"><thead><tr><th>Question</th><th>Responses</th><th>Average</th></tr></thead><tbody>${result.data.map((row) => `<tr><td>${esc(row.label)}</td><td>${row.response_count}</td><td>${row.average_score} / 3</td></tr>`).join("") || '<tr><td colspan="3">No rating responses yet.</td></tr>'}</tbody></table></div>`;
                 dialog.showModal();
             }
             if (action === "confirm-activate") {

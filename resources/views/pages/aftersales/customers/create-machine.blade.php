@@ -24,7 +24,7 @@
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-xs tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Machine Information</h6>
 
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Is this a Daxtro machine?<span class="text-red-600">*</span></label>
+                        <label class="block text-xs font-medium mb-1">Daxtro Machine<span class="text-red-600">*</span></label>
                         <div class="grid grid-cols-2 gap-3">
                             <label class="flex items-center justify-center gap-2 cursor-pointer border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs has-checked:border-[#115640] has-checked:bg-[#E6F4EF] has-checked:text-[#115640]">
                                 <input type="radio" name="machine-is-daxtro" value="1" class="accent-[#115640]" {{ ($product->is_daxtro ?? true) ? 'checked' : '' }}> Yes
@@ -38,6 +38,13 @@
                         <label class="block text-xs font-medium mb-1">Brand<span class="text-red-600">*</span></label>
                         <input type="text" id="machine-brand" placeholder="e.g. [brand]"
                             value="{{ $product->brand ?? '' }}"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
+                    </div>
+                    {{-- AS-MCH-01: Trader is required for non-Daxtro machines. [API] field trader_name (assumed) --}}
+                    <div class="mb-3" id="machine-trader-group" hidden>
+                        <label class="block text-xs font-medium mb-1">Trader<span class="text-red-600">*</span></label>
+                        <input type="text" id="machine-trader" maxlength="255" placeholder="e.g. [trader]"
+                            value="{{ $product->trader_name ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
                     <div class="mb-3">
@@ -337,6 +344,11 @@
         const daxtro = isDaxtro();
         $('#machine-brand-group').prop('hidden', daxtro);
         $('#machine-brand').prop('required', !daxtro);
+        $('#machine-trader-group').prop('hidden', daxtro);
+        $('#machine-trader').prop('required', !daxtro);
+        if (daxtro) {
+            $('#machine-brand, #machine-trader').val('');
+        }
         $('#machine-serial-group').prop('hidden', !daxtro);
         $('#machine-serial-number').prop('required', daxtro);
         $('#machine-warranty-card').prop('hidden', !daxtro);
@@ -455,6 +467,7 @@
                     serial_number: daxtro ? $('#machine-serial-number').val() : null,
                     ref_product_type_id: $('#machine-product-type-id').val() || null,
                     brand: daxtro ? null : ($('#machine-brand').val() || null),
+                    trader_name: daxtro ? null : ($('#machine-trader').val() || null),
                     capacity: $('#machine-capacity').val() || null,
                     compressor: $('#machine-compressor').val() || null,
                     refrigerant: $('#machine-refrigerant').val() || null,

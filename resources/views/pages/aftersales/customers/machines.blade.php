@@ -159,7 +159,7 @@
             ['Machine Name', machine.product_name],
             ['Daxtro Machine', daxtro ? 'Yes' : 'No'],
             ['Model', machine.product_type_name],
-            ...(daxtro ? [['Serial Number', machine.serial_number]] : [['Brand', machine.brand]]),
+            ...(daxtro ? [['Serial Number', machine.serial_number]] : [['Brand', machine.brand], ['Trader', machine.trader_name]]),
             ['Capacity (ton)', machine.capacity],
             ['Industry', machine.industry?.name],
             ['Compressor', machine.compressor],
@@ -197,7 +197,7 @@
         const dash = '<span class="text-[#B0B0B0]">&mdash;</span>';
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
-                <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}</div>`}</td>
+                <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}${row.trader_name ? ' &middot; ' + escapeHtml(row.trader_name) : ''}</div>`}</td>
                 <td class="p-3 text-center text-black">${row.is_daxtro ? 'Daxtro' : (escapeHtml(row.brand) || '-')}</td>
                 <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.serial_number) || '-') : dash}</td>
                 <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>

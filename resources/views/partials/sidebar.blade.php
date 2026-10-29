@@ -220,7 +220,7 @@
         @endif
 
         {{-- TICKETING MENU (admin/supervisor, atau teknisi yang hanya melihat tiket miliknya) --}}
-        @if(auth()->check() && (auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own')))
+        @if(auth()->check() && (auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own') || auth()->user()->hasPermission('aftersales.tickets.close')))
         <li id="listTicketing" class="rounded-lg mt-2">
             <button id="ticketingToggle"  class="cursor-pointer w-full text-left rounded-lg px-3 py-2 grid place-items-center lg:flex lg:items-center lg:justify-between">
                 <div class="lg:flex! lg:items-center! lg:justify-start! lg:gap-3!">
@@ -240,6 +240,7 @@
             <div id="ticketingMenu" class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0">
                 <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
                     {{-- ALL TICKET --}}
+                    @if(auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own'))
                     <a class="flex items-center sm:gap-2 lg:gap-3"
                         href="{{ route('aftersales.pages.tickets.index') }}">
                         <span
@@ -250,12 +251,26 @@
                             All Ticket
                         </span>
                     </a>
+                    @endif
+                    {{-- READY TO CLOSE (Head Aftersales) --}}
+                    @if(auth()->user()->hasPermission('aftersales.tickets.close'))
+                    <a class="flex items-center sm:gap-2 lg:gap-3"
+                        href="{{ route('aftersales.pages.ready-to-close') }}">
+                        <span
+                            class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->routeIs('aftersales.pages.ready-to-close') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                        </span>
+                        <span
+                            class="sidebar-label {{ request()->routeIs('aftersales.pages.ready-to-close') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                            Ready to Close
+                        </span>
+                    </a>
+                    @endif
                 </div>
             </div>
         </li>
         @endif
         @php
-            $isTicketingActive = request()->is('aftersales/tickets*');
+            $isTicketingActive = request()->is('aftersales/tickets*') || request()->is('aftersales/ready-to-close');
         @endphp
 
         {{-- TECHNICIAN --}}

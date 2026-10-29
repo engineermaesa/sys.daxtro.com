@@ -78,6 +78,10 @@
                         <th class="px-2 py-3 text-center uppercase text-xs">SLA</th>
                         <th class="px-2 py-3 text-center uppercase text-xs">Aging</th>
                         <th class="px-2 py-3 text-center uppercase text-xs">Steps</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Score</th>
+                        @unless ($isTechnician)
+                        <th class="px-2 py-3 text-center uppercase text-xs">Happy Call</th>
+                        @endunless
                         <th class="px-2 py-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
@@ -118,6 +122,10 @@
 
     // hak akses (kontrak bagian 1): sembunyikan tombol yang tidak boleh, BE tetap menolak dengan 403
     const CAN_MANAGE = "{{ $canManageTickets }}" === "1";
+    const IS_TECHNICIAN = "{{ $isTechnician ? 1 : 0 }}" === "1";
+    const TABLE_COLS = IS_TECHNICIAN ? 13 : 14;
+    // v3.0 AS-ROLE-04: Close hanya Head Aftersales (permission aftersales.tickets.close). [API] BE harus mencabutnya dari role lain
+    const CAN_CLOSE = "{{ hasPermission(auth()->user(), 'aftersales.tickets.close') ? 1 : 0 }}" === "1";
 
     const ticketState = {
         page: 1,
@@ -243,11 +251,57 @@
         return html ? `<div class="flex flex-wrap justify-center gap-1 mt-1">${html}</div>` : '';
     }
 
+    // v3.0 W1. [API] field yang diasumsikan (belum ada di kontrak):
+    //   sla: { state: 'stopped'|'running', stopped_at, due_at, cycle_no }   (fallback ke sla_status lama)
+    //   average_score: number|null (skala 3)
+    //   happy_call: { due_at, done_at, overdue }
+    //   document_status: 'incomplete'|'awaiting_spv_signature'|'documentation_published'
+    function slaCell(row) {
+        const sla = row.sla;
+        if (!sla) return slaBadge(row.sla_status);
+        if (sla.state === 'stopped') {
+            return `<span class="font-semibold text-[#115640]">Stopped</span><div class="text-[10px] text-[#757575]">${formatDate(sla.stopped_at)}</div>`;
+        }
+        const running = (sla.cycle_no || 1) > 1 ? `Cycle ${sla.cycle_no}` : 'Running';
+        return `<span class="font-semibold text-[#3B4FA6]">${running}</span><div class="text-[10px] text-[#757575]">${formatDate(sla.due_at)}</div>`;
+    }
+
+    const DOC_STATUS = {
+        incomplete: { label: 'Incomplete', cls: 'bg-[#FBEAEA] text-[#900B09]' },
+        awaiting_spv_signature: { label: 'Awaiting SPV signature', cls: 'bg-[#FFF3CD] text-[#8A6D00]' },
+        documentation_published: { label: 'Documentation Published', cls: 'bg-[#E6F4EF] text-[#115640]' },
+    };
+
+    function docStatusBadge(status) {
+        const doc = DOC_STATUS[status];
+        if (!doc) return '';
+        return `<div class="mt-1"><span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium text-center ${doc.cls}">${doc.label}</span></div>`;
+    }
+
+    function scoreCell(score) {
+        if (score === null || score === undefined) return '<span class="text-[#B0B0B0]">-</span>';
+        return `<span class="font-semibold">${Number(score).toFixed(1)}</span> / 3`;
+    }
+
+    function happyCallCell(hc) {
+        if (!hc) return '<span class="text-[#B0B0B0]">-</span>';
+        if (hc.done_at) return `<span class="font-semibold text-[#115640]">Done</span><div class="text-[10px] text-[#757575]">${formatDate(hc.done_at)}</div>`;
+        if (hc.overdue) return '<span class="font-semibold text-[#900B09]">Overdue</span>';
+        if (hc.due_at) return `<span class="font-semibold text-[#3B4FA6]">Due ${formatDate(hc.due_at)}</span><div class="text-[10px] text-[#757575]">(H+3)</div>`;
+        return '<span class="text-[#B0B0B0]">-</span>';
+    }
+
+    function visitDateCell(row) {
+        const n = row.current_recoming?.visit_no;
+        const tag = n ? ` <span class="inline-block px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-[#FFF3CD] text-[#8A6D00]">#${escapeHtml(n)}</span>` : '';
+        return formatDate(row.visit_date) + tag;
+    }
+
     function renderTicketRows(rows) {
         const $body = $('#ticket-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
+            $body.html(`<tr><td colspan="${TABLE_COLS}" class="text-center p-4 text-[#757575]">No tickets found</td></tr>`);
             return;
         }
 
@@ -264,11 +318,13 @@
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
-                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Visit Date" data-secondary>${visitDateCell(row)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
-                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="SLA">${slaBadge(row.sla_status)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="SLA">${slaCell(row)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
-                <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
+                <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${docStatusBadge(row.document_status)}${reminderBadges(row.reminders)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Score">${scoreCell(row.average_score)}</td>
+                ${IS_TECHNICIAN ? '' : `<td class="px-2 py-3 text-center whitespace-nowrap" data-label="Happy Call">${happyCallCell(row.happy_call)}</td>`}
                 <td class="px-2 py-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -280,9 +336,10 @@
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer btn-ticket-details">
                                 <i class="bi bi-file-earmark-text"></i> Details
                             </a>
+                            ${CAN_MANAGE ? `
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer" href="/aftersales/tickets/${row.id}/edit">
                                 <i class="bi bi-pencil"></i> Edit
-                            </a>
+                            </a>` : ''}
                             <a class="dropdown-item flex! items-center! gap-2! cursor-pointer btn-ticket-update-logs">
                                 <i class="bi bi-clock-history"></i> Update Logs
                             </a>
@@ -341,7 +398,7 @@
 
     function loadTickets() {
         syncTicketUrl();
-        $('#ticket-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#ticket-table-body').html(`<tr><td colspan="${TABLE_COLS}" class="text-center p-4 text-[#757575]">Loading...</td></tr>`);
 
         $.ajax({
             url: '/api/aftersales/tickets',
@@ -359,7 +416,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load tickets';
-                $('#ticket-table-body').html(`<tr><td colspan="12" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#ticket-table-body').html(`<tr><td colspan="${TABLE_COLS}" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }
@@ -478,6 +535,12 @@
             text('#tdProgress', STEP_LABEL[t.progress] || t.progress);
             text('#tdCustomer', t.customer?.name);
             text('#tdMachine', machineLabel(t.customer_product || {}));
+            // AS-MCH: Brand / Trader di bawah mesin, hanya Non-Daxtro. [API] trader_name di customer_product
+            const nonDaxtro = t.customer_product && t.customer_product.is_daxtro === false;
+            const brandTrader = nonDaxtro ? [t.customer_product.brand, t.customer_product.trader_name].filter(Boolean).join(' / ') : '';
+            if (brandTrader) {
+                $('#tdMachine').append($('<span class="block text-xs font-normal text-[#757575]"></span>').text('Non-Daxtro · ' + brandTrader));
+            }
             text('#tdProvinceRegion', [t.customer?.province?.name, t.customer?.region?.name].filter(Boolean).join(' · '));
             const warrantyActive = t.customer_product?.warranty_active;
             text('#tdWarranty', warrantyActive === null || warrantyActive === undefined ? '' : (warrantyActive ? 'Active' : 'Expired'));

@@ -92,10 +92,22 @@
             <form id="ticketLogsRecomingForm" class="modal-body px-6! pb-6! pt-0!" style="display:none;">
                 <hr class="border-[#D9D9D9] mb-4">
                 <h6 class="font-bold" style="margin-bottom:20px;">Job not finished (Recoming)</h6>
+                {{-- AS-REC-01: tipe Recoming --}}
+                <fieldset style="margin-bottom:20px;">
+                    <legend style="font-size:14px;margin-bottom:10px;">Recoming type <span style="color:#EC221F;">*</span></legend>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                        @foreach (['visit_site' => 'Recoming by visit site', 'phone_call' => 'Recoming by phone call'] as $typeValue => $typeLabel)
+                            <label style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #D9D9D9;border-radius:24px;padding:8px 12px;">
+                                <input type="radio" name="ticket_logs_recoming_type" value="{{ $typeValue }}" required @checked($loop->first)>
+                                <span>{{ $typeLabel }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </fieldset>
                 <fieldset style="margin-bottom:20px;">
                     <legend style="font-size:14px;margin-bottom:10px;">Reason</legend>
                     <div style="display:flex;flex-wrap:wrap;gap:10px;">
-                        @foreach (['Spare part not available yet', 'Further work needed', 'Site access / conditions', 'Other'] as $reason)
+                        @foreach (['Spare part not available yet', 'Further work needed', 'Site access / conditions', 'Unfinished from previous work'] as $reason)
                             <label style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #D9D9D9;border-radius:24px;padding:8px 12px;">
                                 <input type="radio" name="ticket_logs_recoming_reason" value="{{ $reason }}" required @checked($loop->first)>
                                 <span>{{ $reason }}</span>
@@ -103,17 +115,40 @@
                         @endforeach
                     </div>
                 </fieldset>
-                <label for="ticketLogsRecomingDate" class="block" style="margin-bottom:8px;">Follow-up visit date &amp; time <span style="color:#EC221F;">*</span></label>
+                <label for="ticketLogsRecomingDate" id="ticketLogsRecomingDateLabel" class="block" style="margin-bottom:8px;">Follow-up visit date &amp; time <span style="color:#EC221F;">*</span></label>
                 <input type="datetime-local" id="ticketLogsRecomingDate" required class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;">
                 <label for="ticketLogsRecomingNotes" class="block" style="margin-bottom:8px;">Notes</label>
                 <textarea id="ticketLogsRecomingNotes" rows="3" maxlength="5000" placeholder="Details of the remaining work..." class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;margin-bottom:20px;"></textarea>
+
+                {{-- AS-REC-04 / AS-SLA-02: setup SLA siklus ini wajib. [API] sla_value + sla_unit (hour|business_day) atau sla_due_at --}}
+                <fieldset style="margin-bottom:20px;">
+                    <legend style="font-size:14px;margin-bottom:10px;">SLA for this cycle <span style="color:#EC221F;">*</span></legend>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+                        <label style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #D9D9D9;border-radius:24px;padding:8px 12px;">
+                            <input type="radio" name="ticket_logs_recoming_sla_mode" value="duration" checked> <span>Duration</span>
+                        </label>
+                        <label style="cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid #D9D9D9;border-radius:24px;padding:8px 12px;">
+                            <input type="radio" name="ticket_logs_recoming_sla_mode" value="deadline"> <span>Deadline</span>
+                        </label>
+                    </div>
+                    <div id="ticketLogsRecomingSlaDuration" style="display:flex;gap:10px;">
+                        <input type="number" min="1" step="1" id="ticketLogsRecomingSlaValue" placeholder="Duration" class="border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;flex:1;">
+                        <select id="ticketLogsRecomingSlaUnit" class="border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;flex:1;">
+                            <option value="hour">Hour(s)</option>
+                            <option value="business_day">Business day(s)</option>
+                        </select>
+                    </div>
+                    <input type="datetime-local" id="ticketLogsRecomingSlaDeadline" class="w-full border border-[#D9D9D9] rounded-lg" style="padding:10px 12px;display:none;">
+                    <p style="font-size:12px;color:#757575;margin-top:6px;">Counted from this schedule until the last valid survey. The SLA of the previous cycle is closed when you save.</p>
+                </fieldset>
+
                 <div style="padding:16px;background:#EEF4FF;color:#2F5BD3;border-radius:8px;font-size:13px;">
                     <p class="font-bold" style="margin-bottom:8px;">AFTER SAVING</p>
                     <ul style="padding-left:18px;list-style:disc;line-height:1.8;">
-                        <li>Ticket progress changes to Recoming (second visit scheduled).</li>
-                        <li>Service Form remains in Draft status.</li>
-                        <li>The satisfaction survey link is temporarily disabled.</li>
-                        <li>Ticket status returns to On Site on the follow-up visit date.</li>
+                        <li>Ticket progress changes to Recoming (<span id="ticketLogsRecomingAfterType">second visit scheduled</span>).</li>
+                        <li>Unlock Service Form: the same form is reopened. The existing SPV Technician signature stays valid and the Agreement is not filled again.</li>
+                        <li>The Technician stays the same as on the original ticket (no new assignment).</li>
+                        <li id="ticketLogsRecomingAfterSurvey">A new satisfaction survey link is issued when the Service Form is saved completely.</li>
                     </ul>
                 </div>
                 <p id="ticketLogsRecomingFeedback" role="status" style="margin-top:16px;color:#EC221F;font-size:13px;"></p>
@@ -136,11 +171,30 @@
                 $('#ticketLogsRecomingDate').attr('min', new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) + 'T00:00').trigger('focus');
             }
         }
+        // Tipe phone call: tanggal + jam telepon, bukan jadwal kunjungan. Survey phone call diisi langsung (tanpa link).
+        function syncRecomingType() {
+            const phone = $('input[name="ticket_logs_recoming_type"]:checked').val() === 'phone_call';
+            $('#ticketLogsRecomingDateLabel').html((phone ? 'Call date &amp; time' : 'Follow-up visit date &amp; time') + ' <span style="color:#EC221F;">*</span>');
+            $('#ticketLogsRecomingAfterType').text(phone ? 'phone call scheduled' : 'second visit scheduled');
+            $('#ticketLogsRecomingAfterSurvey').text(phone
+                ? 'The phone call survey is filled right after the call (no link), then the ticket becomes Satisfaction Submitted.'
+                : 'A new satisfaction survey link is issued when the Service Form is saved completely.');
+        }
+        function syncRecomingSlaMode() {
+            const deadline = $('input[name="ticket_logs_recoming_sla_mode"]:checked').val() === 'deadline';
+            $('#ticketLogsRecomingSlaDuration').css('display', deadline ? 'none' : 'flex');
+            $('#ticketLogsRecomingSlaDeadline').css('display', deadline ? 'block' : 'none');
+        }
+        $(document).on('change', 'input[name="ticket_logs_recoming_type"]', syncRecomingType);
+        $(document).on('change', 'input[name="ticket_logs_recoming_sla_mode"]', syncRecomingSlaMode);
+
         $('#ticketLogsScheduleRecoming').on('click', function () { showTicketLogsRecoming(true); });
         $('#ticketLogsRecomingCancel').on('click', function () { showTicketLogsRecoming(false); });
         $('#ticketUpdateLogsModal').on('show.bs.modal', function () {
             $('#ticketLogsRecomingForm')[0].reset();
             $('#ticketLogsRecomingFeedback').text('');
+            syncRecomingType();
+            syncRecomingSlaMode();
             showTicketLogsRecoming(false);
         });
         $('#ticketLogsRecomingForm').on('submit', function (event) {
@@ -150,8 +204,19 @@
                 'Spare part not available yet': 'sparepart_unavailable',
                 'Further work needed': 'further_work_needed',
                 'Site access / conditions': 'site_access',
-                'Other': 'other',
+                'Unfinished from previous work': 'unfinished_previous_work', // [API] kode diasumsikan
             };
+
+            // AS-REC-04 / AC-REC-04: setup SLA wajib, ditolak di UI bila kosong (BE tetap memvalidasi)
+            const slaDeadline = $('input[name="ticket_logs_recoming_sla_mode"]:checked').val() === 'deadline';
+            const slaPayload = slaDeadline
+                ? { sla_due_at: $('#ticketLogsRecomingSlaDeadline').val() }
+                : { sla_value: $('#ticketLogsRecomingSlaValue').val(), sla_unit: $('#ticketLogsRecomingSlaUnit').val() };
+            if (!(slaDeadline ? slaPayload.sla_due_at : Number(slaPayload.sla_value) >= 1)) {
+                $('#ticketLogsRecomingFeedback').text('SLA for this cycle is required (duration or deadline).');
+                return;
+            }
+
             const ticketId = currentUpdateLogsTicketId;
             const $buttons = $('#ticketLogsRecomingForm button');
             recomingSaving = true;
@@ -162,9 +227,11 @@
                 method: 'POST',
                 headers: { Accept: 'application/json' },
                 data: {
+                    recoming_type: $('input[name="ticket_logs_recoming_type"]:checked').val(),
                     reason: reasons[$('input[name="ticket_logs_recoming_reason"]:checked').val()],
                     planned_visit_at: $('#ticketLogsRecomingDate').val(),
                     notes: $('#ticketLogsRecomingNotes').val().trim(),
+                    ...slaPayload,
                 },
                 success: function () {
                     showTicketLogsRecoming(false);
@@ -323,7 +390,17 @@
         $('#ticketUpdateLogsRows').html(html);
     }
 
+    // v3.0 bab 3: Happy Call & Schedule Recoming hanya Admin (manage), Close hanya Head (CAN_CLOSE). BE tetap menolak dengan 403.
+    function applyTicketLogRoleGates() {
+        const canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
+        const canClose = typeof CAN_CLOSE !== 'undefined' && CAN_CLOSE;
+        $('#ticketLogStep option[value="happy_call_completed"]').prop('disabled', !canManage).toggleClass('hidden', !canManage);
+        $('#ticketLogStep option[value="closed"]').prop('disabled', !canClose).toggleClass('hidden', !canClose);
+        $('#ticketLogsScheduleRecoming').toggleClass('hidden', !canManage);
+    }
+
     function resetTicketLogForm() {
+        applyTicketLogRoleGates();
         $('#ticketLogStep').val('on_site');
         $('#ticketLogNote').val('');
         $('.ticket-log-satisfaction-field').val('');

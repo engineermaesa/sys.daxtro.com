@@ -606,6 +606,12 @@ Route::get('/debug/expense-realizations', function () {
             return view('pages.aftersales.document-templates.show', compact('template'));
         })->whereIn('template', ['service-agreement', 'service-inspection-report', 'satisfaction-survey'])->name('document-templates.show');
 
+        // Ready to Close (v3.0 W5): halaman FE untuk Head Aftersales; gate permission juga dicek di view-nya.
+        Route::get('/ready-to-close', function () {
+            abort_unless(auth()->user()->hasPermission('aftersales.tickets.close'), 403);
+            return view('pages.aftersales.tickets.ready-to-close');
+        })->name('ready-to-close');
+
         Route::name('customers.')->prefix('customers')->group(function () {
             Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
             Route::get('/create', [DatsServiceCustomerController::class, 'createPage'])->name('create');
