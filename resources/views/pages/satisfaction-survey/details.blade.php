@@ -13,52 +13,52 @@
     <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
         <h2 class="font-bold tracking-wide">RESPONSE SUMMARY</h2>
         <hr class="my-3 border-[#EDEDED]">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-y-4">
+            <div class="pr-4">
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Average Score</p>
-                <p class="mt-1"><span id="dAvg" class="text-2xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 3</span></p>
+                <p class="mt-2 flex items-baseline gap-1"><span id="dAvg" class="text-3xl font-bold text-[#115640]"></span> <span class="text-[#9CA3AF]">/ 3</span> <span id="dAvgLabel" class="ml-2 text-xs text-[#115640]"></span></p>
             </div>
-            <div>
+            <div class="px-4 md:border-l border-[#EDEDED]">
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Customer</p>
-                <p id="dCustomer" class="mt-2 font-semibold"></p>
+                <p id="dCustomer" class="mt-3 font-semibold"></p>
             </div>
-            <div>
+            <div class="px-4 md:border-l border-[#EDEDED]">
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Machine Status</p>
-                <p id="dMachineTop" class="mt-2 font-semibold"></p>
+                <p class="mt-2"><span id="dMachineTop" class="inline-block px-3 py-1 rounded-md text-sm font-semibold"></span></p>
             </div>
-            <div>
+            <div class="px-4 md:border-l border-[#EDEDED]">
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Submitted Via</p>
-                <p id="dSource" class="mt-2 font-semibold"></p>
+                <p id="dSource" class="mt-3 font-semibold"></p>
             </div>
         </div>
     </div>
 
     {{-- SURVEY FEEDBACK --}}
     <div class="mt-4 p-5 bg-white border border-[#D9D9D9] rounded-lg">
-        <h2 class="font-bold tracking-wide">SURVEY FEEDBACK</h2>
-        <ul id="dBreakdown" class="mt-4 space-y-3"></ul>
+        <div class="flex items-center justify-between"><h2 class="font-bold tracking-wide">SURVEY FEEDBACK</h2><span class="text-[10px] text-[#9CA3AF]">Sorted from lowest score</span></div>
+        <ul id="dBreakdown" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3"></ul>
         <hr class="my-4 border-[#EDEDED]">
-        <div class="space-y-4">
+        <div class="divide-y divide-[#D9D9D9] [&>div]:py-3 [&>div:first-child]:pt-0 [&>div:last-child]:pb-0">
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Machine Status</p>
-                <p id="dMachine" class="mt-1 font-semibold"></p>
+                <p id="dMachine" class="mt-1 text-sm font-semibold"></p>
             </div>
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Explanation</p>
-                <p id="dExplanation" class="mt-1"></p>
+                <p id="dExplanation" class="mt-1 text-xs text-[#4B5563]"></p>
             </div>
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Comments &amp; Suggestions</p>
-                <p id="dComments" class="mt-1"></p>
+                <p id="dComments" class="mt-1 text-xs text-[#4B5563]"></p>
             </div>
             <div>
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Signer</p>
-                <p id="dSigner" class="mt-1 font-semibold"></p>
+                <p id="dSigner" class="mt-1 text-sm font-semibold text-[#115640]"></p>
                 <img id="dSignature" alt="Customer signature" class="hidden mt-2 max-h-32 border border-[#EDEDED] rounded-lg bg-white">
             </div>
             <div id="dAdminReasonWrap" class="hidden">
                 <p class="text-[10px] uppercase font-semibold text-[#9CA3AF]">Admin Input Reason</p>
-                <p id="dAdminReason" class="mt-1"></p>
+                <p id="dAdminReason" class="mt-1 text-xs text-[#4B5563]"></p>
             </div>
         </div>
     </div>

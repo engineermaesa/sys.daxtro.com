@@ -1,24 +1,37 @@
 {{-- RATING PER ASPECT --}}
 <div class="bg-white rounded-lg border border-[#D9D9D9] p-6 mt-4">
-    <h2 class="font-medium text-lg">Rating per Aspect</h2>
-    <div id="td-aspects" class="mt-5 space-y-4"></div>
+    <div class="flex items-center justify-between"><h2 class="font-medium text-lg">Rating per Aspect</h2><span class="text-[10px] text-[#9CA3AF]">Sorted from lowest score</span></div>
+    <div id="td-aspects" class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
 </div>
 
 @push('scripts')
 <script>
     (function () {
         function render(aspects) {
-            $('#td-aspects').html((aspects || []).map(a => {
-                const avg = a.average === null || a.average === undefined ? null : Number(a.average);
+            const list = (aspects || []).map(a => ({
+                label: a.label,
+                avg: a.average === null || a.average === undefined ? null : Number(a.average),
+            })).sort((x, y) => (x.avg ?? Infinity) - (y.avg ?? Infinity));
+
+            $('#td-aspects').html(list.map((a, i) => {
+                const rounded = a.avg === null ? null : Math.round(a.avg);
+                const tag = rounded === null ? '' : (rounded <= 1 ? 'Needs attention' : (rounded === 2 ? 'Fair' : 'Good'));
+                const span = (list.length % 2 === 1 && i === list.length - 1) ? ' sm:col-span-2' : '';
                 return `
-                <div class="grid items-center gap-x-6" style="grid-template-columns: 180px 1fr 32px;">
-                    <span class="text-[#374151] truncate">${escapeHtml(a.label)}</span>
-                    <div class="h-2 rounded-full bg-[#E5E7EB] overflow-hidden">
-                        <div class="h-full rounded-full bg-[#115640]" style="width: ${avg === null ? 0 : Math.min(100, (avg / 3) * 100)}%;"></div>
+                <div class="p-4 border border-[#D9D9D9] rounded-lg${span}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm">${escapeHtml(a.label)}</span>
+                        ${tag ? `<span class="px-2 py-0.5 rounded-md bg-[#E6F4EF] text-[#115640] text-[10px]">${tag}</span>` : ''}
                     </div>
-                    <span class="text-right font-bold text-[#1E1E1E]">${avg === null ? '—' : avg.toFixed(1)}</span>
+                    <p class="mt-2"><span class="text-2xl font-bold text-[#115640]">${a.avg === null ? '—' : a.avg.toFixed(1).replace(/\.0$/, '')}</span> <span class="text-[10px] text-[#9CA3AF]">/ 3</span></p>
+                    <div class="relative mt-2 h-2 rounded-full bg-[#EDEDED] overflow-hidden">
+                        <div class="h-full rounded-full bg-[#115640]" style="width: ${a.avg === null ? 0 : Math.min(100, (a.avg / 3) * 100)}%;"></div>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:33.33%"></span>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:66.66%"></span>
+                    </div>
+                    <div class="flex justify-between mt-1 text-[9px] text-[#9CA3AF]"><span>0</span><span>1</span><span>2</span><span>3</span></div>
                 </div>`;
-            }).join('') || '<p class="text-[#9CA3AF]">No rating yet.</p>');
+            }).join('') || '<p class="text-[#9CA3AF] sm:col-span-2">No rating yet.</p>');
         }
 
         $(function () {

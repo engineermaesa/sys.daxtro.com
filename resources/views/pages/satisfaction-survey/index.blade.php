@@ -285,6 +285,9 @@
             set('dAvg', s.average_score === null || s.average_score === undefined ? '-' : Number(s.average_score).toFixed(1));
             set('dCustomer', dash(s.customer));
             set('dMachineTop', machineText(machine, false));
+            const topEl = document.getElementById('dMachineTop');
+            topEl.className = 'inline-block px-3 py-1 rounded-md text-sm font-semibold ' + (machine === true ? 'bg-[#E6F4EF] text-[#115640]' : (machine === false ? 'bg-[#FBEAEA] text-[#900B09]' : ''));
+            set('dAvgLabel', s.average_score === null || s.average_score === undefined ? '' : (Number(s.average_score) < 2.5 ? 'Needs improvement' : 'Good'));
             set('dMachine', machineText(machine, false));
             document.getElementById('dMachine').style.color = machineColor(machine);
             set('dSource', dash(s.source_label));
@@ -305,14 +308,24 @@
             const reasons = t.review_reasons || [];
             set('dReason', reasons.length ? reasons.map(function (c) { return REVIEW_REASON_TEXT[c] || c; }).join(', ') : 'High confidence response');
 
-            document.getElementById('dBreakdown').innerHTML = (f.ratings || []).map(function (item) {
+            const ratings = (f.ratings || []).slice().sort(function (x, y) { return x.score - y.score; });
+            document.getElementById('dBreakdown').innerHTML = ratings.map(function (item, i) {
                 const width = item.score / RATING_SCALE_MAX * 100;
-                return `<li class="flex items-center gap-4">
-                    <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
-                    <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
+                const rounded = Math.round(item.score);
+                const tag = rounded <= 1 ? 'Needs attention' : (rounded === 2 ? 'Fair' : 'Good');
+                const span = (ratings.length % 2 === 1 && i === ratings.length - 1) ? ' sm:col-span-2' : '';
+                return `<li class="p-4 border border-[#D9D9D9] rounded-lg${span}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm">${esc(item.label)}</span>
+                        <span class="px-2 py-0.5 rounded-md bg-[#E6F4EF] text-[#115640] text-[10px]">${tag}</span>
+                    </div>
+                    <p class="mt-2"><span class="text-2xl font-bold text-[#115640]">${Number(item.score).toFixed(1).replace(/\.0$/, '')}</span> <span class="text-[10px] text-[#9CA3AF]">/ ${RATING_SCALE_MAX}</span></p>
+                    <div class="relative mt-2 h-2 rounded-full bg-[#EDEDED] overflow-hidden">
                         <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreColor(item.score)}"></span>
-                    </span>
-                    <span style="flex:0 0 40px; width:40px; text-align:right;" class="font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:33.33%"></span>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:66.66%"></span>
+                    </div>
+                    <div class="flex justify-between mt-1 text-[9px] text-[#9CA3AF]"><span>0</span><span>1</span><span>2</span><span>3</span></div>
                 </li>`;
             }).join('');
 
