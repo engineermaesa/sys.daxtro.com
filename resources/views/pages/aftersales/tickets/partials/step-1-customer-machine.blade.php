@@ -55,7 +55,7 @@
                 class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
         </div>
         <div class="mb-3">
-            <label class="block text-sm font-medium mb-1">Serial Number<span class="text-red-600">*</span></label>
+            <label class="block text-sm font-medium mb-1">Serial Number<span id="serial-number-required" class="text-red-600">*</span></label>
             <input type="text" id="field-serial-number" readonly placeholder="SN-XXXXXX"
                 class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 bg-[#F5F5F5] focus:outline-none!">
         </div>
@@ -76,6 +76,17 @@
 <script>
     let customersCache = [];
     let currentProducts = [];
+
+    function serialNumberRequired() {
+        const product = currentProducts.find(p => String(p.id) === String($('#field-machine').val()));
+        return product?.is_daxtro !== false;
+    }
+
+    function updateSerialNumberRequirement() {
+        const required = serialNumberRequired();
+        $('#serial-number-required').toggleClass('hidden', !required);
+        if (!required) clearFieldInvalid('#field-serial-number');
+    }
 
     function selectedCustomer() {
         const customerId = $('#field-customer').val();
@@ -126,6 +137,8 @@
         $('#field-serial-number').val('');
         $('#field-install-year').val('');
         $('#field-warranty-status').val('');
+        clearFieldInvalid('#field-serial-number');
+        updateSerialNumberRequirement();
     }
 
     function warrantyStatusLabel(product) {
@@ -197,6 +210,7 @@
             if (!selected) {
                 currentProducts = [];
                 $('#field-machine').prop('disabled', true).html('<option value="">Select customer first</option>').trigger('change.select2');
+                resetMachineFields();
                 return;
             }
 

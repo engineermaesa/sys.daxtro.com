@@ -149,7 +149,9 @@
     }
 
     function validateCurrentStep() {
-        const selectors = REQUIRED_FIELDS_BY_STEP[currentStep] || [];
+        const selectors = (REQUIRED_FIELDS_BY_STEP[currentStep] || []).filter(selector =>
+            selector !== '#field-serial-number' || serialNumberRequired()
+        );
         const missing = selectors.filter(selector => !$(selector).val());
 
         selectors.forEach(clearFieldInvalid);
