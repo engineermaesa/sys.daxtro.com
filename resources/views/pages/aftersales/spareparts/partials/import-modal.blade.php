@@ -41,7 +41,6 @@
                             <p class="text-[#1E1E1E] mb-1" style="font-size:15px">Prepare sparepart data</p>
                             <p class="text-[#757575] mb-0" style="font-size:10.5px">The template has two sheets: Import Sparepart (header on row 1) and Guide. A file with different headers is rejected.</p>
                         </div>
-                        {{-- TODO(API): GET /api/aftersales/spareparts/imports/template -> direct .xlsx download (no batch is created) --}}
                         <a href="/api/aftersales/spareparts/imports/template" style="padding:10px 20px;font-size:12px" class="bg-[#115640] text-white rounded-lg whitespace-nowrap font-semibold">
                             <i class="bi bi-file-earmark-text"></i> Download .xlsx
                         </a>
@@ -139,23 +138,6 @@
 @push('scripts')
 <script>
 (function () {
-    /*
-     * TODO(API) — backend contract still pending (PRD v2.2 IM-94..98). Placement of each endpoint call:
-     *  1. GET  /api/aftersales/spareparts/imports/template      -> step 1 download link (above, in the markup).
-     *  2. POST /api/aftersales/spareparts/imports               -> upload(): multipart `file`. Nothing is saved yet.
-     *  3. GET  /api/aftersales/spareparts/imports/{id}          -> refreshPreview(): same shape as (2).
-     *  4. POST /api/aftersales/spareparts/imports/{id}/apply    -> apply(): body { lock_version }. One transaction; RefSparepart rows are
-     *                                                              created and, for Stock > 0, one PartStockMovement type "in"
-     *                                                              (note "Opening stock (import)").
-     *  5. GET  /api/aftersales/spareparts/imports/{id}/export   -> downloadErrors(): .xlsx of the Error rows.
-     *  Response data of (2), (3), (4):
-     *   { import: { id, file_name, total_rows, status ('previewed'|'applied'), lock_version, created_count },
-     *     summary: { new, already_exists, warning, error },
-     *     rows: [ { id, row_number, input: { 'Part Number*', 'Name*', 'Stock', 'Min Stock', ... },
-     *               review: { status: 'new'|'already_exists'|'warning'|'error', warnings: [], errors: [], skipped: bool } } ] }
-     *  Only status new/warning rows (not skipped) are applied; Error rows are never applied.
-     *  The same import log table is shared with Import Customer (CustomerImport.type = sparepart).
-     */
     var API = '/api/aftersales/spareparts/imports';
     var $modal = $('#sparepartImportModal');
     var MAX_SIZE = 20 * 1024 * 1024;
@@ -189,9 +171,7 @@
 
     function appliedRows() {
         if (!preview) return [];
-        return preview.rows.filter(function (r) {
-            return (r.review.status === 'new' || r.review.status === 'warning') && !r.review.skipped;
-        });
+        return preview.rows.filter(function (r) { return r.review && r.review.can_apply; });
     }
 
     function render() {
@@ -305,19 +285,30 @@
         }).join(''));
     }
 
-    function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+    var SKIP_LABEL = {
+        already_exists: 'Skipped: Part Number already exists, not updated',
+        soft_deleted: 'Skipped: Part Number belongs to an archived sparepart',
+        duplicate_part_number: 'Skipped: duplicate Part Number in this file',
+        validation_error: 'Skipped: invalid data'
+    };
 
     function detailText(row) {
-        var r = row.review;
-        var stock = num(row.input['Stock']);
+        var r = row.review || {};
+        var res = row.result;
         var parts = [];
-        if (r.errors && r.errors.length) return '<span style="color:#C0281F">' + esc(r.errors.join('; ')) + '</span>';
-        if (r.warnings && r.warnings.length) parts.push(esc(r.warnings.join('; ')));
-        else if (r.status === 'already_exists') parts.push('Skipped, not updated');
-        else if (r.status === 'new' && stock > 0) parts.push('Opening stock ' + stock + ' will be recorded');
-        else if (r.status === 'new') parts.push('Ready to create');
-        // info only: Stock <= Min Stock is shown as REORDER
-        if (r.status !== 'already_exists' && stock <= num(row.input['Min Stock'])) {
+        if (res && res.status === 'applied') {
+            parts.push(res.opening_stock > 0 ? 'Created, opening stock ' + esc(res.opening_stock) + ' recorded' : 'Created');
+        } else if (res && res.status === 'skipped') {
+            parts.push(esc(SKIP_LABEL[res.reason] || 'Skipped'));
+        } else if (r.errors && r.errors.length) {
+            return '<span style="color:#C0281F">' + esc(r.errors.join('; ')) + '</span>';
+        } else {
+            if (r.warnings && r.warnings.length) parts.push(esc(r.warnings.join('; ')));
+            if (!r.can_apply) parts.push(esc(SKIP_LABEL[r.skip_reason] || 'Will be skipped'));
+            else if (r.part && r.part.stock > 0) parts.push('Opening stock ' + esc(r.part.stock) + ' will be recorded');
+            else parts.push('Ready to create');
+        }
+        if (r.stock_status === 'REORDER') {
             parts.push('<span style="background:#FFF3CD;color:#8A6D00;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600">REORDER</span>');
         }
         return parts.join(' ');
@@ -325,12 +316,14 @@
 
     function renderRows() {
         var html = preview.rows.map(function (row) {
-            var r = row.review;
+            var r = row.review || {};
+            var p = r.part || {};
+            var stock = p.stock !== null && p.stock !== undefined ? p.stock : (row.input['Stock'] || '-');
             return '<tr style="border-top:1px solid #EDEDED">' +
                 '<td style="padding:10px 12px">' + esc(row.row_number) + '</td>' +
-                '<td style="padding:10px 12px;white-space:nowrap">' + esc(row.input['Part Number*'] || '-') + '</td>' +
-                '<td style="padding:10px 12px">' + esc(row.input['Name*'] || '-') + '</td>' +
-                '<td style="padding:10px 12px">' + esc(row.input['Stock'] === '' || row.input['Stock'] === undefined ? 0 : row.input['Stock']) + '</td>' +
+                '<td style="padding:10px 12px;white-space:nowrap">' + esc(p.part_number || row.input['Part Number*'] || '-') + '</td>' +
+                '<td style="padding:10px 12px">' + esc(p.name || row.input['Name*'] || '-') + '</td>' +
+                '<td style="padding:10px 12px">' + esc(stock) + '</td>' +
                 '<td style="padding:10px 12px">' + badge(r.status) + '</td>' +
                 '<td style="padding:10px 12px">' + detailText(row) + '</td></tr>';
         }).join('');
@@ -339,18 +332,20 @@
 
     function renderPreview() {
         $('#si-step3-error').addClass('hidden').text('');
-        $('#si-file-info').text((preview.import.file_name || '') + ' · ' + (preview.import.total_rows || preview.rows.length) + ' rows. Nothing is saved until you press Apply.');
+        var imp = preview.import;
+        $('#si-file-info').text((imp.file_name || '') + ' · ' + preview.rows.length + ' rows.' + (isApplied() ? '' : ' Nothing is saved until you press Apply.'));
         renderSummary();
         renderRows();
 
         var $b = $('#si-result-banner');
         if (isApplied()) {
-            $b.text('Import applied: ' + (preview.import.created_count || 0) + ' sparepart(s) created. Skipped and error rows were not applied.').removeClass('hidden');
+            $b.text('Import applied: ' + (imp.created_count || 0) + ' created, ' + (imp.matched_count || 0) + ' skipped (already exists), ' + (imp.error_count || 0) + ' error row(s) not applied.').removeClass('hidden');
             $('#si-apply-note').text('');
         } else {
             $b.addClass('hidden').text('');
             var n = appliedRows().length;
-            $('#si-apply-note').text('Apply will save ' + n + ' row' + (n === 1 ? '' : 's') + '. Error rows are not applied.');
+            var reorder = (preview.summary || {}).reorder || 0;
+            $('#si-apply-note').text('Apply will save ' + n + ' row' + (n === 1 ? '' : 's') + '. Error and skipped rows are not applied.' + (reorder ? ' ' + reorder + ' row(s) marked REORDER (info only).' : ''));
         }
         render();
     }
@@ -378,6 +373,8 @@
             var msg = errorText(xhr, 'Failed to apply import.');
             if (xhr.status === 409) {
                 msg += ' The preview was reloaded; please review it again.';
+                refreshPreview();
+            } else if (!xhr.status || xhr.status >= 500) {
                 refreshPreview();
             }
             $('#si-step3-error').text(msg).removeClass('hidden');
