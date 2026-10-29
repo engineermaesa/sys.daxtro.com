@@ -277,11 +277,10 @@
             return;
         }
 
-        // IM-89: checked again on Save Ticket
         if (customerGateBlocked()) {
             Swal.fire({
                 title: 'Customer data is incomplete',
-                text: 'Phone and Email are required. Please complete the customer data first.',
+                text: selectedCustomer()?.ticket_creation?.message || 'Phone and Email are required. Please complete the customer data first.',
                 icon: 'warning',
                 confirmButtonColor: '#115640'
             });
@@ -398,6 +397,12 @@
                         updateStepper();
                         showSparepartStockAlert('Ticket was not saved. ' + stockError);
                         return;
+                    }
+
+                    if (xhr.responseJSON?.code === 'customer_contact_incomplete') {
+                        setTicketCreation(xhr.responseJSON.customer_id, xhr.responseJSON.ticket_creation);
+                        currentStep = 1;
+                        updateStepper();
                     }
 
                     Swal.fire({

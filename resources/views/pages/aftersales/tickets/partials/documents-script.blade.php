@@ -699,19 +699,18 @@
 
     // Save dokumen (POST .../save); callback dipanggil setelah sukses
     function saveDocument(type, done) {
-        // TODO(API): POST .../documents/{type}/save accepts { language: 'id'|'en'|'zh' } and stores it on the document.
-        call('POST', '/tickets/' + currentId() + '/documents/' + type + '/save', { language: S.lang[type] || SOURCE_LANG })
+        return call('POST', '/tickets/' + currentId() + '/documents/' + type + '/save')
             .done(function (res) {
                 const d = res.data || {};
                 const extra = [];
                 if ((d.warnings || []).length) extra.push(d.warnings.join('\n'));
                 if (d.documentation_published) extra.push('Documentation Published: both documents are saved.');
 
-                if (type === 'agreement') {
+                if (type === 'agreement' && res.status === 'success' && d.status === 'saved') {
                     // IM-106/107: "Saved!" modal; the status badge changes Draft -> Saved after OK, without a page reload.
                     Swal.fire({
-                        title: 'Saved!',
-                        text: 'Service Agreement for ticket ' + ((currentTicket || {}).ticket_code || '') + ' has been saved successfully.',
+                        title: res.title || 'Saved!',
+                        text: res.message,
                         footer: extra.length ? esc(extra.join(' ')) : undefined,
                         icon: 'success',
                         confirmButtonText: 'OK',
@@ -882,10 +881,14 @@
     });
 
     $(document).on('click', '#saSave', function () {
+        const $b = $(this);
+        if ($b.data('busy')) return;
+        $b.data('busy', true).prop('disabled', true);
+        const release = function () { $b.data('busy', false); setSaveState($b, S.agreement || {}); };
         const canEdit = S.agreement && S.agreement.can && S.agreement.can.fill && !S.agreement.locked;
-        const run = function () { saveDocument('agreement'); };
+        const run = function () { saveDocument('agreement').always(release); };
         if (canEdit) {
-            saveAgreementDraft().done(run).fail(function (xhr) { fail(xhr, 'Failed to save draft.'); });
+            saveAgreementDraft().done(run).fail(function (xhr) { release(); fail(xhr, 'Failed to save draft.'); });
         } else {
             run();
         }

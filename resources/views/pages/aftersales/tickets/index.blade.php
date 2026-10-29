@@ -351,7 +351,6 @@
                 per_page: ticketState.perPage,
                 search: ticketState.search,
                 priority: ticketState.priority.length ? ticketState.priority : undefined, // jadi priority[]=..
-                // TODO(API): GET /api/aftersales/tickets must accept visit_date (YYYY-MM-DD) and match the ticket's Visit Date, ANDed with the other filters.
                 visit_date: ticketState.visitDate || undefined,
             },
             success: function (response) {
@@ -378,15 +377,13 @@
         recoming: 'Recoming',
     };
 
-    // Overall Rating of the logged-in technician (IM-93): format "2.7 / 3", "—" when no counted response yet.
-    // TODO(API): GET /api/aftersales/tickets/overall-rating -> { data: { overall_rating: 2.7 | null } }
-    //            average of current valid responses only (FR-E02/E03 v2.0, scale 3); the endpoint must return only this number.
     function loadOverallRating() {
         const $el = $('#technician-overall-rating');
         if (!$el.length) return;
-        $.getJSON('/api/aftersales/tickets/overall-rating').done(function (response) {
+        $.getJSON('/api/aftersales/technicians/me/overall-rating').done(function (response) {
             const value = response.data?.overall_rating;
-            $el.text(value === null || value === undefined ? '—' : `${Number(value).toFixed(1)} / 3`);
+            const max = response.data?.rating_scale_max || 3;
+            $el.text(value === null || value === undefined ? '—' : `${Number(value).toFixed(1)} / ${max}`);
         }).fail(function () {
             $el.text('—');
         });
@@ -482,8 +479,8 @@
             text('#tdCustomer', t.customer?.name);
             text('#tdMachine', t.customer_product?.machine_name || t.customer_product?.product?.name);
             text('#tdProvinceRegion', [t.customer?.province?.name, t.customer?.region?.name].filter(Boolean).join(' · '));
-            // TODO(API): ticket row's customer_product should return is_daxtro and warranty_active (appended attribute exists on the model).
-            text('#tdWarranty', t.customer_product?.is_daxtro === false || !t.customer_product?.warranty_end ? '' : (t.customer_product.warranty_active ? 'Active' : 'Expired'));
+            const warrantyActive = t.customer_product?.warranty_active;
+            text('#tdWarranty', warrantyActive === null || warrantyActive === undefined ? '' : (warrantyActive ? 'Active' : 'Expired'));
             text('#tdTechnician', t.technician?.name);
             text('#tdSupervisor', t.supervisor?.name); // TODO: supervisor belum di-load oleh API index
             text('#tdCategory', CATEGORY_LABEL[t.category] || t.category);

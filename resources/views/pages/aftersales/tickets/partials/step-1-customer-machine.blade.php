@@ -3,8 +3,8 @@
 {{-- Gate (IM-89): Phone and Email of the Customer must be complete before a NEW ticket can continue --}}
 <div id="customer-gate-alert" class="hidden mb-4 rounded-lg border border-[#F0B8B3] bg-[#FBEAEA] text-[#900B09] px-4 py-3" role="alert">
     <i class="bi bi-exclamation-triangle"></i>
-    Customer data is incomplete. Phone and Email are required because the survey and notifications are sent by email and phone.
-    <a id="customer-gate-link" href="#" class="font-semibold underline ml-1">Edit Customer</a>
+    <span id="customer-gate-message"></span>
+    <a id="customer-gate-link" href="#" target="_blank" class="font-semibold underline ml-1">Edit Customer</a>
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     <div class="bg-white rounded-lg border border-[#D9D9D9] p-5">
@@ -77,25 +77,41 @@
     let customersCache = [];
     let currentProducts = [];
 
-    /*
-     * IM-89 gate. Only for NEW tickets (existing tickets are not affected).
-     * TODO(API): POST /api/aftersales/tickets must also reject (422, errors.customer_id) a customer without phone or email;
-     *            the Save Ticket error handler (create.blade.php submitTicket) already shows that message.
-     */
+    function selectedCustomer() {
+        const customerId = $('#field-customer').val();
+        return customerId ? customersCache.find(c => String(c.id) === String(customerId)) : null;
+    }
+
     function customerGateBlocked() {
         if (typeof EDIT_TICKET_ID !== 'undefined' && EDIT_TICKET_ID) return false;
-        const customerId = $('#field-customer').val();
-        if (!customerId) return false;
+        return selectedCustomer()?.ticket_creation?.can_create === false;
+    }
+
+    function setTicketCreation(customerId, ticketCreation) {
         const customer = customersCache.find(c => String(c.id) === String(customerId));
-        return !!customer && (!String(customer.phone || '').trim() || !String(customer.email || '').trim());
+        if (customer && ticketCreation) customer.ticket_creation = ticketCreation;
+        if (String(customerId) === String($('#field-customer').val())) applyCustomerGate();
     }
 
     function applyCustomerGate() {
         const blocked = customerGateBlocked();
+        const gate = selectedCustomer()?.ticket_creation || {};
         $('#customer-gate-alert').toggleClass('hidden', !blocked);
-        $('#customer-gate-link').attr('href', `/aftersales/customers/${$('#field-customer').val()}/edit`);
+        $('#customer-gate-message').text(gate.message || '');
+        $('#customer-gate-link').attr('href', gate.edit_customer_url || '#');
         $('#btn-wizard-next').prop('disabled', blocked && typeof currentStep !== 'undefined' && currentStep === 1)
             .toggleClass('opacity-50 cursor-not-allowed', blocked && currentStep === 1);
+    }
+
+    function refreshCustomerGate() {
+        const customerId = $('#field-customer').val();
+        if (!customerGateBlocked()) return;
+        $.getJSON(`/api/aftersales/customers/${customerId}`).done(function (response) {
+            const c = response.data || {};
+            $('#field-pic-email').val(c.email || '');
+            $('#field-phone').val(c.phone || '');
+            setTicketCreation(customerId, c.ticket_creation);
+        });
     }
 
     function resetCustomerFields() {
@@ -112,12 +128,9 @@
         $('#field-warranty-status').val('');
     }
 
-    function warrantyStatusLabel(warrantyEnd) {
-        if (!warrantyEnd) return '-';
-        const end = new Date(warrantyEnd);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return end >= today ? 'Active' : 'Expired';
+    function warrantyStatusLabel(product) {
+        if (product.warranty_active === null || product.warranty_active === undefined) return '-';
+        return product.warranty_active ? 'Active' : 'Expired';
     }
 
     function loadCustomerOptions() {
@@ -151,6 +164,7 @@
             method: 'GET',
             success: function (response) {
                 currentProducts = response.data?.products || [];
+                setTicketCreation(customerId, response.data?.ticket_creation);
 
                 if (currentProducts.length === 0) {
                     $('#field-machine').html('<option value="">No machines registered yet</option>').trigger('change.select2');
@@ -211,8 +225,10 @@
                 $('#field-machine-model').val(product.product_type?.name || '');
                 $('#field-serial-number').val(product.serial_number || '');
                 $('#field-install-year').val(product.warranty_start ? new Date(product.warranty_start).getFullYear() : '');
-                $('#field-warranty-status').val(warrantyStatusLabel(product.warranty_end));
+                $('#field-warranty-status').val(warrantyStatusLabel(product));
             }
         });
+
+        window.addEventListener('focus', refreshCustomerGate);
     });
 </script>
