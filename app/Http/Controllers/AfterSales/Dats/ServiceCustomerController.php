@@ -77,7 +77,20 @@ class ServiceCustomerController extends Controller
     {
         abort_unless($request->user()?->hasPermission('masters.service-customers'), 403);
 
-        $query = ServiceCustomer::query()->with(['province', 'region', 'deals'])->withCount('products');
+        $scope = $request->validate(['machine_scope' => 'nullable|in:all,daxtro,non_daxtro'])['machine_scope'] ?? 'all';
+
+        $query = ServiceCustomer::query()->with(['province', 'region', 'deals'])->withCount([
+            'products',
+            'products as daxtro_machines_count' => fn ($q) => $q->daxtro(),
+            'products as non_daxtro_machines_count' => fn ($q) => $q->nonDaxtro(),
+        ]);
+
+        if ($scope === 'non_daxtro') {
+            $query->whereHas('products', fn ($q) => $q->nonDaxtro());
+        } elseif ($scope === 'daxtro') {
+            $query->whereHas('products', fn ($q) => $q->daxtro())
+                ->whereDoesntHave('products', fn ($q) => $q->nonDaxtro());
+        }
 
         if ($request->filled('search')) {
             $search = trim((string) $request->input('search'));
@@ -351,6 +364,7 @@ class ServiceCustomerController extends Controller
             'machine_name_mode' => 'sometimes|required|in:auto,manual',
             'serial_number' => [Rule::excludeIf(! $isDaxtro), 'required', 'string', 'max:255'],
             'brand' => [Rule::excludeIf($isDaxtro), 'required', 'string', 'max:255'],
+            'trader_name' => [Rule::excludeIf($isDaxtro), 'required', 'string', 'max:255'],
             'compressor' => 'nullable|string|max:255',
             'capacity' => 'nullable|numeric|min:0',
             'refrigerant' => 'nullable|string|max:255',
@@ -364,6 +378,7 @@ class ServiceCustomerController extends Controller
         $validated['is_daxtro'] = $isDaxtro;
         if ($isDaxtro) {
             $validated['brand'] = null;
+            $validated['trader_name'] = null;
         }
 
         return $validated;

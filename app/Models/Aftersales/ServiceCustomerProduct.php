@@ -36,7 +36,7 @@ class ServiceCustomerProduct extends Model
         'voltage',
         'phase',
         'hz',
-        'machine_name', 'brand', 'note', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
+        'machine_name', 'brand', 'trader_name', 'note', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
     ];
 
     protected $casts = [
@@ -67,6 +67,7 @@ class ServiceCustomerProduct extends Model
             if ($machine->isDirty(['is_daxtro', 'brand'])) {
                 $machine->brand = null;
             }
+            $machine->trader_name = null;
             if (! $machine->exists || $machine->isDirty(['serial_number', 'is_daxtro'])) {
                 $machine->normalized_serial = \App\Services\Aftersales\CustomerMatching::serial($machine->serial_number);
             }
@@ -89,6 +90,16 @@ class ServiceCustomerProduct extends Model
                 $machine->warranty_period = $months > 0 && $months % 12 === 0 ? ($months / 12).' '.($months === 12 ? 'Year' : 'Years') : $months.' Months';
             }
         });
+    }
+
+    public function scopeDaxtro($query)
+    {
+        return $query->where(fn ($q) => $q->where('is_daxtro', true)->orWhereNull('is_daxtro'));
+    }
+
+    public function scopeNonDaxtro($query)
+    {
+        return $query->where('is_daxtro', false);
     }
 
     public function getMachineCodeAttribute(): ?string

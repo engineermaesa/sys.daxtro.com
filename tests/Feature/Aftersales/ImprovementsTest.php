@@ -141,6 +141,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_10_27_000100_add_machine_name_mode.php'))->up();
         (require database_path('migrations/2026_10_27_000200_add_customer_deal_review_status.php'))->up();
         (require database_path('migrations/2026_10_28_000000_add_type_to_customer_imports.php'))->up();
+        (require database_path('migrations/2026_10_29_000000_add_trader_name_to_service_customer_products.php'))->up();
     }
 
     public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void
@@ -191,11 +192,12 @@ class ImprovementsTest extends TestCase
         $customer = ServiceCustomer::create(['name' => 'Machine owner']);
         $this->actingAs($this->user());
         $this->postJson('/api/aftersales/customers/'.$customer->id.'/products', [
-            'is_daxtro' => false, 'machine_name' => 'Other chiller', 'brand' => 'Other Brand',
+            'is_daxtro' => false, 'machine_name' => 'Other chiller', 'brand' => 'Other Brand', 'trader_name' => 'Trader Co',
             'serial_number' => ['invalid hidden value'], 'warranty_start' => 'invalid', 'warranty_end' => 'invalid',
             'warranty_period' => '99 Years', 'pm_contract_status' => 'invalid', 'pm_frequency' => 'monthly',
         ])->assertCreated()->assertJsonPath('data.data.is_daxtro', false)
-            ->assertJsonPath('data.data.brand', 'Other Brand')->assertJsonPath('data.data.serial_number', null)
+            ->assertJsonPath('data.data.brand', 'Other Brand')->assertJsonPath('data.data.trader_name', 'Trader Co')
+            ->assertJsonPath('data.data.serial_number', null)
             ->assertJsonPath('data.data.warranty_active', null)->assertJsonPath('data.data.warranty_end', null)
             ->assertJsonPath('data.data.pm_contract_status', 'none')->assertJsonPath('data.data.pm_frequency', null);
         $machine = $customer->products()->firstOrFail();
@@ -211,7 +213,7 @@ class ImprovementsTest extends TestCase
         $customer = ServiceCustomer::create(['name' => 'Machine owner']);
         $this->actingAs($this->user());
         $url = '/api/aftersales/customers/'.$customer->id.'/products';
-        $this->postJson($url, ['is_daxtro' => false])->assertUnprocessable()->assertJsonValidationErrors(['brand', 'machine_name']);
+        $this->postJson($url, ['is_daxtro' => false])->assertUnprocessable()->assertJsonValidationErrors(['brand', 'trader_name', 'machine_name']);
         foreach ([[], ['is_daxtro' => true], ['is_daxtro' => '1']] as $input) {
             $this->postJson($url, $input + ['machine_name' => 'Daxtro'])->assertUnprocessable()->assertJsonValidationErrors('serial_number');
         }
@@ -224,6 +226,51 @@ class ImprovementsTest extends TestCase
         $this->assertSame(0, ServiceCustomerProduct::count());
     }
 
+    public function test_trader_is_required_for_non_daxtro_and_nulled_for_daxtro(): void
+    {
+        $customer = ServiceCustomer::create(['name' => 'Machine owner']);
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/'.$customer->id.'/products';
+        $this->postJson($url, ['is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand'])
+            ->assertUnprocessable()->assertJsonValidationErrors('trader_name');
+        $this->postJson($url, ['machine_name' => 'Daxtro', 'serial_number' => 'TR-1', 'trader_name' => 'Ignored'])
+            ->assertCreated()->assertJsonPath('data.data.trader_name', null);
+        $id = $this->postJson($url, ['is_daxtro' => false, 'machine_name' => 'Other', 'brand' => 'Brand', 'trader_name' => 'Trader'])
+            ->assertCreated()->assertJsonPath('data.data.trader_name', 'Trader')->json('data.data.id');
+        $this->putJson('/api/aftersales/customers/products/'.$id, ['machine_name' => 'Other', 'brand' => 'Brand'])
+            ->assertUnprocessable()->assertJsonValidationErrors('trader_name');
+        $this->putJson('/api/aftersales/customers/products/'.$id, ['is_daxtro' => true, 'machine_name' => 'Other', 'serial_number' => 'TR-2'])
+            ->assertOk()->assertJsonPath('data.data.trader_name', null)->assertJsonPath('data.data.brand', null);
+    }
+
+    public function test_customer_list_filters_by_machine_scope_and_counts_machines_per_type(): void
+    {
+        $daxtro = ServiceCustomer::create(['name' => 'Only Daxtro']);
+        $daxtro->products()->create(['machine_name' => 'D1', 'serial_number' => 'SC-1']);
+        $mixed = ServiceCustomer::create(['name' => 'Mixed']);
+        $mixed->products()->create(['machine_name' => 'D2', 'serial_number' => 'SC-2']);
+        $mixed->products()->create(['is_daxtro' => false, 'machine_name' => 'N1', 'brand' => 'B', 'trader_name' => 'T']);
+        $mixed->products()->create(['is_daxtro' => false, 'machine_name' => 'N2', 'brand' => 'B', 'trader_name' => 'T'])->delete();
+        $other = ServiceCustomer::create(['name' => 'Only Non']);
+        $other->products()->create(['is_daxtro' => false, 'machine_name' => 'N3', 'brand' => 'B', 'trader_name' => 'T']);
+        ServiceCustomer::create(['name' => 'No machines']);
+        $this->actingAs($this->user());
+
+        $names = fn (string $q) => collect($this->getJson('/api/aftersales/customers'.$q)->assertOk()->json('data'))->pluck('name')->sort()->values()->all();
+        $this->assertSame(['Mixed', 'No machines', 'Only Daxtro', 'Only Non'], $names(''));
+        $this->assertSame(['Mixed', 'No machines', 'Only Daxtro', 'Only Non'], $names('?machine_scope=all'));
+        $this->assertSame(['Only Daxtro'], $names('?machine_scope=daxtro'));
+        $this->assertSame(['Mixed', 'Only Non'], $names('?machine_scope=non_daxtro'));
+        $this->assertSame(['Mixed'], $names('?machine_scope=non_daxtro&search=Mix'));
+        $this->getJson('/api/aftersales/customers?machine_scope=bogus')->assertUnprocessable()->assertJsonValidationErrors('machine_scope');
+
+        $row = collect($this->getJson('/api/aftersales/customers?machine_scope=non_daxtro')->json('data'))->firstWhere('name', 'Mixed');
+        $this->assertSame(2, $row['products_count']);
+        $this->assertSame(1, $row['daxtro_machines_count']);
+        $this->assertSame(1, $row['non_daxtro_machines_count']);
+        $this->assertSame(2, $this->getJson('/api/aftersales/customers?machine_scope=non_daxtro')->json('total'));
+    }
+
     public function test_switching_machine_type_clears_inapplicable_data_and_requires_serial_when_switching_back(): void
     {
         $customer = ServiceCustomer::create(['name' => 'Machine owner']);
@@ -233,13 +280,13 @@ class ImprovementsTest extends TestCase
         ]);
         $this->actingAs($this->user());
         $url = '/api/aftersales/customers/products/'.$machine->id;
-        $this->putJson($url, ['is_daxtro' => false, 'machine_name' => 'Keep name', 'brand' => 'Other'])
+        $this->putJson($url, ['is_daxtro' => false, 'machine_name' => 'Keep name', 'brand' => 'Other', 'trader_name' => 'Trader'])
             ->assertOk()->assertJsonPath('data.data.serial_number', null)->assertJsonPath('data.data.warranty_period', null)
             ->assertJsonPath('data.data.warranty_start', null)->assertJsonPath('data.data.warranty_end', null)
             ->assertJsonPath('data.data.pm_contract_status', 'none')->assertJsonPath('data.data.pm_frequency', null);
         $this->assertSame('50', $machine->fresh()->capacity);
         // Omitted type preserves a non-Daxtro unit, rather than reverting it to the create default.
-        $this->putJson($url, ['machine_name' => 'Keep name', 'brand' => 'Other', 'compressor' => 'Copeland'])
+        $this->putJson($url, ['machine_name' => 'Keep name', 'brand' => 'Other', 'trader_name' => 'Trader', 'compressor' => 'Copeland'])
             ->assertOk()->assertJsonPath('data.data.is_daxtro', false)->assertJsonPath('data.data.compressor', 'Copeland');
         $this->putJson($url, ['is_daxtro' => true, 'machine_name' => 'Keep name'])
             ->assertUnprocessable()->assertJsonValidationErrors('serial_number');
@@ -379,7 +426,7 @@ class ImprovementsTest extends TestCase
         $this->postJson($url, ['machine_name' => 'Free name', 'serial_number' => 'FREE-1'])
             ->assertCreated()->assertJsonPath('data.data.machine_name_mode', 'manual')->assertJsonPath('data.data.machine_name', 'Free name');
         $this->postJson($url, [
-            'is_daxtro' => false, 'brand' => 'Other', 'machine_name' => 'Other chiller', 'machine_name_mode' => 'auto',
+            'is_daxtro' => false, 'brand' => 'Other', 'trader_name' => 'Trader', 'machine_name' => 'Other chiller', 'machine_name_mode' => 'auto',
             'ref_product_type_id' => $type, 'capacity' => 15, 'compressor' => 'Bitzer',
         ])->assertCreated()->assertJsonPath('data.data.machine_name', 'Other chiller')->assertJsonPath('data.data.machine_name_mode', 'manual');
         $this->postJson($url, ['is_daxtro' => false, 'brand' => 'Other', 'ref_product_type_id' => $type, 'capacity' => 15])
