@@ -15,29 +15,23 @@
             <h2 class="font-bold tracking-wide">TICKET INFORMATION</h2>
             <hr class="border-[#EDEDED]" style="margin: 12px 0 20px;">
 
-            {{-- IM-90: two-column grid (one column on narrow screens). Row order follows wireframe W8. --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2" style="gap: 20px 24px;">
-                <div>
-                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Ticket ID</p>
-                    <p class="font-semibold flex items-center flex-wrap" style="margin-top: 6px; gap: 8px;">
-                        <span id="tdInfoCode"></span><span id="tdPriority"></span>
-                    </p>
-                </div>
+            <div>
+                <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Problem Description</p>
+                <p id="tdDescription" class="text-xs text-[#4B5563]" style="margin-top: 6px;"></p>
+            </div>
+
+            {{-- Three columns on wide screens, one on narrow. Ticket ID is already the page title above. --}}
+            <div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 24px; margin-top: 28px;">
                 @foreach ([
-                    ['Progress', 'tdProgress'], ['Customer', 'tdCustomer'], ['Machine', 'tdMachine'],
-                    ['Province · Region', 'tdProvinceRegion'], ['Technician', 'tdTechnician'],
-                    ['Supervisor', 'tdSupervisor'], ['SLA Target', 'tdSla'],
-                    ['Visit Schedule', 'tdVisit'], ['Warranty', 'tdWarranty'], ['Complaint Category', 'tdCategory'],
+                    ['Customer', 'tdCustomer'], ['Supervisor', 'tdSupervisor'], ['Visit Date', 'tdVisit'],
+                    ['Complaint', 'tdCategory'], ['Progress', 'tdProgress'], ['Machine', 'tdMachine'],
+                    ['Technician', 'tdTechnician'], ['SLA', 'tdSla'], ['Warranty', 'tdWarranty'],
                 ] as [$label, $id])
                     <div>
                         <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">{{ $label }}</p>
-                        <p id="{{ $id }}" class="font-semibold" style="margin-top: 6px;"></p>
+                        <p id="{{ $id }}" class="text-sm font-semibold" style="margin-top: 6px;"></p>
                     </div>
                 @endforeach
-                <div class="sm:col-span-2">
-                    <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">Complaint</p>
-                    <p id="tdDescription" style="margin-top: 6px;"></p>
-                </div>
             </div>
         </div>
 

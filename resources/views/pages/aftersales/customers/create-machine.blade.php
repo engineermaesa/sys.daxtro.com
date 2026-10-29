@@ -24,13 +24,13 @@
                     <h6 class="text-[#1E1E1E] font-bold uppercase text-xs tracking-wide border-b border-[#D9D9D9] pb-3 mb-4">Machine Information</h6>
 
                     <div class="mb-3">
-                        <label class="block text-xs font-medium mb-1">Daxtro Machine<span class="text-red-600">*</span></label>
-                        <div class="flex items-center gap-4">
-                            <label class="inline-flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="machine-is-daxtro" value="1" {{ ($product->is_daxtro ?? true) ? 'checked' : '' }}> Yes
+                        <label class="block text-xs font-medium mb-1">Is this a Daxtro machine?<span class="text-red-600">*</span></label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center justify-center gap-2 cursor-pointer border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs has-checked:border-[#115640] has-checked:bg-[#E6F4EF] has-checked:text-[#115640]">
+                                <input type="radio" name="machine-is-daxtro" value="1" class="accent-[#115640]" {{ ($product->is_daxtro ?? true) ? 'checked' : '' }}> Yes
                             </label>
-                            <label class="inline-flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="machine-is-daxtro" value="0" {{ ($product->is_daxtro ?? true) ? '' : 'checked' }}> No
+                            <label class="flex items-center justify-center gap-2 cursor-pointer border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs has-checked:border-[#115640] has-checked:bg-[#E6F4EF] has-checked:text-[#115640]">
+                                <input type="radio" name="machine-is-daxtro" value="0" class="accent-[#115640]" {{ ($product->is_daxtro ?? true) ? '' : 'checked' }}> No
                             </label>
                         </div>
                     </div>
@@ -75,6 +75,12 @@
                             <span id="machine-name-hint"></span>
                             <button type="button" id="machine-name-reset" class="text-[#115640] font-semibold underline cursor-pointer" hidden>Use auto-generated name</button>
                         </p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="block text-xs font-medium mb-1">Machine Code</label>
+                        <input type="text" id="machine-code" placeholder="Auto-generated from model" disabled
+                            value="{{ $product->machine_code ?? '' }}"
+                            class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs bg-[#F5F5F5] text-[#757575] focus:outline-none!">
                     </div>
                     <div class="mb-3" id="machine-serial-group">
                         <label class="block text-xs font-medium mb-1">Serial Number<span class="text-red-600">*</span></label>
@@ -269,7 +275,8 @@
     const isDaxtro = () => $('input[name="machine-is-daxtro"]:checked').val() !== '0';
 
     const savedNameMode = pageConfig.record ? (pageConfig.record.is_daxtro ? pageConfig.record.machine_name_mode : 'manual') : null;
-    let nameMode = savedNameMode || 'auto';
+    // Daxtro machines always use the auto-generated name (read-only); non-Daxtro machines type it manually.
+    let nameMode = isDaxtro() ? 'auto' : (savedNameMode || 'manual');
     let nameSourceChanged = false; 
     let previewSeq = 0;
     let previewTimer = null;
@@ -319,10 +326,10 @@
         $('#machine-name').prop('required', !auto);
         $('#machine-capacity').prop('required', auto);
         $('#machine-capacity-required').prop('hidden', !auto);
-        $('#machine-name-reset').prop('hidden', !isDaxtro() || auto);
-        $('#machine-name-hint').text(!isDaxtro() ? ''
-            : auto ? 'Auto-filled from Model, Capacity, Compressor, Refrigerant Type. Still editable.'
-            : 'Typed manually; Model, Capacity, Compressor or Refrigerant Type changes no longer update it.');
+        $('#machine-name-reset').prop('hidden', true);
+        $('#machine-name').prop('readonly', isDaxtro())
+            .toggleClass('bg-[#F5F5F5] text-[#757575]', isDaxtro());
+        $('#machine-name-hint').text(isDaxtro() ? 'Auto-generated from Model, Capacity, Compressor, Refrigerant Type.' : '');
     }
 
     // Daxtro Machine = No: Brand required, no Serial Number, no Warranty & Contract, free Machine Name.

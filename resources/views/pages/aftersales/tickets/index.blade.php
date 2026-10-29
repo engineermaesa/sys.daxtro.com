@@ -64,23 +64,21 @@
 
         {{--TABLE--}}
         <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="table-cards w-full whitespace-nowrap text-xs">
+            <table class="table-cards w-full text-xs">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
-                        <th class="p-3 text-left uppercase text-xs">Ticket ID</th>
-                        <th class="p-3 text-center uppercase text-xs">Customer</th>
-                        <th class="p-3 text-center uppercase text-xs">Machine</th>
-                        <th class="p-3 text-center uppercase text-xs">Technician</th>
-                        <th class="p-3 text-center uppercase text-xs">Province</th>
-                        <th class="p-3 text-center uppercase text-xs">Region</th>
-                        <th class="p-3 text-center uppercase text-xs">Problem</th>
-                        <th class="p-3 text-center uppercase text-xs">Open Date</th>
-                        <th class="p-3 text-center uppercase text-xs">Visit Date</th>
-                        <th class="p-3 text-center uppercase text-xs">Close Date</th>
-                        <th class="p-3 text-center uppercase text-xs">SLA</th>
-                        <th class="p-3 text-center uppercase text-xs">Aging</th>
-                        <th class="p-3 text-center uppercase text-xs">Steps</th>
-                        <th class="p-3 text-center uppercase text-xs">Action</th>
+                        <th class="px-2 py-3 text-left uppercase text-xs">Ticket ID</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Customer</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Machine</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Technician</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Problem</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Open Date</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Visit Date</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Close Date</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">SLA</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Aging</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Steps</th>
+                        <th class="px-2 py-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
                 <tbody id="ticket-table-body" class="text-left"></tbody>
@@ -114,11 +112,12 @@
 @endsection
 
 @section('scripts')
+@php($canManageTickets = hasPermission(auth()->user(), 'aftersales.tickets.manage') ? 1 : 0)
 <script>
     let currentTicket = null;
 
     // hak akses (kontrak bagian 1): sembunyikan tombol yang tidak boleh, BE tetap menolak dengan 403
-    const CAN_MANAGE = @json(hasPermission(auth()->user(), 'aftersales.tickets.manage'));
+    const CAN_MANAGE = "{{ $canManageTickets }}" === "1";
 
     const ticketState = {
         page: 1,
@@ -203,6 +202,12 @@
         return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium ${cls}">${escapeHtml(priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : '-')}</span>`;
     }
 
+    // "Model | Tipe", fallback ke machine_name bila produk belum terhubung
+    function machineLabel(machine) {
+        const parts = [machine.product?.name, machine.product_type?.name].filter(Boolean);
+        return parts.length ? parts.join(' | ') : (machine.machine_name || '');
+    }
+
     function slaBadge(slaStatus) {
         if (!slaStatus) return '<span class="text-[#B0B0B0]">-</span>';
         let cls = 'text-[#900B09]';
@@ -217,6 +222,7 @@
         if (percent >= 100) cls = 'bg-[#E6F4EF] text-[#115640]';
         else if (percent >= 50) cls = 'bg-[#FFF3CD] text-[#8A6D00]';
         let label = STEP_LABEL[step] || step || '-';
+        if (step === 'published' || step === 'assigned') label = 'Incoming';
         // RC-09: "Recoming · visit {visit_no} · {tanggal}"
         if (step === 'recoming' && currentRecoming) {
             label = `Recoming · visit ${currentRecoming.visit_no} · ${formatDate(currentRecoming.planned_visit_at)}`;
@@ -241,7 +247,7 @@
         const $body = $('#ticket-table-body');
 
         if (!rows || rows.length === 0) {
-            $body.html('<tr><td colspan="14" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
+            $body.html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">No tickets found</td></tr>');
             return;
         }
 
@@ -252,20 +258,18 @@
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
-                <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}</div></td>
-                <td class="p-3 text-center" data-label="Customer">${escapeHtml(customer.name)}</td>
-                <td class="p-3 text-center" data-label="Machine">${escapeHtml(machine.machine_name || machine.product?.name)}</td>
-                <td class="p-3 text-center" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
-                <td class="p-3 text-center" data-label="Province" data-secondary>${escapeHtml(customer.province?.name)}</td>
-                <td class="p-3 text-center" data-label="Region" data-secondary>${escapeHtml(customer.region?.name)}</td>
-                <td class="p-3 text-center" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
-                <td class="p-3 text-center" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
-                <td class="p-3 text-center" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
-                <td class="p-3 text-center" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
-                <td class="p-3 text-center" data-label="SLA">${slaBadge(row.sla_status)}</td>
-                <td class="p-3 text-center" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
-                <td class="p-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
-                <td class="p-3 text-center" data-actions data-label="Action">
+                <td class="px-2 py-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}</div><div class="mt-1 text-[10px] font-normal text-[#757575]">${escapeHtml([customer.province?.name, customer.region?.name].filter(Boolean).join(' · '))}</div></td>
+                <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Customer">${escapeHtml(customer.name)}</td>
+                <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Machine">${escapeHtml(machineLabel(machine))}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
+                <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="SLA">${slaBadge(row.sla_status)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
+                <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${reminderBadges(row.reminders)}</td>
+                <td class="px-2 py-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
                             type="button" id="ticketActionsDropdown${row.id}"
@@ -297,10 +301,6 @@
         $body.html(html);
 
         // simpan data mentah tiap row supaya modal detail tidak perlu request baru
-        $body.find('.btn-ticket-detail').each(function (index) {
-            $(this).data('ticket', rows[index]);
-        });
-
         $body.find('.btn-ticket-update-logs').each(function (index) {
             $(this).data('ticket', rows[index]);
         });
@@ -341,7 +341,7 @@
 
     function loadTickets() {
         syncTicketUrl();
-        $('#ticket-table-body').html('<tr><td colspan="14" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
+        $('#ticket-table-body').html('<tr><td colspan="12" class="text-center p-4 text-[#757575]">Loading...</td></tr>');
 
         $.ajax({
             url: '/api/aftersales/tickets',
@@ -359,7 +359,7 @@
             },
             error: function (xhr) {
                 const message = xhr.responseJSON?.message || 'Failed to load tickets';
-                $('#ticket-table-body').html(`<tr><td colspan="14" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
+                $('#ticket-table-body').html(`<tr><td colspan="12" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
         });
     }
@@ -477,7 +477,7 @@
             text('#tdInfoCode', t.ticket_code);
             text('#tdProgress', STEP_LABEL[t.progress] || t.progress);
             text('#tdCustomer', t.customer?.name);
-            text('#tdMachine', t.customer_product?.machine_name || t.customer_product?.product?.name);
+            text('#tdMachine', machineLabel(t.customer_product || {}));
             text('#tdProvinceRegion', [t.customer?.province?.name, t.customer?.region?.name].filter(Boolean).join(' · '));
             const warrantyActive = t.customer_product?.warranty_active;
             text('#tdWarranty', warrantyActive === null || warrantyActive === undefined ? '' : (warrantyActive ? 'Active' : 'Expired'));
