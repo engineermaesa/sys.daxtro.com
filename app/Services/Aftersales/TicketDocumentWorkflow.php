@@ -70,13 +70,14 @@ class TicketDocumentWorkflow
                 if ($cycle->publication()->exists()) {
                     self::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before submitting this form again.');
                 }
-                abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'The ticket is in Recoming until the follow-up visit.');
                 $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
                 $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
                 $fields = array_diff_key($data, ['signatures' => true]);
                 if ($fields) {
                     TicketDocuments::saveFormDraft($ticket, $form, $fields, $user);
                 }
+                $ticket = $ticket->fresh();
+                abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'Edit the Service Form to begin Repair in this Recoming cycle.');
                 foreach ($data['signatures'] ?? [] as $signature) {
                     $captured = self::sign($ticket, $form, $user, $signature['role'], $signature['signature'], $signature['signer_name'] ?? null, $request);
                     $paths[] = $captured->file_path;
@@ -93,7 +94,7 @@ class TicketDocumentWorkflow
                     'service_form_submitted_at' => now('Asia/Jakarta'), 'service_form_submitted_by' => $user->id,
                 ]);
                 if ($signedRecoming) {
-                    app(ServiceDiagnosis::class)->lock($form);
+                    app(ServiceDiagnosis::class)->lock($form, $ticket);
                     self::publish($ticket->fresh(), $cycle, $user);
                 }
 
@@ -157,10 +158,13 @@ class TicketDocumentWorkflow
                     'file_path' => $newPath, 'signed_at' => now('Asia/Jakarta'),
                     'ip_address' => $request->ip(), 'user_agent' => Str::limit((string) $request->userAgent(), 250, ''),
                 ]);
+                if (! $supervisor && $doc instanceof TicketServiceForm) {
+                    TicketCycleEdits::record($ticket, $user->id);
+                }
                 if ($supervisor) {
                     $doc->update(['status' => 'saved', 'saved_at' => now('Asia/Jakarta'), 'saved_by_user_id' => $user->id]);
                     if ($doc instanceof TicketServiceForm) {
-                        app(ServiceDiagnosis::class)->lock($doc);
+                        app(ServiceDiagnosis::class)->lock($doc, $ticket);
                     }
                     self::publish($ticket, $cycle, $user);
                 }

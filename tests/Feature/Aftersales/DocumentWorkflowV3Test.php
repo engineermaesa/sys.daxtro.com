@@ -128,17 +128,29 @@ class DocumentWorkflowV3Test extends TestCase
             $t->id();
             $t->unsignedBigInteger('ticket_service_form_id');
             $t->string('field');
+            $t->unsignedInteger('visit_no')->default(1);
+            $t->date('entry_date')->default('2026-10-30');
+            $t->time('visit_time')->default('10:00:00');
+            $t->string('name')->nullable();
+            $t->text('visit_notes')->nullable();
+            $t->unsignedBigInteger('created_by_user_id')->nullable();
             $t->text('body');
             $t->timestamp('locked_at')->nullable();
             $t->timestamps();
+            $t->unique(['ticket_service_form_id', 'field', 'visit_no'], 'diagnosis_form_field_visit');
         });
         Schema::create('ticket_photos', function (Blueprint $t) {
             $t->id();
+            $t->unsignedBigInteger('ticket_id')->nullable();
             $t->unsignedBigInteger('ticket_service_form_id');
             $t->string('category');
             $t->string('diagnosis_field');
             $t->integer('sequence')->default(1);
             $t->timestamp('locked_at')->nullable();
+            $t->string('file_path')->nullable();
+            $t->string('file_name')->nullable();
+            $t->timestamp('captured_at')->nullable();
+            $t->string('caption')->nullable();
             $t->timestamps();
             $t->softDeletes();
         });
@@ -196,7 +208,7 @@ class DocumentWorkflowV3Test extends TestCase
         }
         DB::table('service_customers')->insert(['id' => 1, 'email' => 'customer@example.com']);
         DB::table('service_customer_products')->insert(['id' => 1]);
-        DB::table('ref_inspection_templates')->insert(['id' => 1]);
+        DB::table('ref_inspection_templates')->insert(['id' => 1, 'diagnosis_fields' => json_encode(\App\Services\Aftersales\InspectionTemplates::DIAGNOSIS)]);
         DB::table('ref_agreement_templates')->insert(['id' => 1, 'sections' => json_encode([['title' => 'Terms', 'clauses' => [['key' => 'A1', 'text' => 'Terms']]]])]);
         DB::table('ref_survey_templates')->insert(['id' => 1, 'status' => 'active']);
         $ticket = Ticket::create(['ticket_code' => 'V3-1', 'assigned_technician_id' => 1, 'supervisor_id' => 2, 'created_by' => 3,
@@ -209,6 +221,7 @@ class DocumentWorkflowV3Test extends TestCase
             DB::table('ticket_diagnosis_entries')->insert(['ticket_service_form_id' => 1, 'field' => $field, 'body' => 'Real '.$field]);
             DB::table('ticket_photos')->insert(['ticket_service_form_id' => 1, 'category' => 'diagnosis', 'diagnosis_field' => $field]);
         }
+        (require database_path('migrations/2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php'))->up();
         $this->login(1);
     }
 
@@ -238,6 +251,24 @@ class DocumentWorkflowV3Test extends TestCase
             $this->signature($type, 'technician')->assertCreated();
             $this->signature($type, 'customer')->assertCreated();
         }
+    }
+
+    private function findings(): array
+    {
+        return ['diagnosis' => array_map(fn ($field) => ['field' => $field, 'body' => 'New cycle '.$field], ['problem', 'root_cause', 'action'])];
+    }
+
+    private function beginRecoming(string $type = 'phone_call'): int
+    {
+        $this->publishInOrder(['service_form', 'agreement']);
+        DB::table('ticket_service_forms')->update(['first_draft_at' => now()->subDay()]);
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
+        $response = $this->postJson($this->url.'/recoming', ['recoming_type' => $type, 'reason' => 'unfinished_previous_work',
+            $type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at' => now()->addDay()->format('Y-m-d H:i:s')])->assertCreated();
+        $this->login(1);
+
+        return $response->json('data.data.cycle_id');
     }
 
     public function test_submit_requires_real_content_and_non_spv_signatures_and_rolls_back_partial_input(): void
@@ -382,13 +413,13 @@ class DocumentWorkflowV3Test extends TestCase
         DB::table('ticket_service_forms')->update(['status' => 'draft', 'saved_at' => null]);
         DB::table('ticket_signatures')->where('signable_type', TicketServiceForm::class)->where('role', 'supervisor')->delete();
         $this->login(1);
-        $this->postJson($this->url.'/service-form/submit')->assertOk();
+        $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk();
         $this->login(2);
         $this->signature('service_form', 'supervisor')->assertCreated()->assertJsonPath('data.status', 'documentation_published');
         $this->signature('service_form', 'supervisor')->assertCreated();
         $this->assertDatabaseCount('ticket_document_publications', 2);
         $this->assertDatabaseCount('satisfaction_links', 2);
-        $this->assertDatabaseCount('ticket_logs', 2);
+        $this->assertSame(2, DB::table('ticket_logs')->where('step', 'documentation_published')->count());
         $this->assertDatabaseCount('ticket_document_dispatches', 12);
         Queue::assertPushed(SendTicketDocumentEmail::class, 12);
     }
@@ -472,9 +503,8 @@ class DocumentWorkflowV3Test extends TestCase
         $this->assertSame($files, Storage::disk('local')->allFiles('ticket-signatures'));
         $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
         $this->postJson($this->url.'/documents/agreement/unlock')->assertConflict()->assertJsonPath('code', 'agreement_already_published');
-        Ticket::first()->logs()->create(['step' => 'repair']);
         $this->login(1);
-        $this->postJson($this->url.'/service-form/submit')->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
         $this->postJson($this->url.'/service-form/submit')->assertOk();
         $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
         $this->assertEquals($agreement, DB::table('ticket_agreements')->first());
@@ -492,11 +522,9 @@ class DocumentWorkflowV3Test extends TestCase
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
         $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
-        // Repair-on-first-edit is Task 6; this test isolates publication after that transition.
-        Ticket::first()->logs()->create(['step' => 'repair']);
         DB::table('ticket_photos')->delete(); // OQ-06: phone-call completion must not require site photos.
         $this->login(1);
-        $this->postJson($this->url.'/service-form/submit')->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
         $this->assertDatabaseCount('satisfaction_links', 1);
         $this->assertDatabaseHas('ticket_document_publications', ['cycle_id' => 2, 'satisfaction_link_id' => null]);
         $this->assertDatabaseCount('ticket_visits', 0);
@@ -515,5 +543,124 @@ class DocumentWorkflowV3Test extends TestCase
         DB::table('ticket_agreements')->update(['status' => 'saved']);
         $this->postJson($this->url.'/documents/agreement/unlock')->assertOk();
         $this->assertDatabaseCount('ticket_signatures', 0);
+    }
+
+    public function test_first_finding_edit_enters_repair_once_and_maps_root_cause_to_existing_storage(): void
+    {
+        $cycleId = $this->beginRecoming();
+        $this->getJson($this->url.'/service-form')->assertOk()->assertJsonPath('data.diagnosis.current_findings', []);
+        $response = $this->putJson($this->url.'/service-form', $this->findings())->assertOk()
+            ->assertJsonPath('data.diagnosis.current_cycle_id', $cycleId)->assertJsonPath('data.can.submit', true);
+        $this->assertSame(['problem', 'root_cause', 'action'], array_column($response->json('data.diagnosis.current_findings'), 'field'));
+        $this->assertDatabaseHas('ticket_diagnosis_entries', ['cycle_id' => $cycleId, 'field' => 'cause', 'body' => 'New cycle root_cause']);
+        $this->assertSame('repair', Ticket::first()->progress);
+        $cycle = Ticket::first()->currentCycle;
+        $this->assertNotNull($cycle->service_form_first_edited_at);
+        $this->assertSame(1, $cycle->service_form_first_edited_by);
+        $this->putJson($this->url.'/service-form', $this->findings())->assertOk();
+        $this->assertSame(1, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'repair')->count());
+        $this->assertEquals($cycle->service_form_first_edited_at, $cycle->fresh()->service_form_first_edited_at);
+        $this->login(3);
+        $this->postJson($this->url.'/recoming/reschedule', ['planned_call_at' => now()->addDays(3)->format('Y-m-d H:i:s')])->assertUnprocessable();
+        $this->postJson($this->url.'/on-site')->assertUnprocessable();
+    }
+
+    public function test_reads_noop_and_failed_form_updates_do_not_begin_repair(): void
+    {
+        $cycleId = $this->beginRecoming();
+        $this->login(6);
+        $this->putJson($this->url.'/service-form', $this->findings())->assertForbidden();
+        $this->login(1);
+        $this->getJson($this->url.'/service-form')->assertOk();
+        $this->putJson($this->url.'/service-form', [])->assertOk();
+        $this->putJson($this->url.'/service-form', ['service_type' => 'repair'])->assertOk();
+        $this->putJson($this->url.'/service-form', $this->findings() + ['inspections' => [['item_number' => 999, 'status' => 'ok']]])->assertUnprocessable();
+        $this->assertSame('recoming', Ticket::first()->progress);
+        $this->assertNull(Ticket::first()->currentCycle->service_form_first_edited_at);
+        $this->assertSame(0, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'repair')->count());
+        $this->assertSame(0, DB::table('ticket_diagnosis_entries')->where('cycle_id', $cycleId)->count());
+    }
+
+    public function test_old_or_foreign_findings_cannot_be_edited_and_alias_duplicates_are_rejected(): void
+    {
+        $cycleId = $this->beginRecoming();
+        $old = DB::table('ticket_diagnosis_entries')->where('field', 'cause')->first();
+        $this->putJson($this->url.'/service-form', ['diagnosis' => [['id' => $old->id, 'field' => 'root_cause', 'body' => 'Overwrite']]])
+            ->assertConflict()->assertJsonPath('code', 'finding_not_current');
+        $other = Ticket::create(['ticket_code' => 'OTHER']);
+        $form = TicketServiceForm::create(['ticket_id' => $other->id]);
+        $foreign = DB::table('ticket_diagnosis_entries')->insertGetId(['ticket_service_form_id' => $form->id, 'cycle_id' => $other->currentCycle->id, 'field' => 'problem', 'body' => 'Foreign']);
+        $this->putJson($this->url.'/service-form', ['diagnosis' => [['id' => $foreign, 'field' => 'problem', 'body' => 'Overwrite']]])->assertNotFound();
+        $this->putJson($this->url.'/service-form', ['diagnosis' => [['field' => 'cause', 'body' => 'A'], ['field' => 'root_cause', 'body' => 'B']]])
+            ->assertUnprocessable()->assertJsonValidationErrors('diagnosis.0.field');
+        $this->assertDatabaseHas('ticket_diagnosis_entries', ['id' => $old->id, 'body' => 'Real cause']);
+        $this->assertSame(0, DB::table('ticket_diagnosis_entries')->where('cycle_id', $cycleId)->count());
+        $this->assertSame('recoming', Ticket::first()->progress);
+    }
+
+    public function test_old_findings_do_not_complete_a_new_cycle_and_submit_rollback_removes_repair_marker(): void
+    {
+        $cycleId = $this->beginRecoming();
+        $this->postJson($this->url.'/service-form/submit', ['service_type' => 'preventive'])->assertUnprocessable()->assertJsonPath('code', 'service_form_incomplete');
+        $this->assertDatabaseHas('tickets', ['id' => 1, 'service_type' => 'repair']);
+        $this->assertNull(Ticket::first()->currentCycle->service_form_first_edited_at);
+        $this->assertSame('recoming', Ticket::first()->progress);
+        $this->assertSame(0, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'repair')->count());
+        $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->assertSame(1, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'repair')->count());
+        $this->assertSame(3, DB::table('ticket_diagnosis_entries')->where('cycle_id', $cycleId)->whereNotNull('locked_at')->count());
+    }
+
+    public function test_consecutive_phone_cycles_have_distinct_findings_without_physical_visits(): void
+    {
+        $second = $this->beginRecoming();
+        $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk();
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
+        $third = $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+            ->assertCreated()->json('data.data.cycle_id');
+        $this->login(1);
+        $this->putJson($this->url.'/service-form', $this->findings())->assertOk();
+        $this->assertNotSame($second, $third);
+        $this->assertSame(3, DB::table('ticket_diagnosis_entries')->where('cycle_id', $second)->count());
+        $this->assertSame(3, DB::table('ticket_diagnosis_entries')->where('cycle_id', $third)->count());
+        $this->assertDatabaseCount('ticket_visits', 0);
+        $this->assertSame(1, DB::table('ticket_logs')->where('cycle_id', $third)->where('step', 'repair')->count());
+    }
+
+    public function test_scheduler_waits_for_v3_edit_and_still_resumes_legacy_once(): void
+    {
+        $cycleId = $this->beginRecoming('visit_site');
+        $legacy = Ticket::create(['ticket_code' => 'LEGACY', 'workflow_version' => 'legacy', 'assigned_technician_id' => 6]);
+        $legacy->visits()->create(['scheduled_at' => now()->subDay()]);
+        $legacy->logs()->create(['step' => 'recoming']);
+        DB::table('ticket_visits')->where('ticket_id', 1)->update(['scheduled_at' => now()->subDay()]);
+        $this->artisan('tickets:resume-recoming')->assertSuccessful();
+        $this->artisan('tickets:resume-recoming')->assertSuccessful();
+        $this->assertSame('recoming', Ticket::find(1)->progress);
+        $this->assertNull(Ticket::find(1)->currentCycle->service_form_first_edited_at);
+        $this->assertSame(0, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'on_site')->count());
+        $this->assertSame(1, $legacy->logs()->where('step', 'on_site')->count());
+    }
+
+    public function test_diagnosis_photo_alias_is_an_edit_and_records_repair(): void
+    {
+        $cycleId = $this->beginRecoming();
+        $this->post($this->url.'/service-form/diagnosis/photos', ['field' => 'root_cause', 'photo' => \Illuminate\Http\UploadedFile::fake()->image('cause.jpg')], ['Accept' => 'application/json'])
+            ->assertCreated();
+        $this->assertSame('repair', Ticket::first()->progress);
+        $this->assertSame(2, DB::table('ticket_photos')->where('diagnosis_field', 'cause')->count());
+        $this->assertSame(1, DB::table('ticket_logs')->where('cycle_id', $cycleId)->where('step', 'repair')->count());
+    }
+
+    public function test_recoming_finding_dates_use_the_cycle_visit_instead_of_other_visit_history(): void
+    {
+        $cycleId = $this->beginRecoming('visit_site');
+        $actual = now()->subDay();
+        DB::table('ticket_visits')->where('cycle_id', $cycleId)->update(['actual_start' => $actual]);
+        Ticket::first()->visits()->create(['cycle_id' => 1, 'scheduled_at' => now()->addDays(10)]);
+        $this->putJson($this->url.'/service-form', $this->findings())->assertOk()
+            ->assertJsonPath('data.diagnosis.current_findings.0.entry_date', $actual->toDateString())
+            ->assertJsonPath('data.diagnosis.fields.0.visit_date', $actual->toDateString());
     }
 }

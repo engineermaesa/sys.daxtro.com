@@ -262,7 +262,7 @@ class TicketDocuments
             $unfilled && $missing[] = "{$unfilled} inspection item(s) have no status";
             $emptyFields && $missing[] = "{$emptyFields} field(s) are empty";
             $noPhoto && $missing[] = "{$noPhoto} number field(s) have no photo";
-            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc, ! $phoneCall));
+            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc, ! $phoneCall, $ticket));
         } else {
             $keys = $doc->template->clauseKeys();
             $unchecked = count(array_diff($keys, $doc->accepted_clauses ?? []));
@@ -315,15 +315,19 @@ class TicketDocuments
             }
             $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
             abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
+            $changed = false;
             if (array_key_exists('diagnosis', $data)) {
-                app(ServiceDiagnosis::class)->save($ticket, $form, $data['diagnosis'], $user);
+                $changed = app(ServiceDiagnosis::class)->save($ticket, $form, $data['diagnosis'], $user);
             }
             if (array_key_exists('service_type', $data)) {
+                $changed = $ticket->service_type !== $data['service_type'] || $changed;
                 $ticket->update(['service_type' => $data['service_type'], 'updated_by' => $user->id]);
             }
 
             if (isset($data['unit']) && $ticket->customerProduct) {
-                $ticket->customerProduct->update(array_intersect_key($data['unit'], array_flip(self::UNIT_FIELDS)));
+                $ticket->customerProduct->fill(array_intersect_key($data['unit'], array_flip(self::UNIT_FIELDS)));
+                $changed = $ticket->customerProduct->isDirty() || $changed;
+                $ticket->customerProduct->save();
             }
 
             $typeId = $ticket->customerProduct?->ref_product_type_id;
@@ -335,7 +339,9 @@ class TicketDocuments
 
                 $applicable = $item->appliesToType($typeId === null ? null : (int) $typeId);
                 $inspection = TicketInspection::firstOrCreate(['ticket_service_form_id' => $form->id, 'ref_inspection_item_id' => $item->id]);
-                $inspection->update(['status' => $applicable ? ($entry['status'] ?? $inspection->status) : 'na']);
+                $inspection->fill(['status' => $applicable ? ($entry['status'] ?? $inspection->status) : 'na']);
+                $changed = $inspection->wasRecentlyCreated || $inspection->isDirty() || $changed;
+                $inspection->save();
                 if (! $applicable) {
                     continue;
                 }
@@ -343,8 +349,12 @@ class TicketDocuments
                 foreach ($entry['values'] ?? [] as $key => $raw) {
                     $field = $item->fields->firstWhere('key', $key);
                     abort_if(! $field, 422, "Item {$item->number}: unknown field '{$key}'.");
-                    self::storeValue($inspection, $field, $raw);
+                    $changed = self::storeValue($inspection, $field, $raw) || $changed;
                 }
+            }
+
+            if ($changed) {
+                TicketCycleEdits::record($ticket, $user->id);
             }
 
             if (! $form->first_draft_at) {
@@ -362,16 +372,16 @@ class TicketDocuments
         });
     }
 
-    private static function storeValue(TicketInspection $inspection, RefInspectionField $field, mixed $raw): void
+    private static function storeValue(TicketInspection $inspection, RefInspectionField $field, mixed $raw): bool
     {
         if ($field->is_multiple) {
             abort_unless($raw === null || is_array($raw), 422, "'{$field->label}' needs a list of options.");
             abort_unless(collect($raw ?? [])->every(fn ($option) => is_string($option)), 422, 'Checklist options must be strings.');
             $options = array_values(array_unique($raw ?? []));
             abort_if(array_diff($options, $field->options ?? []), 422, "'{$field->label}' contains an unknown option.");
-            TicketInspectionValue::updateOrCreate(['ticket_inspection_id' => $inspection->id, 'ref_inspection_field_id' => $field->id], ['value' => count($options) ? json_encode($options) : null]);
+            $row = TicketInspectionValue::updateOrCreate(['ticket_inspection_id' => $inspection->id, 'ref_inspection_field_id' => $field->id], ['value' => count($options) ? json_encode($options) : null]);
 
-            return;
+            return $row->wasRecentlyCreated || $row->wasChanged('value');
         }
         $unit = $field->unit;
         if (is_array($raw)) {
@@ -405,7 +415,10 @@ class TicketDocuments
 
         $row->value = $value;
         $row->unit = $field->type === RefInspectionField::TYPE_NUMBER ? $unit : null;
+        $changed = $row->isDirty();
         $row->save();
+
+        return $changed;
     }
 
     public static function saveAgreementDraft(Ticket $ticket, TicketAgreement $agreement, array $data, ?User $user = null): void
@@ -455,7 +468,7 @@ class TicketDocuments
     public static function attachPhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket, ?int $userId): TicketPhoto
     {
         if (TicketDocumentWorkflow::enabled($ticket)) {
-            return DB::transaction(function () use ($value, $file, $ticket) {
+            return DB::transaction(function () use ($value, $file, $ticket, $userId) {
                 $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
                 $form = TicketServiceForm::whereKey($value->inspection->ticket_service_form_id)->lockForUpdate()->firstOrFail();
                 abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
@@ -463,7 +476,11 @@ class TicketDocuments
                     TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
                 }
 
-                return self::storePhoto($value, $file, $ticket);
+                abort_unless($userId !== null && $ticket->assigned_technician_id === $userId, 403, 'This camera link belongs to a different technician.');
+                $photo = self::storePhoto($value, $file, $ticket);
+                TicketCycleEdits::record($ticket, $userId);
+
+                return $photo;
             });
         }
 

@@ -620,6 +620,19 @@ class TicketController extends Controller
     private function logStep(Request $request, Ticket $ticket, string $step, string $permission)
     {
         abort_unless($request->user()?->hasPermission($permission), 403);
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            return DB::transaction(function () use ($request, $ticket, $step) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+
+                return $this->writeStep($request, $ticket, $step);
+            });
+        }
+
+        return $this->writeStep($request, $ticket, $step);
+    }
+
+    private function writeStep(Request $request, Ticket $ticket, string $step)
+    {
         $this->guardNotClosed($ticket);
         $this->guardSequential($ticket, $step);
 

@@ -17,60 +17,146 @@ class ServiceDiagnosis
 {
     public const FIELDS = ['problem', 'cause', 'action'];
 
+    public static function storageField(string $field): string
+    {
+        return $field === 'root_cause' ? 'cause' : $field;
+    }
+
+    public static function canonicalField(string $field): string
+    {
+        return $field === 'cause' ? 'root_cause' : $field;
+    }
+
     public function authorizeEdit(Ticket $ticket, TicketServiceForm $form, User $user): void
     {
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can edit diagnosis.');
         abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'Diagnosis cannot be edited in this ticket status.');
+        if (TicketDocumentWorkflow::enabled($ticket) && TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+            TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
+        }
     }
 
     public function structure(Ticket $ticket, TicketServiceForm $form): array
     {
         $entries = $form->diagnosisEntries()->get();
         $photos = $form->diagnosisPhotos()->get();
+        $v3 = TicketDocumentWorkflow::enabled($ticket);
+        $cycle = $v3 ? $ticket->currentCycle : null;
+        $currentCycleId = $cycle?->id;
         $currentVisitNo = max(1, $ticket->visits()->count());
         $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
         $date = ($visit?->actual_start ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
+        if ($v3 && $cycle?->cycle_no > 1) {
+            $cycleVisit = $cycle->visits()->orderByDesc('scheduled_at')->first();
+            $date = ($cycleVisit?->actual_start ?? TicketRecomings::current($ticket)?->scheduledAt() ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
+        }
+        $entryData = fn ($e) => ['id' => $e->id, 'cycle_id' => $e->cycle_id,
+            'field' => self::canonicalField($e->field), 'name' => $e->name, 'body' => $e->body, 'visit_notes' => $e->visit_notes,
+            'visit_no' => $e->visit_no, 'entry_date' => $e->entry_date?->toDateString(), 'visit_time' => substr((string) $e->visit_time, 0, 5),
+            'locked' => (bool) $e->locked_at || ($v3 ? $e->cycle_id !== $currentCycleId : $e->visit_no < $currentVisitNo)];
 
         return ['title' => $form->template->diagnosis_section_title,
+            'current_cycle_id' => $currentCycleId,
+            'current_findings' => $v3 ? $entries->where('cycle_id', $currentCycleId)->values()->map($entryData)->all() : null,
+            'field_aliases' => ['root_cause' => 'cause'],
             'photos_required' => ! TicketDocumentWorkflow::enabled($ticket) || TicketRecomings::current($ticket)?->recoming_type !== \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL,
             'legacy' => (bool) $form->legacy_without_diagnosis && $form->isLocked() && $entries->isEmpty(),
             'fields' => collect(self::FIELDS)->map(fn ($field) => [
-                'key' => $field, 'label' => $form->template->diagnosis_fields[$field]['label'], 'hint' => $form->template->diagnosis_fields[$field]['hint'],
+                'key' => $field, 'canonical_key' => self::canonicalField($field), 'label' => $form->template->diagnosis_fields[$field]['label'], 'hint' => $form->template->diagnosis_fields[$field]['hint'],
                 'visit_date' => $date->toDateString(), 'visit_time' => $date->format('H:i'),
-                'entries' => $entries->where('field', $field)->values()->map(fn ($e) => ['id' => $e->id, 'name' => $e->name, 'body' => $e->body, 'visit_notes' => $e->visit_notes, 'visit_no' => $e->visit_no, 'entry_date' => $e->entry_date->toDateString(), 'visit_time' => substr($e->visit_time, 0, 5), 'locked' => (bool) $e->locked_at || $e->visit_no < $currentVisitNo])->all(),
+                'entries' => $entries->where('field', $field)->values()->map($entryData)->all(),
                 'photos' => $photos->where('diagnosis_field', $field)->values()->map(fn ($p) => ['id' => $p->id, 'caption' => $p->caption, 'locked' => (bool) $p->locked_at, 'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $p->id], false)])->all(),
             ])->all()];
     }
 
-    public function save(Ticket $ticket, TicketServiceForm $form, array $entries, User $user): void
+    public function save(Ticket $ticket, TicketServiceForm $form, array $entries, User $user): bool
     {
-        DB::transaction(function () use ($ticket, $form, $entries, $user) {
+        $fields = [];
+        foreach ($entries as &$input) {
+            $input['field'] = self::storageField($input['field']);
+            abort_unless(in_array($input['field'], self::FIELDS, true) && ! in_array($input['field'], $fields, true), 422, 'Diagnosis fields must be valid and unique.');
+            $fields[] = $input['field'];
+        }
+        unset($input);
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            return $this->saveCycle($ticket, $form, $entries, $user);
+        }
+
+        return DB::transaction(function () use ($ticket, $form, $entries, $user) {
             $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
             $this->authorizeEdit($ticket, $form, $user);
             $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
             $date = ($visit?->actual_start ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
             $visitNo = max(1, $ticket->visits()->count(), (int) $form->diagnosisEntries()->whereNotNull('locked_at')->max('visit_no') + 1);
             $form->diagnosisEntries()->where('visit_no', '<', $visitNo)->whereNull('locked_at')->update(['locked_at' => now()]);
+            $changed = false;
             foreach ($entries as $input) {
                 $entry = isset($input['id']) ? $form->diagnosisEntries()->where('field', $input['field'])->findOrFail($input['id']) : $form->diagnosisEntries()->where('field', $input['field'])->where('visit_no', $visitNo)->whereNull('locked_at')->first();
                 abort_if($entry?->locked_at, 409, 'Previously saved diagnosis notes are read-only. Add a new visit note.');
                 if (! $entry) {
                     $entry = new TicketDiagnosisEntry(['ticket_service_form_id' => $form->id, 'field' => $input['field'], 'visit_no' => $visitNo, 'entry_date' => $date->toDateString(), 'visit_time' => $date->format('H:i:s'), 'created_by_user_id' => $user->id]);
                 }
-                $entry->fill(['name' => $input['name'] ?? null, 'body' => $input['body'] ?? null, 'visit_notes' => $input['visit_notes'] ?? null])->save();
+                $entry->fill(['name' => $input['name'] ?? null, 'body' => $input['body'] ?? null, 'visit_notes' => $input['visit_notes'] ?? null]);
+                $changed = $entry->isDirty() || $changed;
+                $entry->save();
             }
+
+            return $changed;
         }, 3);
     }
 
-    public function missing(TicketServiceForm $form, bool $requirePhotos = true): array
+    private function saveCycle(Ticket $ticket, TicketServiceForm $form, array $entries, User $user): bool
     {
-        if ($form->legacy_without_diagnosis && $form->isLocked()) {
+        return DB::transaction(function () use ($ticket, $form, $entries, $user) {
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
+            $this->authorizeEdit($ticket, $form, $user);
+            $cycle = $ticket->currentCycle()->lockForUpdate()->firstOrFail();
+            $visitNo = $form->diagnosisEntries()->where('cycle_id', $cycle->id)->value('visit_no')
+                ?? ((int) $form->diagnosisEntries()->max('visit_no') + 1);
+            $visit = $cycle->visits()->orderByDesc('scheduled_at')->first();
+            if (! $visit && $cycle->cycle_no === 1) {
+                $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
+            }
+            $date = ($visit?->actual_start ?? ($cycle->cycle_no > 1 ? TicketRecomings::current($ticket)?->scheduledAt() : null)
+                ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
+            $changed = false;
+            foreach ($entries as $input) {
+                if (isset($input['id'])) {
+                    $entry = $form->diagnosisEntries()->findOrFail($input['id']);
+                    if ($entry->cycle_id !== $cycle->id || $entry->field !== $input['field']) {
+                        TicketDocumentWorkflow::error(409, 'finding_not_current', 'Historical findings are read-only. Add a finding for the current cycle.');
+                    }
+                } else {
+                    $entry = $form->diagnosisEntries()->where('cycle_id', $cycle->id)->where('field', $input['field'])->first();
+                }
+                abort_if($entry?->locked_at, 409, 'Previously saved diagnosis notes are read-only.');
+                $entry ??= new TicketDiagnosisEntry([
+                    'ticket_service_form_id' => $form->id, 'cycle_id' => $cycle->id, 'field' => $input['field'],
+                    'visit_no' => $visitNo, 'entry_date' => $date->toDateString(), 'visit_time' => $date->format('H:i:s'), 'created_by_user_id' => $user->id,
+                ]);
+                $entry->fill(['name' => $input['name'] ?? null, 'body' => $input['body'] ?? null, 'visit_notes' => $input['visit_notes'] ?? null]);
+                $changed = $entry->isDirty() || $changed;
+                $entry->save();
+            }
+            if ($changed) {
+                TicketCycleEdits::record($ticket, $user->id);
+            }
+
+            return $changed;
+        });
+    }
+
+    public function missing(TicketServiceForm $form, bool $requirePhotos = true, ?Ticket $ticket = null): array
+    {
+        $cycleId = $ticket && TicketDocumentWorkflow::enabled($ticket) ? $ticket->currentCycle?->id : null;
+        if (! $cycleId && $form->legacy_without_diagnosis && $form->isLocked()) {
             return [];
         }
         $missing = [];
         foreach (self::FIELDS as $field) {
-            $entries = $form->diagnosisEntries()->where('field', $field)->get();
+            $entries = $form->diagnosisEntries()->where('field', $field)->when($cycleId, fn ($q) => $q->where('cycle_id', $cycleId))->get();
             if (! $entries->contains(fn ($e) => filled($e->body))) {
                 $missing[] = "$field diagnosis text is required";
             }
@@ -88,24 +174,33 @@ class ServiceDiagnosis
         return $missing;
     }
 
-    public function lock(TicketServiceForm $form): void
+    public function lock(TicketServiceForm $form, ?Ticket $ticket = null): void
     {
-        $form->diagnosisEntries()->whereNull('locked_at')->update(['locked_at' => now()]);
+        $cycleId = $ticket && TicketDocumentWorkflow::enabled($ticket) ? $ticket->currentCycle?->id : null;
+        $form->diagnosisEntries()->whereNull('locked_at')->when($cycleId, fn ($q) => $q->where('cycle_id', $cycleId))->update(['locked_at' => now()]);
         $form->diagnosisPhotos()->whereNull('locked_at')->update(['locked_at' => now()]);
     }
 
     public function upload(Ticket $ticket, TicketServiceForm $form, string $field, UploadedFile $file, ?string $caption, User $user): TicketPhoto
     {
+        $field = self::storageField($field);
+        abort_unless(in_array($field, self::FIELDS, true), 422, 'Invalid diagnosis field.');
         $bytes = $this->jpeg($file);
         $path = 'diagnosis/'.$ticket->id.'/'.Str::uuid().'.jpg';
         abort_unless(Storage::disk('local')->put($path, $bytes), 500, 'Could not store the photo. Retry the upload.');
         try {
             return DB::transaction(function () use ($ticket, $form, $field, $caption, $user, $path, $file) {
+                if (TicketDocumentWorkflow::enabled($ticket)) {
+                    $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                }
                 $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
                 $this->authorizeEdit($ticket, $form, $user);
                 abort_if($form->diagnosisPhotos()->where('diagnosis_field', $field)->count() >= 5, 422, 'This field already has five photos.');
 
-                return TicketPhoto::create(['ticket_id' => $ticket->id, 'ticket_service_form_id' => $form->id, 'diagnosis_field' => $field, 'category' => 'diagnosis', 'sequence' => (int) $form->diagnosisPhotos()->max('sequence') + 1, 'caption' => $caption, 'file_path' => $path, 'file_name' => $file->getClientOriginalName(), 'captured_at' => now()]);
+                $photo = TicketPhoto::create(['ticket_id' => $ticket->id, 'ticket_service_form_id' => $form->id, 'diagnosis_field' => $field, 'category' => 'diagnosis', 'sequence' => (int) $form->diagnosisPhotos()->max('sequence') + 1, 'caption' => $caption, 'file_path' => $path, 'file_name' => $file->getClientOriginalName(), 'captured_at' => now()]);
+                TicketCycleEdits::record($ticket, $user->id);
+
+                return $photo;
             }, 3);
         } catch (\Throwable $e) {
             Storage::disk('local')->delete($path);
@@ -116,14 +211,22 @@ class ServiceDiagnosis
     public function changePhoto(Ticket $ticket, TicketServiceForm $form, TicketPhoto $photo, User $user, ?string $caption, bool $delete = false): void
     {
         DB::transaction(function () use ($ticket, $form, $photo, $user, $caption, $delete) {
+            if (TicketDocumentWorkflow::enabled($ticket)) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            }
             $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
             $this->authorizeEdit($ticket, $form, $user);
             $photo = $form->diagnosisPhotos()->findOrFail($photo->id);
             abort_if($photo->locked_at, 409, 'Previously saved diagnosis photos are read-only.');
             if ($delete) {
                 $photo->delete();
+                TicketCycleEdits::record($ticket, $user->id);
             } else {
-                $photo->update(['caption' => $caption]);
+                $photo->fill(['caption' => $caption]);
+                if ($photo->isDirty()) {
+                    $photo->save();
+                    TicketCycleEdits::record($ticket, $user->id);
+                }
             }
         }, 3);
     }

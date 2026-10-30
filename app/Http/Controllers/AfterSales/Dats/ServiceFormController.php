@@ -98,6 +98,16 @@ class ServiceFormController extends Controller
 
     private function validateForm(Request $request): array
     {
+        if (is_array($request->input('diagnosis'))) {
+            $request->merge(['diagnosis' => array_map(function ($entry) {
+                if (is_array($entry) && isset($entry['field']) && is_string($entry['field'])) {
+                    $entry['field'] = \App\Services\Aftersales\ServiceDiagnosis::storageField($entry['field']);
+                }
+
+                return $entry;
+            }, $request->input('diagnosis'))]);
+        }
+
         return $request->validate([
             'service_type' => 'nullable|in:'.implode(',', TicketDocuments::SERVICE_TYPES),
             'unit' => 'nullable|array',

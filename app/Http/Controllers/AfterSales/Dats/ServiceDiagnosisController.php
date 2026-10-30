@@ -15,7 +15,7 @@ class ServiceDiagnosisController extends Controller
     {
         $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
         $service->authorizeEdit($ticket, $form, $request->user());
-        $data = $request->validate(['field' => 'required|in:problem,cause,action', 'caption' => 'nullable|string|max:500', 'photo' => 'required|file|max:10240|mimetypes:image/jpeg,image/png,image/heic,image/heif,image/heic-sequence,image/heif-sequence']);
+        $data = $request->validate(['field' => 'required|in:problem,cause,root_cause,action', 'caption' => 'nullable|string|max:500', 'photo' => 'required|file|max:10240|mimetypes:image/jpeg,image/png,image/heic,image/heif,image/heic-sequence,image/heif-sequence']);
         $service->upload($ticket, $form, $data['field'], $request->file('photo'), $data['caption'] ?? null, $request->user());
 
         return response()->json(['data' => $service->structure($ticket, $form)], 201);

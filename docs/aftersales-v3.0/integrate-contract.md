@@ -454,7 +454,7 @@ Untuk visit site gunakan `planned_visit_at`. `recoming_type` tidak dapat diubah 
 - Nested `recomings[]` serta `current_recoming` pada list/detail ticket membawa `recoming_type`, `planned_call_at`, dan `ticket_visit_id`, di samping field existing. `current_recoming` tetap hanya non-null saat progress Recoming.
 - `visit_history` dan `visit_date` tetap berkaitan dengan visit fisik. Phone call tidak ditampilkan sebagai kunjungan fisik baru; jadwal telepon dibaca dari `planned_call_at`.
 - `capabilities.can_trigger_recoming` hanya untuk Admin pada ticket terbuka yang tidak sedang Recoming. `can_reschedule` hanya untuk Admin dan jadwal yang masih boleh dipindah. `can_schedule` false pada phone-call dan pada siklus visit-site yang sudah tidak boleh di-reschedule.
-- Scheduler existing tidak membawa phone call ke On Site berdasarkan visit lama. Perubahan penuh progress Repair pada edit pertama dan perilaku `ResumeRecomingTickets` untuk workflow v3 dilengkapi di Task 6.
+- Scheduler tidak membawa phone call ke On Site berdasarkan visit lama. Task 6 kini membuat seluruh Recoming v3 menunggu edit pertama Technician untuk masuk Repair (§3.29).
 
 #### 3.24 Unlock dan submit ulang
 
@@ -473,8 +473,8 @@ Migration baru: `2026_10_30_000200_add_recoming_v3_scheduling.php`.
 - `ticket_recomings`: tambah `recoming_type` default `visit_site`, `planned_call_at` nullable/index, `ticket_visit_id` nullable/FK; `visit_no` dan `planned_visit_at` menjadi nullable; `reason` diperluas menjadi string untuk reason baru.
 - Data lama, termasuk soft-deleted, tetap visit-site dan reason historis tidak diubah. Relasi visit hanya di-backfill bila ada **tepat satu** visit dengan ticket dan `cycle_id` yang sama. Mapping yang ambigu tetap null; jalur legacy mempertahankan perilaku reschedule existing.
 - Rollback mengembalikan schema lama bila datanya masih kompatibel. Jika sudah ada phone call, reason `unfinished_previous_work`, atau jadwal/visit_no null, rollback **ditolak sebelum perubahan schema**. Data baru perlu dipertahankan/diekspor dan ditangani dengan migration rollback eksplisit; tidak ada konversi jadwal telepon menjadi visit palsu atau penghapusan data otomatis.
-- **Belum dijalankan pada database aplikasi lokal `local_daxx`**. Tidak ada seeder/permission baru pada task ini.
-- Task 6 tetap mencakup temuan Problem/Root Cause/Action serta Repair pada edit pertama. Task 7 mencakup setup/perhitungan SLA Recoming. Task 8 mencakup template/response survey phone call. Task 5 tidak membuat integrasi telepon atau pencatatan survey otomatis.
+- **Sudah dijalankan pada database aplikasi lokal `local_daxx` pada 2026-10-30**. Tidak ada seeder/permission baru pada task ini.
+- Task 6 menambahkan scope siklus pada temuan existing dan Repair pada edit pertama. Task 7 mencakup setup/perhitungan SLA Recoming. Task 8 mencakup template/response survey phone call. Task 5 tidak membuat integrasi telepon atau pencatatan survey otomatis.
 
 #### 3.26 Verifikasi Task 5
 
@@ -483,9 +483,87 @@ Migration baru: `2026_10_30_000200_add_recoming_v3_scheduling.php`.
 - Smoke test **MySQL 8.4.3** pada database sementara: migration up, backfill data aktif/soft-deleted, penyimpanan phone call/reason baru, penolakan rollback yang membuang data, down/up kompatibel, dan penolakan mapping visit ambigu **lulus**. Database uji telah dihapus; database aplikasi tidak diubah.
 - Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 268 tests, 2154 assertions** (SQLite in-memory). Formatter PHP pada file task 5 dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
 
+### Task 6 — Temuan per siklus dan Repair pada edit pertama (AS-REC-05) · IMPLEMENTED
+
+#### 3.27 Penyesuaian desain yang disepakati
+
+Setelah membandingkan existing dengan PRD, user menyetujui pemakaian ulang diagnosis existing. **Tidak dibuat tabel `recoming_findings` paralel.** `ticket_diagnosis_entries` diperluas dengan `cycle_id`; Service Form, inspeksi, histori, dan foto existing tetap dipakai. Ini adalah penyesuaian desain penyimpanan terhadap §9 PRD, dengan kebutuhan fungsional AS-REC-05 tetap diterapkan.
+
+- Satu temuan per kombinasi `(ticket_service_form_id, field, cycle_id)` untuk v3, dilindungi unique index dan FK ke `ticket_cycles`.
+- Storage tetap memakai field `problem`, **`cause`**, `action`. API menerima `root_cause` sebagai alias `cause`; tidak ada duplikasi atau penulisan ulang teks histori.
+- Unique index lama `(form, field, visit_no)` tetap dipertahankan. Pada v3, `visit_no` diagnosis adalah nomor kelompok catatan kompatibilitas yang dialokasikan server, **bukan identitas siklus atau bukti visit fisik**. Pakai `cycle_id` untuk grouping v3, terutama pada phone call. Nomor kelompok baru dialokasikan dari histori form agar tidak berbenturan dengan catatan lama.
+- `visit_no` pada `ticket_recomings` tetap bermakna nomor visit fisik sebagaimana Task 5; phone call tetap null. Field ini berbeda konteks dari nomor kelompok diagnosis.
+- Perilaku diagnosis legacy tetap berdasarkan visit dan histori existing. Tidak ada perpindahan foto atau part ke tabel/model baru.
+
+#### 3.28 Request, response, dan kelengkapan
+
+Endpoint tetap `PUT /tickets/{ticket}/service-form` atau `POST /tickets/{ticket}/service-form/submit`, hanya Technician yang ditugaskan dengan `aftersales.documents.fill`. Tidak ada endpoint temuan baru atau permission baru.
+
+Contoh request yang diuji:
+
+```json
+{"diagnosis":[{"field":"problem","body":"New cycle problem"},{"field":"root_cause","body":"New cycle root_cause"},{"field":"action","body":"New cycle action"}]}
+```
+
+- Field lama `cause` tetap diterima. Mengirim `cause` dan `root_cause` sekaligus ditolak Laravel **422** sebagai field yang duplikat, setelah normalisasi alias.
+- `id` opsional hanya untuk memperbarui temuan pada **form, field, dan siklus aktif yang sama**. Tanpa ID, server memperbarui/membuat temuan berdasarkan field dan siklus aktif.
+- ID milik siklus lama, histori tanpa pemetaan siklus, atau field berbeda menghasilkan **409 `finding_not_current`**. ID dari form lain / tidak ditemukan menghasilkan **404**. `cycle_id` dan nomor kelompok ditentukan server; input client tidak dapat mengubah kepemilikannya.
+- Tiga teks `problem`, `cause`/`root_cause`, dan `action` wajib lengkap pada **siklus aktif** sebelum submit/publikasi v3. Teks dari siklus lama tetap tampil sebagai histori dan tidak memenuhi kelengkapan siklus baru.
+- Saat finalisasi v3, hanya temuan siklus aktif yang dikunci. Foto tetap mengikuti aturan existing: ketentuan site tetap berlaku, phone call tidak wajib foto, dan foto lama yang terkunci tetap readonly.
+- Upload diagnosis photo `POST .../service-form/diagnosis/photos` juga menerima `field: "root_cause"`, disimpan sebagai `cause`.
+
+`GET .../service-form` dan response edit tetap memakai envelope existing. Tambahan pada `data.diagnosis`:
+
+| Field | Arti |
+|---|---|
+| `current_cycle_id` | ID siklus aktif untuk v3; null untuk legacy |
+| `current_findings` | Temuan siklus aktif dengan key kanonis `problem`, `root_cause`, `action`; array kosong jika belum diisi; null untuk legacy |
+| `field_aliases` | `{"root_cause":"cause"}` |
+| `fields[].key` | Tetap `problem`, `cause`, `action` untuk kompatibilitas FE/template/PDF existing |
+| `fields[].canonical_key` | Key kanonis; `cause` dipetakan menjadi `root_cause` |
+| `fields[].entries[]` | Histori tetap ada; ditambah `cycle_id` dan `field` kanonis. Entri siklus lama/tanpa mapping pada v3 memiliki `locked: true` |
+
+Contoh response edit v3 (subset):
+
+```json
+{"status":"success","data":{"diagnosis":{"current_cycle_id":2,"field_aliases":{"root_cause":"cause"},"current_findings":[{"id":4,"cycle_id":2,"field":"problem","body":"New cycle problem","locked":false},{"id":5,"cycle_id":2,"field":"root_cause","body":"New cycle root_cause","locked":false},{"id":6,"cycle_id":2,"field":"action","body":"New cycle action","locked":false}]}}}
+```
+
+Metadata tanggal temuan v3 memakai actual start visit siklus tersebut jika tersedia, kemudian jadwal visit/call siklus tersebut; siklus awal mempertahankan fallback waktu visit existing. Histori visit dari siklus lain tidak dipakai sebagai tanggal temuan Recoming baru.
+
+#### 3.29 Edit pertama, Repair, dan scheduler
+
+Kolom baru pada `ticket_cycles`: `service_form_first_edited_at` dan `service_form_first_edited_by`. Keduanya juga tersedia pada `current_cycle` / `cycles[]` di ticket detail. `first_draft_at` lama tetap ada untuk umur form/template; tidak di-reset setiap Recoming.
+
+- Pada siklus Recoming v3, perubahan pertama oleh Technician mencatat marker per siklus dan log `repair` dengan actor serta `cycle_id` yang benar. Tidak perlu On Site manual dan tidak perlu menunggu scheduler/hari visit untuk mencatat bahwa Technician sudah mulai mengedit.
+- Edit yang dihitung mencakup perubahan isian form/inspeksi/diagnosis, capture tanda tangan Technician/Customer pada Service Form, dan perubahan foto form yang diotorisasi. Pembacaan form, pembuatan link kamera, payload kosong, serta penyimpanan nilai bisnis yang sama tidak memicu Repair.
+- Edit berikutnya tidak menggandakan marker/log otomatis. Perubahan siklus berikutnya memiliki marker tersendiri. Reschedule ditolak setelah edit pertama karena progress sudah keluar dari Recoming.
+- Submit pertama dapat membawa temuan lengkap secara langsung: penulisan temuan → Repair → validasi → publikasi berada dalam satu transaksi. Bila field tidak valid, temuan belum lengkap, atau finalisasi gagal, perubahan data, marker, dan log Repair ikut dibatalkan.
+- Ticket/form dikunci dengan urutan yang konsisten. Jalur progress manual v3 juga mengunci ticket dan memeriksa ulang state, sehingga request On Site lama tidak dapat menimpa Repair yang sudah tercatat.
+- `tickets:resume-recoming` **melewati semua ticket v3**, baik site maupun phone call. Hari jadwal tiba saja tidak menambahkan log On Site/Repair. Ticket legacy tetap mendapat On Site ketika visit due, dengan pemeriksaan ulang di bawah row lock agar eksekusi berulang tidak menggandakan transisi.
+- Awal kunjungan pertama dan workflow legacy mempertahankan alur existing; perubahan Repair per siklus berlaku untuk Recoming v3.
+
+#### 3.30 Migration, histori, dan batas task
+
+Migration: `2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php`.
+
+- Tambah `cycle_id` nullable/FK dan unique index temuan per siklus, serta metadata edit pertama pada `ticket_cycles`. Tidak ada seed baru.
+- Backfill hanya bila ticket memiliki tepat satu siklus dan form tidak memiliki beberapa entri untuk field yang sama. Ticket/form soft-deleted tetap ikut diperiksa. ID, teks, key `cause`, tanggal, dan nomor kelompok lama dipertahankan.
+- Histori dengan beberapa siklus atau kelompok field yang ambigu tetap `cycle_id: null`. Tidak ditebak dari `visit_no`, tidak digabung, dan tidak dihapus. Pada v3, histori tersebut readonly dan temuan siklus aktif perlu diisi secara eksplisit.
+- Rollback tanpa temuan Recoming bersiklus dapat menghapus metadata baru sambil mempertahankan catatan diagnosis. Jika sudah ada temuan yang terikat ke siklus nomor >1, rollback ditolak sebelum DDL agar kepemilikan histori tidak hilang; perlu migration rollback eksplisit.
+- **Migration task 6 belum diterapkan ke database aplikasi lokal `local_daxx`.** Gunakan jendela maintenance untuk schema/backfill seperti task sebelumnya.
+- Setup/perhitungan SLA tetap Task 7; varian dan respons survey tetap Task 8; Happy Call/Close dan revision offline tetap task berikutnya.
+
+#### 3.31 Verifikasi Task 6
+
+- Test API: temuan baru memicu Repair satu kali, alias `root_cause`/`cause`, histori readonly dan isolasi form lain, duplicate alias, no-op/read/validasi gagal tidak memulai Repair, rollback submit, dua siklus phone call tanpa visit, tanggal berdasarkan visit siklus, capture foto sebagai edit, serta scheduler legacy/v3.
+- Test migration: backfill termasuk soft-deleted, histori ambigu, unique temuan per siklus terpisah dari nomor visit legacy, roundtrip yang mempertahankan teks, dan proteksi rollback.
+- Smoke test **MySQL 8.4.3** pada database sementara: migration, backfill, unique/FK, down/up, marker/log Repair idempotent, dan proteksi rollback **lulus**. Database sementara dihapus; database aplikasi tidak diubah.
+- Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 281 tests, 2416 assertions** (SQLite in-memory). Formatter PHP pada file task 6 dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 6–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 7–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -497,3 +575,5 @@ Task 6–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 | 2026-10-30 | Task 4: Submit, sign, publish dokumen per siklus | Implemented; 255 test lulus, 2009 assertions; default OQ-02/03/09/10 disetujui user; smoke migration MySQL 8.4.3 lulus; belum migrate database aplikasi |
 | 2026-10-30 | Penerapan lokal task 1–4 | Empat migration pending dan `AftersalesV3RoleSeeder` berhasil pada `local_daxx`; cache dibersihkan, aplikasi kembali live, tidak ada migration pending. Verifikasi: 16 ticket legacy memiliki 16 siklus awal; Close hanya Head. Belum ada user aktif ber-role Head; assignment user tetap manual. Status penerapan lokal pada baris ini memperbarui catatan pending deployment sebelumnya. |
 | 2026-10-30 | Task 5: Recoming v3, jadwal call/visit, signature reuse | Implemented; 268 test lulus, 2154 assertions; default OQ-06/10 disetujui user; smoke migration MySQL 8.4.3 lulus; migration task 5 belum diterapkan ke database aplikasi |
+| 2026-10-30 | Penerapan lokal task 5 | Migration `2026_10_30_000200_add_recoming_v3_scheduling` berhasil pada `local_daxx` menggunakan backup yang disiapkan user. Kolom baru terverifikasi, tidak ada migration pending, cache dibersihkan, aplikasi kembali live. Tidak ada row Recoming existing saat verifikasi; tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 5 sebelumnya. |
+| 2026-10-30 | Task 6: Temuan per siklus dan Repair pada edit pertama | Implemented dengan reuse diagnosis existing sesuai persetujuan user; 281 test lulus, 2416 assertions; smoke migration/Repair MySQL 8.4.3 lulus; migration task 6 belum diterapkan ke database aplikasi |
