@@ -31,8 +31,8 @@ class TicketController extends Controller
 {
     public function page(Request $request)
     {
-
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage') || $request->user()?->hasPermission('aftersales.tickets.view-own'), 403);
+        $user = $request->user();
+        abort_unless(($user && TicketDocuments::canViewAll($user)) || $user?->hasPermission('aftersales.tickets.view-own'), 403);
 
         $this->pageTitle = 'Tickets';
 
@@ -99,7 +99,7 @@ class TicketController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user?->hasPermission('aftersales.tickets.manage')
+            ($user && TicketDocuments::canViewAll($user))
             || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
             403
         );
@@ -141,7 +141,7 @@ class TicketController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $isManager = (bool) $user?->hasPermission('aftersales.tickets.manage');
+        $isManager = $user && TicketDocuments::canViewAll($user);
 
         $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
         abort_unless($isManager || $ownOnly, 403);
@@ -233,9 +233,8 @@ class TicketController extends Controller
     public function show(Request $request, Ticket $ticket)
     {
         $user = $request->user();
-        // admin/supervisor see any ticket; a technician only their own (UC-02)
         abort_unless(
-            $user?->hasPermission('aftersales.tickets.manage')
+            ($user && TicketDocuments::canViewAll($user))
             || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
             403
         );
@@ -251,7 +250,7 @@ class TicketController extends Controller
             'satisfactions.answers', 'surveyLink',
         ]);
 
-        $isManager = (bool) $user->hasPermission('aftersales.tickets.manage');
+        $isManager = TicketDocuments::canViewAll($user);
         $ticket->makeHidden($isManager ? ['satisfactions'] : ['satisfactions', 'satisfaction']);
         $data = $ticket->toArray();
         unset($data['satisfactions']);
@@ -285,8 +284,33 @@ class TicketController extends Controller
                 'aging_days' => $ticket->aging_days,
                 'sla_status' => $ticket->sla_status,
                 'total_cost' => $ticket->total_cost,
+                'capabilities' => $this->capabilities($user, $ticket),
             ]),
         ]);
+    }
+
+    private function capabilities(\App\Models\User $user, Ticket $ticket): array
+    {
+        $manage = (bool) $user->hasPermission('aftersales.tickets.manage');
+        $own = $ticket->assigned_technician_id === $user->id;
+        $open = $ticket->progress !== TicketLog::STEP_CLOSED;
+        $docs = fn ($doc) => $doc ? TicketDocuments::can($user, $ticket, $doc) : [];
+        $form = $docs($ticket->serviceForm);
+        $agreement = $docs($ticket->agreement);
+
+        return [
+            'can_edit' => $manage,
+            'can_assign' => (bool) $user->hasPermission('aftersales.tickets.assign'),
+            'can_schedule' => $manage,
+            'can_reschedule' => $this->canReschedule($ticket) && ($manage || ($own && $user->hasPermission('aftersales.tickets.recoming'))),
+            'can_trigger_recoming' => $open && ($manage || ($own && $user->hasPermission('aftersales.tickets.recoming'))),
+            'can_unlock_service_form' => $manage && ! empty($form['unlock']),
+            'can_fill_service_form' => ! empty($form['fill']),
+            'can_sign_service_form' => ! empty($form['sign_supervisor']),
+            'can_sign_agreement' => ! empty($agreement['sign_supervisor']),
+            'can_record_happy_call' => $manage && $open && $ticket->progress !== TicketLog::STEP_RECOMING,
+            'can_close' => $open && $user->hasPermission('aftersales.tickets.close'),
+        ];
     }
 
     /** Users eligible to supervise new tickets. Existing assignments are retained. */

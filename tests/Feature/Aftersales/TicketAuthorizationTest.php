@@ -66,11 +66,30 @@ class TicketAuthorizationTest extends TestCase
     public function test_supervisor_string_id_is_normalized_without_granting_other_users_access(): void
     {
         $ticket = (new Ticket)->setRawAttributes(['supervisor_id' => '55']);
-        $supervisor = $this->userWithPermissions(55, ['aftersales.tickets.manage']);
-        $other = $this->userWithPermissions(54, ['aftersales.tickets.manage']);
+        $supervisor = $this->userWithPermissions(55, ['aftersales.documents.sign']);
+        $other = $this->userWithPermissions(54, ['aftersales.documents.sign']);
 
         $this->assertTrue(TicketDocuments::isSupervisor($supervisor, $ticket));
         $this->assertFalse(TicketDocuments::isSupervisor($other, $ticket));
+    }
+
+    public function test_admin_who_is_ticket_supervisor_cannot_sign_without_sign_permission(): void
+    {
+        $ticket = (new Ticket)->setRawAttributes(['supervisor_id' => '55']);
+        $admin = $this->userWithPermissions(55, ['aftersales.tickets.manage']);
+
+        $this->assertFalse(TicketDocuments::isSupervisor($admin, $ticket));
+    }
+
+    public function test_view_all_grants_read_access_to_any_ticket_without_manage_rights(): void
+    {
+        $ticket = (new Ticket)->setRawAttributes(['assigned_technician_id' => '56']);
+        $reader = $this->userWithPermissions(99, ['aftersales.tickets.view-all']);
+
+        TicketDocuments::authorizeView($reader, $ticket);
+        $this->assertTrue(TicketDocuments::canViewAll($reader));
+        $this->assertFalse(TicketDocuments::isManager($reader));
+        $this->assertFalse(TicketDocuments::canViewAll($this->userWithPermissions(98, ['aftersales.tickets.view-own'])));
     }
 
     public function test_null_assignment_and_supervisor_remain_null(): void

@@ -29,7 +29,7 @@ class RolePermissionSeeder extends Seeder
         $map = [
             'super_admin' => collect($permissions)
                 ->reject(function ($id, $code) {
-                    return $code === 'leads.my';
+                    return in_array($code, ['leads.my', 'aftersales.tickets.close'], true);
                 })
                 ->values()
                 ->all(),
@@ -66,7 +66,6 @@ class RolePermissionSeeder extends Seeder
                 $permissions['aftersales.customer-phone.change'] ?? null,
                 $permissions['aftersales.tickets.manage'] ?? null,
                 $permissions['aftersales.tickets.assign'] ?? null,
-                $permissions['aftersales.tickets.close'] ?? null,
                 $permissions['aftersales.documentation.submit'] ?? null,
                 $permissions['aftersales.satisfaction.submit'] ?? null,
                 $permissions['aftersales.work-orders.issue'] ?? null,
@@ -78,7 +77,6 @@ class RolePermissionSeeder extends Seeder
             ],
             'technician' => [
                 $permissions['dashboard'] ?? null,
-                $permissions['aftersales.tickets.recoming'] ?? null,
                 $permissions['aftersales.survey-link.share'] ?? null,
                 $permissions['aftersales.documentation.submit'] ?? null,
                 $permissions['aftersales.tickets.view-own'] ?? null,
@@ -94,7 +92,6 @@ class RolePermissionSeeder extends Seeder
             ],
         ];
 
-        $map['supervisor_after_sales'] = $map['after_sales'];
         foreach ($map as $roleCode => $permIds) {
             if (! isset($roles[$roleCode])) {
                 continue;
@@ -108,5 +105,7 @@ class RolePermissionSeeder extends Seeder
                 ]);
             }
         }
+
+        (new AftersalesV3RoleSeeder)->run();
     }
 }

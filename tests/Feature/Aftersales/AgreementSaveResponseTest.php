@@ -217,7 +217,7 @@ class AgreementSaveResponseTest extends TestCase
 
     public function test_assigned_supervisor_can_save_and_receive_dispatch_summary(): void
     {
-        $this->login(2, ['aftersales.tickets.manage']);
+        $this->login(2, ['aftersales.documents.sign', 'aftersales.tickets.view-all']);
         $this->postJson(self::URL)->assertOk()->assertJsonPath('title', 'Saved!')->assertJsonCount(3, 'data.dispatches');
         $this->assertDatabaseHas('ticket_agreements', ['saved_by_user_id' => 2]);
     }

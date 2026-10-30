@@ -136,7 +136,7 @@ class DocumentController extends Controller
             'signatures' => TicketDocuments::signatureSummary($doc, $ticket),
             'completeness' => TicketDocuments::completeness($ticket, $type),
             'can' => TicketDocuments::can($request->user(), $ticket, $doc),
-            'dispatches' => TicketDocuments::isManager($request->user()) ? $this->dispatchRows($ticket, $type) : [],
+            'dispatches' => TicketDocuments::isManager($request->user()) || TicketDocuments::isSupervisor($request->user(), $ticket) ?$this->dispatchRows($ticket, $type) : [],
         ];
     }
 

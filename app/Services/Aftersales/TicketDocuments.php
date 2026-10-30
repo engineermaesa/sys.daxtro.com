@@ -94,8 +94,7 @@ class TicketDocuments
 
     public static function isSupervisor(User $user, Ticket $ticket): bool
     {
-        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.tickets.manage')
-            && (! $ticket->happy_call_required || $user->role?->code === 'supervisor_after_sales');
+        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.documents.sign');
     }
 
     public static function isManager(User $user): bool
@@ -103,9 +102,14 @@ class TicketDocuments
         return (bool) $user->hasPermission('aftersales.tickets.manage');
     }
 
+    public static function canViewAll(User $user): bool
+    {
+        return $user->hasPermission('aftersales.tickets.manage') || $user->hasPermission('aftersales.tickets.view-all');
+    }
+
     public static function authorizeView(User $user, Ticket $ticket): void
     {
-        abort_unless(self::isManager($user) || self::isTechnician($user, $ticket) || ($ticket->assigned_technician_id === $user->id && $user->hasPermission('aftersales.tickets.view-own')), 403);
+        abort_unless(self::canViewAll($user) || self::isTechnician($user, $ticket) || ($ticket->assigned_technician_id === $user->id && $user->hasPermission('aftersales.tickets.view-own')), 403);
     }
 
     public static function can(User $user, Ticket $ticket, TicketServiceForm|TicketAgreement $doc): array
