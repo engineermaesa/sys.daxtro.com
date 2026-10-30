@@ -200,6 +200,9 @@ class Ticket extends Model
      */
     public function hasVisitDue(): bool
     {
+        if ($this->workflow_version === self::WORKFLOW_V3 && \App\Services\Aftersales\TicketRecomings::current($this)?->recoming_type === TicketRecoming::TYPE_PHONE_CALL) {
+            return false;
+        }
         $visits = $this->relationLoaded('visits') ? $this->visits : $this->visits()->get();
         $latestVisit = $visits->sortByDesc('scheduled_at')->first();
 

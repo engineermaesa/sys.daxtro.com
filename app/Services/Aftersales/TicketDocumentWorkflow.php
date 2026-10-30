@@ -85,11 +85,17 @@ class TicketDocumentWorkflow
                 if (! $check['complete']) {
                     self::error(422, 'service_form_incomplete', $check['summary'], ['errors' => ['service_form' => $check['missing']]]);
                 }
-                $form->update(['status' => 'awaiting_spv_signature', 'saved_at' => null, 'saved_by_user_id' => null]);
+                $signedRecoming = $cycle->cycle_no > 1 && $form->signatures()->where('role', 'supervisor')->exists();
+                $form->update(['status' => $signedRecoming ? 'saved' : 'awaiting_spv_signature',
+                    'saved_at' => $signedRecoming ? now('Asia/Jakarta') : null, 'saved_by_user_id' => $signedRecoming ? $user->id : null]);
                 $cycle->update([
                     'documentation_status' => 'awaiting_spv_signature',
                     'service_form_submitted_at' => now('Asia/Jakarta'), 'service_form_submitted_by' => $user->id,
                 ]);
+                if ($signedRecoming) {
+                    app(ServiceDiagnosis::class)->lock($form);
+                    self::publish($ticket->fresh(), $cycle, $user);
+                }
 
                 return $cycle->refresh();
             });
@@ -192,8 +198,9 @@ class TicketDocumentWorkflow
             'cycle_id' => $cycle->id, 'step' => TicketLog::STEP_DOCUMENTATION_PUBLISHED,
             'actor_user_id' => $user->id, 'note' => 'Auto: Service Form and Agreement signed by SPV Technician',
         ]);
-        $link = SatisfactionLink::issue($ticket, $user->id);
-        $publication->update(['ticket_log_id' => $log->id, 'satisfaction_link_id' => $link->id]);
+        $phone = TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
+        $link = $phone ? null : SatisfactionLink::issue($ticket, $user->id);
+        $publication->update(['ticket_log_id' => $log->id, 'satisfaction_link_id' => $link?->id]);
         $cycle->update(['documentation_status' => 'documentation_published']);
         TicketDocuments::queuePublication($ticket, $publication->id);
     }

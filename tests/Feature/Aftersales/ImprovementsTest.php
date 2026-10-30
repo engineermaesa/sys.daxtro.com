@@ -945,6 +945,7 @@ class ImprovementsTest extends TestCase
             $t->timestamps();
         });
         Schema::table('ticket_visits', fn (Blueprint $t) => $t->timestamps());
+        (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
         Schema::table('satisfaction_links', function (Blueprint $t) {
             $t->string('status')->default('inactive');
             $t->timestamps();
@@ -966,7 +967,7 @@ class ImprovementsTest extends TestCase
         $initial = $ticket->currentCycle;
         $ticket->logs()->create(['step' => 'repair']);
         $url = '/api/aftersales/tickets/'.$id;
-        $response = $this->postJson($url.'/recoming', ['reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+        $response = $this->postJson($url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
             ->assertCreated();
         $cycle = $ticket->fresh()->currentCycle;
         $this->assertSame(2, $cycle->cycle_no);

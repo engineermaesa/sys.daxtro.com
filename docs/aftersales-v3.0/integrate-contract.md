@@ -287,7 +287,7 @@ Migration: `2026_10_30_000000_create_ticket_cycles.php`. Jalankan lewat `php art
 
 #### 3.15 Keputusan dan alur v3
 
-User memilih **default PRD v3 untuk OQ-02/03/09/10**: kunjungan awal memakai Send to SPV; Technician bersama Customer tetap mengisi klausul Agreement; tanda tangan Technician/Customer tetap wajib; PDF, lock, dan email tetap berlaku. Badge/modal `Saved!` tidak dipakai pada workflow v3. Pelestarian tanda tangan saat unlock Recoming masih masuk Task 5.
+User memilih **default PRD v3 untuk OQ-02/03/09/10**: kunjungan awal memakai Send to SPV; Technician bersama Customer tetap mengisi klausul Agreement; tanda tangan Technician/Customer tetap wajib; PDF, lock, dan email tetap berlaku. Badge/modal `Saved!` tidak dipakai pada workflow v3. Pelestarian tanda tangan saat unlock Recoming sudah ditambahkan pada Task 5 (§3.24).
 
 Aturan baru berlaku untuk `workflow_version: "v3"`. Ticket `legacy` mempertahankan draft/save, tanda tangan, publikasi, dan response lama, termasuk modal Agreement `Saved!`.
 
@@ -356,7 +356,7 @@ Error workflow baru memakai `{"status":"error","code":"...","message":"..."}`. E
 | 409 | `manual_documentation_disabled` | Endpoint `/documentation` manual dipakai untuk v3; tidak menulis log, part, foto, atau link |
 | 409 | `document_locked` | Tanda tangan diubah pada dokumen yang terkunci |
 | 409 | `cycle_already_published` | Mengedit/mengirim ulang siklus published setelah unlock; jadwalkan siklus Recoming baru |
-| 409 | `agreement_already_published` | Unlock Agreement yang sudah published; Agreement tetap berlaku untuk Recoming |
+| 409 | `agreement_already_published` | Unlock Agreement yang sudah published atau berada pada siklus Recoming; Agreement tetap berlaku |
 | 409 | `documentation_not_published` | PDF diminta sebelum publikasi kedua dokumen selesai |
 | 422 | `service_form_incomplete` | Submit dengan field/foto/diagnosis/tanda tangan Technician atau Customer belum lengkap |
 | 422 | `document_incomplete` | Dokumen belum lengkap ketika SPV menandatangani / ketika publikasi diperiksa |
@@ -372,7 +372,7 @@ Error workflow baru memakai `{"status":"error","code":"...","message":"..."}`. E
 - Publikasi historis dari log aktif yang sudah memiliki `cycle_id` di-backfill sekali per siklus; migration tidak membuat link/email baru. Log soft-deleted atau tanpa identitas siklus tidak dianggap publikasi aktif. Link/dispatch historis tidak ditebak relasinya ke publikasi baru.
 - Rollback menghapus metadata task 4, mengembalikan pending form menjadi draft, dan memulihkan enum draft/saved. Dokumen, signature, log, survey link, dan dispatch existing dipertahankan.
 - Jalankan migration pada jendela maintenance seperti Task 3. **Sudah diterapkan ke database aplikasi lokal `local_daxx` pada 2026-10-30; production belum diverifikasi.**
-- Task 5 menangani unlock dengan pelestarian tanda tangan dan aturan Recoming baru; Task 8 menangani varian phone-call tanpa link; Task 11 menangani revision/conflict offline. SLA, Happy Call, dan Close belum berubah pada task ini.
+- Task 5 menambahkan unlock dengan pelestarian tanda tangan dan aturan Recoming baru; Task 8 menangani survey phone call; Task 11 menangani revision/conflict offline. SLA, Happy Call, dan Close belum berubah pada Task 4.
 
 #### 3.20 Verifikasi Task 4
 
@@ -380,9 +380,112 @@ Error workflow baru memakai `{"status":"error","code":"...","message":"..."}`. E
 - Smoke test **MySQL 8.4.3** pada database sementara: perluasan/pemulihan enum status, backfill publikasi, unique per siklus, FK lintas ticket, dan down/up **lulus**. Database sementara dihapus; database aplikasi tidak diubah.
 - Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 255 tests, 2009 assertions** (SQLite in-memory). Test khusus v3: **16 tests, 216 assertions**. Pemeriksaan formatter PHP pada file task 4 dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap masuk Task 12.
 
+### Task 5 — Recoming v3 dan pelestarian tanda tangan (AS-REC-01/03/06/07) · IMPLEMENTED
+
+#### 3.21 Keputusan dan kompatibilitas
+
+User memilih **default PRD untuk OQ-06**: jadwal phone call dicatat manual dengan tanggal/jam tersendiri, tanpa integrasi telepon, Technician mengikuti ticket awal. Foto dan part tidak wajib untuk phone call. Default OQ-10 yang telah disepakati juga diterapkan: tanda tangan SPV, Technician, dan Customer dipertahankan saat unlock Service Form untuk Recoming.
+
+Tipe baru berlaku untuk ticket `v3`. Ticket `legacy` tetap menerima request visit-site lama tanpa `recoming_type`; `phone_call` ditolak pada workflow legacy. Semua aksi create/reschedule kini memerlukan `aftersales.tickets.manage` langsung di controller, termasuk legacy. Permission Technician lama `aftersales.tickets.recoming` tidak dapat dipakai untuk melewati guard tersebut.
+
+Reason untuk **request baru**, baik v3 maupun legacy:
+
+| Nilai API | Label |
+|---|---|
+| `sparepart_unavailable` | Part unavailable |
+| `further_work_needed` | Further work needed |
+| `site_access` | Site access or condition |
+| `unfinished_previous_work` | Unfinished from previous work |
+
+`other` historis, termasuk row soft-deleted, dipertahankan dan tetap terbaca. Memilih `other` untuk request baru menghasilkan Laravel 422 `errors.reason`.
+
+#### 3.22 Create Recoming
+
+`POST /tickets/{ticket}/recoming` — permission `aftersales.tickets.manage`, sukses **201**. Untuk v3:
+
+| Field | Aturan |
+|---|---|
+| `recoming_type` | Wajib: `phone_call` / `visit_site` |
+| `reason` | Wajib, salah satu empat nilai di §3.21 |
+| `planned_visit_at` | Wajib hanya untuk `visit_site`; tanggal hari ini atau sesudahnya; dilarang terisi untuk phone call |
+| `planned_call_at` | Wajib hanya untuk `phone_call`; tanggal **dan jam**, tidak boleh sebelum waktu sekarang; dilarang terisi untuk visit site |
+| `notes` | Opsional, string maksimal 10000 |
+| `assigned_technician_id`, `supervisor_id` | Dilarang terisi; assignment mengikuti ticket awal |
+
+Waktu tanpa timezone dianggap Asia/Jakarta. `planned_call_at` menerima SQL datetime (`2026-11-01 14:30:00`), `datetime-local` (`2026-11-01T14:30`), dan ISO dengan offset/UTC termasuk pecahan detik (`2026-11-01T07:30:00.000Z`). Tanggal tanpa jam ditolak.
+
+Request phone call yang diuji:
+
+```json
+{"recoming_type":"phone_call","reason":"unfinished_previous_work","planned_call_at":"2026-11-01 14:30:00"}
+```
+
+Response (subset):
+
+```json
+{"message":"Recoming scheduled successfully","data":{"data":{"id":1,"ticket_id":1,"cycle_id":2,"recoming_type":"phone_call","visit_no":null,"ticket_visit_id":null,"planned_visit_at":null,"planned_call_at":"2026-11-01T07:30:00.000000Z","reason":"unfinished_previous_work","from_step":"repair","created_by_user_id":1}}}
+```
+
+Request visit site:
+
+```json
+{"recoming_type":"visit_site","reason":"further_work_needed","planned_visit_at":"2026-11-01 09:00:00","notes":"Follow-up at customer site"}
+```
+
+- Create v3 boleh dari progress mana pun sebelum Closed, selama bukan Recoming yang masih aktif dan Service Form telah di-unlock. Request saat masih Recoming ditolak 422; gunakan reschedule untuk siklus aktif.
+- `visit_site` membuat tepat satu `ticket_visits` yang menunjuk siklus baru. `ticket_visit_id` adalah ID visit tersebut; `visit_no` mengikuti jumlah visit fisik, bukan nomor siklus.
+- `phone_call` **tidak membuat visit fisik**. `visit_no`, `ticket_visit_id`, dan `planned_visit_at` bernilai null; `planned_call_at` menyimpan jadwal telepon.
+- Alokasi siklus, visit fisik jika diperlukan, Recoming, deaktivasi survey link lama, dan log dilakukan dalam satu transaksi dengan row lock ticket. Kegagalan membatalkan seluruh perubahan. Agreement dan assignment tidak diubah.
+
+#### 3.23 Reschedule, read API, dan capability
+
+`POST /tickets/{ticket}/recoming/reschedule` — hanya Admin melalui `aftersales.tickets.manage`. Request hanya membawa jadwal sesuai tipe existing, serta `note` opsional maksimal 1000:
+
+```json
+{"planned_call_at":"2026-11-02T04:00:00.000Z","note":"Customer requested a later call"}
+```
+
+Untuk visit site gunakan `planned_visit_at`. `recoming_type` tidak dapat diubah melalui reschedule. Sukses **200** dengan `{"message":"Follow-up schedule rescheduled successfully","data":{"data":{...recoming...}}}`. ID Recoming, siklus, dan visit tetap sama.
+
+- Reschedule hanya saat progress masih Recoming dan **sebelum hari jadwal tiba** menurut Asia/Jakarta, untuk kedua tipe. Pada hari jadwal itu sendiri atau setelah Repair, ditolak 422. Guard diperiksa ulang setelah ticket dikunci.
+- `POST /tickets/{ticket}/visits` tidak dapat dipakai untuk melewati batas reschedule: pada siklus Recoming v3 visit-site, endpoint ini menggunakan guard yang sama dan mengubah visit yang ditautkan. Setelah Repair/publikasi, perubahan jadwal visit siklus itu ditolak; buat siklus baru untuk kunjungan berikutnya.
+- Pada siklus phone call, `/visits` dan `/on-site` ditolak **409 `phone_call_has_no_visit`**. Untuk pekerjaan fisik selanjutnya, jadwalkan siklus Recoming `visit_site` baru.
+- Reschedule visit-site dengan relasi visit yang hilang ditolak 409; tidak menebak atau mengubah visit lain. Pergantian siklus di tengah request juga ditolak 409. Error validasi input memakai format Laravel 422; user selain Admin mendapat 403.
+- Nested `recomings[]` serta `current_recoming` pada list/detail ticket membawa `recoming_type`, `planned_call_at`, dan `ticket_visit_id`, di samping field existing. `current_recoming` tetap hanya non-null saat progress Recoming.
+- `visit_history` dan `visit_date` tetap berkaitan dengan visit fisik. Phone call tidak ditampilkan sebagai kunjungan fisik baru; jadwal telepon dibaca dari `planned_call_at`.
+- `capabilities.can_trigger_recoming` hanya untuk Admin pada ticket terbuka yang tidak sedang Recoming. `can_reschedule` hanya untuk Admin dan jadwal yang masih boleh dipindah. `can_schedule` false pada phone-call dan pada siklus visit-site yang sudah tidak boleh di-reschedule.
+- Scheduler existing tidak membawa phone call ke On Site berdasarkan visit lama. Perubahan penuh progress Repair pada edit pertama dan perilaku `ResumeRecomingTickets` untuk workflow v3 dilengkapi di Task 6.
+
+#### 3.24 Unlock dan submit ulang
+
+`POST /tickets/{ticket}/documents/service_form/unlock` tetap Admin-only. Untuk form v3 yang sudah published atau berada pada siklus Recoming, **semua tanda tangan existing dipertahankan**, termasuk ID, nama/actor, waktu, dan file PNG. Isian inspeksi/diagnosis serta Agreement tidak dihapus atau dibuat ulang.
+
+- Unlock sebelum menjadwalkan Recoming tetap diperlukan (RC-04). Unlock tidak membuat siklus baru. Publikasi lama tetap tercatat; mengedit ulang sebelum siklus baru dijadwalkan tetap diblok.
+- Setelah siklus lanjutan mencapai progress yang mengizinkan submit, Technician memakai `POST .../service-form/submit` existing. Jika tanda tangan SPV masih ada dan form lengkap, sistem menyimpan form lalu memublikasikan siklus tersebut lewat jalur idempotent Task 4, **tanpa tanda tangan SPV baru**. Agreement lama tetap berlaku.
+- Untuk `visit_site`, publikasi siklus baru menerbitkan satu link survey baru. Untuk `phone_call`, publisher tidak menerbitkan link site; metadata publikasi memiliki `satisfaction_link_id: null`. Template dan pencatatan survey phone call tetap Task 8.
+- Pada phone call, pemeriksaan kelengkapan tidak mewajibkan foto inspeksi/diagnosis. `groups[].items[].fields[].photo_required` bernilai false dan `diagnosis.photos_required` false pada response Service Form. Visit site tetap mengikuti ketentuan foto existing.
+- Unlock koreksi sebelum publikasi pertama pada siklus awal tetap menghapus signature form yang dikoreksi. Unlock pada workflow legacy juga mempertahankan perilaku lama (menghapus signature). Pelestarian Recoming tidak diterapkan secara retroaktif pada ticket legacy.
+
+#### 3.25 Migration dan batas task
+
+Migration baru: `2026_10_30_000200_add_recoming_v3_scheduling.php`.
+
+- `ticket_recomings`: tambah `recoming_type` default `visit_site`, `planned_call_at` nullable/index, `ticket_visit_id` nullable/FK; `visit_no` dan `planned_visit_at` menjadi nullable; `reason` diperluas menjadi string untuk reason baru.
+- Data lama, termasuk soft-deleted, tetap visit-site dan reason historis tidak diubah. Relasi visit hanya di-backfill bila ada **tepat satu** visit dengan ticket dan `cycle_id` yang sama. Mapping yang ambigu tetap null; jalur legacy mempertahankan perilaku reschedule existing.
+- Rollback mengembalikan schema lama bila datanya masih kompatibel. Jika sudah ada phone call, reason `unfinished_previous_work`, atau jadwal/visit_no null, rollback **ditolak sebelum perubahan schema**. Data baru perlu dipertahankan/diekspor dan ditangani dengan migration rollback eksplisit; tidak ada konversi jadwal telepon menjadi visit palsu atau penghapusan data otomatis.
+- **Belum dijalankan pada database aplikasi lokal `local_daxx`**. Tidak ada seeder/permission baru pada task ini.
+- Task 6 tetap mencakup temuan Problem/Root Cause/Action serta Repair pada edit pertama. Task 7 mencakup setup/perhitungan SLA Recoming. Task 8 mencakup template/response survey phone call. Task 5 tidak membuat integrasi telepon atau pencatatan survey otomatis.
+
+#### 3.26 Verifikasi Task 5
+
+- `RecomingV3Test`: pemisahan call/visit, timezone dan format datetime FE, empat reason, penolakan perubahan assignment, guard Admin meskipun Technician memiliki permission lama, kedua jalur reschedule dan cutoff hari/Repair, tidak ada On Site dari visit lama, rollback transaksi, kompatibilitas legacy, dan migration roundtrip/proteksi rollback.
+- `DocumentWorkflowV3Test`: signature/file/Agreement tidak berubah setelah unlock dan submit Recoming; publikasi baru tanpa sign SPV ulang; foto phone call opsional; tidak ada link survey site untuk phone call; koreksi awal dan legacy tetap sesuai guard lama.
+- Smoke test **MySQL 8.4.3** pada database sementara: migration up, backfill data aktif/soft-deleted, penyimpanan phone call/reason baru, penolakan rollback yang membuang data, down/up kompatibel, dan penolakan mapping visit ambigu **lulus**. Database uji telah dihapus; database aplikasi tidak diubah.
+- Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 268 tests, 2154 assertions** (SQLite in-memory). Formatter PHP pada file task 5 dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 5–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 6–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -393,3 +496,4 @@ Task 5–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 | 2026-10-30 | Task 3: Fondasi siklus, relasi, workflow legacy/v3 | Implemented; 239 test lulus, 1793 assertions; smoke migration MySQL 8.4.3 lulus pada DB sementara; default OQ-19; belum migrate database aplikasi |
 | 2026-10-30 | Task 4: Submit, sign, publish dokumen per siklus | Implemented; 255 test lulus, 2009 assertions; default OQ-02/03/09/10 disetujui user; smoke migration MySQL 8.4.3 lulus; belum migrate database aplikasi |
 | 2026-10-30 | Penerapan lokal task 1–4 | Empat migration pending dan `AftersalesV3RoleSeeder` berhasil pada `local_daxx`; cache dibersihkan, aplikasi kembali live, tidak ada migration pending. Verifikasi: 16 ticket legacy memiliki 16 siklus awal; Close hanya Head. Belum ada user aktif ber-role Head; assignment user tetap manual. Status penerapan lokal pada baris ini memperbarui catatan pending deployment sebelumnya. |
+| 2026-10-30 | Task 5: Recoming v3, jadwal call/visit, signature reuse | Implemented; 268 test lulus, 2154 assertions; default OQ-06/10 disetujui user; smoke migration MySQL 8.4.3 lulus; migration task 5 belum diterapkan ke database aplikasi |

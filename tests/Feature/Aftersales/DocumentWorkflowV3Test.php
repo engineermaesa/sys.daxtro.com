@@ -71,6 +71,14 @@ class DocumentWorkflowV3Test extends TestCase
                     $t->timestamp('scheduled_at')->nullable();
                     $t->timestamp('actual_start')->nullable();
                 }
+                if ($name === 'ticket_recomings') {
+                    $t->unsignedInteger('visit_no');
+                    $t->enum('reason', ['sparepart_unavailable', 'further_work_needed', 'site_access', 'other']);
+                    $t->timestamp('planned_visit_at');
+                    $t->string('from_step');
+                    $t->text('notes')->nullable();
+                    $t->unsignedBigInteger('created_by_user_id');
+                }
                 $t->timestamps();
                 $t->softDeletes();
             });
@@ -110,6 +118,8 @@ class DocumentWorkflowV3Test extends TestCase
                 $t->timestamp('saved_at')->nullable();
                 $t->timestamp('first_draft_at')->nullable();
                 $t->unsignedBigInteger('saved_by_user_id')->nullable();
+                $t->timestamp('unlocked_at')->nullable();
+                $t->unsignedBigInteger('unlocked_by_user_id')->nullable();
                 $t->timestamps();
                 $t->softDeletes();
             });
@@ -173,6 +183,14 @@ class DocumentWorkflowV3Test extends TestCase
         });
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
         (require database_path('migrations/2026_10_30_000100_add_document_publication_workflow.php'))->up();
+        (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
+        Schema::create('user_activity_logs', function (Blueprint $t) {
+            $t->id();
+            foreach (['user_id', 'action', 'model_type', 'model_id', 'description', 'data', 'ip_address', 'user_agent'] as $field) {
+                $t->text($field)->nullable();
+            }
+            $t->timestamps();
+        });
         foreach ([1 => 'Technician', 2 => 'SPV', 3 => 'Admin', 4 => 'Head', 5 => 'Other SPV', 6 => 'Other technician'] as $id => $name) {
             DB::table('users')->insert(['id' => $id, 'name' => $name, 'email' => 'user'.$id.'@example.com']);
         }
@@ -440,5 +458,62 @@ class DocumentWorkflowV3Test extends TestCase
         $this->postJson($this->url.'/service-form/submit')->assertOk();
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         \App\Services\Aftersales\TicketDocuments::attachPhoto($value, \Illuminate\Http\UploadedFile::fake()->image('photo.jpg'), Ticket::first(), 1);
+    }
+
+    public function test_unlock_and_recoming_resubmit_preserve_signatures_form_and_agreement(): void
+    {
+        $this->publishInOrder(['service_form', 'agreement']);
+        $signatures = DB::table('ticket_signatures')->orderBy('id')->get()->toJson();
+        $agreement = DB::table('ticket_agreements')->first();
+        $files = Storage::disk('local')->allFiles('ticket-signatures');
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk()->assertJsonPath('data.locked', false);
+        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
+        $this->assertSame($files, Storage::disk('local')->allFiles('ticket-signatures'));
+        $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
+        $this->postJson($this->url.'/documents/agreement/unlock')->assertConflict()->assertJsonPath('code', 'agreement_already_published');
+        Ticket::first()->logs()->create(['step' => 'repair']);
+        $this->login(1);
+        $this->postJson($this->url.'/service-form/submit')->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->postJson($this->url.'/service-form/submit')->assertOk();
+        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
+        $this->assertEquals($agreement, DB::table('ticket_agreements')->first());
+        $this->assertDatabaseCount('ticket_service_forms', 1);
+        $this->assertDatabaseCount('ticket_agreements', 1);
+        $this->assertDatabaseCount('ticket_document_publications', 2);
+        $this->assertDatabaseCount('satisfaction_links', 2);
+        $this->assertDatabaseHas('tickets', ['assigned_technician_id' => 1]);
+        Queue::assertPushed(SendTicketDocumentEmail::class, 12);
+    }
+
+    public function test_phone_call_publication_does_not_issue_a_site_survey_link(): void
+    {
+        $this->publishInOrder(['service_form', 'agreement']);
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
+        $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
+        // Repair-on-first-edit is Task 6; this test isolates publication after that transition.
+        Ticket::first()->logs()->create(['step' => 'repair']);
+        DB::table('ticket_photos')->delete(); // OQ-06: phone-call completion must not require site photos.
+        $this->login(1);
+        $this->postJson($this->url.'/service-form/submit')->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->assertDatabaseCount('satisfaction_links', 1);
+        $this->assertDatabaseHas('ticket_document_publications', ['cycle_id' => 2, 'satisfaction_link_id' => null]);
+        $this->assertDatabaseCount('ticket_visits', 0);
+    }
+
+    public function test_initial_pending_unlock_clears_signatures_and_legacy_unlock_remains_unchanged(): void
+    {
+        $this->prepare();
+        $this->postJson($this->url.'/service-form/submit')->assertOk();
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
+        $this->assertDatabaseCount('ticket_signatures', 2);
+        $this->assertDatabaseHas('ticket_cycles', ['documentation_status' => 'incomplete', 'service_form_submitted_at' => null]);
+        $this->assertDatabaseHas('ticket_service_forms', ['status' => 'draft']);
+        DB::table('tickets')->update(['workflow_version' => 'legacy']);
+        DB::table('ticket_agreements')->update(['status' => 'saved']);
+        $this->postJson($this->url.'/documents/agreement/unlock')->assertOk();
+        $this->assertDatabaseCount('ticket_signatures', 0);
     }
 }

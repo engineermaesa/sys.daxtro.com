@@ -133,7 +133,7 @@ class TicketDocuments
                 'save' => false,
                 'submit' => $doc instanceof TicketServiceForm && TicketDocumentWorkflow::canSubmit($ticket, $doc, $user),
                 'unlock' => $open && $doc->isLocked() && self::isManager($user)
-                    && ($doc instanceof TicketServiceForm || ! $published),
+                    && ($doc instanceof TicketServiceForm || (! $published && $cycle?->cycle_no <= 1)),
                 'download_copies' => self::isManager($user) ? array_keys(TicketDocumentDispatch::COPY_LABELS) : ($tech ? ['technician'] : []),
             ];
         }
@@ -158,6 +158,8 @@ class TicketDocuments
 
     public static function formStructure(Ticket $ticket, TicketServiceForm $form): array
     {
+        $phoneCall = TicketDocumentWorkflow::enabled($ticket)
+            && TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
         $typeId = $ticket->customerProduct?->ref_product_type_id;
         $inspections = $form->inspections()->with('values.photo')->get()->keyBy('ref_inspection_item_id');
 
@@ -168,7 +170,7 @@ class TicketDocuments
             $status = $applicable ? $inspection?->status : 'na';
             $values = $inspection?->values->keyBy('ref_inspection_field_id') ?? collect();
 
-            $fields = $item->fields->map(function (RefInspectionField $field) use ($values, $ticket) {
+            $fields = $item->fields->map(function (RefInspectionField $field) use ($values, $ticket, $phoneCall) {
                 $value = $values->get($field->id);
                 $photo = $value?->photo;
 
@@ -185,7 +187,7 @@ class TicketDocuments
                     'options' => $field->options,
                     'required_when' => $field->required_when,
                     'value' => $field->is_multiple && $value?->value ? json_decode($value->value, true) : $value?->value,
-                    'photo_required' => $field->type === RefInspectionField::TYPE_NUMBER,
+                    'photo_required' => ! $phoneCall && $field->type === RefInspectionField::TYPE_NUMBER,
                     'photo' => $photo ? [
                         'id' => $photo->id,
                         'captured_at' => $photo->captured_at,
@@ -219,6 +221,8 @@ class TicketDocuments
         $counts = [];
 
         if ($type === self::TYPE_FORM) {
+            $phoneCall = TicketDocumentWorkflow::enabled($ticket)
+                && TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
             $product = $ticket->customerProduct;
             $unitMissing = collect(self::UNIT_FIELDS)->filter(fn ($f) => blank($product?->{$f}))->values()->all();
             if (blank($ticket->service_type)) {
@@ -248,7 +252,7 @@ class TicketDocuments
                             || ($field['required_when'] && in_array($field['required_when'], $checklistValues, true));
                         if ($required && blank($field['value'])) {
                             $emptyFields++;
-                        } elseif ($field['type'] === RefInspectionField::TYPE_NUMBER && filled($field['value']) && ! $field['photo']) {
+                        } elseif (! $phoneCall && $field['type'] === RefInspectionField::TYPE_NUMBER && filled($field['value']) && ! $field['photo']) {
                             $noPhoto++;
                         }
                     }
@@ -258,7 +262,7 @@ class TicketDocuments
             $unfilled && $missing[] = "{$unfilled} inspection item(s) have no status";
             $emptyFields && $missing[] = "{$emptyFields} field(s) are empty";
             $noPhoto && $missing[] = "{$noPhoto} number field(s) have no photo";
-            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc));
+            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc, ! $phoneCall));
         } else {
             $keys = $doc->template->clauseKeys();
             $unchecked = count(array_diff($keys, $doc->accepted_clauses ?? []));
@@ -627,18 +631,24 @@ class TicketDocuments
         abort_if(! $doc->isLocked(), 422, 'This document is not saved.');
 
         DB::transaction(function () use ($doc, $user, $type, $ticket) {
+            $preserveSignatures = false;
             if (TicketDocumentWorkflow::enabled($ticket)) {
                 $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
                 abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
                 $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
-                if ($type === self::TYPE_AGREEMENT && TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                if ($type === self::TYPE_AGREEMENT && ($ticket->currentCycle->cycle_no > 1 || TicketDocumentWorkflow::status($ticket) === 'documentation_published')) {
                     TicketDocumentWorkflow::error(409, 'agreement_already_published', 'The published Agreement remains valid for Recoming.');
                 }
+                $preserveSignatures = $type === self::TYPE_FORM
+                    && ($ticket->currentCycle->cycle_no > 1 || TicketDocumentWorkflow::status($ticket) === 'documentation_published');
                 if (TicketDocumentWorkflow::status($ticket) !== 'documentation_published') {
                     $ticket->currentCycle()->update(['documentation_status' => 'incomplete', 'service_form_submitted_at' => null, 'service_form_submitted_by' => null]);
                 }
             }
-            $doc->signatures()->get()->each(function (TicketSignature $s) use ($ticket) {
+            $doc->signatures()->get()->each(function (TicketSignature $s) use ($ticket, $preserveSignatures) {
+                if ($preserveSignatures) {
+                    return;
+                }
                 if (TicketDocumentWorkflow::enabled($ticket)) {
                     DB::afterCommit(fn () => Storage::disk('local')->delete($s->file_path));
                 } else {

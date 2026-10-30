@@ -32,7 +32,9 @@ class ServiceDiagnosis
         $visit = $ticket->visits()->orderByDesc('scheduled_at')->first();
         $date = ($visit?->actual_start ?? $visit?->scheduled_at ?? now('Asia/Jakarta'))->copy()->timezone('Asia/Jakarta');
 
-        return ['title' => $form->template->diagnosis_section_title, 'legacy' => (bool) $form->legacy_without_diagnosis && $form->isLocked() && $entries->isEmpty(),
+        return ['title' => $form->template->diagnosis_section_title,
+            'photos_required' => ! TicketDocumentWorkflow::enabled($ticket) || TicketRecomings::current($ticket)?->recoming_type !== \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL,
+            'legacy' => (bool) $form->legacy_without_diagnosis && $form->isLocked() && $entries->isEmpty(),
             'fields' => collect(self::FIELDS)->map(fn ($field) => [
                 'key' => $field, 'label' => $form->template->diagnosis_fields[$field]['label'], 'hint' => $form->template->diagnosis_fields[$field]['hint'],
                 'visit_date' => $date->toDateString(), 'visit_time' => $date->format('H:i'),
@@ -61,7 +63,7 @@ class ServiceDiagnosis
         }, 3);
     }
 
-    public function missing(TicketServiceForm $form): array
+    public function missing(TicketServiceForm $form, bool $requirePhotos = true): array
     {
         if ($form->legacy_without_diagnosis && $form->isLocked()) {
             return [];
@@ -75,9 +77,11 @@ class ServiceDiagnosis
             if ($entries->contains(fn ($e) => ! $e->locked_at && blank($e->body))) {
                 $missing[] = "$field new visit note must contain diagnosis text";
             }
-            $count = $form->diagnosisPhotos()->where('diagnosis_field', $field)->count();
-            if ($count < 1 || $count > 5) {
-                $missing[] = "$field requires 1–5 diagnosis photos";
+            if ($requirePhotos) {
+                $count = $form->diagnosisPhotos()->where('diagnosis_field', $field)->count();
+                if ($count < 1 || $count > 5) {
+                    $missing[] = "$field requires 1–5 diagnosis photos";
+                }
             }
         }
 

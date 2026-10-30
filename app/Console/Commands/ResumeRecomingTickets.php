@@ -16,7 +16,7 @@ class ResumeRecomingTickets extends Command
     {
         $count = 0;
 
-        Ticket::with(['logs', 'visits'])
+        Ticket::with(['logs', 'visits', 'recomings'])
             ->whereHas('logs', fn ($q) => $q->where('step', TicketLog::STEP_RECOMING))
             ->each(function (Ticket $ticket) use (&$count) {
                 if ($ticket->progress !== TicketLog::STEP_RECOMING || ! $ticket->hasVisitDue()) {
