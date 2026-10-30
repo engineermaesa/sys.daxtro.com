@@ -963,6 +963,44 @@ class ImprovementsTest extends TestCase
         }
     }
 
+    public function test_technician_sees_only_valid_ticket_score_and_cannot_select_another_owner(): void
+    {
+        $this->ticketContactTables();
+        Schema::table('ticket_satisfactions', function (Blueprint $t) {
+            $t->timestamp('filled_at')->nullable();
+            $t->text('feedback')->nullable();
+            $t->text('review_note')->nullable();
+            $t->string('source')->default('link');
+        });
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $this->actingAs($this->user());
+        $id = $this->postJson('/api/aftersales/tickets', $this->ticketContactInput($customer, $machine))->assertCreated()->json('data.data.id');
+        DB::table('tickets')->where('id', $id)->update(['assigned_technician_id' => 1]);
+        foreach (['ticket_service_forms', 'ticket_agreements', 'ticket_work_orders'] as $table) {
+            DB::table($table)->insert(['ticket_id' => $id]);
+        }
+        $response = TicketSatisfaction::create(['ticket_id' => $id, 'source' => 'link', 'review_status' => 'normal', 'timeliness' => 2,
+            'filled_at' => now(), 'feedback' => 'SECRET-CUSTOMER-ANSWER', 'review_note' => 'SECRET-REVIEW-NOTE']);
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->forceFill(['id' => 1]);
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $code === 'aftersales.tickets.view-own');
+        $this->actingAs($user);
+        $list = $this->getJson('/api/aftersales/tickets')->assertOk()->assertJsonPath('data.0.average_score', 2)->assertJsonCount(1, 'data');
+        $detail = $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.average_score', 2)->assertJsonPath('data.survey_responses', null);
+        foreach ([$list, $detail] as $result) {
+            $this->assertStringNotContainsString('SECRET-', $result->getContent());
+            $this->assertStringNotContainsString('"satisfaction":', $result->getContent());
+            $this->assertStringNotContainsString('"answers":', $result->getContent());
+        }
+        $this->getJson('/api/aftersales/tickets/1')->assertForbidden();
+        $this->getJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/form')->assertForbidden();
+        \App\Services\Aftersales\TicketCycles::startRecoming(Ticket::findOrFail($id));
+        $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.survey_filled', false)->assertJsonPath('data.average_score', 2);
+        $response->update(['review_status' => 'needs_review']);
+        $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.average_score', null);
+    }
+
     public function test_recoming_assigns_a_new_cycle_to_the_visit_and_log_and_rescheduling_keeps_it(): void
     {
         $this->ticketContactTables();

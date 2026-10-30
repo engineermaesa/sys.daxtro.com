@@ -203,7 +203,8 @@ class TicketDocumentWorkflow
             'actor_user_id' => $user->id, 'note' => 'Auto: Service Form and Agreement signed by SPV Technician',
         ]);
         $phone = TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
-        $link = $phone ? null : SatisfactionLink::issue($ticket, $user->id);
+        $template = TicketSurveys::pin($ticket, $cycle);
+        $link = $phone ? null : SatisfactionLink::issue($ticket, $user->id, $template);
         $publication->update(['ticket_log_id' => $log->id, 'satisfaction_link_id' => $link?->id]);
         $cycle->update(['documentation_status' => 'documentation_published']);
         TicketDocuments::queuePublication($ticket, $publication->id);

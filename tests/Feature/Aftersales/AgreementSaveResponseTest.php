@@ -155,6 +155,7 @@ class AgreementSaveResponseTest extends TestCase
         config(['app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
         Schema::create('ref_survey_templates', function (Blueprint $t) {
             $t->id();
+            $t->string('variant')->default('site');
             $t->string('status');
         });
         Schema::create('satisfaction_links', function (Blueprint $t) {

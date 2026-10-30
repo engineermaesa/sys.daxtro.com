@@ -33,7 +33,7 @@ class TechnicianScore
 
     public static function overallRating(int $userId): array
     {
-        $tickets = Ticket::where('assigned_technician_id', $userId)->with('satisfactions.answers')->get(['id', 'ticket_code']);
+        $tickets = Ticket::where('assigned_technician_id', $userId)->with('satisfactions.answers')->get();
         $rating = self::rating($tickets, null);
 
         return ['overall_rating' => $rating['rating'], 'rating_scale_max' => $rating['rating_scale_max']];
@@ -109,10 +109,11 @@ class TechnicianScore
     private static function rating(Collection $tickets, ?Carbon $since): array
     {
         $counted = self::responses($tickets, $since)->where('counted', true);
+        $values = $counted->flatMap(fn ($r) => $r['v3'] ? TicketSurveys::values($r['model']) : [$r['model']->average_score]);
 
         return [
             'rating_scale_max' => 3,
-            'rating' => $counted->isEmpty() ? null : round($counted->avg(fn ($x) => $x['model']->average_score), 1),
+            'rating' => $values->isEmpty() ? null : round($values->avg(), 1),
             'rating_count' => $counted->count(),
         ];
     }
@@ -120,22 +121,12 @@ class TechnicianScore
     private static function responses(Collection $tickets, ?Carbon $since): Collection
     {
         return $tickets->flatMap(function (Ticket $ticket) use ($since) {
-            $currentId = $ticket->satisfactions->sort(fn ($a, $b) => ($b->filled_at <=> $a->filled_at) ?: ($b->id <=> $a->id))->first()?->id;
-
             return $ticket->satisfactions
                 ->filter(fn ($s) => ! $since || ($s->filled_at && $s->filled_at >= $since))
-                ->map(function (TicketSatisfaction $s) use ($ticket, $currentId) {
-                    $reason = match (true) {
-                        $s->id !== $currentId => 'Not current',
-                        $s->source === TicketSatisfaction::SOURCE_ADMIN => 'Entered by admin',
-                        $s->source !== TicketSatisfaction::SOURCE_LINK => 'Invalid source',
-                        $s->review_status === TicketSatisfaction::REVIEW_NEEDS_REVIEW => 'Needs review',
-                        $s->review_status === TicketSatisfaction::REVIEW_REJECTED => 'Rejected',
-                        ! in_array($s->review_status, [TicketSatisfaction::REVIEW_NORMAL, TicketSatisfaction::REVIEW_REVIEWED], true) => 'Invalid review status',
-                        default => null,
-                    };
+                ->map(function (TicketSatisfaction $s) use ($ticket) {
+                    $reason = TicketSurveys::exclusion($ticket, $s);
 
-                    return ['model' => $s, 'ticket_code' => $ticket->ticket_code, 'counted' => $reason === null && $s->average_score !== null, 'reason' => $reason];
+                    return ['model' => $s, 'v3' => TicketDocumentWorkflow::enabled($ticket), 'ticket_code' => $ticket->ticket_code, 'counted' => $reason === null && $s->average_score !== null, 'reason' => $reason];
                 });
         })->sortByDesc(fn ($r) => $r['model']->filled_at)->values();
     }

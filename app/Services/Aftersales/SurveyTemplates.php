@@ -10,16 +10,18 @@ use Illuminate\Validation\ValidationException;
 
 class SurveyTemplates
 {
-    public function createDraft(User $actor): RefSurveyTemplate
+    public function createDraft(User $actor, string $variant = 'site'): RefSurveyTemplate
     {
-        return DB::transaction(function () use ($actor) {
-            $state = DB::table('survey_template_state')->where('id', 1)->lockForUpdate()->first();
+        return DB::transaction(function () use ($actor, $variant) {
+            // Serialize version allocation across both variant streams.
+            $state = DB::table('survey_template_state')->orderBy('id')->lockForUpdate()->get()->firstWhere('variant', $variant);
+            abort_unless($state, 404);
             if ($state->draft_template_id) {
                 return RefSurveyTemplate::findOrFail($state->draft_template_id);
             }
             $source = RefSurveyTemplate::findOrFail($state->active_template_id);
-            $draft = RefSurveyTemplate::create($source->only(['title', 'content']) + ['version' => RefSurveyTemplate::max('version') + 1, 'status' => 'draft', 'lock_version' => 0, 'created_by_user_id' => $actor->id, 'updated_by_user_id' => $actor->id]);
-            DB::table('survey_template_state')->where('id', 1)->update(['draft_template_id' => $draft->id]);
+            $draft = RefSurveyTemplate::create($source->only(['variant', 'title', 'content']) + ['version' => RefSurveyTemplate::max('version') + 1, 'status' => 'draft', 'lock_version' => 0, 'created_by_user_id' => $actor->id, 'updated_by_user_id' => $actor->id]);
+            DB::table('survey_template_state')->where('id', $state->id)->update(['draft_template_id' => $draft->id]);
             $this->audit($draft, $actor, 'template_draft_created', ['source_version' => $source->version]);
 
             return $draft;
@@ -33,6 +35,9 @@ class SurveyTemplates
             $this->assertDraft($draft, $input['lock_version']);
             $before = $draft->only(['title', 'content']);
             $draft->fill(['title' => $input['title'], 'content' => $this->normalize($input['content'], $draft->content), 'lock_version' => $draft->lock_version + 1, 'updated_by_user_id' => $actor->id])->save();
+            if ($draft->variant === 'phone_call') {
+                $this->validatePhone($draft);
+            }
             $this->audit($draft, $actor, 'template_draft_saved', ['before' => $before, 'after' => $draft->only(['title', 'content'])]);
 
             return $draft;
@@ -42,14 +47,15 @@ class SurveyTemplates
     public function activate(int $id, int $revision, User $actor): RefSurveyTemplate
     {
         return DB::transaction(function () use ($id, $revision, $actor) {
-            $state = DB::table('survey_template_state')->where('id', 1)->lockForUpdate()->first();
+            $variant = RefSurveyTemplate::findOrFail($id)->variant;
+            $state = DB::table('survey_template_state')->orderBy('id')->lockForUpdate()->get()->firstWhere('variant', $variant);
             $draft = RefSurveyTemplate::whereKey($id)->lockForUpdate()->firstOrFail();
             $this->assertDraft($draft, $revision);
             abort_unless((int) $state->draft_template_id === $id, 409, 'The current draft changed. Reload the page.');
             $this->validateActivation($draft);
             RefSurveyTemplate::whereKey($state->active_template_id)->update(['status' => 'inactive']);
             $draft->fill(['status' => 'active', 'activated_at' => now(), 'activated_by_user_id' => $actor->id, 'updated_by_user_id' => $actor->id, 'lock_version' => $draft->lock_version + 1])->save();
-            DB::table('survey_template_state')->where('id', 1)->update(['active_template_id' => $id, 'draft_template_id' => null]);
+            DB::table('survey_template_state')->where('id', $state->id)->update(['active_template_id' => $id, 'draft_template_id' => null]);
             $this->audit($draft, $actor, 'template_activated', ['previous_template_id' => $state->active_template_id]);
 
             return $draft;
@@ -94,6 +100,9 @@ class SurveyTemplates
 
     public function validateActivation(RefSurveyTemplate $template): void
     {
+        if ($template->variant === 'phone_call') {
+            $this->validatePhone($template);
+        }
         $fail = fn ($message) => throw ValidationException::withMessages(['content' => $message]);
         if (count($template->content['scale_labels']) !== 3 || count(array_filter($template->content['scale_labels'], fn ($s) => blank($s)))) {
             $fail('All three rating scale labels are required.');
@@ -125,6 +134,15 @@ class SurveyTemplates
     {
         abort_unless($template->status === 'draft', 409, 'Only draft versions can be edited.');
         abort_unless($template->lock_version === $revision, 409, 'Another user changed this draft. Reload before saving.');
+    }
+
+    private function validatePhone(RefSurveyTemplate $template): void
+    {
+        $expected = collect(RefSurveyTemplate::phoneContent()['sections'][0]['questions'])->pluck('question_key')->sort()->values()->all();
+        $ratings = collect($template->questions())->where('type', 'rating');
+        if ($ratings->pluck('question_key')->sort()->values()->all() !== $expected || $ratings->contains(fn ($q) => ! $q['required'])) {
+            throw ValidationException::withMessages(['content' => 'The seven phone-call rating aspects must remain active, required, and rating type.']);
+        }
     }
 
     private function audit(RefSurveyTemplate $template, User $actor, string $action, array $changes): void

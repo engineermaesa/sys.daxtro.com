@@ -72,6 +72,10 @@ class SatisfactionLink extends Model
 
     public static function issue(Ticket $ticket, ?int $userId = null, ?RefSurveyTemplate $template = null): self
     {
+        if (\App\Services\Aftersales\TicketDocumentWorkflow::enabled($ticket)) {
+            abort_if(\App\Services\Aftersales\TicketSurveys::variant($ticket) === 'phone_call', 409, 'Phone-call surveys do not use links.');
+            $template ??= $ticket->currentCycle?->surveyTemplate;
+        }
         $token = Str::random(64);
 
         return static::create([

@@ -595,6 +595,7 @@ Route::group([
         Route::post('/{ticket}/survey-link/share', [DatsSurveyLinkController::class, 'share'])->name('survey-link.share');
         Route::post('/{ticket}/survey-link/regenerate', [DatsSurveyLinkController::class, 'regenerate'])->name('survey-link.regenerate');
         Route::post('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'enterOnBehalf'])->name('survey-response.store');
+        Route::get('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'responseForm'])->name('survey-response.form');
 
         // SERVICE FORM, SERVICE AGREEMENT & DOCUMENTS
         Route::get('/{ticket}/documents', [DatsDocumentController::class, 'index'])->name('documents.index');

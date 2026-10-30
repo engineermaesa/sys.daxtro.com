@@ -11,6 +11,7 @@ use App\Models\Aftersales\TicketSatisfaction;
 use App\Services\Aftersales\TicketDocumentWorkflow;
 use App\Services\Aftersales\TicketRecomings;
 use App\Services\Aftersales\TicketSla;
+use App\Services\Aftersales\TicketSurveys;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class SatisfactionSurveyController extends Controller
         TicketSatisfaction::SOURCE_ADMIN => 'Admin assisted',
     ];
 
-    private const WITH = ['ticket.customer', 'ticket.technician', 'ticket.visits', 'ticket.workOrders', 'template', 'answers'];
+    private const WITH = ['ticket.customer', 'ticket.technician', 'ticket.visits', 'ticket.workOrders', 'ticket.satisfactions', 'template', 'answers'];
 
     public function index(Request $request)
     {
@@ -62,6 +63,9 @@ class SatisfactionSurveyController extends Controller
             'data' => collect($paginated->items())->map(fn (TicketSatisfaction $s) => [
                 'id' => $s->id,
                 'ticket_id' => $s->ticket_id,
+                'cycle_id' => $s->cycle_id,
+                'variant' => $s->template?->variant ?? 'site',
+                'is_valid' => TicketSurveys::exclusion($s->ticket, $s) === null,
                 'ticket_code' => $s->ticket->ticket_code,
                 'customer' => $s->ticket->customer?->name,
                 'technician' => $s->ticket->technician?->name,
@@ -74,7 +78,7 @@ class SatisfactionSurveyController extends Controller
                 'review_status' => $s->review_status,
                 'review_reasons' => $s->review_reasons ?? [],
                 'reviewed_by' => $s->reviewedBy?->name,
-                'is_current' => $s->ticket->satisfactions()->max('id') === $s->id,
+                'is_current' => TicketSurveys::current($s->ticket, $s->cycle_id)?->id === $s->id,
             ]),
             'total' => $paginated->total(),
             'current_page' => $paginated->currentPage(),
@@ -95,6 +99,9 @@ class SatisfactionSurveyController extends Controller
             'data' => [
                 'id' => $satisfaction->id,
                 'ticket_id' => $satisfaction->ticket_id,
+                'cycle_id' => $satisfaction->cycle_id,
+                'variant' => $satisfaction->template?->variant ?? 'site',
+                'is_valid' => TicketSurveys::exclusion($satisfaction->ticket, $satisfaction) === null,
                 'ticket_code' => $satisfaction->ticket->ticket_code,
                 'summary' => [
                     'average_score' => $satisfaction->average_score,
@@ -120,15 +127,16 @@ class SatisfactionSurveyController extends Controller
                 'reviewed_by' => $satisfaction->reviewedBy?->name,
                 'reviewed_at' => $satisfaction->reviewed_at,
                 'review_note' => $satisfaction->review_note,
-                'is_current' => $all->first()?->id === $satisfaction->id,
+                'is_current' => TicketSurveys::current($satisfaction->ticket, $satisfaction->cycle_id)?->id === $satisfaction->id,
                 'responses' => $all->map(fn (TicketSatisfaction $s, $i) => [
                     'id' => $s->id,
+                    'cycle_id' => $s->cycle_id,
                     'submitted_at' => $s->filled_at,
                     'average_score' => $s->average_score,
                     'review_status' => $s->review_status,
                     'review_note' => $s->review_note,
                     'reviewed_by' => $s->reviewedBy?->name,
-                    'current' => $i === 0,
+                    'current' => TicketSurveys::current($satisfaction->ticket, $s->cycle_id)?->id === $s->id,
                 ]),
             ],
         ]);
@@ -146,6 +154,8 @@ class SatisfactionSurveyController extends Controller
             'status' => 'success',
             'data' => [
                 'read_only' => true,
+                'cycle_id' => $satisfaction->cycle_id,
+                'variant' => $satisfaction->template?->variant ?? 'site',
                 'job_information' => [
                     'ticket_code' => $ticket->ticket_code,
                     'customer' => $ticket->customer?->name,
@@ -195,7 +205,7 @@ class SatisfactionSurveyController extends Controller
 
             if ($decision === 'reject') {
                 TicketSla::guardSurveyCycle($ticket, $locked->cycle_id);
-                abort_unless($ticket->satisfactions()->max('id') == $satisfaction->id, 422, 'Only the current response can be rejected.');
+                abort_unless(TicketSurveys::current($ticket, $locked->cycle_id)?->id === $locked->id, 422, 'Only the current response can be rejected.');
                 abort_unless(in_array($ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 422, 'A new survey link can only be issued after Documentation Published.');
             }
 
@@ -259,7 +269,7 @@ class SatisfactionSurveyController extends Controller
 
     private function templateData(TicketSatisfaction $s): ?array
     {
-        return $s->template ? ['version' => $s->template->version, 'title' => $s->template->title, 'scale_labels' => $s->template->content['scale_labels'], 'sections' => $s->template->documentSections()] : null;
+        return $s->template ? ['variant' => $s->template->variant, 'version' => $s->template->version, 'title' => $s->template->title, 'scale_labels' => $s->template->content['scale_labels'], 'sections' => $s->template->documentSections()] : null;
     }
 
     private function answerData(TicketSatisfaction $s): array

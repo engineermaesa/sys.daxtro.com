@@ -137,6 +137,8 @@ class SurveyTemplatesTest extends TestCase
         DB::table('satisfaction_links')->insert(['ticket_id' => 1, 'token_hash' => hash('sha256', 'old-token'), 'token_encrypted' => Crypt::encryptString('old-token'), 'status' => 'active', 'expires_at' => now()->addDays(7)]);
         DB::table('ticket_satisfactions')->insert(['ticket_id' => 1, 'timeliness' => 4, 'technician_attitude' => 5, 'machine_ok' => true, 'feedback' => 'Legacy feedback', 'source' => 'link']);
         (require database_path('migrations/2026_10_18_000000_version_survey_templates.php'))->up();
+        (require database_path('migrations/2026_10_30_000500_add_survey_template_variants.php'))->up();
+        $this->cycleTables();
         $this->manager();
     }
 
@@ -183,7 +185,7 @@ class SurveyTemplatesTest extends TestCase
         return app(SurveyResponses::class)->validate(Request::create('/', 'POST', $input), $template);
     }
 
-    private function enableCycleSla(): void
+    private function cycleTables(): void
     {
         Schema::table('tickets', function (Blueprint $t) {
             $t->timestamps();
@@ -195,6 +197,9 @@ class SurveyTemplatesTest extends TestCase
         Schema::create('ticket_recomings', function (Blueprint $t) {
             $t->id();
             $t->unsignedBigInteger('ticket_id');
+            $t->string('recoming_type')->default('visit_site');
+            $t->timestamp('planned_call_at')->nullable();
+            $t->timestamp('planned_visit_at')->nullable();
             $t->timestamps();
             $t->softDeletes();
         });
@@ -206,9 +211,15 @@ class SurveyTemplatesTest extends TestCase
             $t->timestamps();
         });
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
-        DB::table('tickets')->where('id', 1)->update(['workflow_version' => 'v3', 'created_at' => now()->subDay(), 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
-        DB::table('ticket_cycles')->update(['started_at' => now()->subDay(), 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
+        Schema::table('ticket_cycles', fn (Blueprint $t) => $t->string('documentation_status')->default('documentation_published'));
         (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
+        (require database_path('migrations/2026_10_30_000510_pin_cycle_survey_template.php'))->up();
+    }
+
+    private function enableCycleSla(): void
+    {
+        DB::table('tickets')->where('id', 1)->update(['workflow_version' => 'v3', 'created_at' => now()->subDay(), 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
+        DB::table('ticket_cycles')->update(['started_at' => now()->subDay(), 'sla_started_at' => now()->subDay(), 'sla_mode' => 'duration', 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
     }
 
     private function assistedSurvey(): TicketSatisfaction
@@ -216,6 +227,234 @@ class SurveyTemplatesTest extends TestCase
         $this->postJson('/api/aftersales/tickets/1/survey-response', $this->answerInput(RefSurveyTemplate::active()) + ['reason' => 'Customer answered by telephone'])->assertCreated();
 
         return TicketSatisfaction::latest('id')->first();
+    }
+
+    private function phoneCycle(): \App\Models\Aftersales\TicketCycle
+    {
+        $this->enableCycleSla();
+        $ticket = Ticket::findOrFail(1);
+        $cycle = \App\Services\Aftersales\TicketCycles::startRecoming($ticket);
+        DB::table('ticket_recomings')->insert(['ticket_id' => 1, 'cycle_id' => $cycle->id, 'recoming_type' => 'phone_call', 'planned_call_at' => now()]);
+        $cycle->update(['documentation_status' => 'documentation_published', 'sla_mode' => 'duration', 'sla_started_at' => now(), 'sla_due_at' => now()->addDay()]);
+        $ticket->logs()->create(['cycle_id' => $cycle->id, 'step' => 'documentation_published']);
+        SatisfactionLink::deactivateFor($ticket);
+
+        return $cycle;
+    }
+
+    private function phoneInput(): array
+    {
+        $form = $this->getJson('/api/aftersales/tickets/1/survey-response')->assertOk()->json('data');
+
+        return $this->answerInput(RefSurveyTemplate::findOrFail($form['ref_survey_template_id'])) + [
+            'cycle_id' => $form['cycle_id'], 'ref_survey_template_id' => $form['ref_survey_template_id'], 'reason' => 'Customer answers recorded after the call',
+        ];
+    }
+
+    public function test_variants_have_separate_drafts_active_versions_and_required_phone_aspects(): void
+    {
+        $site = RefSurveyTemplate::active();
+        $phone = RefSurveyTemplate::active('phone_call');
+        $this->assertCount(7, collect($phone->questions())->where('type', 'rating'));
+        $this->assertSame('Issue resolved by phone?', collect($phone->questions())->firstWhere('question_key', 'machine_ok')['label']);
+        $draft = $this->postJson($this->api.'/draft', ['variant' => 'phone_call'])->assertOk()->json('data');
+        $siteDraft = $this->draft();
+        $this->assertNotSame($draft['id'], $siteDraft['id']);
+        $invalid = $draft;
+        $invalid['content']['sections'][0]['questions'][0]['required'] = false;
+        $this->save($invalid)->assertUnprocessable();
+        $this->assertSame(0, RefSurveyTemplate::find($draft['id'])->lock_version);
+        $this->activate($draft)->assertOk();
+        $this->assertSame($site->id, RefSurveyTemplate::active()->id);
+        $this->assertSame($draft['id'], RefSurveyTemplate::active('phone_call')->id);
+        $this->getJson($this->api.'?variant=phone_call')->assertOk()->assertJsonCount(2, 'data.versions')->assertJsonPath('data.versions.0.variant', 'phone_call');
+        $this->postJson($this->api.'/draft', ['variant' => 'bogus'])->assertUnprocessable();
+    }
+
+    public function test_phone_survey_without_link_stops_sla_and_requires_review_for_rating(): void
+    {
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input + ['source' => 'link', 'review_status' => 'normal'])->assertCreated()
+            ->assertJsonPath('data.data.source', 'admin')->assertJsonPath('data.data.review_status', 'needs_review');
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertSame('phone_call', $response->template->variant);
+        $this->assertNull($response->otp_verified_at);
+        $this->assertCount(9, $response->answers);
+        $this->assertNull($response->work_neatness);
+        $this->assertNull($response->grooming);
+        $this->assertSame('satisfaction_submitted', Ticket::find(1)->progress);
+        $this->assertEquals($response->filled_at, $cycle->fresh()->sla_stopped_at);
+        $this->assertNull(\App\Services\Aftersales\TicketSurveys::average(Ticket::find(1)));
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'approve'])->assertOk();
+        $this->assertSame(3.0, \App\Services\Aftersales\TicketSurveys::average(Ticket::find(1)));
+        $this->assertSame(1, \App\Services\Aftersales\TechnicianScore::summaries([1], null)[1]['rating_count']);
+        $this->assertDatabaseCount('satisfaction_links', 1);
+        $this->getJson('/api/aftersales/tickets/1/survey-link')->assertOk()->assertJsonPath('data.url', null)->assertJsonPath('data.can_share', false);
+        $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy'])->assertConflict();
+        $this->postJson('/api/aftersales/tickets/1/survey-link/regenerate', ['reason' => 'Retry'])->assertConflict();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertConflict()->assertJsonPath('code', 'survey_already_submitted');
+    }
+
+    public function test_phone_validation_and_stale_cycle_or_template_cannot_create_response(): void
+    {
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        foreach ([
+            array_replace_recursive($input, ['answers' => ['timeliness' => null]]),
+            array_replace_recursive($input, ['answers' => ['timeliness' => 4]]),
+            array_replace_recursive($input, ['answers' => ['work_neatness' => 2]]),
+            array_replace_recursive($input, ['answers' => ['machine_ok' => false]]),
+            array_diff_key($input, ['reason' => true]),
+        ] as $invalid) {
+            $this->postJson('/api/aftersales/tickets/1/survey-response', $invalid)->assertUnprocessable();
+        }
+        $this->postJson('/api/aftersales/tickets/1/survey-response', array_replace($input, ['cycle_id' => $cycle->id - 1]))->assertConflict()->assertJsonPath('code', 'survey_cycle_not_current');
+        $this->postJson('/api/aftersales/tickets/1/survey-response', array_replace($input, ['ref_survey_template_id' => 1]))->assertConflict()->assertJsonPath('code', 'survey_template_changed');
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+        $this->assertNull($cycle->fresh()->sla_stopped_at);
+        $cycle->update(['documentation_status' => 'incomplete']);
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertUnprocessable();
+    }
+
+    public function test_phone_rejection_allows_replacement_without_issuing_link(): void
+    {
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'reject', 'note' => 'Incorrect record'])->assertOk();
+        $this->assertNull($cycle->fresh()->sla_stopped_at);
+        $this->assertDatabaseCount('satisfaction_links', 1);
+        $this->getJson('/api/aftersales/tickets/1/survey-response')->assertOk()->assertJsonPath('data.can_submit', true);
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertCreated();
+        $this->assertNotSame($response->id, $cycle->fresh()->sla_satisfaction_id);
+        $this->assertSame('rejected', $response->fresh()->review_status);
+    }
+
+    public function test_phone_template_is_pinned_even_after_new_version_activation(): void
+    {
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        $draft = $this->postJson($this->api.'/draft', ['variant' => 'phone_call'])->assertOk()->json('data');
+        $draft['content']['sections'][0]['questions'][0]['label'] = 'Updated call timeliness';
+        $draft = $this->save($draft)->assertOk()->json('data');
+        $this->activate($draft)->assertOk();
+        $this->getJson('/api/aftersales/tickets/1/survey-response')->assertOk()->assertJsonPath('data.ref_survey_template_id', $input['ref_survey_template_id']);
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertCreated();
+        $this->assertSame($input['ref_survey_template_id'], $cycle->fresh()->survey_template_id);
+        $this->assertNotSame($draft['id'], TicketSatisfaction::latest('id')->first()->ref_survey_template_id);
+    }
+
+    public function test_technician_cannot_enter_or_read_phone_survey_even_with_old_submit_permission(): void
+    {
+        $this->phoneCycle();
+        $input = $this->phoneInput();
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->forceFill(['id' => 1]);
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($p) => in_array($p, ['aftersales.satisfaction.submit', 'aftersales.tickets.view-own'], true));
+        $this->actingAs($user);
+        $this->getJson('/api/aftersales/tickets/1/survey-response')->assertForbidden();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertForbidden();
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+    }
+
+    public function test_phone_answer_failure_rolls_back_submission_sla_and_progress(): void
+    {
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        \App\Models\Aftersales\TicketSatisfactionAnswer::creating(fn () => throw new \RuntimeException('Write failed'));
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertStatus(500);
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+        $this->assertNull($cycle->fresh()->sla_stopped_at);
+        $this->assertSame('documentation_published', Ticket::find(1)->progress);
+        $this->assertSame([], Storage::disk('local')->allFiles('satisfaction-signatures'));
+    }
+
+    public function test_scores_use_answer_weights_and_one_valid_current_response_per_cycle(): void
+    {
+        $this->enableCycleSla();
+        $site = $this->answerInput(RefSurveyTemplate::active()) + ['reason' => 'Customer site answers'];
+        foreach (RefSurveyTemplate::active()->questions() as $question) {
+            if ($question['type'] === 'rating') {
+                $site['answers'][$question['question_key']] = 1;
+            }
+        }
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $site)->assertCreated();
+        $siteResponse = TicketSatisfaction::latest('id')->first();
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$siteResponse->id.'/review', ['decision' => 'approve'])->assertOk();
+        $cycle = $this->phoneCycle();
+        $input = $this->phoneInput();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $input)->assertCreated();
+        $phoneResponse = TicketSatisfaction::latest('id')->first();
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$phoneResponse->id.'/review', ['decision' => 'approve'])->assertOk();
+        $this->assertSame(1.9, \App\Services\Aftersales\TicketSurveys::average(Ticket::find(1))); // (9*1 + 7*3) / 16.
+        $summary = \App\Services\Aftersales\TechnicianScore::summaries([1], null)[1];
+        $this->assertSame(1.9, $summary['rating']);
+        $this->assertSame(2, $summary['rating_count']);
+        $scores = $this->getJson($this->api.'/question-scores')->assertOk()->json('data');
+        $this->assertCount(16, $scores);
+        $this->assertCount(7, array_filter($scores, fn ($score) => $score['variant'] === 'phone_call' && $score['average_score'] == 3));
+        $this->getJson('/api/aftersales/satisfaction-surveys/'.$siteResponse->id)->assertOk()->assertJsonPath('data.is_current', true)->assertJsonPath('data.is_valid', true);
+        $this->getJson('/api/aftersales/satisfaction-surveys/'.$phoneResponse->id)->assertOk()->assertJsonPath('data.is_current', true)->assertJsonPath('data.variant', 'phone_call');
+        TicketSatisfaction::create(['ticket_id' => 1, 'cycle_id' => $cycle->id, 'ref_survey_template_id' => $input['ref_survey_template_id'],
+            'source' => 'admin', 'review_status' => 'needs_review', 'filled_at' => now()->addSecond()]);
+        $this->assertSame(1.0, \App\Services\Aftersales\TicketSurveys::average(Ticket::find(1)));
+        $this->assertSame(1, \App\Services\Aftersales\TechnicianScore::summaries([1], null)[1]['rating_count']);
+        $this->getJson($this->api.'/question-scores')->assertOk()->assertJsonCount(9, 'data');
+    }
+
+    public function test_variant_migration_roundtrip_preserves_site_history_and_protects_phone_history(): void
+    {
+        $siteContent = RefSurveyTemplate::active()->content;
+        $pin = require database_path('migrations/2026_10_30_000510_pin_cycle_survey_template.php');
+        $variants = require database_path('migrations/2026_10_30_000500_add_survey_template_variants.php');
+        $pin->down();
+        $variants->down();
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+        $this->assertSame($siteContent, RefSurveyTemplate::find(1)->content);
+        $variants->up();
+        $pin->up();
+        $this->assertCount(7, collect(RefSurveyTemplate::active('phone_call')->questions())->where('type', 'rating'));
+        $this->phoneCycle();
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $this->phoneInput())->assertCreated();
+        try {
+            $variants->down();
+            $this->fail('Phone history must prevent rollback.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('history exists', $e->getMessage());
+        }
+        $this->assertTrue(Schema::hasColumn('ref_survey_templates', 'variant'));
+        $this->assertDatabaseCount('ticket_satisfactions', 2);
+    }
+
+    public function test_cycle_template_migration_backfills_published_variants_and_protects_snapshot(): void
+    {
+        $this->enableCycleSla();
+        $pin = require database_path('migrations/2026_10_30_000510_pin_cycle_survey_template.php');
+        $pin->down();
+        $ticket = Ticket::find(1);
+        $cycle = \App\Services\Aftersales\TicketCycles::startRecoming($ticket);
+        $cycle->update(['documentation_status' => 'documentation_published']);
+        DB::table('ticket_recomings')->insert(['ticket_id' => 1, 'cycle_id' => $cycle->id, 'recoming_type' => 'phone_call']);
+        $pin->up();
+        $this->assertDatabaseHas('ticket_cycles', ['id' => 1, 'survey_template_id' => 1]);
+        $this->assertSame(RefSurveyTemplate::active('phone_call')->id, $cycle->fresh()->survey_template_id);
+        $variants = require database_path('migrations/2026_10_30_000500_add_survey_template_variants.php');
+        try {
+            $variants->down();
+            $this->fail('A pinned phone template must prevent variant removal before DDL.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('history exists', $e->getMessage());
+        }
+        $this->assertDatabaseHas('survey_template_state', ['variant' => 'phone_call']);
+        try {
+            $pin->down();
+            $this->fail('Pinned snapshots must prevent rollback.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('snapshot', $e->getMessage());
+        }
+        $this->assertTrue(Schema::hasColumn('ticket_cycles', 'survey_template_id'));
     }
 
     public function test_public_survey_endpoint_stops_cycle_sla_at_submission(): void
@@ -314,7 +553,7 @@ class SurveyTemplatesTest extends TestCase
         $draft = $this->draft();
         $again = $this->draft();
         $this->assertSame($draft['id'], $again['id']);
-        $this->assertSame(2, $draft['version']);
+        $this->assertSame(3, $draft['version']);
         $this->assertSame(RefSurveyTemplate::active()->content, $draft['content']);
         $this->assertSame(1, DB::table('survey_template_audits')->count());
     }
@@ -382,7 +621,7 @@ class SurveyTemplatesTest extends TestCase
         $next['content']['sections'][2]['questions'][0]['is_active'] = true;
         $next = $this->save($next)->assertOk()->json('data');
         $this->assertCount(11, RefSurveyTemplate::find($next['id'])->questions());
-        $this->assertSame(1, RefSurveyTemplate::where('status', 'active')->count());
+        $this->assertSame(1, RefSurveyTemplate::where('variant', 'site')->where('status', 'active')->count());
         $this->assertSame('template_activated', DB::table('survey_template_audits')->where('action', 'template_activated')->value('action'));
     }
 
@@ -587,10 +826,10 @@ class SurveyTemplatesTest extends TestCase
         SatisfactionOtp::create(['link_id' => $link->id, 'verified_at' => now()->subMinute(), 'session_hash' => hash('sha256', 'new-session'), 'session_expires_at' => now()->addMinutes(20)]);
         $this->withHeader('X-Survey-Session', 'new-session')->postJson('/api/survey/'.$token.'/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
         $response = TicketSatisfaction::latest('id')->first();
-        $this->assertSame(2, $response->template->version);
+        $this->assertSame($saved['version'], $response->template->version);
         $this->assertNull($response->timeliness);
         $this->assertSame('Phone', $response->answers->firstWhere('type', 'choice')->value_text);
-        $this->getJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/form')->assertOk()->assertJsonPath('data.template.version', 2);
+        $this->getJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/form')->assertOk()->assertJsonPath('data.template.version', $saved['version']);
     }
 
     public function test_seed_does_not_overwrite_templates_and_access_is_restricted(): void

@@ -648,9 +648,127 @@ Migration: `2026_10_30_000400_add_cycle_sla_setup.php`; menambah `sla_mode`, `sl
 - Smoke MySQL **8.4.3 lulus** pada database sementara: migration/backfill/FK/down-up, reschedule kedua mode, dan stop/approve/reject/delete/restore survey. Database sementara dihapus; database aplikasi tidak diubah.
 - Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 297 tests, 2526 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
 
+### Task 8 — Survey site/phone call dan skor per ticket (IMPLEMENTED)
+
+AS-REC-02, AS-SVY-01/02/03. Default **OQ-04/08/18 disetujui user**: Admin menginput jawaban Customer untuk phone call, tujuh aspek memakai skala 1–3, dan skor per ticket merupakan tambahan atas Overall Rating. Default OQ-06 tetap manual tanpa integrasi telepon. Teknisi tidak menginput survey atau membaca jawaban/review note.
+
+#### 3.37 Template berdasarkan varian dan snapshot per siklus
+
+- `ref_survey_templates.variant`: `site` atau `phone_call`. Template existing dan histori link/response tetap site, dengan ID, content, jawaban, dan versi existing dipertahankan.
+- Siklus awal memakai site; Recoming `visit_site` memakai site; Recoming `phone_call` memakai phone_call.
+- `GET /survey-templates?variant=phone_call` memfilter versi dan audit varian itu; default query adalah `site` untuk kompatibilitas. `POST /survey-templates/draft` menerima `{"variant":"phone_call"}`; tanpa variant berarti site. Varian tidak dikenal menghasilkan 422.
+- Setiap varian mempunyai active/draft terpisah. Aktivasi phone call tidak menonaktifkan site. Nomor `version` tetap unik secara global, sehingga urutan nomor dalam satu varian dapat melompat. Resource template menambahkan `variant`. Endpoint edit/preview/activate existing tetap memakai ID template dan aturan lock_version/preview token yang sama.
+- Default phone call berisi tujuh rating wajib, satu Yes/No wajib, dan comments opsional. Ketujuh aspek phone call tidak dapat dinonaktifkan, diubah menjadi optional/non-rating, atau ditambah rating kedelapan melalui editor. Label tetap dapat diperbarui. Site mempertahankan perilaku editor existing.
+- Saat dokumentasi siklus v3 dipublikasikan, `ticket_cycles.survey_template_id` dipatok ke versi aktif untuk varian siklus itu. Perubahan/aktivasi template berikutnya tidak mengubah snapshot tersebut. Siklus berikutnya memakai versi aktif pada publikasinya sendiri. Field ini tersedia pada `current_cycle`/`cycles[]`.
+- Link site tetap mematok versinya sendiri. Regenerate dan penggantian link setelah reject mempertahankan snapshot siklus. Phone call tidak menerbitkan link saat publikasi, regenerate, atau reject.
+
+Key pertanyaan phone call tetap kompatibel dengan storage existing:
+
+| Key | Label default phone call |
+|---|---|
+| `timeliness` | Call Timeliness |
+| `technician_attitude` | Technician attitude |
+| `technical_knowledge` | Technical knowledge |
+| `work_speed` | Speed of Resolving the Issue |
+| `solution_quality` | Quality of the Solution |
+| `explanation_quality` | Explanation of the Solution |
+| `overall_satisfaction` | Overall satisfaction |
+| `machine_ok` | Issue resolved by phone? |
+| `feedback` | Comments & Suggestions |
+
+Rating 1/2/3 = Kurang Puas/Puas/Sangat Puas. `work_neatness` dan `grooming` tidak ada pada phone call. Nilai kedua aspek tersebut tetap null, bukan nol. Jawaban No pada `machine_ok` tetap wajib menyertakan `machine_issue_note`.
+
+#### 3.38 Form dan submit phone call tanpa link
+
+Endpoint internal memakai base `/api/aftersales`. **Admin harus mempunyai kedua permission** `aftersales.tickets.manage` dan `aftersales.satisfaction.submit`. Permission submit lama saja tidak memberi Technician akses ke jalur phone call.
+
+1. `GET /tickets/{ticket}/survey-response` membaca form phone call yang dipatok pada siklus aktif.
+2. `POST /tickets/{ticket}/survey-response` mengirim jawaban Customer. Endpoint yang sama tetap melayani on-behalf site melalui link seperti sebelumnya.
+
+Kedua jalur phone call hanya tersedia setelah dokumentasi siklus aktif dipublikasikan, dengan progress Documentation Published atau Satisfaction Submitted. GET untuk site menghasilkan 422; FE site tetap memakai flow survey-link existing.
+
+GET **200**, subset response:
+
+```json
+{"status":"success","data":{"ticket_id":1,"cycle_id":2,"variant":"phone_call","ref_survey_template_id":2,"can_submit":true,"template":{"version":2,"title":"Phone Call Satisfaction Survey","scale_labels":["Kurang Puas","Puas","Sangat Puas"],"sections":[]}}}
+```
+
+`sections` pada response nyata berisi seluruh pertanyaan aktif dari snapshot. Kirim kembali **cycle_id dan ref_survey_template_id** dari GET, bukan versi aktif global saat submit.
+
+Contoh POST yang diuji (signature opsional untuk Admin):
+
+```json
+{"cycle_id":2,"ref_survey_template_id":2,"reason":"Customer answers recorded after the call","signer_name":"Customer","signer_position":"Manager","answers":{"timeliness":3,"technician_attitude":3,"technical_knowledge":3,"work_speed":3,"solution_quality":3,"explanation_quality":3,"overall_satisfaction":3,"machine_ok":true,"feedback":"Text answer"}}
+```
+
+POST **201**, envelope mutation existing: `data.data` adalah response survey tersimpan. Server menentukan `ticket_id`, `cycle_id`, template, `source: "admin"`, `review_status: "needs_review"`, `review_reasons: ["admin_input"]`, actor, dan `filled_at`. Input client `source`/`review_status` tidak dapat melewati review. Reason disimpan sebagai `admin_input_reason`. Tidak ada link/OTP yang diminta atau dibuat.
+
+Submit berhasil langsung mencatat log Satisfaction Submitted pada siklus itu dan menghentikan SLA secara provisional menurut Task 7. Tidak menunggu approval untuk progress/stop SLA. Response, jawaban, log, dan stop SLA berada dalam transaksi yang sama; kegagalan menyimpan jawaban membatalkan seluruh perubahan tersebut. Signature opsional yang baru dibuat juga dibersihkan bila transaksi gagal.
+
+| HTTP/code | Kondisi |
+|---|---|
+| 403 | Permission input/read phone call tidak lengkap |
+| 422 + `errors.<field>` | Tujuh rating belum lengkap, di luar 1–3, key tidak dikenal, reason/identitas belum lengkap, No tanpa penjelasan, atau ID wajib tidak diberikan |
+| 422 | Dokumentasi/progress siklus belum memenuhi syarat |
+| 409 `survey_cycle_not_current` | Form berasal dari siklus lama |
+| 409 `survey_template_changed` | ID template tidak sesuai snapshot siklus |
+| 409 `survey_already_submitted` | Sudah ada response pada siklus itu yang belum di-reject |
+| 409 `phone_call_has_no_survey_link` | Share/regenerate link pada phone call |
+
+GET form sesudah submit mengembalikan `can_submit: false`. Setelah response current di-reject, `can_submit: true`; submit pengganti membuat row baru dan mempertahankan histori rejected. Retry submit yang sudah berhasil menghasilkan 409 tanpa membuat row/log baru. Submit/review memakai row lock ticket dan cycle; uji dua request paralel sesungguhnya tetap Task 12.
+
+`GET /tickets/{ticket}/survey-link` pada phone call mengembalikan `variant: "phone_call"`, `status: "not_applicable"`, `url: null`, `template: null`, `can_share: false`, `can_regenerate: false`. Tidak mengembalikan link site dari siklus lama.
+
+#### 3.39 Current dan valid per siklus
+
+Pada v3, current adalah response terbaru **dalam cycle_id yang sama**, dengan urutan `filled_at DESC, id DESC`, tanpa soft-deleted. Respons dari beberapa siklus dapat sama-sama current. Histori tanpa cycle/waktu submit tidak masuk rating v3 dan tidak ditebak kepemilikannya.
+
+Valid untuk rating v3:
+
+- Response current dengan `source: "link"` dan status `normal`/`reviewed`.
+- Response current dengan `source: "admin"` dan status **`reviewed`**, termasuk phone call dan site on-behalf.
+- `needs_review`, `rejected`, source lain, dan response non-current tidak masuk skor. Bila response current pending/rejected, rating tidak mengambil ulang response valid yang lebih lama dalam siklus itu. Siklus lain yang valid tetap dihitung.
+
+Definisi ini berbeda dari stop SLA provisional Task 7: needs_review dapat menghentikan SLA, tetapi belum memberikan skor Technician. Reject tetap menghitung ulang SLA sesuai §3.34; replacement rating baru masuk setelah valid.
+
+List/detail Satisfaction Survey menambahkan `cycle_id`, `variant`, dan `is_valid`; `is_current` kini mengikuti siklus pada v3. Histori `responses[].current` juga per siklus. Form readonly menambahkan cycle_id/variant. Ringkasan manager di ticket `survey_responses[]` menambahkan variant/is_current/is_valid, tanpa menghapus histori existing.
+
+`survey_filled` pada detail v3 berarti ada response pada **siklus aktif** yang tidak rejected, termasuk pending review. Response dari siklus lama tidak membuat field ini true. Field ini bukan indikator validitas rating. Legacy mempertahankan semantik filled existing.
+
+#### 3.40 Angka skor dan akses Technician
+
+`GET /tickets` dan `GET /tickets/{ticket}` menambahkan **`average_score`**, angka satu desimal atau null. Nilai merupakan rata-rata seluruh **nilai rating yang dijawab** dari response current-valid tiap siklus ticket; Yes/No, comments, nilai null, dan aspek yang tidak tersedia pada varian tidak dihitung. Pembulatan dilakukan setelah agregasi, bukan dari rata-rata yang sudah dibulatkan per response.
+
+Contoh pengujian: site berisi 9 rating bernilai 1 dan phone call berisi 7 rating bernilai 3 yang sudah reviewed menghasilkan `(9×1 + 7×3) / 16 = 1.9`. Ketika phone call masih pending, nilai ticket hanya 1.0 dari siklus site valid. Saat siklus baru belum mempunyai response, skor histori valid tetap tersedia, sementara survey_filled siklus aktif false.
+
+- Technician hanya mendapat angka untuk ticket yang di-assign kepadanya, melalui guard ownership existing. Jawaban, feedback, identitas pengisi, review note, dan response survey tetap tidak dibuka kepada Technician.
+- `/technicians/me/overall-rating` tetap hanya mengembalikan `overall_rating` dan `rating_scale_max: 3`; input user_id/ticket filter tidak dapat memilih Technician lain. Overall Rating/Technician Rating dan KPI CSAT mengikutkan response v3 site/phone call yang valid menggunakan nilai aspek yang dijawab.
+- `rating_count` pada ringkasan Technician menghitung jumlah response current-valid yang mempunyai rating, sehingga pada v3 dapat lebih dari satu per ticket (satu per siklus).
+- Bobot agregasi dan pengecualian admin untuk data **legacy** pada rating Technician dipertahankan: satu bobot per rata-rata response legacy current-valid, sementara nilai aspek response v3 dipakai sebagai bobot agregasi v3. Alur review/SLA legacy tidak dikonversi oleh migration task ini.
+- `GET /survey-templates/question-scores` mempertahankan envelope existing dan menambahkan `variant` pada setiap item. Agregasi v3 memakai current-valid per siklus, termasuk Admin reviewed. Grouping memakai variant + question_key, agar label Call Timeliness tidak menimpa Arrival Punctuality. Aturan laporan data legacy dipertahankan.
+
+#### 3.41 Migration dan batas lingkup
+
+Migration baru:
+
+- `2026_10_30_000500_add_survey_template_variants.php`: kolom variant pada template/state, satu state per varian, dan template phone call default. Tidak menimpa template site yang sudah diedit. Tidak perlu seed role/permission atau seeder demo.
+- `2026_10_30_000510_pin_cycle_survey_template.php`: FK nullable `survey_template_id` pada cycle. Backfill hanya cycle v3 yang sudah Documentation Published; site memakai versi link siklus yang tersedia, kemudian fallback versi site aktif; phone call memakai versi phone aktif. Cycle belum published dan seluruh legacy tetap tanpa snapshot baru.
+
+Rollback variant ditolak sebelum penghapusan jika sudah ada response/link/audit atau snapshot cycle phone call. Rollback snapshot ditolak jika sudah ada cycle yang dipatok, agar histori template tidak hilang diam-diam. Roundtrip tanpa histori/pin baru mempertahankan template site dan jawaban existing.
+
+**Dua migration task 8 sudah diterapkan ke database aplikasi lokal `local_daxx` pada 2026-10-30 (batch 32).** Backup SQL dibuat sebelum migration; cache dibersihkan dan aplikasi kembali live. Varian phone diinisialisasi migration; tidak ada assignment role atau seed data demo. Integrasi telepon otomatis, perubahan layar FE, Happy Call/Close siklus terbaru (Task 9), dan pengujian konkurensi/e2e (Task 12) tidak ditambahkan pada task ini.
+
+#### 3.42 Verifikasi Task 8
+
+- Test API: draft/aktivasi terpisah, tujuh aspek wajib, larangan Technician, no-link/OTP, validasi dan stale snapshot, submit ganda, reject/replacement tanpa link, rollback jawaban/signature/SLA/progress, serta snapshot tetap setelah aktivasi versi baru.
+- Test skor: gabungan 9/7 aspek, valid/current per siklus, pending tidak mengambil ulang history, report dipisah per varian, Overall Rating v3 tanpa memilih user lain, dan list/detail Technician tidak membocorkan jawaban/review note.
+- Test migration: roundtrip mempertahankan site/response existing, backfill site/phone published, dan proteksi rollback.
+- Smoke **MySQL 8.4.3 lulus** pada DB sementara: migration/FK/roundtrip, backfill kedua varian, aktivasi terpisah, snapshot, SLA provisional, rating setelah approve, agregasi report SQL, dan proteksi rollback. Database sementara dihapus; database aplikasi tidak diubah.
+- Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 309 tests, 2667 assertions** (SQLite in-memory). Formatter PHP pada file task 8 dan `git diff --check` lulus. Konkurensi dua request sungguhan dan e2e FE tetap Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 8–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 9–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -667,3 +785,5 @@ Task 8–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 | 2026-10-30 | Penerapan lokal task 6 | Migration `2026_10_30_000300_scope_diagnosis_to_ticket_cycles` berhasil pada `local_daxx`. Backup SQL terbaru disimpan di `storage/app/private/backups/local_daxx-before-task6-20261030-125352-a4919e.sql`. Fingerprint dan jumlah 9 diagnosis existing tidak berubah; seluruhnya berhasil di-backfill ke siklus. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live; tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 6 sebelumnya. |
 | 2026-10-30 | Task 7: Setup dan perhitungan SLA per siklus | Implemented; default OQ-14 disetujui user; 297 test lulus, 2526 assertions; smoke migration dan SLA MySQL 8.4.3 lulus pada DB sementara; migration task 7 belum diterapkan ke database aplikasi; tidak ada seed baru. |
 | 2026-10-30 | Penerapan lokal task 7 | Migration `2026_10_30_000400_add_cycle_sla_setup` berhasil pada `local_daxx` (batch 31). Backup SQL: `storage/app/private/backups/local_daxx-before-task7-20261030-133421-55177d.sql`. Kolom baru dan FK survey terverifikasi; fingerprint data bisnis ticket/cycle/survey/diagnosis tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis). Tidak ada ticket v3 existing untuk backfill SLA; perilaku v3 telah diuji pada pengujian task 7. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live. Tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 7 sebelumnya. |
+| 2026-10-30 | Task 8: Survey dua varian dan skor per ticket | Implemented; default OQ-04/08/18 disetujui user, OQ-06 tetap manual; 309 test lulus, 2667 assertions; smoke migration/template/rating MySQL 8.4.3 lulus pada DB sementara; dua migration task 8 belum diterapkan ke database aplikasi; template phone call diinisialisasi migration, tanpa seed role/demo baru. |
+| 2026-10-30 | Penerapan lokal task 8 | Kedua migration task 8 berhasil pada `local_daxx` (batch 32). Backup: `storage/app/private/backups/local_daxx-before-task8-20261030-151643-53bf5f.sql`. Kolom variant, state per varian, dan FK template cycle terverifikasi. Template site aktif tetap ID/version 1; phone call aktif ID/version 3 dengan tujuh rating wajib. Fingerprint data bisnis dan template site existing tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis); tidak ada ticket v3 existing untuk backfill snapshot. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live; tidak ada seed role/demo tambahan. Baris ini memperbarui status penerapan task 8 sebelumnya. |

@@ -25,6 +25,7 @@ use App\Services\Aftersales\TicketDocumentWorkflow;
 use App\Services\Aftersales\TicketRecomings;
 use App\Services\Aftersales\TicketSla;
 use App\Services\Aftersales\TicketStock;
+use App\Services\Aftersales\TicketSurveys;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -152,7 +153,7 @@ class TicketController extends Controller
 
         $filters = $request->validate(['visit_date' => 'nullable|date_format:Y-m-d']);
 
-        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction']);
+        $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction', 'satisfactions.answers']);
 
         if ($ownOnly) {
             $query->where('assigned_technician_id', $user->id);
@@ -217,6 +218,7 @@ class TicketController extends Controller
                 'aging_days' => $t->aging_days,
                 'sla_status' => $t->sla_status,
                 'current_sla' => TicketSla::summary($t),
+                'average_score' => TicketSurveys::average($t),
                 'visit_date' => $latestVisit?->scheduled_at,
                 'visit_no' => $t->visits->count(),
                 'closed_at' => $closedLog?->created_at,
@@ -254,7 +256,7 @@ class TicketController extends Controller
             'logs.actor',
             'visits', 'workOrders', 'parts.sparepart', 'costs', 'photos', 'satisfaction', 'recomings', 'serviceForm', 'agreement',
             'satisfactions' => fn ($q) => $q->orderByDesc('id'),
-            'satisfactions.answers', 'surveyLink',
+            'satisfactions.answers', 'satisfactions.template', 'surveyLink',
         ]);
 
         if ($ticket->workflow_version !== null) {
@@ -275,6 +277,7 @@ class TicketController extends Controller
         if (! $isManager) {
             unset($data['satisfaction']);
         }
+        $currentSurvey = TicketDocumentWorkflow::enabled($ticket) ? TicketSurveys::current($ticket, $ticket->currentCycle?->id) : null;
 
         return response()->json([
             'status' => 'success',
@@ -282,6 +285,9 @@ class TicketController extends Controller
                 'survey_responses' => $isManager ? $ticket->satisfactions->map(fn (TicketSatisfaction $s) => [
                     'id' => $s->id,
                     'cycle_id' => $s->cycle_id,
+                    'variant' => $s->template?->variant ?? 'site',
+                    'is_current' => TicketSurveys::current($ticket, $s->cycle_id)?->id === $s->id,
+                    'is_valid' => TicketSurveys::exclusion($ticket, $s) === null,
                     'submitted_at' => $s->filled_at,
                     'average_score' => $s->average_score,
                     'machine_ok' => $s->machine_ok,
@@ -289,7 +295,9 @@ class TicketController extends Controller
                     'review_status' => $s->review_status,
                     'review_note' => $s->review_note,
                 ])->values() : null,
-                'survey_filled' => $ticket->satisfactions->isNotEmpty(),
+                'survey_filled' => TicketDocumentWorkflow::enabled($ticket)
+                    ? ($currentSurvey !== null && $currentSurvey->review_status !== TicketSatisfaction::REVIEW_REJECTED)
+                    : $ticket->satisfactions->isNotEmpty(),
                 'visit_history' => $this->visitHistory($ticket),
                 'stock_held' => TicketStock::held($ticket),
                 'can_reschedule' => $this->canReschedule($ticket),
@@ -304,6 +312,7 @@ class TicketController extends Controller
                 'aging_days' => $ticket->aging_days,
                 'sla_status' => $ticket->sla_status,
                 'current_sla' => TicketSla::summary($ticket),
+                'average_score' => TicketSurveys::average($ticket),
                 'total_cost' => $ticket->total_cost,
                 'capabilities' => $this->capabilities($user, $ticket),
             ]),

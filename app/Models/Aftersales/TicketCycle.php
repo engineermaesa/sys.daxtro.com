@@ -11,7 +11,7 @@ class TicketCycle extends Model
         'sla_value', 'sla_unit', 'sla_due_at', 'sla_stopped_at', 'happy_call_due_at',
         'documentation_status', 'service_form_submitted_at', 'service_form_submitted_by',
         'service_form_first_edited_at', 'service_form_first_edited_by',
-        'sla_mode', 'sla_started_at', 'sla_satisfaction_id',
+        'sla_mode', 'sla_started_at', 'sla_satisfaction_id', 'survey_template_id',
     ];
 
     protected $casts = [
@@ -28,6 +28,11 @@ class TicketCycle extends Model
     public function ticket()
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function surveyTemplate()
+    {
+        return $this->belongsTo(RefSurveyTemplate::class, 'survey_template_id');
     }
 
     public function publication()

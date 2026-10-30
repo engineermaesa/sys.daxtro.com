@@ -21,12 +21,14 @@ class OverallRatingTest extends TestCase
         config(['app.locked' => false]);
         Schema::create('tickets', function (Blueprint $table) {
             $table->id();
+            $table->string('workflow_version')->nullable();
             $table->string('ticket_code');
             $table->unsignedBigInteger('assigned_technician_id');
             $table->softDeletes();
         });
         Schema::create('ticket_satisfactions', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('cycle_id')->nullable();
             $table->unsignedBigInteger('ticket_id');
             $table->unsignedBigInteger('ref_survey_template_id')->nullable();
             foreach (array_keys(TicketSatisfaction::ASPECTS) as $aspect) {
@@ -93,6 +95,23 @@ class OverallRatingTest extends TestCase
         }
         $this->login();
         $this->getJson(self::ENDPOINT)->assertOk()->assertExactJson(['data' => ['overall_rating' => 2.7, 'rating_scale_max' => 3]]);
+    }
+
+    public function test_v3_self_rating_weights_site_and_phone_answers_and_excludes_pending_cycle(): void
+    {
+        $ticket = $this->ticket();
+        DB::table('tickets')->where('id', $ticket)->update(['workflow_version' => 'v3']);
+        foreach ([[1, 9, 1, 'link', 'normal'], [2, 7, 3, 'admin', 'reviewed']] as [$cycle, $count, $score, $source, $status]) {
+            $id = $this->response($ticket, null, ['cycle_id' => $cycle, 'source' => $source, 'review_status' => $status, 'ref_survey_template_id' => 1]);
+            for ($i = 0; $i < $count; $i++) {
+                DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => $id, 'question_key' => 'q'.$i, 'type' => 'rating', 'value_number' => $score]);
+            }
+        }
+        $this->response($this->ticket(2), 1);
+        $this->login();
+        $this->getJson(self::ENDPOINT.'?user_id=2')->assertOk()->assertExactJson(['data' => ['overall_rating' => 1.9, 'rating_scale_max' => 3]]);
+        $this->response($ticket, 1, ['cycle_id' => 2, 'source' => 'admin', 'review_status' => 'needs_review', 'filled_at' => '2026-10-28 10:00:00']);
+        $this->getJson(self::ENDPOINT)->assertOk()->assertExactJson(['data' => ['overall_rating' => 1, 'rating_scale_max' => 3]]);
     }
 
     public function test_empty_or_excluded_responses_return_null_instead_of_zero(): void

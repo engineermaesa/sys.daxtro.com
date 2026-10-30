@@ -174,6 +174,7 @@ class DocumentWorkflowV3Test extends TestCase
         });
         Schema::create('ref_survey_templates', function (Blueprint $t) {
             $t->id();
+            $t->string('variant')->default('site');
             $t->string('status');
         });
         Schema::create('satisfaction_links', function (Blueprint $t) {
@@ -198,6 +199,7 @@ class DocumentWorkflowV3Test extends TestCase
             $t->timestamps();
         });
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
+        Schema::table('ticket_cycles', fn (Blueprint $t) => $t->unsignedBigInteger('survey_template_id')->nullable());
         (require database_path('migrations/2026_10_30_000100_add_document_publication_workflow.php'))->up();
         (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
         Schema::create('user_activity_logs', function (Blueprint $t) {
@@ -215,6 +217,7 @@ class DocumentWorkflowV3Test extends TestCase
         DB::table('ref_inspection_templates')->insert(['id' => 1, 'diagnosis_fields' => json_encode(\App\Services\Aftersales\InspectionTemplates::DIAGNOSIS)]);
         DB::table('ref_agreement_templates')->insert(['id' => 1, 'sections' => json_encode([['title' => 'Terms', 'clauses' => [['key' => 'A1', 'text' => 'Terms']]]])]);
         DB::table('ref_survey_templates')->insert(['id' => 1, 'status' => 'active']);
+        DB::table('ref_survey_templates')->insert(['id' => 2, 'status' => 'active', 'variant' => 'phone_call']);
         $ticket = Ticket::create(['ticket_code' => 'V3-1', 'assigned_technician_id' => 1, 'supervisor_id' => 2, 'created_by' => 3,
             'customer_id' => 1, 'customer_product_id' => 1, 'service_type' => 'repair']);
         $this->url = '/api/aftersales/tickets/'.$ticket->id;
@@ -537,6 +540,7 @@ class DocumentWorkflowV3Test extends TestCase
         $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
         $this->assertDatabaseCount('satisfaction_links', 1);
         $this->assertDatabaseHas('ticket_document_publications', ['cycle_id' => 2, 'satisfaction_link_id' => null]);
+        $this->assertDatabaseHas('ticket_cycles', ['id' => 2, 'survey_template_id' => 2]);
         $this->assertDatabaseCount('ticket_visits', 0);
     }
 
