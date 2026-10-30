@@ -48,6 +48,10 @@ class TicketCyclesTest extends TestCase
                 if ($name === 'ticket_visits') {
                     $t->timestamp('scheduled_at');
                 }
+                if ($name === 'ticket_satisfactions') {
+                    $t->timestamp('filled_at')->nullable();
+                    $t->string('review_status')->default('normal');
+                }
                 $t->timestamps();
                 $t->softDeletes();
             });
@@ -56,6 +60,9 @@ class TicketCyclesTest extends TestCase
 
     private function ticket(): Ticket
     {
+        if (! Schema::hasColumn('ticket_cycles', 'sla_mode')) {
+            (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
+        }
         $ticket = Ticket::create(['workflow_version' => Ticket::WORKFLOW_V3, 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => '2026-11-02 10:00:00']);
         TicketCycles::initial($ticket);
 

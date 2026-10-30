@@ -79,6 +79,10 @@ class DocumentWorkflowV3Test extends TestCase
                     $t->text('notes')->nullable();
                     $t->unsignedBigInteger('created_by_user_id');
                 }
+                if ($name === 'ticket_satisfactions') {
+                    $t->timestamp('filled_at')->nullable();
+                    $t->string('review_status')->default('normal');
+                }
                 $t->timestamps();
                 $t->softDeletes();
             });
@@ -222,6 +226,7 @@ class DocumentWorkflowV3Test extends TestCase
             DB::table('ticket_photos')->insert(['ticket_service_form_id' => 1, 'category' => 'diagnosis', 'diagnosis_field' => $field]);
         }
         (require database_path('migrations/2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php'))->up();
+        (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
         $this->login(1);
     }
 
@@ -258,6 +263,11 @@ class DocumentWorkflowV3Test extends TestCase
         return ['diagnosis' => array_map(fn ($field) => ['field' => $field, 'body' => 'New cycle '.$field], ['problem', 'root_cause', 'action'])];
     }
 
+    private function sla(): array
+    {
+        return ['sla_mode' => 'duration', 'sla_value' => 2, 'sla_unit' => 'day'];
+    }
+
     private function beginRecoming(string $type = 'phone_call'): int
     {
         $this->publishInOrder(['service_form', 'agreement']);
@@ -265,7 +275,7 @@ class DocumentWorkflowV3Test extends TestCase
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
         $response = $this->postJson($this->url.'/recoming', ['recoming_type' => $type, 'reason' => 'unfinished_previous_work',
-            $type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at' => now()->addDay()->format('Y-m-d H:i:s')])->assertCreated();
+            $type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at' => now()->addDay()->format('Y-m-d H:i:s')] + $this->sla())->assertCreated();
         $this->login(1);
 
         return $response->json('data.data.cycle_id');
@@ -501,7 +511,7 @@ class DocumentWorkflowV3Test extends TestCase
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk()->assertJsonPath('data.locked', false);
         $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
         $this->assertSame($files, Storage::disk('local')->allFiles('ticket-signatures'));
-        $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
+        $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())->assertCreated();
         $this->postJson($this->url.'/documents/agreement/unlock')->assertConflict()->assertJsonPath('code', 'agreement_already_published');
         $this->login(1);
         $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
@@ -521,7 +531,7 @@ class DocumentWorkflowV3Test extends TestCase
         $this->publishInOrder(['service_form', 'agreement']);
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
-        $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')])->assertCreated();
+        $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())->assertCreated();
         DB::table('ticket_photos')->delete(); // OQ-06: phone-call completion must not require site photos.
         $this->login(1);
         $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
@@ -617,7 +627,7 @@ class DocumentWorkflowV3Test extends TestCase
         $this->postJson($this->url.'/service-form/submit', $this->findings())->assertOk();
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
-        $third = $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+        $third = $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())
             ->assertCreated()->json('data.data.cycle_id');
         $this->login(1);
         $this->putJson($this->url.'/service-form', $this->findings())->assertOk();

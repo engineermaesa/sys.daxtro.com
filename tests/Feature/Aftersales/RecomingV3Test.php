@@ -4,7 +4,9 @@ namespace Tests\Feature\Aftersales;
 
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketRecoming;
+use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\User;
+use App\Services\Aftersales\TicketSla;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,9 @@ class RecomingV3Test extends TestCase
             $t->string('ticket_code');
             $t->unsignedBigInteger('assigned_technician_id')->nullable();
             $t->unsignedBigInteger('supervisor_id')->nullable();
+            $t->unsignedInteger('sla_value')->nullable();
+            $t->string('sla_unit')->nullable();
+            $t->timestamp('sla_due_at')->nullable();
             $t->timestamps();
             $t->softDeletes();
         });
@@ -65,10 +70,15 @@ class RecomingV3Test extends TestCase
             $t->softDeletes();
         });
         foreach (['ticket_satisfactions', 'satisfaction_links'] as $name) {
-            Schema::create($name, function (Blueprint $t) {
+            Schema::create($name, function (Blueprint $t) use ($name) {
                 $t->id();
                 $t->unsignedBigInteger('ticket_id');
                 $t->string('status')->default('active');
+                if ($name === 'ticket_satisfactions') {
+                    $t->timestamp('filled_at')->nullable();
+                    $t->string('review_status')->default('normal');
+                    $t->string('source')->default('link');
+                }
                 $t->timestamps();
                 $t->softDeletes();
             });
@@ -88,7 +98,9 @@ class RecomingV3Test extends TestCase
         });
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
         (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
-        $ticket = Ticket::create(['ticket_code' => 'REC-1', 'assigned_technician_id' => 2, 'supervisor_id' => 3]);
+        (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
+        $ticket = Ticket::create(['ticket_code' => 'REC-1', 'assigned_technician_id' => 2, 'supervisor_id' => 3,
+            'sla_value' => 1, 'sla_unit' => 'day', 'sla_due_at' => '2026-10-31 10:00:00']);
         DB::table('ticket_service_forms')->insert(['ticket_id' => $ticket->id]);
         $ticket->visits()->create(['scheduled_at' => '2026-10-29 09:00:00']);
         $ticket->logs()->create(['step' => 'repair']);
@@ -115,7 +127,7 @@ class RecomingV3Test extends TestCase
 
     private function payload(string $type = 'phone_call'): array
     {
-        return ['recoming_type' => $type, 'reason' => 'unfinished_previous_work',
+        return ['recoming_type' => $type, 'reason' => 'unfinished_previous_work', 'sla_mode' => 'duration', 'sla_value' => 2, 'sla_unit' => 'day',
             $type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at' => '2026-11-01 14:30:00'];
     }
 
@@ -245,5 +257,137 @@ class RecomingV3Test extends TestCase
         $migration->down();
         $this->assertDatabaseHas('ticket_recomings', ['reason' => 'other']);
         $this->assertFalse(Schema::hasColumn('ticket_recomings', 'recoming_type'));
+    }
+
+    public function test_sla_setup_is_required_and_invalid_setup_cannot_allocate_a_cycle(): void
+    {
+        foreach ([
+            array_diff_key($this->payload(), array_flip(TicketSla::FIELDS)),
+            array_replace($this->payload(), ['sla_value' => 0]),
+            array_replace($this->payload(), ['sla_value' => 2147483647]),
+            $this->payload() + ['sla_due_at' => '2026-11-05'],
+            array_replace(array_diff_key($this->payload(), ['sla_value' => true, 'sla_unit' => true]), ['sla_mode' => 'deadline', 'sla_due_at' => '2026-10-31 12:00:00']),
+        ] as $payload) {
+            $this->postJson(self::URL.'/recoming', $payload)->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('ticket_cycles', 1);
+        $this->assertDatabaseCount('ticket_visits', 1);
+        $this->assertDatabaseHas('ticket_cycles', ['cycle_no' => 1, 'ended_at' => null]);
+    }
+
+    public function test_duration_sla_uses_schedule_and_reschedule_recalculates_same_cycle(): void
+    {
+        $response = $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        $cycleId = $response->json('data.data.cycle_id');
+        $this->assertDatabaseHas('ticket_cycles', ['id' => $cycleId, 'sla_mode' => 'duration', 'sla_started_at' => '2026-11-01 14:30:00', 'sla_due_at' => '2026-11-03 14:30:00']);
+        $this->assertNotNull(Ticket::first()->cycles()->where('cycle_no', 1)->first()->ended_at);
+        $summary = TicketSla::summary(Ticket::first());
+        $this->assertSame('running', $summary['state']);
+        $this->assertSame('Cycle 2', $summary['label']);
+        $this->assertSame(0, $summary['elapsed_seconds']);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_call_at' => '2026-11-02 09:00:00'])->assertOk();
+        $this->assertDatabaseHas('ticket_cycles', ['id' => $cycleId, 'sla_started_at' => '2026-11-02 09:00:00', 'sla_due_at' => '2026-11-04 09:00:00']);
+        $this->assertDatabaseHas('tickets', ['sla_due_at' => '2026-10-31 10:00:00']);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_call_at' => '2026-11-03 09:00:00', 'sla_mode' => 'deadline'])->assertUnprocessable();
+        $this->assertDatabaseCount('ticket_cycles', 2);
+    }
+
+    public function test_deadline_sla_remains_fixed_when_visit_is_moved_beyond_deadline(): void
+    {
+        $payload = array_replace(array_diff_key($this->payload('visit_site'), ['sla_value' => true, 'sla_unit' => true]), ['sla_mode' => 'deadline', 'sla_due_at' => '2026-11-02 17:00:00']);
+        $response = $this->postJson(self::URL.'/recoming', $payload)->assertCreated();
+        $cycleId = $response->json('data.data.cycle_id');
+        $this->postJson(self::URL.'/visits', ['scheduled_at' => '2026-11-04 09:00:00'])->assertOk();
+        $this->assertDatabaseHas('ticket_cycles', ['id' => $cycleId, 'sla_mode' => 'deadline', 'sla_value' => null, 'sla_unit' => null, 'sla_started_at' => '2026-11-04 09:00:00', 'sla_due_at' => '2026-11-02 17:00:00']);
+    }
+
+    public function test_admin_survey_pending_review_stops_sla_at_submission_not_close_or_approval(): void
+    {
+        $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        Carbon::setTestNow(Carbon::parse('2026-11-02 14:30:00', 'Asia/Jakarta'));
+        $ticket = Ticket::first();
+        $response = TicketSatisfaction::create(['ticket_id' => 1, 'cycle_id' => $ticket->currentCycle->id, 'source' => 'admin', 'review_status' => 'needs_review', 'filled_at' => now()]);
+        $this->assertSame('On Time', Ticket::first()->sla_status);
+        $this->assertEquals($response->filled_at, Ticket::first()->sla_stopped_at);
+        $this->assertSame($response->id, Ticket::first()->currentCycle->sla_satisfaction_id);
+        Carbon::setTestNow(Carbon::parse('2026-11-10 14:30:00', 'Asia/Jakarta'));
+        $response->update(['review_status' => 'reviewed']);
+        $summary = TicketSla::summary(Ticket::first());
+        $this->assertSame('stopped', $summary['state']);
+        $this->assertSame(86400, $summary['elapsed_seconds']);
+        $this->assertSame('On Time', $summary['result']);
+        $this->assertArrayNotHasKey('sla_satisfaction_id', Ticket::first()->currentCycle->toArray());
+    }
+
+    public function test_rejection_falls_back_to_latest_accepted_response_or_resumes_original_clock(): void
+    {
+        $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        $cycleId = Ticket::first()->currentCycle->id;
+        Carbon::setTestNow(Carbon::parse('2026-11-02 14:30:00', 'Asia/Jakarta'));
+        $first = TicketSatisfaction::create(['ticket_id' => 1, 'cycle_id' => $cycleId, 'filled_at' => now(), 'review_status' => 'normal']);
+        Carbon::setTestNow(Carbon::parse('2026-11-04 14:30:00', 'Asia/Jakarta'));
+        $second = TicketSatisfaction::create(['ticket_id' => 1, 'cycle_id' => $cycleId, 'filled_at' => now(), 'review_status' => 'needs_review']);
+        $this->assertSame('Overtime', Ticket::first()->sla_status);
+        $second->update(['review_status' => 'rejected']);
+        $this->assertEquals($first->filled_at, Ticket::first()->sla_stopped_at);
+        $this->assertSame('On Time', Ticket::first()->sla_status);
+        $first->update(['review_status' => 'rejected']);
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $summary = TicketSla::summary(Ticket::first());
+        $this->assertSame('running', $summary['state']);
+        $this->assertTrue($summary['is_overdue']);
+        $this->assertSame(259200, $summary['elapsed_seconds']);
+        $this->assertDatabaseHas('ticket_cycles', ['id' => $cycleId, 'sla_due_at' => '2026-11-03 14:30:00']);
+    }
+
+    public function test_old_cycle_review_cannot_stop_or_restart_the_current_cycle(): void
+    {
+        $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        Carbon::setTestNow(Carbon::parse('2026-11-02 10:00:00', 'Asia/Jakarta'));
+        $oldCycle = Ticket::first()->currentCycle;
+        $oldResponse = TicketSatisfaction::create(['ticket_id' => 1, 'cycle_id' => $oldCycle->id, 'filled_at' => now(), 'review_status' => 'needs_review']);
+        Ticket::first()->logs()->create(['step' => 'repair']);
+        $this->postJson(self::URL.'/recoming', array_replace($this->payload(), ['planned_call_at' => '2026-11-03 10:00:00']))->assertCreated();
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $closedAt = $oldCycle->fresh()->ended_at;
+        $oldResponse->update(['review_status' => 'rejected']);
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $this->assertEquals($closedAt, $oldCycle->fresh()->ended_at);
+        Carbon::setTestNow(Carbon::parse('2026-11-04 10:00:00', 'Asia/Jakarta'));
+        $newResponse = TicketSatisfaction::create(['ticket_id' => 1, 'filled_at' => now(), 'review_status' => 'normal']);
+        $oldResponse->update(['review_status' => 'reviewed']);
+        $this->assertEquals($newResponse->filled_at, Ticket::first()->sla_stopped_at);
+        $this->assertEquals($oldResponse->filled_at, $oldCycle->fresh()->sla_stopped_at);
+    }
+
+    public function test_failed_response_transaction_does_not_leave_sla_stopped_and_soft_delete_recalculates(): void
+    {
+        $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        try {
+            DB::transaction(function () {
+                TicketSatisfaction::create(['ticket_id' => 1, 'filled_at' => now(), 'review_status' => 'normal']);
+                throw new \RuntimeException('Submission failed');
+            });
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Submission failed', $e->getMessage());
+        }
+        $this->assertDatabaseCount('ticket_satisfactions', 0);
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $response = TicketSatisfaction::create(['ticket_id' => 1, 'filled_at' => now(), 'review_status' => 'normal']);
+        $response->delete();
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $response->restore();
+        $this->assertEquals($response->filled_at, Ticket::first()->sla_stopped_at);
+    }
+
+    public function test_legacy_verdict_remains_closed_based(): void
+    {
+        DB::table('tickets')->update(['workflow_version' => 'legacy']);
+        TicketSatisfaction::create(['ticket_id' => 1, 'filled_at' => now(), 'review_status' => 'normal']);
+        $this->assertNull(Ticket::first()->sla_stopped_at);
+        $this->assertSame('Pending', Ticket::first()->sla_status);
+        $this->assertNull(TicketSla::summary(Ticket::first()));
+        Ticket::first()->logs()->create(['step' => 'closed']);
+        $this->assertSame('On Time', Ticket::first()->sla_status);
     }
 }

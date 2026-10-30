@@ -233,6 +233,11 @@ class Ticket extends Model
      */
     public function getSlaStatusAttribute(): ?string
     {
+        if ($this->workflow_version === self::WORKFLOW_V3) {
+            $summary = \App\Services\Aftersales\TicketSla::summary($this);
+
+            return $summary && $summary['due_at'] ? ($summary['result'] ?? 'Pending') : null;
+        }
         if (! $this->sla_due_at) {
             return null;
         }

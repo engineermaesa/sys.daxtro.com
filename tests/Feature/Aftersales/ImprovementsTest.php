@@ -858,6 +858,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_09_03_010500_create_document_counters_table.php'))->up();
         (require database_path('migrations/2026_09_03_010000_create_ref_spareparts_table.php'))->up();
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
+        (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
     }
 
     private function ticketContactInput(ServiceCustomer $customer, ServiceCustomerProduct $machine): array
@@ -932,6 +933,36 @@ class ImprovementsTest extends TestCase
         $this->assertSame(1, DB::table('ticket_logs')->where('step', 'published')->count());
     }
 
+    public function test_initial_cycle_sla_survives_ordinary_edits_and_is_frozen_after_survey(): void
+    {
+        $this->ticketContactTables();
+        Schema::table('ticket_satisfactions', fn (Blueprint $t) => $t->timestamp('filled_at')->nullable());
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $input = $this->ticketContactInput($customer, $machine);
+        $this->actingAs($this->user());
+        $id = $this->postJson('/api/aftersales/tickets', $input)->assertCreated()->json('data.data.id');
+        $ticket = Ticket::findOrFail($id);
+        $due = $ticket->sla_due_at;
+        $this->assertSame('duration', $ticket->currentCycle->sla_mode);
+        $this->assertEquals($due, $ticket->currentCycle->sla_due_at);
+        \Carbon\Carbon::setTestNow(now()->addHours(5));
+        try {
+            $url = '/api/aftersales/tickets/'.$id;
+            $this->putJson($url, array_replace($input, ['description' => 'Changed description']))->assertOk();
+            $this->assertEquals($due, $ticket->fresh()->currentCycle->sla_due_at);
+            $this->assertEquals($due, $ticket->fresh()->sla_due_at);
+            TicketSatisfaction::create(['ticket_id' => $id, 'review_status' => 'normal', 'filled_at' => now()]);
+            $this->getJson($url)->assertOk()->assertJsonPath('data.current_sla.state', 'stopped')
+                ->assertJsonPath('data.current_sla.result', 'On Time')->assertJsonPath('data.sla_status', 'On Time');
+            $this->putJson($url, array_replace($input, ['sla_value' => 4]))->assertUnprocessable()->assertJsonValidationErrors('sla_due_at');
+            $this->putJson($url, $input)->assertOk();
+            $this->assertEquals($due, $ticket->fresh()->currentCycle->sla_due_at);
+        } finally {
+            \Carbon\Carbon::setTestNow();
+        }
+    }
+
     public function test_recoming_assigns_a_new_cycle_to_the_visit_and_log_and_rescheduling_keeps_it(): void
     {
         $this->ticketContactTables();
@@ -967,7 +998,7 @@ class ImprovementsTest extends TestCase
         $initial = $ticket->currentCycle;
         $ticket->logs()->create(['step' => 'repair']);
         $url = '/api/aftersales/tickets/'.$id;
-        $response = $this->postJson($url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+        $response = $this->postJson($url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s'), 'sla_mode' => 'duration', 'sla_value' => 2, 'sla_unit' => 'day'])
             ->assertCreated();
         $cycle = $ticket->fresh()->currentCycle;
         $this->assertSame(2, $cycle->cycle_no);

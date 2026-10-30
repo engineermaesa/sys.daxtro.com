@@ -9,6 +9,7 @@ use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
 use App\Services\Aftersales\SurveyResponses;
+use App\Services\Aftersales\TicketSla;
 use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -78,10 +79,12 @@ class SurveyLinkController extends Controller
         $validated = $responseData['attributes'];
 
         $satisfaction = DB::transaction(function () use ($ticket, $validated, $responseData, $activeLink, $request) {
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
             // single use: re-check under lock so a double submit can't create two responses
             $link = SatisfactionLink::where('ticket_id', $ticket->id)->latest('id')->lockForUpdate()->first();
             abort_if(! $link || $link->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'Survey link is not active.');
             abort_unless($link->id === $activeLink->id, 409, 'The survey link changed. Reload the form.');
+            TicketSla::guardSurveyCycle($ticket, $link->cycle_id);
 
             $now = Carbon::now('Asia/Jakarta');
             $user = $request->user();

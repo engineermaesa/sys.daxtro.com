@@ -183,6 +183,120 @@ class SurveyTemplatesTest extends TestCase
         return app(SurveyResponses::class)->validate(Request::create('/', 'POST', $input), $template);
     }
 
+    private function enableCycleSla(): void
+    {
+        Schema::table('tickets', function (Blueprint $t) {
+            $t->timestamps();
+            $t->unsignedInteger('sla_value')->nullable();
+            $t->string('sla_unit')->nullable();
+            $t->timestamp('sla_due_at')->nullable();
+        });
+        Schema::table('ticket_satisfactions', fn (Blueprint $t) => $t->text('review_note')->nullable());
+        Schema::create('ticket_recomings', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('ticket_id');
+            $t->timestamps();
+            $t->softDeletes();
+        });
+        Schema::create('user_activity_logs', function (Blueprint $t) {
+            $t->id();
+            foreach (['user_id', 'action', 'model_type', 'model_id', 'description', 'data', 'ip_address', 'user_agent'] as $field) {
+                $t->text($field)->nullable();
+            }
+            $t->timestamps();
+        });
+        (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
+        DB::table('tickets')->where('id', 1)->update(['workflow_version' => 'v3', 'created_at' => now()->subDay(), 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
+        DB::table('ticket_cycles')->update(['started_at' => now()->subDay(), 'sla_value' => 3, 'sla_unit' => 'day', 'sla_due_at' => now()->addDay()]);
+        (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
+    }
+
+    private function assistedSurvey(): TicketSatisfaction
+    {
+        $this->postJson('/api/aftersales/tickets/1/survey-response', $this->answerInput(RefSurveyTemplate::active()) + ['reason' => 'Customer answered by telephone'])->assertCreated();
+
+        return TicketSatisfaction::latest('id')->first();
+    }
+
+    public function test_public_survey_endpoint_stops_cycle_sla_at_submission(): void
+    {
+        $this->enableCycleSla();
+        $this->otp();
+        $this->withHeader('X-Survey-Session', 'verified-session')->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertCreated();
+        $response = TicketSatisfaction::latest('id')->first();
+        $this->assertEquals($response->filled_at, Ticket::find(1)->sla_stopped_at);
+        $this->assertSame($response->id, Ticket::find(1)->currentCycle->sla_satisfaction_id);
+    }
+
+    public function test_admin_survey_reject_endpoint_restarts_sla_and_replaces_link_atomically(): void
+    {
+        $this->enableCycleSla();
+        $response = $this->assistedSurvey();
+        $this->assertSame('needs_review', $response->review_status);
+        $this->assertNotNull(Ticket::find(1)->sla_stopped_at);
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'reject', 'note' => 'Wrong answers'])->assertOk();
+        $this->assertNull(Ticket::find(1)->sla_stopped_at);
+        $this->assertNull(Ticket::find(1)->currentCycle->sla_stopped_at);
+        $this->assertDatabaseHas('ticket_satisfactions', ['id' => $response->id, 'review_status' => 'rejected']);
+        $this->assertSame(1, SatisfactionLink::where('status', 'active')->count());
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'reject', 'note' => 'Retry'])->assertUnprocessable();
+    }
+
+    public function test_review_approval_keeps_original_survey_time_as_sla_stop(): void
+    {
+        $this->enableCycleSla();
+        $response = $this->assistedSurvey();
+        $submitted = $response->filled_at;
+        \Carbon\Carbon::setTestNow(now()->addDays(4));
+        try {
+            $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'approve'])->assertOk();
+            $this->assertEquals($submitted, Ticket::find(1)->sla_stopped_at);
+            $this->assertTrue($response->fresh()->reviewed_at->gt($submitted));
+        } finally {
+            \Carbon\Carbon::setTestNow();
+        }
+    }
+
+    public function test_stale_active_survey_link_cannot_stop_the_new_cycle(): void
+    {
+        $this->enableCycleSla();
+        $this->otp();
+        $ticket = Ticket::find(1);
+        $cycle = \App\Services\Aftersales\TicketCycles::startRecoming($ticket);
+        \App\Services\Aftersales\TicketSla::apply($ticket, $cycle, ['sla_mode' => 'deadline', 'sla_started_at' => now(), 'sla_due_at' => now()->addDay()]);
+        $ticket->logs()->create(['cycle_id' => $cycle->id, 'step' => 'documentation_published']);
+        $this->withHeader('X-Survey-Session', 'verified-session')->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))
+            ->assertConflict()->assertJsonPath('code', 'survey_cycle_not_current');
+        $this->assertNull(Ticket::find(1)->sla_stopped_at);
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+    }
+
+    public function test_rejecting_previous_cycle_response_cannot_issue_link_for_current_cycle(): void
+    {
+        $this->enableCycleSla();
+        $response = $this->assistedSurvey();
+        $ticket = Ticket::find(1);
+        $cycle = \App\Services\Aftersales\TicketCycles::startRecoming($ticket);
+        \App\Services\Aftersales\TicketSla::apply($ticket, $cycle, ['sla_mode' => 'deadline', 'sla_started_at' => now(), 'sla_due_at' => now()->addDay()]);
+        $ticket->logs()->create(['cycle_id' => $cycle->id, 'step' => 'documentation_published']);
+        $this->postJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/review', ['decision' => 'reject', 'note' => 'Old cycle'])
+            ->assertConflict()->assertJsonPath('code', 'survey_cycle_not_current');
+        $this->assertSame('needs_review', $response->fresh()->review_status);
+        $this->assertNull(Ticket::find(1)->sla_stopped_at);
+        $this->assertDatabaseCount('satisfaction_links', 1);
+    }
+
+    public function test_answer_persistence_failure_rolls_back_response_and_sla_stop(): void
+    {
+        $this->enableCycleSla();
+        $this->otp();
+        \App\Models\Aftersales\TicketSatisfactionAnswer::creating(fn () => throw new \RuntimeException('Answer write failed'));
+        $this->withHeader('X-Survey-Session', 'verified-session')->postJson('/api/survey/old-token/submit', $this->answerInput(RefSurveyTemplate::active()))->assertStatus(500);
+        $this->assertNull(Ticket::find(1)->sla_stopped_at);
+        $this->assertDatabaseCount('ticket_satisfactions', 1);
+        $this->assertSame('active', SatisfactionLink::first()->status);
+    }
+
     public function test_migration_pins_legacy_links_and_responses_and_preserves_scores(): void
     {
         $template = RefSurveyTemplate::active();

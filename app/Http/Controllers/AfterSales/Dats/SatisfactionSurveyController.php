@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\AfterSales\Dats;
 
-use App\Http\Controllers\Controller;
 use App\Http\Classes\ActivityLogger;
+use App\Http\Controllers\Controller;
 use App\Models\Aftersales\SatisfactionLink;
+use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
+use App\Services\Aftersales\TicketDocumentWorkflow;
+use App\Services\Aftersales\TicketRecomings;
+use App\Services\Aftersales\TicketSla;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +31,7 @@ class SatisfactionSurveyController extends Controller
 
         $request->validate([
             'search' => 'nullable|string|max:100',
-            'review_status' => 'nullable|in:' . implode(',', [
+            'review_status' => 'nullable|in:'.implode(',', [
                 TicketSatisfaction::REVIEW_NORMAL,
                 TicketSatisfaction::REVIEW_NEEDS_REVIEW,
                 TicketSatisfaction::REVIEW_REVIEWED,
@@ -185,11 +189,12 @@ class SatisfactionSurveyController extends Controller
         $user = $request->user();
 
         DB::transaction(function () use ($satisfaction, $decision, $validated, $user) {
+            $ticket = Ticket::whereKey($satisfaction->ticket_id)->lockForUpdate()->firstOrFail();
             $locked = TicketSatisfaction::whereKey($satisfaction->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->review_status === TicketSatisfaction::REVIEW_NEEDS_REVIEW, 422, 'Only responses that need review can be reviewed.');
 
-            $ticket = $satisfaction->ticket;
             if ($decision === 'reject') {
+                TicketSla::guardSurveyCycle($ticket, $locked->cycle_id);
                 abort_unless($ticket->satisfactions()->max('id') == $satisfaction->id, 422, 'Only the current response can be rejected.');
                 abort_unless(in_array($ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 422, 'A new survey link can only be issued after Documentation Published.');
             }
@@ -201,11 +206,13 @@ class SatisfactionSurveyController extends Controller
                 'reviewed_at' => Carbon::now('Asia/Jakarta'),
             ]);
 
-           
             if ($decision === 'reject') {
                 SatisfactionLink::where('ticket_id', $ticket->id)->where('status', SatisfactionLink::STATUS_ACTIVE)
                     ->update(['status' => SatisfactionLink::STATUS_REPLACED]);
-                SatisfactionLink::issue($ticket, $user->id);
+                $phone = TicketDocumentWorkflow::enabled($ticket) && TicketRecomings::current($ticket)?->recoming_type === 'phone_call';
+                if (! $phone) {
+                    SatisfactionLink::issue($ticket, $user->id);
+                }
             }
 
             ActivityLogger::writeLog('response_reviewed', "Survey response {$ticket->ticket_code}: {$decision}", $locked, [
@@ -215,7 +222,9 @@ class SatisfactionSurveyController extends Controller
             ]);
         });
 
-        return $this->setJsonResponse($decision === 'reject' ? 'Response rejected; a new survey link was issued' : 'Response approved', ['data' => $satisfaction->fresh()]);
+        $phone = TicketDocumentWorkflow::enabled($satisfaction->ticket) && TicketRecomings::current($satisfaction->ticket)?->recoming_type === 'phone_call';
+
+        return $this->setJsonResponse($decision === 'reject' ? ($phone ? 'Response rejected; waiting for a replacement phone-call survey' : 'Response rejected; a new survey link was issued') : 'Response approved', ['data' => $satisfaction->fresh()]);
     }
 
     public static function needsReview(): int
@@ -255,11 +264,15 @@ class SatisfactionSurveyController extends Controller
 
     private function answerData(TicketSatisfaction $s): array
     {
-        if (! $s->template) return [];
+        if (! $s->template) {
+            return [];
+        }
         $answers = $s->answers->keyBy('question_key');
+
         return collect($s->template->questions())->map(function ($q) use ($answers) {
             $answer = $answers->get($q['question_key']);
             $value = in_array($q['type'], ['rating', 'yes_no']) ? $answer?->value_number : $answer?->value_text;
+
             return ['question_key' => $q['question_key'], 'label' => $q['label'], 'type' => $q['type'], 'value' => $q['type'] === 'yes_no' && $value !== null ? (bool) $value : $value];
         })->all();
     }

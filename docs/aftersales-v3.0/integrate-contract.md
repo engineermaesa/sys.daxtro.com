@@ -551,7 +551,7 @@ Migration: `2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php`.
 - Backfill hanya bila ticket memiliki tepat satu siklus dan form tidak memiliki beberapa entri untuk field yang sama. Ticket/form soft-deleted tetap ikut diperiksa. ID, teks, key `cause`, tanggal, dan nomor kelompok lama dipertahankan.
 - Histori dengan beberapa siklus atau kelompok field yang ambigu tetap `cycle_id: null`. Tidak ditebak dari `visit_no`, tidak digabung, dan tidak dihapus. Pada v3, histori tersebut readonly dan temuan siklus aktif perlu diisi secara eksplisit.
 - Rollback tanpa temuan Recoming bersiklus dapat menghapus metadata baru sambil mempertahankan catatan diagnosis. Jika sudah ada temuan yang terikat ke siklus nomor >1, rollback ditolak sebelum DDL agar kepemilikan histori tidak hilang; perlu migration rollback eksplisit.
-- **Migration task 6 belum diterapkan ke database aplikasi lokal `local_daxx`.** Gunakan jendela maintenance untuk schema/backfill seperti task sebelumnya.
+- **Migration task 6 sudah diterapkan ke database aplikasi lokal `local_daxx` pada 2026-10-30.** Gunakan jendela maintenance untuk schema/backfill seperti task sebelumnya.
 - Setup/perhitungan SLA tetap Task 7; varian dan respons survey tetap Task 8; Happy Call/Close dan revision offline tetap task berikutnya.
 
 #### 3.31 Verifikasi Task 6
@@ -561,9 +561,96 @@ Migration: `2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php`.
 - Smoke test **MySQL 8.4.3** pada database sementara: migration, backfill, unique/FK, down/up, marker/log Repair idempotent, dan proteksi rollback **lulus**. Database sementara dihapus; database aplikasi tidak diubah.
 - Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 281 tests, 2416 assertions** (SQLite in-memory). Formatter PHP pada file task 6 dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
 
+### Task 7 — SLA per siklus (IMPLEMENTED)
+
+AS-REC-04, AS-SLA-01/02. Default **OQ-14 disetujui user**: reschedule menghitung ulang deadline berbasis durasi dari jadwal baru; deadline eksplisit tetap. Aturan berikut berlaku untuk `workflow_version: "v3"`; perhitungan legacy tetap memakai Close.
+
+#### 3.32 Setup SLA Recoming wajib
+
+`POST /tickets/{ticket}/recoming` tetap khusus Admin dengan `aftersales.tickets.manage`. Tambahkan setup SLA pada request Task 5. Field berada pada level teratas, bukan object bersarang.
+
+Contoh request durasi yang diuji:
+
+```json
+{"recoming_type":"phone_call","reason":"unfinished_previous_work","planned_call_at":"2026-11-02 14:30:00","sla_mode":"duration","sla_value":2,"sla_unit":"day"}
+```
+
+Alternatif deadline:
+
+```json
+{"recoming_type":"visit_site","reason":"further_work_needed","planned_visit_at":"2026-11-02 09:00:00","sla_mode":"deadline","sla_due_at":"2026-11-04 17:00:00"}
+```
+
+| Field | Aturan |
+|---|---|
+| `sla_mode` | Wajib `duration` atau `deadline` |
+| `sla_value`, `sla_unit` | Wajib untuk duration; integer positif dan `hour`/`day`; tidak boleh diisi untuk deadline |
+| `sla_due_at` | Wajib untuk deadline, minimal waktu jadwal; tidak boleh diisi untuk duration |
+
+Durasi dihitung dari `planned_call_at` atau `planned_visit_at` dalam Asia/Jakarta. Deadline harus dalam rentang timestamp database yang didukung. Validasi gagal menghasilkan **422** dengan `errors.<field>`; tidak membuat cycle/visit/log dan tidak mengakhiri siklus sebelumnya.
+
+Response tetap **201** dengan envelope `data.data` existing. Tambahan `data.data.cycle` berisi siklus hasil setup, termasuk `sla_mode`, `sla_started_at`, `sla_value`, `sla_unit`, `sla_due_at`, dan `sla_stopped_at`. `sla_satisfaction_id` adalah pointer internal dan disembunyikan dari resource, termasuk histori `cycles[]`.
+
+Saat Recoming berhasil disimpan, siklus lama mendapat `ended_at`, SLA lamanya berhenti berjalan pada batas itu jika belum dihentikan survey. Siklus baru mempunyai SLA sendiri, dan `tickets.sla_stopped_at` di-reset. `tickets.sla_value/unit/due_at` tetap merepresentasikan **setup awal**, sehingga histori tidak ditimpa oleh setup Recoming.
+
+#### 3.33 Reschedule dan edit ticket
+
+`POST /tickets/{ticket}/recoming/reschedule` tetap mengikuti permission dan batas waktu Task 5. Untuk siklus yang sudah mempunyai setup, kirim hanya jadwal baru dan note opsional; field `sla_*` tidak boleh diisi (422).
+
+- `duration`: `sla_started_at` bergeser ke jadwal baru dan `sla_due_at` dihitung ulang dengan nilai/unit semula.
+- `deadline`: `sla_started_at` bergeser, tetapi deadline tidak berubah. Jadwal baru yang melewati deadline tetap memakai deadline tersebut dan dapat menghasilkan overdue.
+- Jalur site `POST /tickets/{ticket}/visits` saat reschedule memakai aturan yang sama.
+- Siklus Recoming v3 historis yang belum mempunyai setup tidak diberi deadline rekaan. Jika masih memenuhi syarat reschedule, request reschedule wajib membawa setup SLA lengkap seperti §3.32.
+- Create ticket menyinkronkan SLA awal ke cycle 1. Edit detail ticket biasa dengan setup SLA yang sama tidak menggeser deadline. Perubahan setup awal setelah survey menghentikan SLA atau setelah Recoming dimulai ditolak 422 (`errors.sla_due_at`); detail lain tetap dapat diperbarui.
+
+#### 3.34 Survey, review, dan perhitungan ulang
+
+Stop SLA memakai **`filled_at` response terakhir** dalam siklus yang sama, diurutkan `filled_at DESC, id DESC`, tanpa response soft-deleted/rejected. Status yang menghentikan SLA adalah `normal`, `needs_review`, dan `reviewed`. `needs_review` menghentikan SLA secara provisional agar input Admin segera menghentikannya; ini bukan perubahan aturan agregasi/rating valid yang ditangani Task 8.
+
+- Submit publik dan on-behalf Admin memperbarui survey, pointer, dan stop SLA dalam transaksi yang sama. Kegagalan menyimpan jawaban membatalkan semuanya.
+- Approve mempertahankan waktu submit sebagai stop; waktu approval tidak memperpanjang SLA.
+- Reject menghitung ulang: kembali ke response yang masih diterima sebelumnya; jika tidak ada, stop dihapus dan SLA berjalan lagi memakai start/deadline semula. Reject tidak memberikan durasi baru.
+- Siklus yang sudah diakhiri tetap tertutup pada `ended_at`. Review response lama tidak mengubah mirror `tickets.sla_stopped_at` milik siklus terbaru. Soft delete/restore response melalui model juga menghitung ulang.
+- Submit link milik siklus lama atau reject response dari siklus lama menghasilkan **409 `survey_cycle_not_current`**, tanpa menerbitkan link untuk siklus baru. Guard review existing (hanya needs_review, response terbaru, progress yang sesuai) tetap berlaku.
+- Reject survey site menerbitkan link pengganti seperti existing. Phone call tidak membuat link pengganti; endpoint/template input survey phone call tetap Task 8.
+
+Urutan lock pada submit/review: ticket dahulu, kemudian link/response; recompute mengunci ticket dan cycle. Perubahan siklus dan stop SLA memakai transaksi yang sama agar histori tidak tertimpa oleh request lama.
+
+#### 3.35 Resource SLA
+
+`GET /tickets` dan `GET /tickets/{ticket}` menambahkan **`current_sla`**; null untuk legacy. `current_cycle`/`cycles[]` tetap membawa snapshot setup SLA tiap siklus.
+
+Contoh subset summary pada v3 yang dihentikan survey:
+
+```json
+{"current_sla":{"cycle_id":2,"cycle_no":2,"mode":"duration","state":"stopped","label":"Stopped","started_at":"2026-11-02T07:30:00.000000Z","due_at":"2026-11-04T07:30:00.000000Z","stopped_at":"2026-11-02T08:30:00.000000Z","closed_at":null,"elapsed_seconds":3600,"is_overdue":false,"result":"On Time"},"sla_status":"On Time"}
+```
+
+| Field | Arti |
+|---|---|
+| `state` | `running`, `stopped`, `closed`, atau `not_configured` |
+| `label` | `Running` untuk siklus awal berjalan; `Cycle n` untuk Recoming berjalan; `Stopped`/`Closed`/`Not configured` untuk state lain |
+| `started_at`, `due_at`, `stopped_at`, `closed_at` | Waktu SLA, berbeda dari waktu cycle dibuat; serialized timestamp mengikuti resource existing |
+| `elapsed_seconds` | Durasi nonnegatif dari start sampai stop, akhir cycle, atau waktu sekarang; membeku saat stop/akhir cycle |
+| `is_overdue` | Pembanding batas waktu tersebut terhadap deadline; null bila setup belum tersedia |
+| `result` | `On Time`/`Overtime` setelah survey menghentikan SLA; null sebelum stop |
+
+`sla_status` mempertahankan nilai kompatibel `Pending`/`On Time`/`Overtime` (atau null tanpa deadline). Pada v3 hasil sudah tersedia setelah survey, tanpa menunggu Closed. Technician hanya mendapat metadata SLA; pointer/isi survey tidak ditambahkan ke resource Technician.
+
+#### 3.36 Migration dan verifikasi Task 7
+
+Migration: `2026_10_30_000400_add_cycle_sla_setup.php`; menambah `sla_mode`, `sla_started_at`, dan FK internal `sla_satisfaction_id` pada `ticket_cycles`. Tidak ada seed baru.
+
+- Backfill hanya ticket v3: start dari siklus awal/jadwal Recoming yang terhubung, deadline existing dipertahankan sebagai mode deadline, dan stop dihitung dari response yang memenuhi aturan §3.34. Response setelah `ended_at` tidak dihitung untuk siklus arsip. Legacy tidak dihitung ulang.
+- Deadline Recoming historis yang belum ada tetap null. Rollback menghapus metadata baru/FK, mempertahankan response, deadline, serta timestamp stop existing; mode durasi tidak dapat dipulihkan dari metadata yang sudah dihapus.
+- **Migration task 7 sudah diterapkan ke database aplikasi lokal `local_daxx` pada 2026-10-30.** Backup SQL dibuat sebelum migration; cache dibersihkan dan aplikasi kembali live. Tidak ada seed baru.
+- Test mencakup setup wajib/eksklusif, validasi/rentang deadline, reschedule durasi/deadline, penutupan siklus, stop provisional, approve/reject/fallback, histori terisolasi, rollback submit, soft delete/restore, SLA awal tidak bergeser, dan legacy.
+- Smoke MySQL **8.4.3 lulus** pada database sementara: migration/backfill/FK/down-up, reschedule kedua mode, dan stop/approve/reject/delete/restore survey. Database sementara dihapus; database aplikasi tidak diubah.
+- Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 297 tests, 2526 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus. Uji konkurensi dua request sungguhan dan e2e FE tetap Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 7–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 8–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -577,3 +664,6 @@ Task 7–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 | 2026-10-30 | Task 5: Recoming v3, jadwal call/visit, signature reuse | Implemented; 268 test lulus, 2154 assertions; default OQ-06/10 disetujui user; smoke migration MySQL 8.4.3 lulus; migration task 5 belum diterapkan ke database aplikasi |
 | 2026-10-30 | Penerapan lokal task 5 | Migration `2026_10_30_000200_add_recoming_v3_scheduling` berhasil pada `local_daxx` menggunakan backup yang disiapkan user. Kolom baru terverifikasi, tidak ada migration pending, cache dibersihkan, aplikasi kembali live. Tidak ada row Recoming existing saat verifikasi; tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 5 sebelumnya. |
 | 2026-10-30 | Task 6: Temuan per siklus dan Repair pada edit pertama | Implemented dengan reuse diagnosis existing sesuai persetujuan user; 281 test lulus, 2416 assertions; smoke migration/Repair MySQL 8.4.3 lulus; migration task 6 belum diterapkan ke database aplikasi |
+| 2026-10-30 | Penerapan lokal task 6 | Migration `2026_10_30_000300_scope_diagnosis_to_ticket_cycles` berhasil pada `local_daxx`. Backup SQL terbaru disimpan di `storage/app/private/backups/local_daxx-before-task6-20261030-125352-a4919e.sql`. Fingerprint dan jumlah 9 diagnosis existing tidak berubah; seluruhnya berhasil di-backfill ke siklus. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live; tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 6 sebelumnya. |
+| 2026-10-30 | Task 7: Setup dan perhitungan SLA per siklus | Implemented; default OQ-14 disetujui user; 297 test lulus, 2526 assertions; smoke migration dan SLA MySQL 8.4.3 lulus pada DB sementara; migration task 7 belum diterapkan ke database aplikasi; tidak ada seed baru. |
+| 2026-10-30 | Penerapan lokal task 7 | Migration `2026_10_30_000400_add_cycle_sla_setup` berhasil pada `local_daxx` (batch 31). Backup SQL: `storage/app/private/backups/local_daxx-before-task7-20261030-133421-55177d.sql`. Kolom baru dan FK survey terverifikasi; fingerprint data bisnis ticket/cycle/survey/diagnosis tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis). Tidak ada ticket v3 existing untuk backfill SLA; perilaku v3 telah diuji pada pengujian task 7. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live. Tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 7 sebelumnya. |

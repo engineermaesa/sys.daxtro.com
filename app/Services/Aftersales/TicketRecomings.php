@@ -67,14 +67,17 @@ class TicketRecomings
         $data = self::scheduleData($request) + $request->validate([
             'reason' => 'required|in:'.implode(',', TicketRecoming::REASONS), 'notes' => 'nullable|string|max:10000',
         ]);
+        $schedule = Carbon::parse($data[$data['recoming_type'] === TicketRecoming::TYPE_PHONE_CALL ? 'planned_call_at' : 'planned_visit_at'], 'Asia/Jakarta')->timezone('Asia/Jakarta');
+        $sla = TicketSla::setup($request, $schedule);
 
-        return DB::transaction(function () use ($ticket, $user, $data) {
+        return DB::transaction(function () use ($ticket, $user, $data, $sla) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
             abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
             abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'Reschedule the current Recoming before starting another one.');
             abort_if($ticket->serviceForm()->whereIn('status', ['saved', 'awaiting_spv_signature'])->exists(), 422, 'Unlock the Service Form first.');
             $fromStep = $ticket->progress;
             $cycle = TicketCycles::startRecoming($ticket);
+            TicketSla::apply($ticket, $cycle, $sla);
             $visit = null;
             $visitNo = null;
             if ($data['recoming_type'] === TicketRecoming::TYPE_VISIT_SITE) {
@@ -94,7 +97,7 @@ class TicketRecomings
             SatisfactionLink::deactivateFor($ticket);
             $ticket->logs()->create(['cycle_id' => $cycle->id, 'step' => TicketLog::STEP_RECOMING, 'actor_user_id' => $user->id, 'note' => $data['notes'] ?? null]);
 
-            return $recoming;
+            return $recoming->load('cycle');
         });
     }
 
@@ -114,6 +117,8 @@ class TicketRecomings
             $phone = $recoming->recoming_type === TicketRecoming::TYPE_PHONE_CALL;
             $from = $recoming->scheduledAt();
             $date = Carbon::parse($data[$phone ? 'planned_call_at' : 'planned_visit_at'], 'Asia/Jakarta')->timezone('Asia/Jakarta');
+            $cycle = $ticket->cycles()->whereKey($recoming->cycle_id)->lockForUpdate()->firstOrFail();
+            TicketSla::reschedule($request, $ticket, $cycle, $date);
             $recoming->update([$phone ? 'planned_call_at' : 'planned_visit_at' => $date]);
             if (! $phone) {
                 $visit = $ticket->visits()->where('cycle_id', $recoming->cycle_id)->whereKey($recoming->ticket_visit_id)->lockForUpdate()->first();
@@ -125,7 +130,7 @@ class TicketRecomings
                 'from' => $from?->toIso8601String(), 'to' => $date->toIso8601String(), 'note' => $data['note'] ?? null,
             ], $request->user());
 
-            return $recoming->refresh();
+            return $recoming->refresh()->load('cycle');
         });
     }
 }

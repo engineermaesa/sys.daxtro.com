@@ -23,6 +23,7 @@ use App\Services\Aftersales\TicketCycles;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketDocumentWorkflow;
 use App\Services\Aftersales\TicketRecomings;
+use App\Services\Aftersales\TicketSla;
 use App\Services\Aftersales\TicketStock;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -215,6 +216,7 @@ class TicketController extends Controller
                 'progress' => $t->progress,
                 'aging_days' => $t->aging_days,
                 'sla_status' => $t->sla_status,
+                'current_sla' => TicketSla::summary($t),
                 'visit_date' => $latestVisit?->scheduled_at,
                 'visit_no' => $t->visits->count(),
                 'closed_at' => $closedLog?->created_at,
@@ -301,6 +303,7 @@ class TicketController extends Controller
                 'progress' => $ticket->progress,
                 'aging_days' => $ticket->aging_days,
                 'sla_status' => $ticket->sla_status,
+                'current_sla' => TicketSla::summary($ticket),
                 'total_cost' => $ticket->total_cost,
                 'capabilities' => $this->capabilities($user, $ticket),
             ]),
@@ -419,6 +422,7 @@ class TicketController extends Controller
                 'supervisor_id' => $validated['supervisor_id'] ?? null,
                 'created_by' => $request->user()->id,
             ]);
+            TicketSla::syncInitial($ticket, ! empty($validated['sla_due_at']) ? 'deadline' : 'duration');
 
             foreach (collect($validated['parts'] ?? [])->groupBy('ref_sparepart_id')->sortKeys() as $sparepartId => $rows) {
                 TicketStock::add($ticket, (int) $sparepartId, (int) $rows->sum('qty'), $rows[0]['unit'], $request->user()->id, true);
@@ -502,6 +506,20 @@ class TicketController extends Controller
                 : $now->copy()->addDays($slaValue));
 
         DB::transaction(function () use ($validated, $ticket, $request, $slaDueAt) {
+            $slaMode = ! empty($validated['sla_due_at']) ? 'deadline' : 'duration';
+            if (TicketDocumentWorkflow::enabled($ticket)) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                $cycle = $ticket->currentCycle;
+                $sameDuration = (int) $ticket->sla_value === (int) $validated['sla_value'] && $ticket->sla_unit === $validated['sla_unit'];
+                $sameDue = empty($validated['sla_due_at']) || ($ticket->sla_due_at && Carbon::parse($validated['sla_due_at'], 'Asia/Jakarta')->eq($ticket->sla_due_at));
+                if (($cycle->cycle_no > 1 || $cycle->sla_stopped_at) && (! $sameDuration || ! $sameDue)) {
+                    throw ValidationException::withMessages(['sla_due_at' => 'The initial SLA cannot be changed after it stops or a Recoming cycle starts.']);
+                }
+                if ($sameDuration && $sameDue) {
+                    $slaDueAt = $ticket->sla_due_at;
+                    $slaMode = $cycle->sla_mode ?? $slaMode;
+                }
+            }
             $machine = ServiceCustomerProduct::whereKey($validated['customer_product_id'])->lockForUpdate()->firstOrFail();
             abort_unless($machine->customer_id === (int) $validated['customer_id'], 409, 'The machine owner changed. Reload before updating the ticket.');
             $ticket->update([
@@ -518,6 +536,7 @@ class TicketController extends Controller
                 'assigned_technician_id' => $validated['assigned_technician_id'] ?? null,
                 'updated_by' => $request->user()->id,
             ]);
+            TicketSla::syncInitial($ticket, $slaMode);
 
             if ($request->has('costs')) {
                 $costs = $validated['costs'] ?? [];
