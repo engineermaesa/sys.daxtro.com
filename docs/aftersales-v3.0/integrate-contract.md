@@ -216,9 +216,76 @@ Belum ada di `capabilities` (ditambahkan di task terkait): `can_send_service_for
 - Regression: lihat §5.
 - Belum diverifikasi: migration seeding di MySQL deployment; pengisian user per role oleh tim.
 
+### Task 3 — Fondasi siklus dan migration (§9 PRD) · IMPLEMENTED
+
+#### 3.11 Transisi workflow dan identitas siklus
+
+Memakai **default OQ-19**, belum merupakan jawaban final tim: ticket yang sudah ada saat migration tetap `workflow_version: "legacy"`; ticket yang dibuat setelah migration memakai `"v3"`. Penanda ini disimpan di server, bukan pilihan FE. `POST /tickets` mengabaikan input `workflow_version` dan `cycle_id` dari client. Update ticket tidak memindahkan workflow.
+
+Task 3 adalah fondasi data. Penanda `v3` belum mengaktifkan aturan submit/sign baru, stop SLA di survey, atau gate Close baru; implementasinya mengikuti Task 4–9. Ticket legacy tidak dikonversi ke aturan baru oleh migration ini.
+
+- Tabel baru `ticket_cycles`: ID integer global dan `cycle_no` berurutan **per ticket**, dimulai dari `1` untuk siklus awal. Recoming pertama adalah siklus `2`. `cycle_no` berbeda dari `visit_no`; jumlah visit fisik tidak dipakai untuk mengalokasikan nomor siklus.
+- Satu `ticket_recomings` menunjuk satu `cycle_id` unik. Service Form dan Agreement tetap satu per ticket, tanpa duplikasi dokumen per siklus.
+- `ticket_visits`, `ticket_logs`, `ticket_satisfactions`, `satisfaction_links` mendapat `cycle_id`. Log `documentation_published` dan `happy_call_completed` ikut menunjuk siklus lewat kolom log ini; belum ada tabel publikasi atau Happy Call terpisah.
+- Foreign key gabungan `(ticket_id, cycle_id)` memastikan referensi selalu ke siklus ticket yang sama. Unique `(ticket_id, cycle_no)` mencegah nomor ganda.
+- ORM membuat siklus awal otomatis saat ticket dibuat. Penjadwalan Recoming mengunci row ticket, membuat siklus baru, menutup batas siklus sebelumnya lewat `ended_at`, lalu menulis Recoming, visit, dan log dalam satu transaksi. Kegagalan transaksi membatalkan seluruh alokasi siklus. Request yang mendapati progress berubah setelah pemeriksaan awal ditolak HTTP **409**, message `The ticket changed. Reload before scheduling Recoming.`
+- Reschedule mengubah jadwal pada siklus yang sama; tidak membuat ID atau nomor baru.
+- Visit, link, respons survey, dan log baru otomatis memakai siklus terkini. Respons survey melalui link dan log submit-nya mempertahankan `cycle_id` link asal. Aturan valid/current response dan penolakan link siklus lama dilengkapi di Task 8.
+
+#### 3.12 Field response untuk FE
+
+Auth dan permission endpoint tetap seperti Task 2. Tidak ada endpoint tulis siklus baru.
+
+| Endpoint | Tambahan response |
+|---|---|
+| `POST /tickets` | `data.data.workflow_version` = `"v3"`; `data.data.logs[].cycle_id` menunjuk siklus awal |
+| `GET /tickets` | `data[].workflow_version`, `happy_call_due_at`, `sla_stopped_at`; `cycle_id` pada nested log/visit/Recoming yang diserialisasi |
+| `GET /tickets/{ticket}` | `data.workflow_version`, `data.current_cycle`, `data.cycles` (urut `cycle_no` naik), `data.happy_call_due_at`, `data.sla_stopped_at`; nested log/visit/Recoming/survey response membawa `cycle_id` sesuai serialisasi endpoint |
+| `POST /tickets/{ticket}/recoming` | `data.data.cycle_id` untuk siklus baru |
+| `GET /tickets` dan `GET /tickets/{ticket}` | `current_recoming.cycle_id` saat ticket masih Recoming; `current_recoming` tetap `null` di progress lain |
+
+`GET /tickets/{ticket}` membawa `cycle_id` juga pada ringkasan `survey_responses[]` untuk Admin/SPV/Head. Pembatasan jawaban survey Technician tetap mengikuti Task 2; data siklus hanya memuat identitas dan waktu/SLA, tanpa jawaban atau review note.
+
+Field objek `current_cycle` / setiap item `cycles[]`:
+
+| Field | Tipe / arti |
+|---|---|
+| `id`, `ticket_id`, `cycle_no` | integer; ID siklus, pemilik, nomor urut |
+| `started_at` | datetime; siklus awal dari waktu pembuatan ticket, Recoming dari waktu penjadwalan disimpan |
+| `ended_at` | datetime atau null; batas siklus saat Recoming berikutnya disimpan, **bukan** tanggal SLA berhenti atau ticket Closed |
+| `sla_value`, `sla_unit`, `sla_due_at` | nullable; siklus awal menyalin setup ticket; siklus Recoming belum diisi sampai Task 7 |
+| `sla_stopped_at`, `happy_call_due_at` | datetime atau null; fondasi untuk Task 7 dan 9 |
+| `created_at`, `updated_at` | datetime pencatatan row |
+
+Contoh `GET /tickets/2` setelah Recoming (subset sesuai test API):
+
+```json
+{"status":"success","data":{"id":2,"workflow_version":"v3","happy_call_due_at":null,"sla_stopped_at":null,"current_cycle":{"id":3,"ticket_id":2,"cycle_no":2,"ended_at":null,"sla_value":null,"sla_unit":null,"sla_due_at":null,"sla_stopped_at":null,"happy_call_due_at":null},"cycles":[{"id":2,"ticket_id":2,"cycle_no":1},{"id":3,"ticket_id":2,"cycle_no":2}],"current_recoming":{"cycle_id":3,"visit_no":1,"reason":"further_work_needed","from_step":"repair"}}}
+```
+
+`visit_no: 1` pada contoh valid karena belum ada visit fisik sebelumnya; jangan menyamakannya dengan `cycle_no: 2`. Nama status, reason, request Recoming, envelope, dan error validasi existing belum diganti pada Task 3.
+
+#### 3.13 Migration dan data historis
+
+Migration: `2026_10_30_000000_create_ticket_cycles.php`. Jalankan lewat `php artisan migrate` pada jendela maintenance yang menghentikan penulisan ticket selama perubahan schema/backfill. Migration MySQL mencakup DDL dan tidak diasumsikan atomik; jangan memanggil `up()` berulang tanpa rollback.
+
+- Semua ticket, termasuk yang soft-deleted, mendapat siklus awal. Recoming historis, termasuk yang soft-deleted, masing-masing mendapat siklus berdasarkan urutan ID; nilai bisnis dan `visit_no` lama dipertahankan.
+- Ticket tanpa Recoming: seluruh visit/log/survey/link historis, termasuk row soft-deleted, aman dipautkan ke siklus awal.
+- Ticket dengan Recoming: relasi Recoming ke siklus diisi. `cycle_id` visit/log/survey/link historis tetap **null**, karena timestamp lama tidak cukup untuk menentukan batas siklus secara andal. Jangan menganggap null sebagai siklus terkini atau memakai data itu untuk gate v3. Jalur legacy yang ada tetap dipertahankan.
+- SLA awal menyalin setup ticket yang tersedia. Tidak membuat deadline SLA Recoming historis, tidak menghitung ulang SLA, tidak mengisi Happy Call due atau SLA stopped secara retroaktif.
+- Rollback menghapus fondasi siklus dan kolom baru, sambil mempertahankan ticket, Recoming, visit, log, survey, serta link. Rollback membuang metadata siklus; pengulangan migration mengikuti aturan backfill legacy lagi.
+- Belum dijalankan pada database aplikasi/deployment.
+
+#### 3.14 Verifikasi Task 3
+
+- `TicketCyclesTest`: backfill aktif/soft-deleted, histori ambigu, default workflow baru, siklus awal idempotent, relasi child, asal siklus respons, rollback transaksi, foreign key lintas ticket, unique nomor siklus, migration down/up.
+- `ImprovementsTest`: pembuatan API mengabaikan workflow/cycle dari client; Recoming membuat siklus baru dengan visit/log yang sesuai; detail menampilkan urutan siklus; reschedule mempertahankan ID; Recoming berulang saat masih Recoming ditolak.
+- Smoke test **MySQL 8.4.3** pada database sementara terpisah: migration up, backfill legacy, default v3/siklus awal, alokasi Recoming, foreign key lintas ticket, down, dan reapply **lulus**. Database sementara sudah dihapus; database aplikasi tidak diubah.
+- Regression akhir: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 239 tests, 1793 assertions** (SQLite in-memory). Formatter PHP pada file yang berubah dan `git diff --check` lulus.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 3–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 4–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -226,3 +293,4 @@ Task 3–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 |---|---|---|
 | 2026-10-29 | Task 1: Machine Trader dan filter Customers | Implemented dan diuji (224 test lulus); migration baru, belum dijalankan di MySQL deployment |
 | 2026-10-29 | Task 2: Role, permission, capabilities ticket | Implemented dan diuji (229 test lulus, 1717 assertions); memakai usulan default OQ-07/12/13; migration seeding belum dijalankan di MySQL deployment |
+| 2026-10-30 | Task 3: Fondasi siklus, relasi, workflow legacy/v3 | Implemented; 239 test lulus, 1793 assertions; smoke migration MySQL 8.4.3 lulus pada DB sementara; default OQ-19; belum migrate database aplikasi |

@@ -15,6 +15,7 @@ class TicketRecoming extends Model
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
         'visit_no',
         'reason',
         'notes',
@@ -25,6 +26,7 @@ class TicketRecoming extends Model
 
     protected $casts = [
         'ticket_id' => 'integer',
+        'cycle_id' => 'integer',
         'visit_no' => 'integer',
         'planned_visit_at' => 'datetime',
     ];
@@ -32,6 +34,11 @@ class TicketRecoming extends Model
     public function ticket()
     {
         return $this->belongsTo(Ticket::class, 'ticket_id');
+    }
+
+    public function cycle()
+    {
+        return $this->belongsTo(TicketCycle::class, 'cycle_id');
     }
 
     public function createdBy()

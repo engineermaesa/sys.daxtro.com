@@ -12,17 +12,21 @@ use Illuminate\Support\Str;
 
 class SatisfactionLink extends Model
 {
-    use HasFactory, SoftDeletes;
+    use Concerns\BelongsToTicketCycle, HasFactory, SoftDeletes;
 
     public const TTL_DAYS = 7;
 
     public const STATUS_INACTIVE = 'inactive';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_USED = 'used';
+
     public const STATUS_REPLACED = 'replaced';
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
         'token_hash',
         'token_encrypted',
         'status',
@@ -105,6 +109,6 @@ class SatisfactionLink extends Model
 
     public function getUrlAttribute(): string
     {
-        return url('/survey/' . Crypt::decryptString($this->token_encrypted));
+        return url('/survey/'.Crypt::decryptString($this->token_encrypted));
     }
 }

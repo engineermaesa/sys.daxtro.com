@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class TicketSatisfaction extends Model
 {
-    use HasFactory, SoftDeletes;
+    use Concerns\BelongsToTicketCycle, HasFactory, SoftDeletes;
 
     public const SOURCE_LINK = 'link';
 
@@ -39,6 +39,7 @@ class TicketSatisfaction extends Model
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
         'timeliness',
         'technician_attitude',
         'technical_knowledge',

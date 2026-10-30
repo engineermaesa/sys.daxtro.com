@@ -8,8 +8,8 @@ use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
-use App\Services\WhatsAppSender;
 use App\Services\Aftersales\SurveyResponses;
+use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -90,6 +90,7 @@ class SurveyLinkController extends Controller
                 collect($validated)->except(['reason', 'signature'])->all(),
                 [
                     'ticket_id' => $ticket->id,
+                    ...($link->cycle_id !== null ? ['cycle_id' => $link->cycle_id] : []),
                     'signature_path' => filled($validated['signature'] ?? null)
                         ? TicketSatisfaction::storeSignature($ticket->id, $validated['signature'])
                         : null,
@@ -108,9 +109,10 @@ class SurveyLinkController extends Controller
 
             TicketLog::create([
                 'ticket_id' => $ticket->id,
+                ...($link->cycle_id !== null ? ['cycle_id' => $link->cycle_id] : []),
                 'step' => TicketLog::STEP_SATISFACTION_SUBMITTED,
                 'actor_user_id' => $user->id,
-                'note' => 'Entered on behalf of customer: ' . $validated['reason'],
+                'note' => 'Entered on behalf of customer: '.$validated['reason'],
             ]);
 
             MachineNotWorkingNotification::sendFor($satisfaction);
@@ -146,7 +148,7 @@ class SurveyLinkController extends Controller
         $name = $ticket->customer?->pic_name ?: $ticket->customer?->name;
 
         return "Halo {$name}, terima kasih telah menggunakan layanan Daxtro. "
-            . "Mohon luangkan waktu mengisi survei kepuasan untuk tiket {$ticket->ticket_code} melalui tautan berikut: {$link->url}";
+            ."Mohon luangkan waktu mengisi survei kepuasan untuk tiket {$ticket->ticket_code} melalui tautan berikut: {$link->url}";
     }
 
     private function payload(Request $request, Ticket $ticket): array
@@ -181,6 +183,6 @@ class SurveyLinkController extends Controller
     {
         $digits = preg_replace('/\D+/', '', (string) $phone);
 
-        return strlen($digits) < 8 ? null : substr($digits, 0, 4) . '••••' . substr($digits, -4);
+        return strlen($digits) < 8 ? null : substr($digits, 0, 4).'••••'.substr($digits, -4);
     }
 }

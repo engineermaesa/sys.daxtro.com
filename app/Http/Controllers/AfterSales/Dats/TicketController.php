@@ -19,6 +19,7 @@ use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\Aftersales\TicketVisit;
 use App\Models\Aftersales\TicketWorkOrder;
 use App\Services\Aftersales\TicketCustomerContact;
+use App\Services\Aftersales\TicketCycles;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketStock;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -250,6 +251,10 @@ class TicketController extends Controller
             'satisfactions.answers', 'surveyLink',
         ]);
 
+        if ($ticket->workflow_version !== null) {
+            $ticket->load(['currentCycle', 'cycles' => fn ($q) => $q->orderBy('cycle_no')]);
+        }
+
         $isManager = TicketDocuments::canViewAll($user);
         $ticket->makeHidden($isManager ? ['satisfactions'] : ['satisfactions', 'satisfaction']);
         $data = $ticket->toArray();
@@ -263,6 +268,7 @@ class TicketController extends Controller
             'data' => array_merge($data, [
                 'survey_responses' => $isManager ? $ticket->satisfactions->map(fn (TicketSatisfaction $s) => [
                     'id' => $s->id,
+                    'cycle_id' => $s->cycle_id,
                     'submitted_at' => $s->filled_at,
                     'average_score' => $s->average_score,
                     'machine_ok' => $s->machine_ok,
@@ -388,6 +394,7 @@ class TicketController extends Controller
                     : $now->copy()->addDays($slaValue));
 
             $ticket = Ticket::create([
+                'workflow_version' => Ticket::WORKFLOW_V3,
                 'ticket_code' => $ticketCode,
                 'customer_id' => $validated['customer_id'],
                 'customer_product_id' => $validated['customer_product_id'],
@@ -694,6 +701,10 @@ class TicketController extends Controller
         abort_if($ticket->serviceForm()->where('status', 'saved')->exists(), 422, 'Unlock the Service Form first: it is saved and locked.');
 
         $recoming = DB::transaction(function () use ($validated, $ticket, $user, $fromStep) {
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            $this->guardNotClosed($ticket);
+            abort_unless($ticket->progress === $fromStep, 409, 'The ticket changed. Reload before scheduling Recoming.');
+            $cycle = $ticket->workflow_version !== null ? TicketCycles::startRecoming($ticket) : null;
             $visitNo = $ticket->visits()->count() + 1;
 
             $ticket->visits()->create([
@@ -703,6 +714,7 @@ class TicketController extends Controller
 
             $recoming = TicketRecoming::create([
                 'ticket_id' => $ticket->id,
+                ...($cycle ? ['cycle_id' => $cycle->id] : []),
                 'visit_no' => $visitNo,
                 'reason' => $validated['reason'],
                 'notes' => $validated['notes'] ?? null,
@@ -1070,7 +1082,7 @@ class TicketController extends Controller
 
         $r = $ticket->recomings->sortByDesc('id')->first();
 
-        return $r ? ['visit_no' => $r->visit_no, 'planned_visit_at' => $r->planned_visit_at, 'reason' => $r->reason, 'from_step' => $r->from_step] : null;
+        return $r ? ['cycle_id' => $r->cycle_id, 'visit_no' => $r->visit_no, 'planned_visit_at' => $r->planned_visit_at, 'reason' => $r->reason, 'from_step' => $r->from_step] : null;
     }
 
     private function guardStepNotLogged(Ticket $ticket, string $step, string $message): void

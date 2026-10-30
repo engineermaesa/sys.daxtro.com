@@ -10,8 +10,8 @@ use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
-use App\Services\WhatsAppSender;
 use App\Services\Aftersales\SurveyResponses;
+use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +60,7 @@ class CustomerSurveyController extends Controller
 
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $message = "[Daxtro] Kode verifikasi survei layanan untuk tiket {$link->ticket->ticket_code}: {$code}. "
-            . 'Berlaku ' . SatisfactionOtp::CODE_TTL_MINUTES . ' menit. Jangan berikan kode ini kepada teknisi atau siapa pun.';
+            .'Berlaku '.SatisfactionOtp::CODE_TTL_MINUTES.' menit. Jangan berikan kode ini kepada teknisi atau siapa pun.';
 
         abort_unless($whatsapp->send($phone, $message), 503, 'Failed to send the WhatsApp code. Please contact admin.');
 
@@ -104,8 +104,8 @@ class CustomerSurveyController extends Controller
             $otp->save();
 
             abort(422, $otp->locked_until
-                ? 'Too many wrong codes. This link is locked for ' . SatisfactionOtp::LOCK_MINUTES . ' minutes.'
-                : 'Wrong code. ' . (SatisfactionOtp::MAX_ATTEMPTS - $otp->attempts) . ' attempt(s) left.');
+                ? 'Too many wrong codes. This link is locked for '.SatisfactionOtp::LOCK_MINUTES.' minutes.'
+                : 'Wrong code. '.(SatisfactionOtp::MAX_ATTEMPTS - $otp->attempts).' attempt(s) left.');
         }
 
         $session = Str::random(64);
@@ -155,7 +155,7 @@ class CustomerSurveyController extends Controller
         $validated = $responseData['attributes'];
 
         $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $responseData, $request) {
-            
+
             $locked = SatisfactionLink::whereKey($link->id)->lockForUpdate()->first();
             abort_if($locked->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'This link can no longer be used.');
 
@@ -170,6 +170,7 @@ class CustomerSurveyController extends Controller
                 collect($validated)->except('signature')->all(),
                 [
                     'ticket_id' => $ticket->id,
+                    ...($link->cycle_id !== null ? ['cycle_id' => $link->cycle_id] : []),
                     'signature_path' => $path,
                     'source' => TicketSatisfaction::SOURCE_LINK,
                     'review_status' => $reasons ? TicketSatisfaction::REVIEW_NEEDS_REVIEW : TicketSatisfaction::REVIEW_NORMAL,
@@ -193,6 +194,7 @@ class CustomerSurveyController extends Controller
 
             TicketLog::create([
                 'ticket_id' => $ticket->id,
+                ...($link->cycle_id !== null ? ['cycle_id' => $link->cycle_id] : []),
                 'step' => TicketLog::STEP_SATISFACTION_SUBMITTED,
                 'actor_user_id' => null,
                 'note' => 'Submitted by customer via survey link',
@@ -213,7 +215,7 @@ class CustomerSurveyController extends Controller
         $link = $this->findLink($token);
         abort_if($link->display_status !== SatisfactionLink::STATUS_ACTIVE, 410, 'This survey link can no longer be used.');
         $link->load('ticket.customer');
-       
+
         abort_unless(in_array($link->ticket->progress, [TicketLog::STEP_DOCUMENTATION_PUBLISHED, TicketLog::STEP_SATISFACTION_SUBMITTED], true), 410, 'This survey link is not active yet.');
 
         return $link;
@@ -239,7 +241,7 @@ class CustomerSurveyController extends Controller
     {
         $until = $this->lockedUntil($link);
         if ($until) {
-            abort(423, 'This link is locked until ' . $until->format('H:i') . '. Please try again later.');
+            abort(423, 'This link is locked until '.$until->format('H:i').'. Please try again later.');
         }
     }
 
@@ -271,10 +273,10 @@ class CustomerSurveyController extends Controller
         if ($ticket->assigned_technician_id && (
             ($request->ip() && (clone $recentLogins)->where('ip_address', $request->ip())->exists())
             || DB::table('sessions')
-            ->where('user_id', $ticket->assigned_technician_id)
-            ->where('ip_address', $request->ip())
-            ->where('last_activity', '>=', Carbon::now('Asia/Jakarta')->subDay()->timestamp)
-            ->exists())) {
+                ->where('user_id', $ticket->assigned_technician_id)
+                ->where('ip_address', $request->ip())
+                ->where('last_activity', '>=', Carbon::now('Asia/Jakarta')->subDay()->timestamp)
+                ->exists())) {
             $reasons[] = 'same_network_as_technician';
         }
         if ($ticket->assigned_technician_id && $request->userAgent()
@@ -295,6 +297,6 @@ class CustomerSurveyController extends Controller
     {
         $digits = preg_replace('/\D+/', '', (string) $phone);
 
-        return strlen($digits) < 8 ? null : substr($digits, 0, 4) . '••••' . substr($digits, -4);
+        return strlen($digits) < 8 ? null : substr($digits, 0, 4).'••••'.substr($digits, -4);
     }
 }

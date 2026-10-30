@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TicketVisit extends Model
 {
-    use HasFactory, SoftDeletes;
+    use Concerns\BelongsToTicketCycle, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
         'scheduled_at',
         'actual_start',
         'actual_end',

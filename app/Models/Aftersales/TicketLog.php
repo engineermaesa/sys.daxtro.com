@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TicketLog extends Model
 {
-    use HasFactory, SoftDeletes;
+    use Concerns\BelongsToTicketCycle, HasFactory, SoftDeletes;
 
     public const STEP_PUBLISHED = 'published';
 
@@ -46,6 +46,7 @@ class TicketLog extends Model
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
         'step',
         'actor_user_id',
         'note',

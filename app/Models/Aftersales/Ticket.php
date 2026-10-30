@@ -16,6 +16,10 @@ class Ticket extends Model
 
     public const PRIORITIES = ['low', 'medium', 'high'];
 
+    public const WORKFLOW_LEGACY = 'legacy';
+
+    public const WORKFLOW_V3 = 'v3';
+
     protected $fillable = [
         'ticket_code',
         'customer_id',
@@ -33,14 +37,30 @@ class Ticket extends Model
         'created_by',
         'updated_by',
         'happy_call_required',
+        'workflow_version',
+        'happy_call_due_at',
+        'sla_stopped_at',
     ];
 
     protected $casts = [
         'sla_due_at' => 'datetime',
+        'happy_call_due_at' => 'datetime',
+        'sla_stopped_at' => 'datetime',
         'assigned_technician_id' => 'integer',
         'supervisor_id' => 'integer',
         'happy_call_required' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Ticket $ticket) {
+            $stored = $ticket->fresh();
+            if ($stored->workflow_version !== null) {
+                $ticket->workflow_version = $stored->workflow_version;
+                \App\Services\Aftersales\TicketCycles::initial($ticket);
+            }
+        });
+    }
 
     public function customer()
     {
@@ -130,6 +150,16 @@ class Ticket extends Model
     public function recomings()
     {
         return $this->hasMany(TicketRecoming::class, 'ticket_id');
+    }
+
+    public function cycles()
+    {
+        return $this->hasMany(TicketCycle::class, 'ticket_id');
+    }
+
+    public function currentCycle()
+    {
+        return $this->hasOne(TicketCycle::class, 'ticket_id')->ofMany('cycle_no', 'max');
     }
 
     /**

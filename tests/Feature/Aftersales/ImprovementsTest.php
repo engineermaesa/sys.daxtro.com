@@ -857,6 +857,7 @@ class ImprovementsTest extends TestCase
         Schema::table('ticket_logs', fn (Blueprint $table) => $table->unsignedBigInteger('created_by')->nullable());
         (require database_path('migrations/2026_09_03_010500_create_document_counters_table.php'))->up();
         (require database_path('migrations/2026_09_03_010000_create_ref_spareparts_table.php'))->up();
+        (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
     }
 
     private function ticketContactInput(ServiceCustomer $customer, ServiceCustomerProduct $machine): array
@@ -919,10 +920,74 @@ class ImprovementsTest extends TestCase
         $this->postJson('/api/aftersales/tickets', $input)->assertUnprocessable()->assertJsonValidationErrors('customer.email');
         $this->putJson('/api/aftersales/customers/'.$customer->id, ['email' => 'fixed@example.com'])->assertOk();
         $this->getJson('/api/aftersales/customers/'.$customer->id)->assertOk()->assertJsonPath('data.ticket_creation.can_create', true);
-        $this->postJson('/api/aftersales/tickets', $input)->assertCreated()->assertJsonPath('data.data.customer.email', 'fixed@example.com');
+        $response = $this->postJson('/api/aftersales/tickets', $input + ['workflow_version' => 'legacy', 'cycle_id' => 999])
+            ->assertCreated()->assertJsonPath('data.data.customer.email', 'fixed@example.com')
+            ->assertJsonPath('data.data.workflow_version', 'v3');
+        $ticket = Ticket::findOrFail($response->json('data.data.id'));
+        $this->assertSame(1, $ticket->currentCycle->cycle_no);
+        $this->assertSame($ticket->currentCycle->id, $ticket->logs()->value('cycle_id'));
+        $this->assertSame('legacy', Ticket::findOrFail(1)->workflow_version);
         $this->assertSame(2, Ticket::count());
         $this->assertSame(1, DB::table('document_counters')->value('last_number'));
         $this->assertSame(1, DB::table('ticket_logs')->where('step', 'published')->count());
+    }
+
+    public function test_recoming_assigns_a_new_cycle_to_the_visit_and_log_and_rescheduling_keeps_it(): void
+    {
+        $this->ticketContactTables();
+        Schema::table('ticket_recomings', function (Blueprint $t) {
+            $t->unsignedInteger('visit_no')->nullable();
+            $t->string('reason')->nullable();
+            $t->text('notes')->nullable();
+            $t->timestamp('planned_visit_at')->nullable();
+            $t->string('from_step')->nullable();
+            $t->unsignedBigInteger('created_by_user_id')->nullable();
+            $t->timestamps();
+        });
+        Schema::table('ticket_visits', fn (Blueprint $t) => $t->timestamps());
+        Schema::table('satisfaction_links', function (Blueprint $t) {
+            $t->string('status')->default('inactive');
+            $t->timestamps();
+        });
+        Schema::table('ticket_service_forms', fn (Blueprint $t) => $t->string('status')->default('draft'));
+        Schema::create('user_activity_logs', function (Blueprint $t) {
+            $t->id();
+            foreach (['user_id', 'action', 'model_type', 'model_id', 'description', 'data', 'ip_address', 'user_agent'] as $field) {
+                $t->text($field)->nullable();
+            }
+            $t->timestamps();
+        });
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $this->actingAs($this->user());
+        $id = $this->postJson('/api/aftersales/tickets', $this->ticketContactInput($customer, $machine))
+            ->assertCreated()->json('data.data.id');
+        $ticket = Ticket::findOrFail($id);
+        $initial = $ticket->currentCycle;
+        $ticket->logs()->create(['step' => 'repair']);
+        $url = '/api/aftersales/tickets/'.$id;
+        $response = $this->postJson($url.'/recoming', ['reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+            ->assertCreated();
+        $cycle = $ticket->fresh()->currentCycle;
+        $this->assertSame(2, $cycle->cycle_no);
+        $this->assertNotNull($initial->fresh()->ended_at);
+        $this->assertSame($cycle->id, $response->json('data.data.cycle_id'));
+        $this->assertSame($cycle->id, $ticket->visits()->latest('id')->value('cycle_id'));
+        $this->assertSame($cycle->id, $ticket->logs()->where('step', 'recoming')->value('cycle_id'));
+        TicketSatisfaction::create(['ticket_id' => $id, 'review_status' => 'normal']);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.current_cycle.id', $cycle->id)
+            ->assertJsonPath('data.cycles.0.cycle_no', 1)->assertJsonPath('data.cycles.1.cycle_no', 2)
+            ->assertJsonPath('data.survey_responses.0.cycle_id', $cycle->id)
+            ->assertJsonPath('data.current_recoming.cycle_id', $cycle->id);
+
+        $this->postJson($url.'/recoming/reschedule', ['planned_visit_at' => now()->addDays(3)->format('Y-m-d H:i:s')])->assertOk();
+        $this->assertSame(2, $ticket->cycles()->count());
+        $this->assertSame($cycle->id, $ticket->visits()->latest('id')->value('cycle_id'));
+        $this->postJson($url.'/recoming', ['reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(4)->format('Y-m-d H:i:s')])->assertUnprocessable();
+        $this->assertSame(2, $ticket->cycles()->count());
+        $this->actingAs($this->user(false));
+        $this->postJson($url.'/recoming', ['reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(4)->format('Y-m-d H:i:s')])->assertForbidden();
+        $this->assertSame(2, $ticket->cycles()->count());
     }
 
     public function test_complete_contacts_allow_daxtro_and_non_daxtro_tickets_without_serial_or_warranty(): void
