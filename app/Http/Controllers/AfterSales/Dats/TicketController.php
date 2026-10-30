@@ -21,6 +21,7 @@ use App\Models\Aftersales\TicketWorkOrder;
 use App\Services\Aftersales\TicketCustomerContact;
 use App\Services\Aftersales\TicketCycles;
 use App\Services\Aftersales\TicketDocuments;
+use App\Services\Aftersales\TicketDocumentWorkflow;
 use App\Services\Aftersales\TicketStock;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -197,6 +198,7 @@ class TicketController extends Controller
 
         $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
         $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $paginated->getCollection()->filter(fn (Ticket $ticket) => TicketDocumentWorkflow::enabled($ticket))->load('currentCycle');
 
         $items = collect($paginated->items())->map(function (Ticket $t) {
             $latestVisit = $t->visits->sortByDesc('scheduled_at')->first();
@@ -207,6 +209,7 @@ class TicketController extends Controller
             unset($data['satisfactions'], $data['satisfaction'], $data['service_form'], $data['survey_link']);
 
             return array_merge($data, [
+                'documentation_status' => TicketDocumentWorkflow::status($t),
                 'current_recoming' => $this->currentRecoming($t),
                 'progress' => $t->progress,
                 'aging_days' => $t->aging_days,
@@ -258,6 +261,13 @@ class TicketController extends Controller
         $isManager = TicketDocuments::canViewAll($user);
         $ticket->makeHidden($isManager ? ['satisfactions'] : ['satisfactions', 'satisfaction']);
         $data = $ticket->toArray();
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            foreach (['service_form', 'agreement'] as $key) {
+                if (isset($data[$key])) {
+                    $data[$key]['status'] = TicketDocumentWorkflow::status($ticket);
+                }
+            }
+        }
         unset($data['satisfactions']);
         if (! $isManager) {
             unset($data['satisfaction']);
@@ -281,9 +291,10 @@ class TicketController extends Controller
                 'stock_held' => TicketStock::held($ticket),
                 'can_reschedule' => $this->canReschedule($ticket),
                 'documents' => [
-                    'service_form' => $ticket->serviceForm?->status,
-                    'agreement' => $ticket->agreement?->status,
+                    'service_form' => $ticket->serviceForm ? (TicketDocumentWorkflow::status($ticket) ?? $ticket->serviceForm->status) : null,
+                    'agreement' => $ticket->agreement ? (TicketDocumentWorkflow::status($ticket) ?? $ticket->agreement->status) : null,
                 ],
+                'documentation_status' => TicketDocumentWorkflow::status($ticket),
                 'current_recoming' => $this->currentRecoming($ticket),
                 'reminders' => \App\Services\Aftersales\TicketReminders::for($ticket),
                 'progress' => $ticket->progress,
@@ -312,6 +323,7 @@ class TicketController extends Controller
             'can_trigger_recoming' => $open && ($manage || ($own && $user->hasPermission('aftersales.tickets.recoming'))),
             'can_unlock_service_form' => $manage && ! empty($form['unlock']),
             'can_fill_service_form' => ! empty($form['fill']),
+            'can_send_service_form' => ! empty($form['submit']),
             'can_sign_service_form' => ! empty($form['sign_supervisor']),
             'can_sign_agreement' => ! empty($agreement['sign_supervisor']),
             'can_record_happy_call' => $manage && $open && $ticket->progress !== TicketLog::STEP_RECOMING,
@@ -319,7 +331,6 @@ class TicketController extends Controller
         ];
     }
 
-    /** Users eligible to supervise new tickets. Existing assignments are retained. */
     public function supervisors(Request $request)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
@@ -698,12 +709,13 @@ class TicketController extends Controller
         $fromStep = $ticket->progress;
         abort_unless(in_array($fromStep, $allowed, true), 422, 'Recoming is not allowed from the current progress.');
         // RC-04: the single Service Form must stay editable across visits
-        abort_if($ticket->serviceForm()->where('status', 'saved')->exists(), 422, 'Unlock the Service Form first: it is saved and locked.');
+        abort_if($ticket->serviceForm()->whereIn('status', ['saved', 'awaiting_spv_signature'])->exists(), 422, 'Unlock the Service Form first: it is saved and locked.');
 
         $recoming = DB::transaction(function () use ($validated, $ticket, $user, $fromStep) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
             $this->guardNotClosed($ticket);
             abort_unless($ticket->progress === $fromStep, 409, 'The ticket changed. Reload before scheduling Recoming.');
+            abort_if($ticket->serviceForm()->whereIn('status', ['saved', 'awaiting_spv_signature'])->exists(), 422, 'Unlock the Service Form first: it is saved and locked.');
             $cycle = $ticket->workflow_version !== null ? TicketCycles::startRecoming($ticket) : null;
             $visitNo = $ticket->visits()->count() + 1;
 
@@ -743,6 +755,9 @@ class TicketController extends Controller
     public function storeDocumentation(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.documentation.submit'), 403);
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            TicketDocumentWorkflow::error(409, 'manual_documentation_disabled', 'Documentation is published automatically after both SPV signatures.');
+        }
         $this->guardNotClosed($ticket);
         $this->guardSequential($ticket, TicketLog::STEP_DOCUMENTATION_PUBLISHED);
         $this->guardStepNotLogged($ticket, TicketLog::STEP_DOCUMENTATION_PUBLISHED, 'Documentation has already been submitted for this ticket.');

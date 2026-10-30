@@ -599,6 +599,7 @@ Route::group([
         // SERVICE FORM, SERVICE AGREEMENT & DOCUMENTS
         Route::get('/{ticket}/documents', [DatsDocumentController::class, 'index'])->name('documents.index');
         Route::get('/{ticket}/service-form', [DatsServiceFormController::class, 'show'])->name('service-form.show');
+        Route::post('/{ticket}/service-form/submit', [DatsServiceFormController::class, 'submit'])->name('service-form.submit');
         Route::post('/{ticket}/service-form/diagnosis/photos', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'upload'])->name('diagnosis.photos.store');
         Route::put('/{ticket}/service-form/diagnosis/photos/{photo}', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'update'])->name('diagnosis.photos.update');
         Route::delete('/{ticket}/service-form/diagnosis/photos/{photo}', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'destroy'])->name('diagnosis.photos.destroy');

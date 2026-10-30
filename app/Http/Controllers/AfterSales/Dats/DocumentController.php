@@ -8,6 +8,7 @@ use App\Models\Aftersales\TicketDocumentDispatch;
 use App\Models\Aftersales\TicketSignature;
 use App\Services\Aftersales\DocumentPdf;
 use App\Services\Aftersales\TicketDocuments;
+use App\Services\Aftersales\TicketDocumentWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -26,6 +27,7 @@ class DocumentController extends Controller
         return response()->json(['status' => 'success', 'data' => [
             'ticket_id' => $ticket->id,
             'progress' => $ticket->progress,
+            'documentation_status' => TicketDocumentWorkflow::status($ticket),
             'supervisor' => $ticket->supervisor ? ['id' => $ticket->supervisor->id, 'name' => $ticket->supervisor->name] : null,
             'supervisor_missing' => ! $ticket->supervisor_id,
             'documents' => $docs,
@@ -35,7 +37,7 @@ class DocumentController extends Controller
     public function sign(Request $request, Ticket $ticket, string $type)
     {
         $validated = $request->validate([
-            'role' => 'required|in:' . implode(',', TicketSignature::ROLES),
+            'role' => 'required|in:'.implode(',', TicketSignature::ROLES),
             'signature' => 'required|string',
             'signer_name' => 'nullable|string|max:255',
         ]);
@@ -94,15 +96,18 @@ class DocumentController extends Controller
 
     public function pdf(Request $request, Ticket $ticket, string $type)
     {
-        $validated = $request->validate(['copy' => 'required|in:' . implode(',', array_keys(TicketDocumentDispatch::COPY_LABELS))]);
+        $validated = $request->validate(['copy' => 'required|in:'.implode(',', array_keys(TicketDocumentDispatch::COPY_LABELS))]);
 
         TicketDocuments::authorizeView($request->user(), $ticket);
         $doc = TicketDocuments::document($ticket, $type);
         $allowed = TicketDocuments::can($request->user(), $ticket, $doc)['download_copies'];
         abort_unless(in_array($validated['copy'], $allowed, true), 403, 'You cannot download this copy.');
         abort_if(! $doc->isLocked(), 422, 'Save the document first to generate the PDF.');
+        if (TicketDocumentWorkflow::enabled($ticket) && TicketDocumentWorkflow::status($ticket) !== 'documentation_published') {
+            TicketDocumentWorkflow::error(409, 'documentation_not_published', 'Both documents must be signed by SPV before PDF download.');
+        }
 
-        $name = ($type === TicketDocuments::TYPE_FORM ? 'ServiceForm-' : 'Agreement-') . $ticket->ticket_code . '-' . $validated['copy'] . '.pdf';
+        $name = ($type === TicketDocuments::TYPE_FORM ? 'ServiceForm-' : 'Agreement-').$ticket->ticket_code.'-'.$validated['copy'].'.pdf';
 
         return DocumentPdf::make($ticket, $type, TicketDocumentDispatch::COPY_LABELS[$validated['copy']])->download($name);
     }
@@ -129,14 +134,14 @@ class DocumentController extends Controller
     {
         return [
             'type' => $type,
-            'status' => $doc->status,
+            'status' => TicketDocumentWorkflow::status($ticket) ?? $doc->status,
             'locked' => $doc->isLocked(),
             'saved_at' => $doc->saved_at,
             'template_version' => $doc->template_version,
             'signatures' => TicketDocuments::signatureSummary($doc, $ticket),
             'completeness' => TicketDocuments::completeness($ticket, $type),
             'can' => TicketDocuments::can($request->user(), $ticket, $doc),
-            'dispatches' => TicketDocuments::isManager($request->user()) || TicketDocuments::isSupervisor($request->user(), $ticket) ?$this->dispatchRows($ticket, $type) : [],
+            'dispatches' => TicketDocuments::isManager($request->user()) || TicketDocuments::isSupervisor($request->user(), $ticket) ? $this->dispatchRows($ticket, $type) : [],
         ];
     }
 

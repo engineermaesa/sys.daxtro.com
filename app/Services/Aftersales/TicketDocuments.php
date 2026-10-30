@@ -118,6 +118,26 @@ class TicketDocuments
         $tech = self::isTechnician($user, $ticket);
         $sup = self::isSupervisor($user, $ticket);
 
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            $cycle = $ticket->currentCycle;
+            $open = $ticket->progress !== TicketLog::STEP_CLOSED;
+            $published = TicketDocumentWorkflow::status($ticket) === 'documentation_published';
+            $type = $doc instanceof TicketServiceForm ? self::TYPE_FORM : self::TYPE_AGREEMENT;
+
+            return [
+                'fill' => $draft && $tech && ! $published,
+                'sign_technician' => $draft && $tech && ! $published,
+                'sign_customer' => $draft && $tech && ! $published,
+                'sign_supervisor' => $open && $sup && ! $published && $cycle?->service_form_submitted_at !== null
+                    && $doc->status !== 'saved' && self::completeness($ticket, $type, false)['complete'],
+                'save' => false,
+                'submit' => $doc instanceof TicketServiceForm && TicketDocumentWorkflow::canSubmit($ticket, $doc, $user),
+                'unlock' => $open && $doc->isLocked() && self::isManager($user)
+                    && ($doc instanceof TicketServiceForm || ! $published),
+                'download_copies' => self::isManager($user) ? array_keys(TicketDocumentDispatch::COPY_LABELS) : ($tech ? ['technician'] : []),
+            ];
+        }
+
         return [
             'fill' => $draft && $tech,
             'sign_technician' => $draft && $tech,
@@ -192,7 +212,7 @@ class TicketDocuments
     }
 
     /** @return array{complete: bool, missing: string[], summary: string, counts: array} */
-    public static function completeness(Ticket $ticket, string $type): array
+    public static function completeness(Ticket $ticket, string $type, bool $requireSupervisor = true): array
     {
         $doc = self::document($ticket, $type);
         $missing = [];
@@ -248,7 +268,8 @@ class TicketDocuments
         }
 
         $signed = $doc->signatures()->pluck('role')->all();
-        $unsigned = array_values(array_diff(TicketSignature::ROLES, $signed));
+        $roles = $requireSupervisor ? TicketSignature::ROLES : ['technician', 'customer'];
+        $unsigned = array_values(array_diff($roles, $signed));
         $counts['signatures_missing'] = $unsigned;
         foreach ($unsigned as $role) {
             $missing[] = ucfirst($role).' signature is missing';
@@ -280,6 +301,14 @@ class TicketDocuments
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
 
         DB::transaction(function () use ($ticket, $form, $data, $user) {
+            if (TicketDocumentWorkflow::enabled($ticket)) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                abort_unless(self::isTechnician($user, $ticket), 403);
+                abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
+                if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                    TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
+                }
+            }
             $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
             abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
             if (array_key_exists('diagnosis', $data)) {
@@ -375,11 +404,30 @@ class TicketDocuments
         $row->save();
     }
 
-    public static function saveAgreementDraft(Ticket $ticket, TicketAgreement $agreement, array $data): void
+    public static function saveAgreementDraft(Ticket $ticket, TicketAgreement $agreement, array $data, ?User $user = null): void
     {
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            DB::transaction(function () use ($ticket, $agreement, $data, $user) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                abort_unless($user && self::isTechnician($user, $ticket), 403);
+                $agreement = TicketAgreement::whereKey($agreement->id)->lockForUpdate()->firstOrFail();
+                abort_if($ticket->progress === TicketLog::STEP_CLOSED || $agreement->isLocked(), 422, 'The Agreement is locked.');
+                if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                    TicketDocumentWorkflow::error(409, 'cycle_already_published', 'This cycle has already been published.');
+                }
+                self::fillAgreement($agreement, $data);
+            });
+
+            return;
+        }
         abort_if($agreement->isLocked(), 422, 'The Service Agreement is saved and locked. Unlock it first.');
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
 
+        self::fillAgreement($agreement, $data);
+    }
+
+    private static function fillAgreement(TicketAgreement $agreement, array $data): void
+    {
         $valid = $agreement->template->clauseKeys();
         if (array_key_exists('accepted_clauses', $data)) {
             $unknown = array_diff($data['accepted_clauses'], $valid);
@@ -401,6 +449,24 @@ class TicketDocuments
     }
 
     public static function attachPhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket, ?int $userId): TicketPhoto
+    {
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            return DB::transaction(function () use ($value, $file, $ticket) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                $form = TicketServiceForm::whereKey($value->inspection->ticket_service_form_id)->lockForUpdate()->firstOrFail();
+                abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
+                if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                    TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
+                }
+
+                return self::storePhoto($value, $file, $ticket);
+            });
+        }
+
+        return self::storePhoto($value, $file, $ticket);
+    }
+
+    private static function storePhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket): TicketPhoto
     {
         abort_if(blank($value->value), 422, 'Enter the value before attaching a photo.');
 
@@ -446,6 +512,9 @@ class TicketDocuments
 
     public static function sign(Ticket $ticket, TicketServiceForm|TicketAgreement $doc, User $user, string $role, string $dataUri, ?string $signerName, Request $request): TicketSignature
     {
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            return TicketDocumentWorkflow::sign($ticket, $doc, $user, $role, $dataUri, $signerName, $request);
+        }
         abort_unless(in_array($role, TicketSignature::ROLES, true), 422, 'Invalid signature role.');
         abort_if($doc->isLocked(), 422, 'The document is saved and locked. Unlock it first.');
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
@@ -489,6 +558,10 @@ class TicketDocuments
     /** @return array{document: TicketServiceForm|TicketAgreement, dispatches: TicketDocumentDispatch[], warnings: string[]} */
     public static function save(Ticket $ticket, string $type, User $user): array
     {
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            abort_unless(self::isTechnician($user, $ticket) || self::isSupervisor($user, $ticket), 403);
+            TicketDocumentWorkflow::error(409, 'document_save_disabled', 'Use Service Form submit and SPV signatures for v3 tickets.');
+        }
         $doc = self::document($ticket, $type);
 
         abort_unless(self::isTechnician($user, $ticket) || self::isSupervisor($user, $ticket), 403, 'Only the assigned technician or the ticket supervisor can save.');
@@ -554,8 +627,23 @@ class TicketDocuments
         abort_if(! $doc->isLocked(), 422, 'This document is not saved.');
 
         DB::transaction(function () use ($doc, $user, $type, $ticket) {
-            $doc->signatures()->get()->each(function (TicketSignature $s) {
-                Storage::disk('local')->delete($s->file_path);
+            if (TicketDocumentWorkflow::enabled($ticket)) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
+                $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
+                if ($type === self::TYPE_AGREEMENT && TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                    TicketDocumentWorkflow::error(409, 'agreement_already_published', 'The published Agreement remains valid for Recoming.');
+                }
+                if (TicketDocumentWorkflow::status($ticket) !== 'documentation_published') {
+                    $ticket->currentCycle()->update(['documentation_status' => 'incomplete', 'service_form_submitted_at' => null, 'service_form_submitted_by' => null]);
+                }
+            }
+            $doc->signatures()->get()->each(function (TicketSignature $s) use ($ticket) {
+                if (TicketDocumentWorkflow::enabled($ticket)) {
+                    DB::afterCommit(fn () => Storage::disk('local')->delete($s->file_path));
+                } else {
+                    Storage::disk('local')->delete($s->file_path);
+                }
                 $s->delete();
             });
             $doc->update(['status' => 'draft', 'saved_at' => null, 'saved_by_user_id' => null, 'unlocked_at' => Carbon::now('Asia/Jakarta'), 'unlocked_by_user_id' => $user->id]);
@@ -566,7 +654,19 @@ class TicketDocuments
         return $doc->refresh();
     }
 
-    private static function queueDispatches(Ticket $ticket, string $type): array
+    public static function queuePublication(Ticket $ticket, int $publicationId): void
+    {
+        foreach (self::TYPES as $type) {
+            $result = self::queueDispatches($ticket, $type, $publicationId);
+            foreach ($result['dispatches'] as $dispatch) {
+                if ($dispatch->status === 'queued') {
+                    SendTicketDocumentEmail::dispatch($dispatch->id)->afterCommit();
+                }
+            }
+        }
+    }
+
+    private static function queueDispatches(Ticket $ticket, string $type, ?int $publicationId = null): array
     {
         $ticket->loadMissing('customer', 'creator', 'technician');
         $emails = [
@@ -580,6 +680,7 @@ class TicketDocuments
         foreach ($emails as $role => $email) {
             $row = TicketDocumentDispatch::create([
                 'ticket_id' => $ticket->id,
+                ...($publicationId !== null ? ['publication_id' => $publicationId] : []),
                 'document_type' => $type,
                 'recipient_role' => $role,
                 'recipient_email' => $email,

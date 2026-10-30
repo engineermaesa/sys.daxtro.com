@@ -9,17 +9,24 @@ class TicketCycle extends Model
     protected $fillable = [
         'ticket_id', 'cycle_no', 'started_at', 'ended_at',
         'sla_value', 'sla_unit', 'sla_due_at', 'sla_stopped_at', 'happy_call_due_at',
+        'documentation_status', 'service_form_submitted_at', 'service_form_submitted_by',
     ];
 
     protected $casts = [
         'ticket_id' => 'integer', 'cycle_no' => 'integer', 'sla_value' => 'integer',
         'started_at' => 'datetime', 'ended_at' => 'datetime', 'sla_due_at' => 'datetime',
         'sla_stopped_at' => 'datetime', 'happy_call_due_at' => 'datetime',
+        'service_form_submitted_at' => 'datetime', 'service_form_submitted_by' => 'integer',
     ];
 
     public function ticket()
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function publication()
+    {
+        return $this->hasOne(TicketDocumentPublication::class, 'cycle_id');
     }
 
     public function recoming()

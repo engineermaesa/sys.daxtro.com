@@ -4,13 +4,13 @@ namespace App\Http\Controllers\AfterSales\Dats;
 
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\RefInspectionField;
-use App\Models\Aftersales\RefInspectionItem;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketInspection;
 use App\Models\Aftersales\TicketInspectionValue;
 use App\Models\Aftersales\TicketPhoto;
 use App\Models\Aftersales\TicketPhotoToken;
 use App\Services\Aftersales\TicketDocuments;
+use App\Services\Aftersales\TicketDocumentWorkflow;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +30,7 @@ class ServiceFormController extends Controller
         return response()->json(['status' => 'success', 'data' => [
             'ticket_id' => $ticket->id,
             'number' => $ticket->ticket_code,
-            'status' => $form->status,
+            'status' => TicketDocumentWorkflow::status($ticket) ?? $form->status,
             'locked' => $form->isLocked(),
             'saved_at' => $form->saved_at,
             'template' => $form->template->only(['version', 'title', 'diagnosis_section_title', 'diagnosis_fields']),
@@ -58,6 +58,7 @@ class ServiceFormController extends Controller
             'diagnosis' => app(\App\Services\Aftersales\ServiceDiagnosis::class)->structure($ticket, $form),
             'signatures' => TicketDocuments::signatureSummary($form, $ticket),
             'completeness' => TicketDocuments::completeness($ticket, TicketDocuments::TYPE_FORM),
+            'submission_completeness' => TicketDocuments::completeness($ticket, TicketDocuments::TYPE_FORM, false),
             'can' => TicketDocuments::can($request->user(), $ticket, $form),
         ]]);
     }
@@ -67,8 +68,38 @@ class ServiceFormController extends Controller
         $user = $request->user();
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can fill the Service Form.');
 
-        $validated = $request->validate([
-            'service_type' => 'nullable|in:' . implode(',', TicketDocuments::SERVICE_TYPES),
+        $validated = $this->validateForm($request);
+
+        $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
+        TicketDocuments::saveFormDraft($ticket, $form, $validated, $user);
+
+        return $this->show($request, $ticket->refresh());
+    }
+
+    public function submit(Request $request, Ticket $ticket)
+    {
+        abort_unless(TicketDocuments::isTechnician($request->user(), $ticket), 403);
+        $data = $this->validateForm($request);
+        $signatures = $request->validate([
+            'signatures' => 'sometimes|array|max:2',
+            'signatures.*.role' => 'required|in:technician,customer|distinct',
+            'signatures.*.signature' => 'required|string',
+            'signatures.*.signer_name' => 'nullable|string|max:255',
+        ]);
+        $cycle = TicketDocumentWorkflow::submit($ticket, $request->user(), $data + $signatures, $request);
+
+        return response()->json(['status' => 'success', 'message' => 'Service Form sent to SPV Technician.', 'data' => [
+            'ticket_id' => $ticket->id, 'cycle_id' => $cycle->id,
+            'documentation_status' => $cycle->documentation_status,
+            'submitted_at' => $cycle->service_form_submitted_at,
+            'submitted_by' => $cycle->service_form_submitted_by,
+        ]]);
+    }
+
+    private function validateForm(Request $request): array
+    {
+        return $request->validate([
+            'service_type' => 'nullable|in:'.implode(',', TicketDocuments::SERVICE_TYPES),
             'unit' => 'nullable|array',
             'unit.capacity' => 'nullable|string|max:100',
             'unit.refrigerant' => 'nullable|string|max:100',
@@ -78,7 +109,7 @@ class ServiceFormController extends Controller
             'unit.hz' => 'nullable|string|max:100',
             'inspections' => 'nullable|array',
             'inspections.*.item_number' => 'required|integer|min:1',
-            'inspections.*.status' => 'nullable|in:' . implode(',', TicketInspection::STATUSES),
+            'inspections.*.status' => 'nullable|in:'.implode(',', TicketInspection::STATUSES),
             'inspections.*.values' => 'nullable|array',
             'diagnosis' => 'sometimes|array|max:3',
             'diagnosis.*.id' => 'nullable|integer',
@@ -88,10 +119,6 @@ class ServiceFormController extends Controller
             'diagnosis.*.visit_notes' => 'nullable|string',
         ]);
 
-        $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
-        TicketDocuments::saveFormDraft($ticket, $form, $validated, $user);
-
-        return $this->show($request, $ticket->refresh());
     }
 
     public function photoLink(Request $request, Ticket $ticket)
@@ -127,7 +154,7 @@ class ServiceFormController extends Controller
         ]);
 
         return response()->json(['status' => 'success', 'data' => [
-            'url' => url('/capture/' . $token),
+            'url' => url('/capture/'.$token),
             'token' => $token,
             'expires_at' => $link->expires_at,
         ]], 201);

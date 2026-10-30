@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AfterSales\Dats;
 use App\Http\Controllers\Controller;
 use App\Models\Aftersales\Ticket;
 use App\Services\Aftersales\TicketDocuments;
+use App\Services\Aftersales\TicketDocumentWorkflow;
 use Illuminate\Http\Request;
 
 class AgreementController extends Controller
@@ -19,7 +20,7 @@ class AgreementController extends Controller
         return response()->json(['status' => 'success', 'data' => [
             'ticket_id' => $ticket->id,
             'number' => $ticket->ticket_code,
-            'status' => $agreement->status,
+            'status' => TicketDocumentWorkflow::status($ticket) ?? $agreement->status,
             'locked' => $agreement->isLocked(),
             'saved_at' => $agreement->saved_at,
             'template' => [
@@ -48,7 +49,7 @@ class AgreementController extends Controller
 
         $agreement = TicketDocuments::document($ticket, TicketDocuments::TYPE_AGREEMENT);
         $agreement->load('template');
-        TicketDocuments::saveAgreementDraft($ticket, $agreement, $validated);
+        TicketDocuments::saveAgreementDraft($ticket, $agreement, $validated, $request->user());
 
         return $this->show($request, $ticket->refresh());
     }

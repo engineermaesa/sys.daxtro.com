@@ -11,6 +11,7 @@ class TicketServiceForm extends Model
     use SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_SAVED = 'saved';
 
     protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id', 'ref_inspection_template_id', 'template_version'];
@@ -54,6 +55,6 @@ class TicketServiceForm extends Model
 
     public function isLocked(): bool
     {
-        return $this->status === self::STATUS_SAVED;
+        return in_array($this->status, [self::STATUS_SAVED, 'awaiting_spv_signature'], true);
     }
 }
