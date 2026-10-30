@@ -22,6 +22,7 @@ use App\Services\Aftersales\TicketCustomerContact;
 use App\Services\Aftersales\TicketCycles;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketDocumentWorkflow;
+use App\Services\Aftersales\TicketHappyCalls;
 use App\Services\Aftersales\TicketRecomings;
 use App\Services\Aftersales\TicketSla;
 use App\Services\Aftersales\TicketStock;
@@ -145,6 +146,9 @@ class TicketController extends Controller
 
     public function index(Request $request)
     {
+        if ($request->boolean('ready_to_close')) {
+            return $this->readyToClose($request);
+        }
         $user = $request->user();
         $isManager = $user && TicketDocuments::canViewAll($user);
 
@@ -203,7 +207,7 @@ class TicketController extends Controller
         $paginated = $query->orderByDesc('id')->paginate($perPage);
         $paginated->getCollection()->filter(fn (Ticket $ticket) => TicketDocumentWorkflow::enabled($ticket))->load('currentCycle');
 
-        $items = collect($paginated->items())->map(function (Ticket $t) {
+        $items = collect($paginated->items())->map(function (Ticket $t) use ($user) {
             $latestVisit = $t->visits->sortByDesc('scheduled_at')->first();
             $closedLog = $t->logs->where('step', TicketLog::STEP_CLOSED)->sortByDesc('id')->first();
             $t->makeHidden(['satisfactions', 'satisfaction', 'serviceForm', 'surveyLink']);
@@ -219,6 +223,7 @@ class TicketController extends Controller
                 'sla_status' => $t->sla_status,
                 'current_sla' => TicketSla::summary($t),
                 'average_score' => TicketSurveys::average($t),
+                'happy_call' => TicketHappyCalls::resource($t, $user),
                 'visit_date' => $latestVisit?->scheduled_at,
                 'visit_no' => $t->visits->count(),
                 'closed_at' => $closedLog?->created_at,
@@ -313,6 +318,7 @@ class TicketController extends Controller
                 'sla_status' => $ticket->sla_status,
                 'current_sla' => TicketSla::summary($ticket),
                 'average_score' => TicketSurveys::average($ticket),
+                'happy_call' => TicketHappyCalls::resource($ticket, $user),
                 'total_cost' => $ticket->total_cost,
                 'capabilities' => $this->capabilities($user, $ticket),
             ]),
@@ -338,8 +344,10 @@ class TicketController extends Controller
             'can_send_service_form' => ! empty($form['submit']),
             'can_sign_service_form' => ! empty($form['sign_supervisor']),
             'can_sign_agreement' => ! empty($agreement['sign_supervisor']),
-            'can_record_happy_call' => $manage && $open && $ticket->progress !== TicketLog::STEP_RECOMING,
-            'can_close' => $open && $user->hasPermission('aftersales.tickets.close'),
+            'can_record_happy_call' => $manage && $open && (TicketDocumentWorkflow::enabled($ticket)
+                ? TicketHappyCalls::state($ticket)['can_record'] : $ticket->progress !== TicketLog::STEP_RECOMING),
+            'can_close' => $open && (TicketDocumentWorkflow::enabled($ticket)
+                ? TicketHappyCalls::head($user) && TicketHappyCalls::closable($ticket) : $user->hasPermission('aftersales.tickets.close')),
         ];
     }
 
@@ -923,6 +931,20 @@ class TicketController extends Controller
     public function close(Request $request, Ticket $ticket)
     {
         abort_unless($request->user()?->hasPermission('aftersales.tickets.close'), 403);
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            abort_unless(TicketHappyCalls::head($request->user()), 403);
+            $input = $request->validate(['note' => 'nullable|string|max:10000']);
+
+            return DB::transaction(function () use ($request, $ticket, $input) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                $this->guardNotClosed($ticket);
+                TicketHappyCalls::guard($request, $ticket, true);
+                $log = $ticket->logs()->create(['cycle_id' => $ticket->currentCycle->id, 'step' => TicketLog::STEP_CLOSED,
+                    'actor_user_id' => $request->user()->id, 'note' => $input['note'] ?? null]);
+
+                return $this->setJsonResponse('Ticket closed successfully', ['data' => $log], 201);
+            }, 3);
+        }
 
         return DB::transaction(function () use ($request, $ticket) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
@@ -968,6 +990,14 @@ class TicketController extends Controller
         $log = DB::transaction(function () use ($ticket, $request, $input) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
             $this->guardNotClosed($ticket);
+            if (TicketDocumentWorkflow::enabled($ticket)) {
+                $state = TicketHappyCalls::guard($request, $ticket);
+                $existing = $ticket->logs()->where('cycle_id', $state['cycle_id'])->where('step', TicketLog::STEP_HAPPY_CALL_COMPLETED)
+                    ->where('satisfaction_id', $state['satisfaction_id'])->first();
+
+                return $existing ?? $ticket->logs()->create(['cycle_id' => $state['cycle_id'], 'satisfaction_id' => $state['satisfaction_id'],
+                    'step' => TicketLog::STEP_HAPPY_CALL_COMPLETED, 'actor_user_id' => $request->user()->id, 'note' => $input['note'] ?? null]);
+            }
             abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'The ticket is in Recoming until the follow-up visit.');
             $existing = $this->cycleLogs($ticket)->where('step', TicketLog::STEP_HAPPY_CALL_COMPLETED)->first();
 
@@ -975,6 +1005,32 @@ class TicketController extends Controller
         });
 
         return response()->json(['data' => $log], 201);
+    }
+
+    public function readyToClose(Request $request)
+    {
+        $user = $request->user();
+        abort_unless(TicketDocuments::canViewAll($user), 403);
+        $filters = $request->validate(['search' => 'nullable|string|max:100', 'page' => 'sometimes|integer|min:1', 'per_page' => 'sometimes|integer|min:1|max:100']);
+        $query = TicketHappyCalls::readyQuery()->with(['customer', 'technician', 'currentCycle', 'logs', 'visits', 'recomings', 'satisfactions.answers']);
+        if (filled($filters['search'] ?? null)) {
+            $search = trim($filters['search']);
+            $query->where(fn ($q) => $q->where('ticket_code', 'like', '%'.$search.'%')
+                ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', '%'.$search.'%')));
+        }
+        $paginated = $query->orderByDesc('id')->paginate($filters['per_page'] ?? 15);
+        $head = TicketHappyCalls::head($user);
+        $items = $paginated->getCollection()->map(fn (Ticket $ticket) => [
+            'id' => $ticket->id, 'ticket_code' => $ticket->ticket_code, 'workflow_version' => $ticket->workflow_version,
+            'customer' => $ticket->customer?->only(['id', 'name']), 'technician' => $ticket->technician?->only(['id', 'name']),
+            'cycle_id' => $ticket->currentCycle->id, 'cycle_no' => $ticket->currentCycle->cycle_no,
+            'documentation_status' => 'documentation_published', 'progress' => $ticket->progress,
+            'average_score' => TicketSurveys::average($ticket), 'happy_call' => TicketHappyCalls::resource($ticket, $user),
+            'can_close' => $head && TicketHappyCalls::closable($ticket),
+        ]);
+
+        return response()->json(['status' => 'success', 'data' => $items, 'total' => $paginated->total(),
+            'current_page' => $paginated->currentPage(), 'last_page' => $paginated->lastPage()]);
     }
 
     public function destroy(Request $request, Ticket $ticket)

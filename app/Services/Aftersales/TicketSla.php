@@ -108,6 +108,7 @@ class TicketSla
             if ($ticket->currentCycle()->value('id') === $cycle->id) {
                 $ticket->update(['sla_stopped_at' => $latest?->filled_at]);
             }
+            TicketHappyCalls::sync($ticket, $cycle);
         });
     }
 

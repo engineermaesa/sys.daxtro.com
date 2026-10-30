@@ -578,6 +578,7 @@ Route::group([
         Route::get('/next-code', [DatsTicketController::class, 'nextCode'])->name('next-code');
         Route::get('/exchange-rates', [DatsTicketController::class, 'exchangeRates'])->name('exchange-rates');
         Route::get('/supervisors', [DatsTicketController::class, 'supervisors'])->name('supervisors');
+        Route::get('/ready-to-close', [DatsTicketController::class, 'readyToClose'])->name('ready-to-close');
         Route::post('/{ticket}/happy-call', [DatsTicketController::class, 'happyCall'])->name('happy-call');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
         Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');

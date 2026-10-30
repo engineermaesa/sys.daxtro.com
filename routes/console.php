@@ -2,13 +2,14 @@
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-  
+
 Schedule::command('leads:expire')->everyMinute();
 Schedule::command('meetings:expire')->everyMinute();
 Schedule::command('leads:trash-warm')->everyMinute();
 Schedule::command('leads:trash-unscheduled')->everyMinute();
 Schedule::command('quotations:expire')->everyMinute();
 Schedule::command('tickets:resume-recoming')->dailyAt('00:05')->timezone('Asia/Jakarta')->withoutOverlapping();
+Schedule::command('tickets:notify-happy-call-overdue')->everyMinute()->timezone('Asia/Jakarta')->withoutOverlapping();
 Schedule::command('leads:notify-expiring')->dailyAt('08:00')->timezone('Asia/Jakarta')->withoutOverlapping();
 
 // Alert migrate

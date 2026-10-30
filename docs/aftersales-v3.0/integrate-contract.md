@@ -766,9 +766,124 @@ Rollback variant ditolak sebelum penghapusan jika sudah ada response/link/audit 
 - Smoke **MySQL 8.4.3 lulus** pada DB sementara: migration/FK/roundtrip, backfill kedua varian, aktivasi terpisah, snapshot, SLA provisional, rating setelah approve, agregasi report SQL, dan proteksi rollback. Database sementara dihapus; database aplikasi tidak diubah.
 - Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 309 tests, 2667 assertions** (SQLite in-memory). Formatter PHP pada file task 8 dan `git diff --check` lulus. Konkurensi dua request sungguhan dan e2e FE tetap Task 12.
 
+### Task 9 — Happy Call, Ready to Close, dan Close (IMPLEMENTED)
+
+AS-HC-01/02/03/04 dan AS-CLS-01. Default **OQ-01/05/13/15/16 disetujui user**: Admin mencatat Happy Call, Head melakukan Close manual, deadline H+3 dari waktu submit survey, Happy Call mengikuti siklus terakhir, dan eskalasi dalam aplikasi sekali per siklus. Admin penerima eskalasi dipetakan ke `tickets.created_by` yang masih ber-role `after_sales`. Perilaku berikut berlaku untuk ticket **v3**; gate/reminder legacy existing tetap dipertahankan.
+
+#### 3.43 Survey terbaru, deadline, dan histori Happy Call
+
+- Survey current dipilih dalam **siklus aktif**, memakai aturan Task 8 (`filled_at DESC, id DESC`, tanpa soft-deleted). Survey atau Happy Call dari siklus lama tidak memenuhi syarat Happy Call/Close saat ini.
+- Happy Call boleh dicatat setelah dokumentasi siklus aktif berstatus Documentation Published **dan** mempunyai log publikasi dengan cycle_id yang sama, progress bukan Recoming/Closed, serta survey current valid menurut §3.39. Survey link normal/reviewed dan Admin reviewed memenuhi syarat; needs_review/rejected tidak memenuhi syarat.
+- `ticket_cycles.happy_call_due_at` = waktu submit survey current + **3 hari kalender**, pada jam yang sama di Asia/Jakarta. `tickets.happy_call_due_at` mencerminkan siklus aktif. Tidak memakai akhir hari atau tambahan waktu sejak approval.
+- Deadline mulai tercatat saat survey disubmit, termasuk needs_review secara provisional. Approval tidak menggeser deadline; jika review baru selesai setelah H+3, Happy Call langsung overdue. Pending review bisa overdue dan mendapat eskalasi, tetapi Happy Call belum boleh dicatat sampai survey valid.
+- Reject menghapus deadline current; replacement memakai waktu submit yang baru. Soft delete/restore survey menghitung ulang deadline. Review histori hanya memperbarui siklus terkait, bukan mirror ticket untuk siklus terbaru. Aturan fallback stop SLA Task 7 tetap terpisah dari current survey untuk Happy Call.
+- Happy Call tetap disimpan sebagai `ticket_logs.step: "happy_call_completed"`, kini dengan `cycle_id` dan **`satisfaction_id`**. Completion hanya berlaku untuk survey yang ditautkan itu. Survey pengganti membutuhkan Happy Call baru meskipun waktu submit sama sampai detik yang sama. Log lama tetap tersimpan sebagai histori.
+- Recoming membuat siklus baru dan mengosongkan mirror deadline aktif. Happy Call/Close harus kembali mengikuti dokumentasi, survey valid, dan Happy Call pada siklus terbaru.
+
+#### 3.44 Endpoint Happy Call dan Close
+
+`POST /tickets/{ticket}/happy-call` tetap memerlukan `aftersales.tickets.manage` (Admin). Request `note` opsional, maksimal 10000 karakter. FE dapat menambahkan `cycle_id` dan `satisfaction_id` dari snapshot/resource untuk mendeteksi halaman yang sudah stale. Jika diberikan, keduanya wajib integer yang cocok dengan kondisi terbaru. Field konteks ini opsional untuk kompatibilitas client existing.
+
+Contoh request yang diuji:
+
+```json
+{"cycle_id":1,"satisfaction_id":1,"note":"Customer contacted"}
+```
+
+Response **201** tetap `{"data":{...ticket_log...}}`; log memuat actor_user_id, cycle_id, dan satisfaction_id. Retry pada survey/siklus yang sama mengembalikan log yang sama dan tidak mengubah note/tanggal/actor awal. Unique index cycle + satisfaction dan row lock ticket menjaga satu completion untuk pasangan itu.
+
+`POST /tickets/{ticket}/close` pada v3 memerlukan **permission `aftersales.tickets.close` dan role `head_after_sales`**. Permission Close yang salah diberikan ke role lain tidak cukup. Request menerima `note` opsional maksimal 10000 karakter dan konteks cycle_id/satisfaction_id opsional seperti Happy Call.
+
+Close memeriksa ulang di bawah lock ticket: belum Closed/Recoming, dokumentasi siklus aktif published, survey current valid, dan Happy Call yang ditautkan ke survey itu sudah selesai. **`happy_call_required: false` tidak melewati gate v3.** Sukses tetap **201**, envelope `{"message":"Ticket closed successfully","data":{"data":{...closed_log...}}}`. Retry setelah Closed ditolak 422 tanpa log Closed ganda. Scheduler tidak pernah melakukan Close.
+
+| HTTP/code | Kondisi |
+|---|---|
+| 403 | Tidak mempunyai permission aksi; pada Close v3 juga bukan role Head |
+| 409 `ticket_cycle_changed` | cycle_id client berbeda dari siklus aktif |
+| 409 `survey_response_changed` | satisfaction_id client berbeda dari response current |
+| 422 `ticket_in_recoming` | Happy Call/Close diminta saat masih Recoming |
+| 422 `documentation_not_published` | Dokumentasi siklus aktif belum published/log publikasinya belum ada |
+| 422 `survey_not_valid` | Survey siklus aktif belum ada, rejected, needs_review, atau tidak memenuhi aturan valid Task 8 |
+| 422 `happy_call_required` | Close diminta sebelum Happy Call untuk survey current selesai |
+| 422 | Ticket sudah Closed atau validasi field request gagal (`errors.<field>`) |
+
+#### 3.45 Resource, capability, dan reminder
+
+`GET /tickets`, `GET /tickets/{ticket}`, dan Ready to Close menambahkan `happy_call` (null untuk legacy):
+
+```json
+{"cycle_id":1,"satisfaction_id":1,"due_at":"2026-11-02T03:00:00.000000Z","done_at":null,"overdue":false,"status":"pending","survey_valid":true,"completed":false,"can_record":true}
+```
+
+| Field | Arti |
+|---|---|
+| `status` | `waiting_survey`, `needs_review`, `pending`, `overdue`, atau `completed` |
+| `due_at` | H+3 dari submit current yang belum rejected; null bila belum tersedia |
+| `done_at`, `completed` | Completion yang cocok dengan current cycle dan survey, bukan sekadar keberadaan log Happy Call lama |
+| `overdue` | Waktu sekarang **lebih besar** dari deadline, ticket terbuka, dan completion current belum ada. Pada tepat deadline masih false |
+| `survey_valid` | Survey current memenuhi aturan §3.39 |
+| `can_record` | Workflow memenuhi syarat, belum completed, dan pembaca mempunyai permission Admin manage |
+
+Satisfaction_id hanya disertakan bagi pembaca yang dapat melihat seluruh ticket (Admin/SPV/Head). Technician tetap tidak mendapat jawaban, identitas Customer pengisi survey, review note, atau daftar response survey melalui resource ini.
+
+`capabilities.can_record_happy_call` pada detail v3 mengikuti guard Happy Call yang sebenarnya; false sebelum survey valid atau setelah completion. `capabilities.can_close` hanya true untuk Head dengan seluruh syarat v3 terpenuhi. Capability legacy tetap memakai aturan lama.
+
+Reminder v3 mengganti Survey due/H+1 existing:
+
+- `reminders.survey_due_at: null`, `survey_due: false`.
+- `survey_waiting_days`: umur hari kalender sejak log Documentation Published siklus aktif ketika menunggu survey, atau null bila tidak sedang menunggu. Tidak ada cutoff/Close otomatis.
+- `happy_call_due_at`: deadline H+3; `happy_call_due`: flag overdue yang sama dengan happy_call.overdue; `happy_call_completed`: completion current; `happy_call_required: true`; `rating_scale_max: 3`.
+- Reminder legacy Survey due/H+1 dan grandfathered Happy Call tetap dipertahankan.
+
+#### 3.46 Ready to Close: filter dan paginasi di database
+
+**`GET /tickets/ready-to-close`**, akses Admin/SPV/Head melalui permission manage/view-all. Technician mendapat 403. Alias **`GET /tickets?ready_to_close=1`** disediakan agar layar Ready to Close existing dapat memakai perilaku yang sama.
+
+| Query | Aturan |
+|---|---|
+| `search` | Opsional, maksimal 100 karakter; ticket code atau nama Customer |
+| `page` | Integer minimal 1 |
+| `per_page` | Integer 1–100, default 15 |
+
+Queue berisi ticket v3 terbuka yang **siklus terbarunya** belum diakhiri dan mempunyai documentation_status serta log Documentation Published dalam cycle_id tersebut. Ticket legacy, soft-deleted, Closed, Recoming, serta yang hanya mempunyai publikasi pada siklus lama tidak masuk queue. Kondisi tersebut dan search diterapkan pada query sebelum count/paginate; bukan memfilter hasil satu halaman di memori.
+
+Ticket published yang menunggu survey, review, atau Happy Call **tetap tampil**, sesuai PRD, dengan `can_close: false`. Urutan ID ticket terbaru lebih dahulu. Response memakai `status`, `data[]`, `total`, `current_page`, `last_page`:
+
+```json
+{"status":"success","data":[{"id":1,"ticket_code":"T-1","workflow_version":"v3","customer":{"id":1,"name":"Customer A"},"technician":{"id":4,"name":"User 4"},"cycle_id":1,"cycle_no":1,"documentation_status":"documentation_published","progress":"happy_call_completed","average_score":2,"happy_call":{"cycle_id":1,"satisfaction_id":1,"due_at":"2026-11-02T03:00:00.000000Z","done_at":"2026-10-30T03:00:00.000000Z","overdue":false,"status":"completed","survey_valid":true,"completed":true,"can_record":false},"can_close":true}],"total":1,"current_page":1,"last_page":1}
+```
+
+`can_close` memperhitungkan user pembaca: Admin/SPV tetap false walaupun Happy Call selesai. Ticket lama tetap dapat dilihat/ditutup melalui alur legacy existing; tidak dikonversi ke gate v3 oleh queue ini.
+
+#### 3.47 Scheduler dan notifikasi overdue
+
+Command baru **`php artisan tickets:notify-happy-call-overdue`**, dijadwalkan **setiap menit**, timezone Asia/Jakarta, dengan `withoutOverlapping()`. Terdaftar dan diverifikasi lewat `php artisan schedule:list`; scheduler OS/server tetap harus menjalankan Laravel scheduler existing. Command tidak dijalankan terhadap database aplikasi pada tahap implementasi ini.
+
+- Hanya memproses ticket v3 dengan deadline siklus terbaru yang sudah lewat. State publikasi, survey, deadline, completion, dan Closed diperiksa ulang di bawah row lock ticket/cycle.
+- Penerima: seluruh user Head aktif (`head_after_sales`, tidak soft-deleted) dan user `tickets.created_by` jika masih aktif dan ber-role `after_sales`. Admin lain dan Technician tidak menerima broadcast. Jika pembuat tidak tersedia, Head yang tersedia tetap menerima.
+- Kanal **database notification** existing, tanpa email/WhatsApp. Notifikasi memuat `type: "happy_call_overdue"`, title/message, ticket_id/code, cycle_id, happy_call_due_at, dan URL `/aftersales/tickets/{id}`. Tidak membawa jawaban/review note.
+- Tabel `ticket_happy_call_escalations` menyimpan receipt unik **cycle_id + user_id**, beserta notification_id, deadline saat eskalasi, dan notified_at. Notifikasi dan receipt ditulis dalam transaksi yang sama; kegagalan membatalkan keduanya sehingga retry masih dapat mengirim.
+- Per penerima hanya satu notifikasi per siklus, termasuk bila scheduler diulang, deadline berubah karena replacement, atau notifikasi dibaca/dihapus. User Head baru dapat menerima sekali ketika menjadi penerima yang memenuhi syarat. Siklus Recoming baru mempunyai dedup sendiri.
+- Completed/Closed, legacy, soft-deleted ticket, rejected/no survey, dan deadline yang hanya milik siklus lama tidak dieskalasi. Pending review yang sudah melewati H+3 tetap dieskalasi agar hambatan review tidak menyembunyikan overdue.
+- Flag overdue tetap dihitung dari state terbaru sampai Happy Call selesai atau current survey/siklus berubah; mengirim notifikasi tidak menandai Happy Call selesai dan tidak menutup ticket.
+
+#### 3.48 Migration dan verifikasi Task 9
+
+Migration **`2026_10_30_000600_add_happy_call_cycle_tracking.php`**:
+
+- Tambah FK nullable `ticket_logs.satisfaction_id` dan unique cycle + satisfaction untuk Happy Call. Log progress lain tetap null pada field ini. Tambah tabel receipt eskalasi dengan FK kepemilikan ticket/cycle, FK user, dan unique cycle + recipient.
+- Backfill deadline hanya ticket v3, memakai response current masing-masing siklus; response sesudah ended_at siklus arsip tidak dipakai. Mirror ticket mengikuti cycle terbaru.
+- Happy Call existing hanya ditautkan jika satu response dengan waktu submit diketahui pada siklus itu, statusnya diterima/valid, dan log Happy Call ada sesudah/saat submit. Hanya log pertama yang ditautkan bila ada duplikasi historis. Histori ambigu tetap disimpan tanpa tautan dan tidak memenuhi gate baru sampai Happy Call dicatat untuk survey current. Legacy tidak diubah.
+- Rollback ditolak sebelum DDL jika sudah ada Happy Call yang ditautkan atau receipt eskalasi. Tanpa histori baru, down/up mempertahankan survey/log dan timestamp deadline existing. Tidak ada seed role/permission baru.
+- **Migration task 9 belum diterapkan ke database aplikasi `local_daxx`.** Gunakan maintenance untuk penerapan schema/backfill sebelum menjalankan command pada database aplikasi.
+- Test API/domain: survey valid terbaru, publication per siklus, role Head meskipun permission dipalsukan, mandatory Happy Call meskipun flag lama false, retry idempotent, konteks stale, replacement pada timestamp sama, Recoming, deadline approval/reject/delete/restore, recipient isolation, dedup setelah notifikasi dihapus, rollback notifikasi/receipt, dan capability.
+- Test queue membuktikan total/halaman berasal dari query terfilter dengan LIMIT/OFFSET; test legacy memastikan reminder lama tetap berlaku. Test migration membuktikan mapping konservatif, data lama utuh, unique, dan proteksi rollback.
+- Smoke **MySQL 8.4.3 lulus** pada database sementara: migration/down-up/backfill, FK ownership/unique, SQL pagination, guard completion survey, rollback dan dedup notifikasi, deadline approval, isolasi Recoming, serta proteksi rollback. Database sementara dihapus; database aplikasi tidak diubah.
+- Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 323 tests, 2792 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus. Uji dua request/worker sungguhan dan e2e FE tetap Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 9–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 10–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -787,3 +902,4 @@ Task 9–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat tas
 | 2026-10-30 | Penerapan lokal task 7 | Migration `2026_10_30_000400_add_cycle_sla_setup` berhasil pada `local_daxx` (batch 31). Backup SQL: `storage/app/private/backups/local_daxx-before-task7-20261030-133421-55177d.sql`. Kolom baru dan FK survey terverifikasi; fingerprint data bisnis ticket/cycle/survey/diagnosis tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis). Tidak ada ticket v3 existing untuk backfill SLA; perilaku v3 telah diuji pada pengujian task 7. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live. Tidak diperlukan seed baru. Baris ini memperbarui status penerapan task 7 sebelumnya. |
 | 2026-10-30 | Task 8: Survey dua varian dan skor per ticket | Implemented; default OQ-04/08/18 disetujui user, OQ-06 tetap manual; 309 test lulus, 2667 assertions; smoke migration/template/rating MySQL 8.4.3 lulus pada DB sementara; dua migration task 8 belum diterapkan ke database aplikasi; template phone call diinisialisasi migration, tanpa seed role/demo baru. |
 | 2026-10-30 | Penerapan lokal task 8 | Kedua migration task 8 berhasil pada `local_daxx` (batch 32). Backup: `storage/app/private/backups/local_daxx-before-task8-20261030-151643-53bf5f.sql`. Kolom variant, state per varian, dan FK template cycle terverifikasi. Template site aktif tetap ID/version 1; phone call aktif ID/version 3 dengan tujuh rating wajib. Fingerprint data bisnis dan template site existing tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis); tidak ada ticket v3 existing untuk backfill snapshot. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live; tidak ada seed role/demo tambahan. Baris ini memperbarui status penerapan task 8 sebelumnya. |
+| 2026-10-30 | Task 9: Happy Call, Ready to Close, dan Close | Implemented; default OQ-01/05/13/15/16 disetujui user; 323 test lulus, 2792 assertions; smoke migration/notifikasi/paginasi MySQL 8.4.3 lulus pada DB sementara; migration task 9 belum diterapkan ke database aplikasi; command overdue terdaftar setiap menit, tanpa seed baru. |
