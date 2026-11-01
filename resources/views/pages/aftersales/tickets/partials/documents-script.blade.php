@@ -1309,6 +1309,7 @@
     }
 
     function putForm(body) {
+        body = Object.assign({}, S.form && S.form.revision ? { revision: S.form.revision } : {}, body);
         return call('PUT', '/tickets/' + currentId() + '/service-form', body).done(function (res) {
             S.form = res.data;
             renderForm();

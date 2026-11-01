@@ -9,10 +9,13 @@ use App\Models\Aftersales\TicketInspection;
 use App\Models\Aftersales\TicketInspectionValue;
 use App\Models\Aftersales\TicketPhoto;
 use App\Models\Aftersales\TicketPhotoToken;
+use App\Models\Aftersales\TicketServiceForm;
+use App\Services\Aftersales\ServiceFormRevisions;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketDocumentWorkflow;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -21,14 +24,33 @@ class ServiceFormController extends Controller
     public function show(Request $request, Ticket $ticket)
     {
         TicketDocuments::authorizeView($request->user(), $ticket);
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            return DB::transaction(function () use ($request, $ticket) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                TicketDocuments::authorizeView($request->user(), $ticket);
+                TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
+                $form = ServiceFormRevisions::lockMaterial($ticket);
+                abort_unless($form, 404, 'The Service Form is no longer available.');
+
+                return $this->snapshot($request, $ticket, $form);
+            }, 3);
+        }
 
         $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
+
+        return $this->snapshot($request, $ticket, $form);
+    }
+
+    private function snapshot(Request $request, Ticket $ticket, TicketServiceForm $form)
+    {
         $ticket->load(['customer', 'customerProduct.productType', 'technician', 'supervisor', 'visits']);
         $product = $ticket->customerProduct;
         $visit = $ticket->visits->sortByDesc('scheduled_at')->first();
 
         return response()->json(['status' => 'success', 'data' => [
             'ticket_id' => $ticket->id,
+            'revision' => ServiceFormRevisions::token($ticket, $form),
+            'cycle_id' => TicketDocumentWorkflow::enabled($ticket) ? $ticket->currentCycle?->id : null,
             'number' => $ticket->ticket_code,
             'status' => TicketDocumentWorkflow::status($ticket) ?? $form->status,
             'locked' => $form->isLocked(),
@@ -67,11 +89,12 @@ class ServiceFormController extends Controller
     {
         $user = $request->user();
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can fill the Service Form.');
+        $revision = ServiceFormRevisions::validate($request, $ticket);
 
         $validated = $this->validateForm($request);
 
         $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
-        TicketDocuments::saveFormDraft($ticket, $form, $validated, $user);
+        TicketDocuments::saveFormDraft($ticket, $form, $validated, $user, $revision);
 
         return $this->show($request, $ticket->refresh());
     }
@@ -79,6 +102,7 @@ class ServiceFormController extends Controller
     public function submit(Request $request, Ticket $ticket)
     {
         abort_unless(TicketDocuments::isTechnician($request->user(), $ticket), 403);
+        ServiceFormRevisions::validate($request, $ticket);
         $data = $this->validateForm($request);
         $signatures = $request->validate([
             'signatures' => 'sometimes|array|max:2',

@@ -34,13 +34,13 @@ class TicketDocumentWorkflow
         throw new HttpResponseException(response()->json(['status' => 'error', 'code' => $code, 'message' => $message] + $extra, $http));
     }
 
-    private static function lock(Ticket $ticket): Ticket
+    private static function lock(Ticket $ticket, bool $guardClosed = true): Ticket
     {
         $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
         if (! self::enabled($ticket)) {
             self::error(409, 'legacy_document_workflow', 'This ticket uses the legacy document workflow.');
         }
-        abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
+        abort_if($guardClosed && $ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
 
         return $ticket;
     }
@@ -61,8 +61,11 @@ class TicketDocumentWorkflow
         $paths = [];
         try {
             return DB::transaction(function () use ($ticket, $user, $data, $request, &$paths) {
-                $ticket = self::lock($ticket);
+                $ticket = self::lock($ticket, false);
                 abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
+                $form = ServiceFormRevisions::lockMaterial($ticket);
+                ServiceFormRevisions::guard($ticket, $form, (string) $request->input('revision'));
+                abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
                 $cycle = $ticket->currentCycle()->lockForUpdate()->firstOrFail();
                 if ($cycle->service_form_submitted_at) {
                     return $cycle;

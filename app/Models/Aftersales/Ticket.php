@@ -53,6 +53,11 @@ class Ticket extends Model
 
     protected static function booted(): void
     {
+        static::updated(function (self $ticket) {
+            if ($ticket->workflow_version === self::WORKFLOW_V3 && $ticket->wasChanged(['customer_id', 'customer_product_id', 'assigned_technician_id', 'supervisor_id', 'service_type', 'workflow_version'])) {
+                \App\Services\Aftersales\ServiceFormRevisions::advance($ticket);
+            }
+        });
         static::created(function (Ticket $ticket) {
             $stored = $ticket->fresh();
             if ($stored->workflow_version !== null) {

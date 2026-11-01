@@ -12,6 +12,7 @@ class TicketCycleEdits
         if (! TicketDocumentWorkflow::enabled($ticket)) {
             return;
         }
+        ServiceFormRevisions::advance($ticket);
         $cycle = $ticket->currentCycle()->lockForUpdate()->firstOrFail();
         if ($cycle->service_form_first_edited_at) {
             return;

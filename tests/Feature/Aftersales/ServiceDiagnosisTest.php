@@ -32,6 +32,12 @@ class ServiceDiagnosisTest extends TestCase
         parent::setUp();
         Storage::fake('local');
         Schema::create('users', fn (Blueprint $t) => [$t->id(), $t->string('name'), $t->softDeletes()]);
+        Schema::create('tickets', function (Blueprint $t) {
+            $t->id();
+            $t->string('workflow_version')->default(Ticket::WORKFLOW_LEGACY);
+            $t->softDeletes();
+        });
+        DB::table('tickets')->insert(['id' => 1]);
         Schema::create('ref_inspection_templates', function (Blueprint $t) {
             $t->id();
             $t->string('title');
@@ -219,7 +225,7 @@ class ServiceDiagnosisTest extends TestCase
     public function test_diagnosis_evidence_can_be_viewed_through_the_authorized_photo_endpoint(): void
     {
         $photo = $this->service->upload($this->ticket, $this->form, 'problem', UploadedFile::fake()->image('proof.jpg'), null, $this->technician);
-      
+
         $photo->setRawAttributes(array_replace($photo->getAttributes(), ['ticket_id' => (string) $this->ticket->id]));
         $viewer = Mockery::mock(User::class)->makePartial();
         $viewer->forceFill(['id' => 1]);

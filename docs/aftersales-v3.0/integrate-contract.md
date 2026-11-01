@@ -303,7 +303,7 @@ Aturan baru berlaku untuk `workflow_version: "v3"`. Ticket `legacy` mempertahank
 
 Semua path relatif terhadap `/api/aftersales`. Auth session dan CSRF mengikuti §1. Tidak ada permission baru.
 
-`POST /tickets/{ticket}/service-form/submit` — hanya Technician yang ditugaskan dengan `aftersales.documents.fill`; sukses **200**. Setelah isian dan tanda tangan dipersiapkan melalui endpoint existing, request nyata yang diuji adalah `{}`. Endpoint juga dapat menerima payload isian seperti `PUT /service-form` agar penulisan isian dan pemeriksaan kelengkapan berlangsung atomik.
+`POST /tickets/{ticket}/service-form/submit` — hanya Technician yang ditugaskan dengan `aftersales.documents.fill`; sukses **200**. Setelah isian dan tanda tangan dipersiapkan melalui endpoint existing, request minimal kini `{"revision":"<revision snapshot terbaru>"}` sesuai Task 11 (§3.54–3.56). Endpoint juga dapat menerima payload isian seperti `PUT /service-form` agar penulisan isian dan pemeriksaan kelengkapan berlangsung atomik.
 
 | Field opsional | Aturan |
 |---|---|
@@ -968,9 +968,71 @@ Export mempertahankan input asli (termasuk Trader yang diabaikan) agar dapat dia
 - Smoke **MySQL 8.4.3 lulus** pada database sementara dengan salinan schema aplikasi: XLSX upload/review/apply, Trader wajib/trim/persist, Daxtro null + Warning, baris invalid di-skip, retry Apply, proteksi workbook/review lama, dan re-review yang terkoreksi. Data Customer/User/import aplikasi tidak disalin; database sementara dan workbook test dihapus. Database aplikasi tidak diubah.
 - Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 329 tests, 2869 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus.
 
+### Task 11 — Offline sync backend Service Form (AS-OFF-01..03) · IMPLEMENTED
+
+Default **OQ-17**: perubahan isi Service Form atau workflow ticket membatalkan snapshot lama. Perubahan priority saja tidak membatalkan snapshot. Backend menjaga data server; penyimpanan draft offline, banner, dan keputusan pengguna saat konflik merupakan pekerjaan FE.
+
+#### 3.54 Snapshot dan revision
+
+`GET /tickets/{ticket}/service-form` tetap memakai permission baca dokumen existing: Admin/Head/SPV dengan akses baca seluruh ticket, atau Technician yang ditugaskan dengan permission baca/fill terkait. Tambahan pada response **200**, subset:
+
+```json
+{"status":"success","data":{"ticket_id":1,"cycle_id":1,"revision":"bfc62f090c149beb87ea0cbf45d866f9dc3d89f848d15c025340586ac3a58528f","status":"incomplete","locked":false}}
+```
+
+`revision` adalah token opaque **64 karakter hex lowercase**, bukan nomor urut/timestamp; jangan dihitung atau dimodifikasi FE. `cycle_id` menunjuk siklus saat snapshot diambil. Ticket legacy mengembalikan `revision: null` dan `cycle_id: null`; kontrak mutation legacy tetap berlaku.
+
+Revision mencakup versi edit persisten serta state form, inspeksi/nilai/foto, diagnosis/temuan, signature Service Form, template yang dipin, unit/service type, assignment, progress/log terakhir, siklus/status dokumentasi, Recoming dan jadwal visit/call. Perubahan spesifikasi machine dari pengelolaan Customer juga terdeteksi. Membaca ulang, waktu berjalan, `updated_at`, perubahan priority, dan save tanpa perubahan isi/workflow tidak mengganti revision. Edit lalu mengembalikan isi semula tetap mengganti revision melalui counter persisten, termasuk dua edit pada detik yang sama.
+
+#### 3.55 Save draft dan submit atomik
+
+**Wajib `revision` pada kedua endpoint v3**, termasuk save online yang memakai snapshot:
+
+| Endpoint | Request dan response |
+|---|---|
+| `PUT /tickets/{ticket}/service-form` | Payload existing + `revision`. Sukses 200 mengembalikan snapshot lengkap dengan revision hasil save. |
+| `POST /tickets/{ticket}/service-form/submit` | Payload existing opsional, signature Technician/Customer opsional, dan `revision` wajib. Sukses 200 tetap membawa ticket_id, cycle_id, documentation_status, submitted_at, submitted_by sesuai Task 4; reload GET untuk snapshot/revision terbaru. |
+
+Kedua mutation tetap hanya untuk **Technician yang ditugaskan**, dengan `aftersales.documents.fill`. Tidak ada permission/role baru. Revision hilang, bukan string, atau format tidak sesuai menghasilkan **422 `errors.revision`**. Pengguna tanpa akses mendapat 401/403; metadata revision server tidak dikembalikan melalui error otorisasi.
+
+Contoh PUT nyata yang diuji (ganti token contoh dengan token GET):
+
+```json
+{"revision":"bfc62f090c149beb87ea0cbf45d866f9dc3d89f848d15c025340586ac3a58528f","diagnosis":[{"field":"problem","body":"Server version"}]}
+```
+
+Response PUT membawa revision baru. Untuk menyimpan draft lokal, FE menyimpan **token dasar bersama isian lokal**. Saat koneksi pulih, kirim isian tersebut beserta token dasarnya; jangan mengambil token baru lalu memasangkannya dengan draft lama secara otomatis. Setelah save online yang berhasil, gunakan snapshot hasil response untuk edit berikutnya. Setelah capture signature/foto online, reload form agar token sesuai state terbaru; foto tetap memakai endpoint upload online existing.
+
+Pemeriksaan dijalankan setelah otorisasi ulang dan lock database **Ticket → Service Form → machine**, di dalam transaksi penulisan. Pemeriksaan mendahului edit isian/unit, marker/log Repair, penyimpanan signature inline/file, status submit, dan publikasi. Konflik tidak mengubah data tersebut. Validasi kelengkapan yang gagal me-rollback perubahan dan counter bersama transaksi.
+
+Revision juga diperiksa **sebelum** jalur idempotensi submitted/guard form terkunci. Retry memakai token sebelum submit berhasil mendapat 409 karena state sudah berubah. Reload GET untuk mengetahui status sebenarnya; request dengan token state terkini tetap mendapat hasil submit existing tanpa publikasi ganda. Tidak ada auto retry menggunakan `current_revision`.
+
+#### 3.56 Konflik dan kewajiban FE
+
+Token berformat valid yang sudah stale menghasilkan **409**:
+
+```json
+{"status":"error","code":"service_form_conflict","message":"The Service Form or ticket workflow changed. Keep your local draft and load the latest form before submitting again.","current_revision":"bfc62f090c149beb87ea0cbf45d866f9dc3d89f848d15c025340586ac3a58528f","reload_url":"/api/aftersales/tickets/1/service-form"}
+```
+
+`current_revision` menunjukkan state saat pemeriksaan; bukan izin untuk menimpa server. `reload_url` adalah path relatif yang tetap memerlukan session/permission. FE mempertahankan draft lokal, memberi tahu pengguna bahwa server berubah, lalu memuat snapshot terbaru untuk keputusan pengguna. Draft lokal hanya dihapus/diganti setelah pilihan pengguna atau konfirmasi save/submit berhasil. Jika form tidak tersedia lagi, `current_revision` dapat null.
+
+Client Blade existing kini mengirim revision snapshot saat PUT dan memperbaruinya hanya dari response sukses; revision eksplisit pada payload draft tetap dipertahankan. Backend tidak membuat local storage, service worker, offline foto, atau auto merge. Banner/local draft indicator dan alur pilihan konflik AS-OFF-03 perlu diintegrasikan FE menggunakan kontrak ini.
+
+#### 3.57 Migration dan verifikasi Task 11
+
+Migration baru: `2026_11_01_000000_add_service_form_sync_version.php` menambahkan `ticket_service_forms.sync_version` unsigned bigint default **1**, termasuk untuk form existing. Kolom internal ini tidak dapat ditulis melalui payload form dan tidak diekspos sebagai atribut model; API memakai token revision. Tidak ada backfill data bisnis, permission/seeder baru, atau perubahan workflow legacy.
+
+Rollback schema diizinkan jika seluruh counter belum digunakan. Jika ada `sync_version > 1`, rollback ditolak sebelum perubahan schema agar identitas revision tidak direset; perlu migration preservasi eksplisit. **Migration sudah diterapkan ke database aplikasi lokal pada 2026-11-01 (batch 34)** melalui `php artisan migrate --force`, tanpa backup sesuai instruksi user. Tidak ada migration pending dan tidak diperlukan seeder baru.
+
+- `DocumentWorkflowV3Test`: token stabil/read-only/priority/no-op, validasi token/otorisasi, stale PUT/submit tanpa menimpa isi/unit/signature/file, perubahan machine, edit lalu restore dalam detik sama, assignment, stale siklus/jadwal, signature/foto, urutan guard sebelum idempotensi, rollback validasi, migration roundtrip/proteksi counter, serta kompatibilitas legacy. Kelas ini lulus **40 test, 708 assertions**.
+- Regression `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` lulus **342 test, 3033 assertions** (SQLite in-memory). Fixture diagnosis legacy disesuaikan agar memiliki hubungan ticket sebagaimana schema aplikasi.
+- Smoke **MySQL 8.4.3 lulus** dengan schema aplikasi pada database sementara: migration up/down/up mempertahankan form/diagnosis, token stabil/priority, konflik perubahan machine, submit token terbaru, retry stale/current, dan proteksi rollback counter terpakai. **Dua proses PHP** menguji submit service sebenarnya dengan InnoDB `LOCK WAIT` yang teramati: proses kedua membawa draft lama, proses pertama menyimpan isi baru sebelum commit, lalu submit kedua ditolak 409 tanpa mengubah isi/status server. Database sementara/marker worker dihapus; database aplikasi tidak diubah.
+- Test client `service-form-revision.test.cjs` memverifikasi token snapshot dikirim, snapshot diperbarui hanya setelah sukses, token draft eksplisit tidak ditimpa, dan failure tidak memicu retry/replace snapshot. Bersama regression `service-diagnosis`, `inspection-navigation`, dan `inspection-camera`, **11 test Node lulus**. Formatter PHP dan `git diff --check` lulus. E2e offline FE dan regression lintas aplikasi tetap bagian Task 12.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 11–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai. Integrasi FE untuk penyimpanan/indikator draft offline dan pilihan konflik mengikuti §3.54–3.56.
 
 ## 5. Change log
 
@@ -992,3 +1054,5 @@ Task 11–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat ta
 | 2026-10-30 | Task 9: Happy Call, Ready to Close, dan Close | Implemented; default OQ-01/05/13/15/16 disetujui user; 323 test lulus, 2792 assertions; smoke migration/notifikasi/paginasi MySQL 8.4.3 lulus pada DB sementara; migration task 9 belum diterapkan ke database aplikasi; command overdue terdaftar setiap menit, tanpa seed baru. |
 | 2026-11-01 | Penerapan lokal task 9 | Migration `2026_10_30_000600_add_happy_call_cycle_tracking` berhasil pada `local_daxx` (batch 33). Backup: `storage/app/private/backups/local_daxx-before-task9-20261101-211614-674fa6.sql`. FK survey pada log, tabel receipt eskalasi, dan unique index dedup terverifikasi. Fingerprint data bisnis dan seluruh template existing tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis); tidak ada ticket v3 existing untuk backfill. Tidak ada migration pending. Audit permission sesuai kontrak, Close hanya role Head, permission Admin lengkap; tidak diperlukan seeder ulang. Belum ada user aktif ber-role Head; assignment user tetap manual. Cache dibersihkan, aplikasi kembali live, dan command overdue terverifikasi terdaftar setiap menit melalui schedule:list. Baris ini memperbarui status penerapan task 9 sebelumnya. |
 | 2026-11-01 | Task 10: Trader pada import Customer | Implemented; default OQ-11 disetujui user; template XLSX/review 3.0, validasi/warning/persistensi dan export Trader; 329 test lulus, 2869 assertions; smoke MySQL 8.4.3 lulus pada DB sementara; memakai kolom Trader Task 1 yang sudah diterapkan, tanpa migration/seeder baru dan tanpa perubahan data aplikasi. |
+| 2026-11-01 | Task 11: Offline sync backend Service Form | Implemented dengan default OQ-17; snapshot revision wajib untuk PUT/submit v3, guard atomik dan 409 service_form_conflict; 342 test PHP lulus, 3033 assertions, 11 test Node lulus; smoke migration dan konkurensi dua proses MySQL 8.4.3 lulus pada DB sementara. Migration sync_version belum diterapkan ke database aplikasi; tidak ada seeder baru. Local draft/banner/pilihan konflik perlu integrasi FE. |
+| 2026-11-01 | Penerapan lokal task 11 | `php artisan migrate --force` berhasil menerapkan `2026_11_01_000000_add_service_form_sync_version` (batch 34), langsung tanpa backup sesuai instruksi user. Status migration terverifikasi Ran; tidak ada migration pending. Tidak diperlukan seeder baru. Baris ini memperbarui status penerapan task 11 sebelumnya. |

@@ -299,15 +299,21 @@ class TicketDocuments
         ] : null])->all();
     }
 
-    public static function saveFormDraft(Ticket $ticket, TicketServiceForm $form, array $data, User $user): void
+    public static function saveFormDraft(Ticket $ticket, TicketServiceForm $form, array $data, User $user, ?string $revision = null): void
     {
-        abort_if($form->isLocked(), 422, 'The Service Form is saved and locked. Unlock it first.');
-        abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
+        if (! TicketDocumentWorkflow::enabled($ticket)) {
+            abort_if($form->isLocked(), 422, 'The Service Form is saved and locked. Unlock it first.');
+            abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
+        }
 
-        DB::transaction(function () use ($ticket, $form, $data, $user) {
+        DB::transaction(function () use ($ticket, $form, $data, $user, $revision) {
             if (TicketDocumentWorkflow::enabled($ticket)) {
                 $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
                 abort_unless(self::isTechnician($user, $ticket), 403);
+                $form = ServiceFormRevisions::lockMaterial($ticket);
+                if ($revision !== null) {
+                    ServiceFormRevisions::guard($ticket, $form, $revision);
+                }
                 abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
                 if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
                     TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
@@ -369,7 +375,7 @@ class TicketDocuments
                     ]);
                 }
             }
-        });
+        }, 3);
     }
 
     private static function storeValue(TicketInspection $inspection, RefInspectionField $field, mixed $raw): bool
