@@ -123,7 +123,7 @@ Badge kolom Machines (`[n] Daxtro`, `[n] Non-Daxtro`) dibuat FE dari dua count d
 
 #### 3.3 Di luar Task 1
 
-- Template Import Customer belum menerima kolom Trader (menunggu OQ-11). Baris Non-Daxtro hasil import memiliki `trader_name: null`.
+- Sejak Task 10, template Import Customer menerima kolom Trader sesuai default OQ-11; lihat §3.49–3.53. Histori Non-Daxtro yang sudah diimpor sebelum perubahan tetap dipertahankan.
 - Tidak ada perubahan pada `GET /customers/machine-references`, `POST /customers/machine-name-preview`, atau envelope response.
 
 #### 3.4 Verifikasi Task 1
@@ -875,15 +875,102 @@ Migration **`2026_10_30_000600_add_happy_call_cycle_tracking.php`**:
 - Backfill deadline hanya ticket v3, memakai response current masing-masing siklus; response sesudah ended_at siklus arsip tidak dipakai. Mirror ticket mengikuti cycle terbaru.
 - Happy Call existing hanya ditautkan jika satu response dengan waktu submit diketahui pada siklus itu, statusnya diterima/valid, dan log Happy Call ada sesudah/saat submit. Hanya log pertama yang ditautkan bila ada duplikasi historis. Histori ambigu tetap disimpan tanpa tautan dan tidak memenuhi gate baru sampai Happy Call dicatat untuk survey current. Legacy tidak diubah.
 - Rollback ditolak sebelum DDL jika sudah ada Happy Call yang ditautkan atau receipt eskalasi. Tanpa histori baru, down/up mempertahankan survey/log dan timestamp deadline existing. Tidak ada seed role/permission baru.
-- **Migration task 9 belum diterapkan ke database aplikasi `local_daxx`.** Gunakan maintenance untuk penerapan schema/backfill sebelum menjalankan command pada database aplikasi.
+- **Migration task 9 sudah diterapkan ke database aplikasi lokal `local_daxx` pada 2026-11-01 (batch 33).** Backup SQL dibuat sebelum migration, data existing diverifikasi, cache dibersihkan, dan aplikasi kembali live. Role/permission sudah sesuai sehingga tidak diperlukan seeder ulang.
 - Test API/domain: survey valid terbaru, publication per siklus, role Head meskipun permission dipalsukan, mandatory Happy Call meskipun flag lama false, retry idempotent, konteks stale, replacement pada timestamp sama, Recoming, deadline approval/reject/delete/restore, recipient isolation, dedup setelah notifikasi dihapus, rollback notifikasi/receipt, dan capability.
 - Test queue membuktikan total/halaman berasal dari query terfilter dengan LIMIT/OFFSET; test legacy memastikan reminder lama tetap berlaku. Test migration membuktikan mapping konservatif, data lama utuh, unique, dan proteksi rollback.
 - Smoke **MySQL 8.4.3 lulus** pada database sementara: migration/down-up/backfill, FK ownership/unique, SQL pagination, guard completion survey, rollback dan dedup notifikasi, deadline approval, isolasi Recoming, serta proteksi rollback. Database sementara dihapus; database aplikasi tidak diubah.
 - Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 323 tests, 2792 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus. Uji dua request/worker sungguhan dan e2e FE tetap Task 12.
 
+### Task 10 — Import Customer: Trader (IMPLEMENTED)
+
+**Default OQ-11 disetujui user**: Trader wajib untuk Non-Daxtro, diabaikan dengan Warning untuk Daxtro. Perubahan berlaku pada template, upload/review/apply, preview, dan export Customer; import Sparepart tidak berubah.
+
+#### 3.49 Template Customer v3.0
+
+`GET /customers/imports/template` tetap mengunduh `DAXX_Import_Customer_Template.xlsx`, kini versi **3.0**. Sheet tetap `Import Customer`, `Guide`, `Reference`; jumlah header menjadi **22**. Kolom baru **`Trader` di N**, sesudah Brand (M) dan sebelum Capacity (O). Nama dan urutan semua header harus persis sesuai template terbaru.
+
+```text
+Customer Name*, PIC Name, Phone, Email, Address, Google Maps Link,
+Province, City / Region, Industry, Daxtro Machine, Machine Category*,
+Machine Name, Brand, Trader, Capacity, Compressor, Refrigerant Type,
+Serial Number, Warranty Start, Warranty End, PM Contract, Note
+```
+
+- Guide dan contoh Non-Daxtro sudah menyertakan Trader. Phone (C), Trader (N), dan Serial Number (R) memakai format text; dropdown Daxtro Machine, Machine Category, dan PM Contract (kini U) tetap tersedia.
+- Trader mempunyai panduan/validasi Excel kondisional untuk No dan batas 255 karakter; validasi server tetap menentukan hasil import.
+- Kapasitas, penamaan mesin otomatis/manual, serial, warranty, dan aturan import Customer existing tetap berlaku. Kolom Trader tidak memakai tanda `*` pada header karena hanya wajib secara kondisional, sama seperti Brand.
+- Workbook lama tanpa Trader, header salah urutan/nama, atau kolom tambahan ditolak **422 `errors.file`**. Tidak membuat batch atau Customer/Machine. Batas existing tetap .xlsx, 20 MB, dan 5000 baris data.
+
+#### 3.50 Validasi, normalisasi, dan Warning
+
+| Daxtro Machine | Trader pada input | Hasil review / penyimpanan |
+|---|---|---|
+| `No` (case-insensitive) | Kosong, null, atau hanya spasi | Row `status: "error"`, `errors` berisi **`Trader is required.`** |
+| `No` | Lebih dari 255 karakter | Row error, **`Trader exceeds 255 characters.`**; panjang dihitung dengan mb_strlen |
+| `No` | Teks 1–255 karakter | Spasi awal/akhir dibuang; disimpan sebagai `machine.trader_name` dan kemudian `service_customer_products.trader_name` saat Apply |
+| `Yes` atau kosong/default Yes | Trader terisi | `machine.trader_name: null`; Warning **`Trader is ignored for Daxtro machines.`**; panjang Trader yang diabaikan tidak menjadi error |
+| `Yes` atau kosong/default Yes | Trader kosong | `machine.trader_name: null`; tidak ada Warning khusus Trader kosong |
+
+Brand dan Machine Name tetap wajib untuk No. Error Trader adalah **error baris**, bukan kegagalan struktural workbook: upload valid tetap 201 dengan review. Warning tidak menghalangi Apply. `summary.error` menghitung baris error; `summary.warning` tetap menghitung baris yang mempunyai satu atau lebih Warning.
+
+Upload hanya menyimpan staging; belum membuat Customer/Machine. Apply mempertahankan perilaku existing: baris error di-skip dan masuk `error_count`, sedangkan baris valid yang sudah memenuhi keputusan matching diterapkan. Mengisi Trader pada Daxtro tidak mengubah Brand/Trader mesin menjadi Non-Daxtro. Preview modal memperlihatkan Trader pada baris Non-Daxtro dengan escaping HTML existing.
+
+#### 3.51 Kontrak request/response dan koreksi review
+
+Endpoint, autentikasi session/CSRF, permission **`masters.service-customers`**, ownership uploader, namespace Customer/Sparepart, dan envelope existing tidak berubah.
+
+- `POST /customers/imports`: multipart `file`, sukses 201. Setiap row review kini membawa `template_version: "3.0"` dan `machine.trader_name` yang sudah dinormalisasi.
+- `GET /customers/imports/{import}`: mengembalikan raw input dan hasil review tersimpan, termasuk kolom/field Trader.
+- `PUT /customers/imports/{import}/review`: `rows[].input` menerima key **`Trader`** sesuai header Excel, bukan `trader_name`. Semua review dihitung ulang di server dan lock_version batch bertambah.
+- `POST /customers/imports/{import}/apply`: tetap memakai lock_version. Trader tersimpan bersama data machine pada transaksi Apply; retry batch applied tidak menggandakan Customer/Machine.
+
+Contoh request koreksi yang diuji:
+
+```json
+{"lock_version":0,"rows":[{"id":1,"input":{"Trader":"  Trader Co  "}}]}
+```
+
+Response **200**, subset `data.rows[0].review`:
+
+```json
+{"template_version":"3.0","status":"new","errors":[],"machine":{"is_daxtro":false,"trader_name":"Trader Co"}}
+```
+
+Status matching dapat berupa status existing lain sesuai identitas Customer/serial; koreksi Trader sendiri tidak memaksa Create new atau mengubah target matching. Pergantian Daxtro Machine pada review juga menghitung ulang Trader: No → Yes menjadi null + Warning bila raw Trader masih terisi; Yes → No wajib mempunyai Trader.
+
+Batch **belum applied** dengan review versi 2.2/versi lain/tanpa versi ditolak **409** saat Apply, sebelum menulis Customer/Machine. Gunakan template terbaru, atau untuk draft 2.2 yang masih kompatibel koreksi input Trader melalui endpoint review agar server memvalidasi ulang seluruh baris dan memperbarui review ke 3.0, lalu Apply dengan lock_version baru. Review lama tidak di-upgrade otomatis saat Apply.
+
+Batch yang sudah applied tetap idempotent dan tidak diubah oleh aturan baru. Customer/Machine hasil import lama, termasuk Trader null historis, tidak di-backfill atau ditebak namanya. Permission yang tidak sesuai atau batch milik uploader lain tetap 403; konflik lock_version tetap 409.
+
+#### 3.52 Export dan data model
+
+`GET /customers/imports/{import}/export` tetap mengunduh workbook `Import Review`. Kolom input mengikuti 22 header v3.0, lalu metadata existing:
+
+| Kolom | Isi |
+|---|---|
+| N | Trader raw dari input |
+| W | Row |
+| X | Status |
+| Y | Errors |
+| Z | Warnings |
+| AA | Decision |
+| AB | Result |
+
+Export mempertahankan input asli (termasuk Trader yang diabaikan) agar dapat diaudit; nilai yang diterapkan adalah `review.machine.trader_name`. Nilai export tetap ditulis sebagai **string**, termasuk Trader yang menyerupai formula Excel. File export mempunyai metadata tambahan sehingga tidak diterima sebagai template upload; salin koreksi ke template terbaru.
+
+**Tidak ada migration schema atau seeder baru.** Penyimpanan memakai kolom nullable varchar(255) `trader_name` dari migration Task 1, `2026_10_29_000000_add_trader_name_to_service_customer_products.php`, yang sudah diterapkan lokal. Payload staging/review tetap memakai kolom JSON existing; versi review 3.0 melindungi Apply dari validasi lama. Tidak ada update massal pada histori import atau machine.
+
+#### 3.53 Verifikasi Task 10
+
+- Test download memuat workbook nyata: 22 header, posisi Trader/Serial, format text, contoh Non-Daxtro, panduan v3.0, dropdown PM Contract setelah pergeseran kolom, dan kedua contoh valid saat di-upload.
+- Test import/API: Trader kosong/whitespace, batas multibyte 255/256 karakter, trim dan penyimpanan, warning Yes/default Yes/mixed case, panjang yang diabaikan, nilai text `0`, error row di-skip, koreksi melalui review, pergantian tipe, permission, Apply idempotent, serta penolakan workbook/review 2.2 dan re-review yang valid.
+- Test export memastikan Trader/Errors berada pada kolom baru dan nilai yang menyerupai formula tetap bertipe string, tanpa membuat machine.
+- Smoke **MySQL 8.4.3 lulus** pada database sementara dengan salinan schema aplikasi: XLSX upload/review/apply, Trader wajib/trim/persist, Daxtro null + Warning, baris invalid di-skip, retry Apply, proteksi workbook/review lama, dan re-review yang terkoreksi. Data Customer/User/import aplikasi tidak disalin; database sementara dan workbook test dihapus. Database aplikasi tidak diubah.
+- Regression: `php vendor/bin/phpunit --do-not-cache-result tests/Feature/Aftersales tests/Unit/Aftersales` → **OK, 329 tests, 2869 assertions** (SQLite in-memory). Formatter PHP dan `git diff --check` lulus.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 10–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
+Task 11–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai.
 
 ## 5. Change log
 
@@ -903,3 +990,5 @@ Task 10–12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat ta
 | 2026-10-30 | Task 8: Survey dua varian dan skor per ticket | Implemented; default OQ-04/08/18 disetujui user, OQ-06 tetap manual; 309 test lulus, 2667 assertions; smoke migration/template/rating MySQL 8.4.3 lulus pada DB sementara; dua migration task 8 belum diterapkan ke database aplikasi; template phone call diinisialisasi migration, tanpa seed role/demo baru. |
 | 2026-10-30 | Penerapan lokal task 8 | Kedua migration task 8 berhasil pada `local_daxx` (batch 32). Backup: `storage/app/private/backups/local_daxx-before-task8-20261030-151643-53bf5f.sql`. Kolom variant, state per varian, dan FK template cycle terverifikasi. Template site aktif tetap ID/version 1; phone call aktif ID/version 3 dengan tujuh rating wajib. Fingerprint data bisnis dan template site existing tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis); tidak ada ticket v3 existing untuk backfill snapshot. Tidak ada migration pending, cache dibersihkan, aplikasi kembali live; tidak ada seed role/demo tambahan. Baris ini memperbarui status penerapan task 8 sebelumnya. |
 | 2026-10-30 | Task 9: Happy Call, Ready to Close, dan Close | Implemented; default OQ-01/05/13/15/16 disetujui user; 323 test lulus, 2792 assertions; smoke migration/notifikasi/paginasi MySQL 8.4.3 lulus pada DB sementara; migration task 9 belum diterapkan ke database aplikasi; command overdue terdaftar setiap menit, tanpa seed baru. |
+| 2026-11-01 | Penerapan lokal task 9 | Migration `2026_10_30_000600_add_happy_call_cycle_tracking` berhasil pada `local_daxx` (batch 33). Backup: `storage/app/private/backups/local_daxx-before-task9-20261101-211614-674fa6.sql`. FK survey pada log, tabel receipt eskalasi, dan unique index dedup terverifikasi. Fingerprint data bisnis dan seluruh template existing tetap sama (16 ticket legacy, 16 cycle, 9 survey, 9 diagnosis); tidak ada ticket v3 existing untuk backfill. Tidak ada migration pending. Audit permission sesuai kontrak, Close hanya role Head, permission Admin lengkap; tidak diperlukan seeder ulang. Belum ada user aktif ber-role Head; assignment user tetap manual. Cache dibersihkan, aplikasi kembali live, dan command overdue terverifikasi terdaftar setiap menit melalui schedule:list. Baris ini memperbarui status penerapan task 9 sebelumnya. |
+| 2026-11-01 | Task 10: Trader pada import Customer | Implemented; default OQ-11 disetujui user; template XLSX/review 3.0, validasi/warning/persistensi dan export Trader; 329 test lulus, 2869 assertions; smoke MySQL 8.4.3 lulus pada DB sementara; memakai kolom Trader Task 1 yang sudah diterapkan, tanpa migration/seeder baru dan tanpa perubahan data aplikasi. |

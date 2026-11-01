@@ -58,11 +58,11 @@
                             <span class="bg-[#F0F0F0] text-[#757575] rounded-full" style="font-size:9px;padding:4px 10px">5 formatting rules</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2" style="gap:10px">
-                            {{-- Rule texts follow the v2.2 template (IM-84, contract Task 3). --}}
+                            {{-- Rule texts follow the v3.0 Customer template (OQ-11). --}}
                             @foreach ([
                                 ['01', 'One machine per row', 'Repeat the customer details when a customer has multiple machines.'],
                                 ['02', 'Complete required fields', 'Customer Name is always required. Machine Category and Capacity are required for Daxtro machines.'],
-                                ['03', 'Daxtro Machine column', 'Yes or empty = Daxtro. For No, Brand and Machine Name are required; Serial Number, Warranty, and PM Contract are ignored.'],
+                                ['03', 'Daxtro Machine column', 'Yes or empty = Daxtro: Brand and Trader are ignored with a warning. For No, Brand, Trader, and Machine Name are required; Serial Number, Warranty, and PM Contract are ignored.'],
                                 ['04', 'Keep formats consistent', 'Phone and Serial Number are text. Dates use dd/mm/yyyy. Machine Name is optional for Daxtro machines (generated automatically).'],
                                 ['05', 'Use valid contract values', 'Enter Basic or Premium. Leave the cell empty for None.'],
                             ] as [$no, $title, $desc])
@@ -441,7 +441,8 @@
             
             var machineName = (r.machine && r.machine.machine_name) || row.input['Machine Name'] || '-';
             var category = row.input['Machine Category*'] ? ' · ' + row.input['Machine Category*'] : '';
-            var nonDaxtro = rowIsDaxtro(row) ? '' : '<div style="font-size:9.5px;color:#757575">Non-Daxtro' + (rowBrand(row) ? ' · ' + esc(rowBrand(row)) : '') + '</div>';
+            var trader = (r.machine && r.machine.trader_name) || row.input['Trader'] || '';
+            var nonDaxtro = rowIsDaxtro(row) ? '' : '<div style="font-size:9.5px;color:#757575">Non-Daxtro' + (rowBrand(row) ? ' · ' + esc(rowBrand(row)) : '') + (trader ? ' · Trader: ' + esc(trader) : '') + '</div>';
             var resultLabel = row.result && row.result.machine_status === 'kept_archived' ? 'Customer saved; machine kept archived' : (row.result && row.result.status);
             var result = row.result ? ' <span style="color:#115640;font-size:9px">[' + esc(resultLabel) + ']</span>' : '';
 

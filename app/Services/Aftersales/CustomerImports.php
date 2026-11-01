@@ -20,9 +20,9 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class CustomerImports
 {
-    public const TEMPLATE_VERSION = '2.2';
+    public const TEMPLATE_VERSION = '3.0';
 
-    public const HEADERS = ['Customer Name*', 'PIC Name', 'Phone', 'Email', 'Address', 'Google Maps Link', 'Province', 'City / Region', 'Industry', 'Daxtro Machine', 'Machine Category*', 'Machine Name', 'Brand', 'Capacity', 'Compressor', 'Refrigerant Type', 'Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract', 'Note'];
+    public const HEADERS = ['Customer Name*', 'PIC Name', 'Phone', 'Email', 'Address', 'Google Maps Link', 'Province', 'City / Region', 'Industry', 'Daxtro Machine', 'Machine Category*', 'Machine Name', 'Brand', 'Trader', 'Capacity', 'Compressor', 'Refrigerant Type', 'Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract', 'Note'];
 
     public function upload(UploadedFile $file, int $userId): CustomerImport
     {
@@ -121,8 +121,8 @@ class CustomerImports
         if (! in_array($kind, ['', 'yes', 'no'], true)) {
             $errors[] = 'Daxtro Machine must be Yes, No, or empty (Yes).';
         }
-        $required = $isDaxtro ? ['Customer Name*', 'Machine Category*', 'Capacity'] : ['Customer Name*', 'Machine Name', 'Brand'];
-        $ignored = $isDaxtro ? ['Brand'] : ['Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract'];
+        $required = $isDaxtro ? ['Customer Name*', 'Machine Category*', 'Capacity'] : ['Customer Name*', 'Machine Name', 'Brand', 'Trader'];
+        $ignored = $isDaxtro ? ['Brand', 'Trader'] : ['Serial Number', 'Warranty Start', 'Warranty End', 'PM Contract'];
         foreach ($required as $key) {
             if ($get($key) === '') {
                 $errors[] = $key.' is required.';
@@ -137,7 +137,7 @@ class CustomerImports
                 $warnings[] = $key.' is empty.'.(in_array($key, ['Phone', 'Email'], true) ? ' Complete the customer contact before creating a new ticket.' : '');
             }
         }
-        foreach (['Customer Name*', 'PIC Name', 'Machine Name', 'Brand', 'Serial Number', 'Compressor', 'Refrigerant Type'] as $key) {
+        foreach (['Customer Name*', 'PIC Name', 'Machine Name', 'Brand', 'Trader', 'Serial Number', 'Compressor', 'Refrigerant Type'] as $key) {
             if (! in_array($key, $ignored, true) && mb_strlen($get($key)) > 255) {
                 $errors[] = $key.' exceeds 255 characters.';
             }
@@ -212,6 +212,7 @@ class CustomerImports
         }
         $data = ['name' => $get('Customer Name*'), 'pic_name' => $get('PIC Name') ?: null, 'phone' => $phone, 'email' => $get('Email') ?: null, 'address' => $get('Address') ?: null, 'address_maps_url' => $get('Google Maps Link') ?: null, 'ref_province_id' => $province?->id, 'ref_region_id' => $region?->id];
         $machine = ['product_id' => null, 'is_daxtro' => $isDaxtro, 'machine_name' => $name, 'machine_name_mode' => $nameMode, 'ref_product_type_id' => $category?->id, 'industry_id' => $industry?->id, 'brand' => $isDaxtro ? null : ($get('Brand') ?: null), 'capacity' => $capacity === '' ? null : $capacity, 'compressor' => $get('Compressor') ?: null, 'refrigerant' => $get('Refrigerant Type') ?: null, 'serial_number' => $serial, 'warranty_start' => $start, 'warranty_end' => $end, 'pm_contract_status' => $pm, 'note' => $get('Note') ?: null];
+        $machine['trader_name'] = $isDaxtro || $get('Trader') === '' ? null : $get('Trader');
         $candidates = array_merge($context->matches->candidates($data), $context->prior->candidates($data));
         for ($i = 0; $i < ($context->priorSerialCounts[$serial] ?? 0); $i++) {
             $warnings[] = 'Serial repeated in this file: one machine, last applied row owns it; earliest warranty is preserved.';
