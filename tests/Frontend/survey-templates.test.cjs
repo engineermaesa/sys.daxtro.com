@@ -41,7 +41,7 @@ test("survey template editor protects the core question and saves before preview
         lock_version: 0,
         title: "Persisted survey",
         content: {
-            scale_labels: ["Very Poor", "Poor", "Fair", "Good", "Very Good"],
+            scale_labels: ["Kurang Puas", "Puas", "Sangat Puas"],
             sections: [
                 {
                     section_key: "s1",
@@ -133,11 +133,13 @@ test("survey template editor protects the core question and saves before preview
                 getElementById: element,
                 querySelector: () => ({ content: "csrf" }),
             },
-            window: { addEventListener() {} },
+            window: { addEventListener() {}, location: { search: '' } },
             Swal: { fire: async () => ({ isConfirmed: true }) },
             fetch,
             structuredClone,
             Date,
+            URLSearchParams,
+            location: { search: '' },
             console,
         },
     );
@@ -157,6 +159,8 @@ test("survey template editor protects the core question and saves before preview
     };
     await settle();
     assert.ok(calls.every((c) => c.method === "GET"));
+    assert.match(element("dt-content").innerHTML, /Version history/);
+    await click("open", { id: "1" });
     assert.match(element("dt-content").innerHTML, /Arrival/);
     await click("create");
     await click("toggle-question", { section: "1", question: "0" });

@@ -15,6 +15,13 @@ function setup() {
     const elements = {},
         requests = [];
     function $(id) {
+        if (typeof id === 'string' && id.includes(',')) {
+            const group = id.split(',').map(selector => $(selector.trim()));
+            return {
+                prop(key, value) { group.forEach(element => element.prop(key, value)); return this; },
+                data(key, value) { group.forEach(element => element.data(key, value)); return this; },
+            };
+        }
         return (elements[id] ||= {
             attrs: {},
             props: {},
@@ -39,6 +46,7 @@ function setup() {
                 this.values[key] = value;
                 return this;
             },
+            trigger() { return this; },
         });
     }
     $.ajax = (options) => {
@@ -56,7 +64,7 @@ function setup() {
         requests.push(response);
         return response;
     };
-    const context = { $, currentTicket: { id: 28 } };
+    const context = { $, document: {}, currentTicket: { id: 28 } };
     vm.createContext(context);
     vm.runInContext(code, context);
     return { context, elements, requests };

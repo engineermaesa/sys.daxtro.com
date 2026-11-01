@@ -4,6 +4,165 @@ Dokumen kontrak BE → FE untuk Aftersales PRD v3.0. Diperbarui setiap task BE s
 
 Baseline kode: `aa8b054`. Bagian di bawah hanya memuat perilaku yang **sudah diimplementasi dan diuji**. Task yang belum dikerjakan tidak ada di dokumen ini.
 
+## 0. Prasyarat dan setup backend untuk tim FE
+
+Bagian ini adalah panduan yang **dijalankan tim FE pada environment integrasi/lokal mereka** sebelum menguji kontrak. Penambahan panduan ini tidak menjalankan migration/seeder ulang pada database aplikasi saat ini.
+
+### 0.1 Siapkan kode, environment, dan baseline database
+
+Gunakan kode BE sampai Task 12, PHP **8.2+** dengan extension yang diperlukan Composer, Composer, dan MySQL. Runtime yang telah diverifikasi: PHP 8.3.26 dan MySQL 8.4.3. Jalankan perintah dari root repository BE.
+
+```sh
+composer install
+```
+
+Untuk environment baru, buat `.env` dari `.env.example` bila belum ada, kemudian isi koneksi database development yang disediakan tim BE. Contoh konfigurasi lokal:
+
+```dotenv
+APP_ENV=local
+APP_URL=http://127.0.0.1:8000
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=aftersales_fe
+DB_USERNAME=your_local_user
+DB_PASSWORD=your_local_password
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+MAIL_MAILER=log
+```
+
+Nama DB dan kredensial pada contoh harus diganti dengan milik environment FE. Baseline DB harus mempunyai schema historis aplikasi, termasuk users/roles/permissions, Customer/Machine, serta tabel pendukung session/cache/jobs. Repository berisi migration lanjutan terhadap tabel historis; database kosong lalu `migrate:fresh` bukan prosedur bootstrap yang sudah diverifikasi. Gunakan baseline development lengkap dari tim BE, lalu jalankan migration pending sesuai §0.2.
+
+`APP_KEY` harus terisi. `php artisan key:generate` hanya untuk instalasi baru dengan key kosong; saat memakai salinan DB yang berisi token/link terenkripsi, gunakan APP_KEY yang sesuai dari pengelola environment. Pertahankan key tersebut agar token yang sudah tersimpan tetap dapat dibaca. Waktu bisnis backend sudah dikonfigurasi `Asia/Jakarta`.
+
+### 0.2 Jalankan migration dan seed v3 pada baseline yang sudah ada
+
+Urutan standar setelah `.env` benar:
+
+```sh
+php artisan config:clear
+php artisan migrate --force
+php artisan db:seed --class=AftersalesV3RoleSeeder --force
+php artisan optimize:clear
+php artisan migrate:status
+```
+
+`migrate --force` menerapkan **semua migration pending**, termasuk data migration v3; jangan menjalankan setiap file secara manual atau mengubah statusnya di tabel migrations. Pada database yang sudah sampai Task 11, hasilnya dapat berupa `Nothing to migrate`. Seeder v3 dapat dijalankan ulang dan sudah memanggil `PermissionSeeder` secara internal.
+
+Efek `AftersalesV3RoleSeeder`:
+
+- Membuat permission yang belum tersedia, membuat Head bila belum ada, dan menamai role `supervisor_after_sales` sebagai **SPV Technician**.
+- Menyamakan permission SPV dan Head dengan kontrak v3. Permission tambahan khusus pada kedua role tersebut mengikuti hasil sync seeder.
+- Mencabut `aftersales.tickets.close` dari seluruh role selain Head, termasuk Super Admin, serta mencabut `aftersales.tickets.recoming` dari Technician.
+- **Tidak membuat akun login, tidak mengganti role user existing, dan tidak mengisi ulang seluruh permission Admin/Technician.**
+
+Status deployment lokal yang telah dilakukan pada proyek ini: migration sampai `2026_11_01_000000_add_service_form_sync_version` sudah **Ran (batch 34)**. Nomor batch dapat berbeda pada environment FE. Task 10 tidak mempunyai migration baru; Task 12 hanya memperbaiki jalur down migration lama dan juga tidak memerlukan migration/seeder baru.
+
+### 0.3 Bootstrap role/permission default, bila baseline lokal belum memilikinya
+
+Jika role `after_sales`/`technician` atau mapping permission dasarnya belum tersedia pada **baseline lokal baru**, gunakan urutan berikut sebagai pengganti langkah seed tunggal pada §0.2, setelah migration selesai:
+
+```sh
+php artisan db:seed --class=RoleSeeder --force
+php artisan db:seed --class=PermissionSeeder --force
+php artisan db:seed --class=RolePermissionSeeder --force
+php artisan optimize:clear
+```
+
+Urutannya wajib: Role → Permission → RolePermission. `RolePermissionSeeder` sudah memanggil `AftersalesV3RoleSeeder` di akhir. Seeder ini mereset mapping beberapa role lintas modul ke default repository, sehingga bukan langkah rutin untuk upgrade database bersama yang mempunyai permission kustom. Untuk baseline dengan mapping existing yang sudah benar, cukup gunakan seeder v3 pada §0.2.
+
+`php artisan db:seed` tanpa `--class` menjalankan `DatabaseSeeder`, yang saat ini tidak menjadi bootstrap Aftersales lengkap. `UserSeeder`, `TechnicianDemoSeeder`, dan `SatisfactionSurveyDemoSeeder` juga bukan prasyarat integrasi; panduan ini tidak memerlukan pembuatan data demo.
+
+### 0.4 Siapkan user pengujian dan assignment ticket
+
+Sediakan minimal satu akun yang dapat login untuk setiap role berikut melalui pengelolaan Users existing:
+
+| Peran UI | `user_roles.code` | Hak utama yang perlu tersedia |
+|---|---|---|
+| Admin Aftersales | `after_sales` | tickets.manage, tickets.assign, satisfaction.submit, satisfaction-survey.review; tidak mempunyai tickets.close |
+| Technician | `technician` | tickets.view-own, documents.fill, survey-link.share; tidak mempunyai Close/Recoming |
+| SPV Technician | `supervisor_after_sales` | tickets.view-all, documents.sign; tidak mempunyai manage/Close |
+| Head Aftersales | `head_after_sales` | tickets.view-all, tickets.close; tidak mempunyai documents.fill/sign atau tickets.manage |
+
+Pada tabel ini nama singkat `tickets.*`, `documents.*`, `satisfaction.submit`, dan `survey-link.share` memakai prefix **`aftersales.`**; `satisfaction-survey.review` adalah kode lengkap. ID role berbeda antar database; pilih berdasarkan `code`, jangan hardcode ID.
+
+Seeding role saja **tidak menetapkan user menjadi Head**. Jika perlu assignment lewat CLI pada DB development, jalankan `php artisan tinker`, lalu gunakan email user yang benar-benar sudah dibuat. Contoh menetapkan satu user menjadi Head:
+
+```php
+$role = \App\Models\UserRole::where('code', 'head_after_sales')->firstOrFail();
+$user = \App\Models\User::where('email', 'head.fe@example.test')->firstOrFail();
+$user->role()->associate($role);
+$user->save();
+```
+
+Untuk role lain, gunakan code dari tabel. Contoh tidak membuat user baru atau menetapkan password. Login ulang setelah perubahan role. Pada ticket uji, isi `assigned_technician_id` dengan user Technician dan `supervisor_id` dengan user SPV; akses fill/sign memeriksa assignment, bukan permission saja. Customer harus memiliki Phone dan Email agar ticket baru dapat dibuat.
+
+### 0.5 Periksa template aktif sebelum pengujian dokumen/survey
+
+Baseline integrasi harus memiliki template Inspection, Agreement, dan survey **site** aktif. Migration Task 8 menambahkan template survey **phone_call** beserta tujuh rating; tidak perlu mengisi template phone lewat demo seeder.
+
+Pemeriksaan read-only melalui `php artisan tinker`:
+
+```php
+dump([
+    'inspection' => \App\Models\Aftersales\RefInspectionTemplate::where('status', 'active')->pluck('id')->all(),
+    'agreement' => \App\Models\Aftersales\RefAgreementTemplate::where('is_active', true)->pluck('id')->all(),
+    'surveys' => \App\Models\Aftersales\RefSurveyTemplate::where('status', 'active')->get(['id', 'variant', 'version'])->toArray(),
+]);
+```
+
+Hasil yang dibutuhkan: Inspection dan Agreement aktif, serta survey aktif untuk **site dan phone_call**. Pertahankan template/versi existing agar ticket historis memakai snapshot yang benar. Jika master Inspection benar-benar kosong, tersedia `InspectionVersionSeeder`; jika Agreement benar-benar kosong, tersedia `AgreementTemplateSeeder`. Jalankan hanya seeder master yang memang dibutuhkan:
+
+```sh
+php artisan db:seed --class=InspectionVersionSeeder --force
+php artisan db:seed --class=AgreementTemplateSeeder --force
+```
+
+Untuk survey site yang hilang, minta baseline/master site yang valid dari tim BE. `SurveyTemplateSeeder` existing hanya membuat site bila **seluruh tabel template survey kosong**; setelah migration v3 membuat phone_call, menjalankannya saja tidak membuat site yang hilang. Jangan menghapus template phone atau histori survey untuk mengakali kondisi ini.
+
+### 0.6 Jalankan server, worker, dan scheduler
+
+Untuk backend lokal, jalankan server berikut bila belum memakai virtual host Laragon atau web server lain:
+
+```sh
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+Dengan `QUEUE_CONNECTION=database`, jalankan di terminal terpisah agar dispatch dokumen diproses:
+
+```sh
+php artisan queue:work
+```
+
+`MAIL_MAILER=log` cocok untuk integrasi lokal: email dicatat ke log, tidak dikirim ke Customer. Gunakan konfigurasi mail/provider environment yang sesuai saat menguji delivery nyata. OTP survey site memerlukan konfigurasi WhatsApp/provider yang valid untuk pengiriman kode (`WHATSAPP_API_URL` dan `WHATSAPP_API_TOKEN` pada `.env.example`); survey phone_call dicatat Admin dan tidak memerlukan link/OTP. Migration/seeder tidak mengatur kredensial provider.
+
+Jalankan scheduler lokal pada terminal terpisah:
+
+```sh
+php artisan schedule:work
+```
+
+Scheduler juga memuat job modul lain pada database environment tersebut. Pada environment yang sudah dikelola server, gunakan scheduler/worker yang disediakan pengelola; jangan membuat runner ganda. Periksa pendaftaran job tanpa mengeksekusinya:
+
+```sh
+php artisan schedule:list
+```
+
+Job Aftersales yang diharapkan: `tickets:notify-happy-call-overdue` setiap menit dan `tickets:resume-recoming` pukul 00:05 Asia/Jakarta. Resume lama tetap untuk legacy; Recoming v3 menuju Repair melalui edit pertama Service Form. Bila worker jangka panjang sudah aktif saat kode di-update, gunakan `php artisan queue:restart` agar worker memuat kode baru.
+
+### 0.7 Verifikasi sebelum tim FE mulai integrasi
+
+1. `migrate:status` tidak memiliki Pending, termasuk migration sync_version Task 11.
+2. Empat role dan akun login tersedia. Head benar-benar mempunyai role `head_after_sales`; Admin/Technician memiliki mapping dasarnya. Periksa melalui menu role/permission atau Tinker: `\App\Models\User::findOrFail($id)->hasPermission('aftersales.tickets.close')` hanya true untuk user Head pada mapping default; ganti `$id` dengan ID user uji.
+3. Template aktif pada §0.5 lengkap; Customer uji mempunyai machine, Phone, dan Email. Ticket baru memakai `workflow_version: "v3"`; ticket legacy tidak dikonversi otomatis.
+4. Login memakai session backend. Untuk frontend terpisah, siapkan origin/proxy/session dan CSRF sesuai §1; endpoint tidak menerima Bearer token sebagai pengganti login existing.
+5. `GET /api/aftersales/tickets/{id}` dan `GET .../service-form` berhasil sesuai role. Snapshot v3 membawa `cycle_id` dan `revision`; echo revision saat PUT/submit. Gunakan `capabilities` untuk tombol FE.
+6. `GET /api/aftersales/tickets/ready-to-close` berhasil untuk Admin/SPV/Head, tetapi `can_close` hanya aktif bagi Head dan setelah syarat siklus terbaru terpenuhi. List kosong pada awal setup adalah hasil yang valid.
+
+Pengujian otomatis BE yang bisa dijalankan ulang tercantum dalam [backend-verification.md](backend-verification.md). Runner MySQL di laporan membuat DB sementara sendiri; bukan pengganti migration/seeding environment FE di atas. Dokumentasi ini tidak menyatakan browser E2E sudah lulus.
+
 ## 1. Transport dan autentikasi
 
 - Base URL internal: `/api/aftersales`. Path memakai ID integer internal.
@@ -1030,9 +1189,34 @@ Rollback schema diizinkan jika seluruh counter belum digunakan. Jika ada `sync_v
 - Smoke **MySQL 8.4.3 lulus** dengan schema aplikasi pada database sementara: migration up/down/up mempertahankan form/diagnosis, token stabil/priority, konflik perubahan machine, submit token terbaru, retry stale/current, dan proteksi rollback counter terpakai. **Dua proses PHP** menguji submit service sebenarnya dengan InnoDB `LOCK WAIT` yang teramati: proses kedua membawa draft lama, proses pertama menyimpan isi baru sebelum commit, lalu submit kedua ditolak 409 tanpa mengubah isi/status server. Database sementara/marker worker dihapus; database aplikasi tidak diubah.
 - Test client `service-form-revision.test.cjs` memverifikasi token snapshot dikirim, snapshot diperbarui hanya setelah sukses, token draft eksplisit tidak ditimpa, dan failure tidak memicu retry/replace snapshot. Bersama regression `service-diagnosis`, `inspection-navigation`, dan `inspection-camera`, **11 test Node lulus**. Formatter PHP dan `git diff --check` lulus. E2e offline FE dan regression lintas aplikasi tetap bagian Task 12.
 
+### Task 12 — Regression dan verifikasi BE · IMPLEMENTED
+
+Scope Task 12 mengikuti persetujuan user: **verifikasi BE dikerjakan sekarang; E2E UI bersama FE menyusul**. Laporan, matriks akses, hasil tiap race, keterbatasan, dan cara menjalankan ulang tersedia di [backend-verification.md](backend-verification.md).
+
+#### 3.58 Kontrak API dan otorisasi
+
+Tidak ada endpoint, payload, error code, role, atau permission baru. Runner `tests/Integration/aftersales-v3-mysql.php` menguji Laravel HTTP Kernel dengan user/role/permission database asli: baca ticket/form/Agreement/documents, edit dan submit Technician, signature SPV yang ditugaskan, Recoming/reschedule/Happy Call Admin, survey phone dan review Admin, Ready to Close Admin/SPV/Head, dan Close hanya Head. Guest 401 dan CSRF 419 juga diuji. Semua default OQ yang sudah dipakai Task 1–11 tetap berlaku.
+
+Alur terintegrasi mencakup create ticket, assignment, visit dan On Site, edit pertama ke Repair, foto/diagnosis/signature, revision conflict, submit, publikasi oleh SPV, survey site/OTP/review, SLA stop dan Happy Call, lalu Recoming phone/reschedule/SLA baru, reuse signature SPV, survey phone/reject/replacement, eskalasi, Ready to Close dan Close. Stale cycle/response tidak dapat memakai Happy Call lama. Technician hanya menerima skor numerik, tanpa isi/catatan/ID survey privat.
+
+#### 3.59 Bukti verifikasi dan perbaikan migration
+
+- Regression PHP Aftersales: **342 test, 3033 assertions lulus** (SQLite in-memory).
+- Regression script existing Node: **45 test lulus**. Perubahan hanya fixture test untuk dependensi browser/DOM dan kontrak v3; bukan implementasi UI baru atau browser E2E.
+- Integrasi **MySQL 8.4.3: 14 skenario, 636 pemeriksaan lulus**. Runner memakai schema sumber sebagai DDL saja, database acak dan fixture sintetis, queue/mail/file terisolasi, serta dua proses PHP dengan InnoDB `LOCK WAIT` yang wajib teramati. Race meliputi draft/save, submit, signature/publikasi, survey publik vs Admin, phone survey, Happy Call, Recoming, overdue, dan Close. Publikasi/link/dispatch/log/receipt tidak berganda.
+- Upgrade 11 migration v3 mempertahankan fingerprint kolom bisnis historis, termasuk ticket soft-deleted, diagnosis dan survey legacy. Foreign key/unique index MySQL dan penolakan rollback yang membuang histori terverifikasi.
+- Ditemukan dan diperbaiki kegagalan **down/up migration siklus MySQL (1061 Duplicate key name)**: index implisit composite FK dapat tertinggal dengan nama lama setelah `cycle_id` dihapus. `down()` pada `2026_10_30_000000_create_ticket_cycles.php` kini menghapus index siklus dengan tetap mempertahankan index/FK ticket awal. Replay up serta regression SQLite lulus. **Tidak ada migration/seeder baru dan tidak perlu rollback/migrate ulang database aplikasi.**
+- Pint, PHP syntax, dan `git diff --check` lulus. Database aplikasi tidak diubah oleh pengujian Task 12; database/file sementara dibersihkan.
+
+#### 3.60 Batas hasil verifikasi
+
+Run tambahan seluruh repository: **350 test, 3036 assertions, 5 errors, 1 failure**. Lima error berasal dari fixture ImportLeads/WarmLead yang tidak mempunyai tabel dasar `leads` sebelum migration awal; satu failure adalah starter ExampleTest yang mengharapkan root 200 sementara aplikasi memberi redirect 302. Detail tercatat dalam laporan; hasil seluruh repository tidak dinyatakan lulus.
+
+Browser E2E, login/cookie browser, penyimpanan/indikator draft offline dan pilihan konflik, serta integrasi delivery provider nyata belum diverifikasi. Kontrak offline FE tetap §3.54–3.56. Scope BE Task 12 selesai; integrasi/E2E FE tetap tindak lanjut.
+
 ## 4. Pending (belum dikerjakan)
 
-Task 12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task selesai. Integrasi FE untuk penyimpanan/indikator draft offline dan pilihan konflik mengikuti §3.54–3.56.
+Tidak ada task BE 1–12 yang tersisa pada scope yang disepakati. E2E UI bersama FE, termasuk penyimpanan/indikator draft offline dan pilihan konflik (§3.54–3.56), menunggu integrasi FE. Kegagalan test repository di luar Aftersales tercatat di §3.60 dan [laporan verifikasi](backend-verification.md).
 
 ## 5. Change log
 
@@ -1056,3 +1240,5 @@ Task 12 sesuai daftar task BE. Bagian kontraknya ditambahkan ke §3 saat task se
 | 2026-11-01 | Task 10: Trader pada import Customer | Implemented; default OQ-11 disetujui user; template XLSX/review 3.0, validasi/warning/persistensi dan export Trader; 329 test lulus, 2869 assertions; smoke MySQL 8.4.3 lulus pada DB sementara; memakai kolom Trader Task 1 yang sudah diterapkan, tanpa migration/seeder baru dan tanpa perubahan data aplikasi. |
 | 2026-11-01 | Task 11: Offline sync backend Service Form | Implemented dengan default OQ-17; snapshot revision wajib untuk PUT/submit v3, guard atomik dan 409 service_form_conflict; 342 test PHP lulus, 3033 assertions, 11 test Node lulus; smoke migration dan konkurensi dua proses MySQL 8.4.3 lulus pada DB sementara. Migration sync_version belum diterapkan ke database aplikasi; tidak ada seeder baru. Local draft/banner/pilihan konflik perlu integrasi FE. |
 | 2026-11-01 | Penerapan lokal task 11 | `php artisan migrate --force` berhasil menerapkan `2026_11_01_000000_add_service_form_sync_version` (batch 34), langsung tanpa backup sesuai instruksi user. Status migration terverifikasi Ran; tidak ada migration pending. Tidak diperlukan seeder baru. Baris ini memperbarui status penerapan task 11 sebelumnya. |
+| 2026-11-01 | Task 12: Regression dan verifikasi BE | Selesai untuk scope BE; 342 test PHP/3033 assertions dan 45 test Node lulus; 14 skenario MySQL/636 pemeriksaan lulus dengan kontensi dua proses dan upgrade migration. Perbaikan down migration index FK siklus; tanpa migration/seeder baru atau perubahan DB aplikasi. Run seluruh repository masih 5 errors + 1 failure di luar Aftersales; E2E UI/FE dan provider delivery menyusul. Laporan: backend-verification.md. |
+| 2026-11-01 | Panduan prasyarat integrasi FE | Tambah §0: baseline DB/environment, urutan migration dan seeder v3, bootstrap role/permission default lokal, assignment akun Head/SPV/Technician/Admin, template aktif, queue/scheduler, session/CSRF, dan verifikasi awal. Dokumentasi saja; tidak menjalankan ulang migration/seeder pada DB aplikasi. |
