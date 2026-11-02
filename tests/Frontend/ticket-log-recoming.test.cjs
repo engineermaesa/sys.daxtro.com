@@ -70,7 +70,11 @@ function setup() {
     };
     vm.createContext(context);
     vm.runInContext(code, context);
-    $("#ticketLogsRecomingDate").value = "2026-12-01";
+    $("#ticketLogsRecomingDate").value = "2026-12-01T09:00";
+    $('input[name="ticket_logs_recoming_type"]:checked').value = "visit_site";
+    $('input[name="ticket_logs_recoming_sla_mode"]:checked').value = "duration";
+    $("#ticketLogsRecomingSlaValue").value = "2";
+    $("#ticketLogsRecomingSlaUnit").value = "day";
     $("#ticketLogsRecomingNotes").value = "  Follow up  ";
     const submit = () =>
         $("#ticketLogsRecomingForm").handlers.submit.call(
@@ -85,7 +89,7 @@ test("all reasons submit to the existing Recoming endpoint and prevent double su
         ["Spare part not available yet", "sparepart_unavailable"],
         ["Further work needed", "further_work_needed"],
         ["Site access / conditions", "site_access"],
-        ["Other", "other"],
+        ["Unfinished from previous work", "unfinished_previous_work"],
     ]) {
         const s = setup();
         s.$('input[name="ticket_logs_recoming_reason"]:checked').value = label;
@@ -94,7 +98,7 @@ test("all reasons submit to the existing Recoming endpoint and prevent double su
         assert.equal(s.requests.length, 1);
         assert.equal(s.requests[0].url, "/api/aftersales/tickets/28/recoming");
         assert.equal(s.requests[0].data.reason, reason);
-        assert.equal(s.requests[0].data.planned_visit_at, "2026-12-01");
+        assert.equal(s.requests[0].data.planned_visit_at, "2026-12-01T09:00");
         assert.equal(s.requests[0].data.notes, "Follow up");
         assert.equal(s.$("#ticketLogsRecomingForm button").disabled, true);
     }

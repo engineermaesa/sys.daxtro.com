@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Aftersales\RefSurveyTemplate;
 use App\Models\User;
 use App\Services\Aftersales\SurveyTemplates;
+use App\Services\Aftersales\TicketSurveys;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class SurveyTemplateController extends Controller
 
     private function payload(RefSurveyTemplate $template, bool $full = true): array
     {
-        $data = $template->only(['id', 'version', 'status', 'title', 'lock_version', 'created_at', 'updated_at', 'activated_at']);
+        $data = $template->only(['id', 'variant', 'version', 'status', 'title', 'lock_version', 'created_at', 'updated_at', 'activated_at']);
         if ($full) {
             $data['content'] = $template->content;
         }
@@ -31,8 +32,9 @@ class SurveyTemplateController extends Controller
     public function index(Request $request)
     {
         $this->authorizeManager($request);
-        $versions = RefSurveyTemplate::orderByDesc('version')->get()->map(fn ($t) => $this->payload($t, false));
-        $audit = DB::table('survey_template_audits as a')->join('ref_survey_templates as t', 't.id', '=', 'a.ref_survey_template_id')->select('a.id', 'a.actor_name', 'a.action', 'a.created_at', 't.version')->orderByDesc('a.id')->paginate(20);
+        $variant = $request->validate(['variant' => 'sometimes|in:site,phone_call'])['variant'] ?? 'site';
+        $versions = RefSurveyTemplate::where('variant', $variant)->orderByDesc('version')->get()->map(fn ($t) => $this->payload($t, false));
+        $audit = DB::table('survey_template_audits as a')->join('ref_survey_templates as t', 't.id', '=', 'a.ref_survey_template_id')->where('t.variant', $variant)->select('a.id', 'a.actor_name', 'a.action', 'a.created_at', 't.version', 't.variant')->orderByDesc('a.id')->paginate(20);
 
         return response()->json(['data' => ['versions' => $versions, 'audit' => $audit]]);
     }
@@ -48,7 +50,9 @@ class SurveyTemplateController extends Controller
     {
         $this->authorizeManager($request);
 
-        return response()->json(['data' => $this->payload($service->createDraft($request->user()))]);
+        $variant = $request->validate(['variant' => 'sometimes|in:site,phone_call'])['variant'] ?? 'site';
+
+        return response()->json(['data' => $this->payload($service->createDraft($request->user(), $variant))]);
     }
 
     public function update(Request $request, RefSurveyTemplate $surveyTemplate, SurveyTemplates $service)
@@ -96,7 +100,9 @@ class SurveyTemplateController extends Controller
         $this->authorizeManager($request);
         $input = $request->validate(['technician_id' => 'nullable|integer|exists:users,id']);
         $query = DB::table('ticket_satisfaction_answers as a')->join('ticket_satisfactions as s', 's.id', '=', 'a.ticket_satisfaction_id')->join('tickets as t', 't.id', '=', 's.ticket_id')
-            ->whereNull('s.deleted_at')->whereNull('t.deleted_at')->whereNull('s.admin_input_reason')->where('a.type', 'rating')->whereNotNull('a.value_number');
+            ->leftJoin('ref_survey_templates as template', 'template.id', '=', 's.ref_survey_template_id')
+            ->whereNull('s.deleted_at')->whereNull('t.deleted_at')->where('a.type', 'rating')->whereNotNull('a.value_number');
+        TicketSurveys::constrainQuestionScores($query);
         if (isset($input['technician_id'])) {
             $query->where('t.assigned_technician_id', $input['technician_id']);
         }
@@ -104,11 +110,11 @@ class SurveyTemplateController extends Controller
         foreach (RefSurveyTemplate::orderBy('version')->get() as $t) {
             foreach ($t->content['sections'] as $s) {
                 foreach ($s['questions'] as $q) {
-                    $labels[$q['question_key']] = $q['label'];
+                    $labels[$t->variant][$q['question_key']] = $q['label'];
                 }
             }
         }
-        $scores = $query->select('a.question_key')->selectRaw('COUNT(*) as response_count, AVG(a.value_number) as average_score')->groupBy('a.question_key')->get()->map(fn ($row) => ['question_key' => $row->question_key, 'label' => $labels[$row->question_key] ?? $row->question_key, 'response_count' => (int) $row->response_count, 'average_score' => round((float) $row->average_score, 2)]);
+        $scores = $query->select('a.question_key', 'template.variant')->selectRaw('COUNT(*) as response_count, AVG(a.value_number) as average_score')->groupBy('a.question_key', 'template.variant')->get()->map(fn ($row) => ['question_key' => $row->question_key, 'variant' => $row->variant ?? 'site', 'label' => $labels[$row->variant ?? 'site'][$row->question_key] ?? $row->question_key, 'response_count' => (int) $row->response_count, 'average_score' => round((float) $row->average_score, 2)]);
 
         return response()->json(['data' => $scores]);
     }

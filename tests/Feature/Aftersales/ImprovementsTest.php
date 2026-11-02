@@ -501,7 +501,7 @@ class ImprovementsTest extends TestCase
         $owner = ServiceCustomer::create(['name' => 'Other owner']);
         $owner->products()->create(['machine_name' => 'Existing Daxtro', 'serial_number' => 'SAME']);
         $input = [
-            'Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Machine Name' => 'Other chiller',
+            'Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Trader' => 'Trader Co', 'Machine Name' => 'Other chiller',
             'Machine Category*' => '', 'Capacity' => '', 'Serial Number' => 'SAME',
             'Warranty Start' => 'invalid date', 'Warranty End' => 'not a date', 'PM Contract' => 'bad value',
             'Compressor' => 'Copeland', 'Refrigerant Type' => 'R22',
@@ -526,6 +526,7 @@ class ImprovementsTest extends TestCase
         $this->assertSame(3, ServiceCustomerProduct::count());
         foreach (ServiceCustomerProduct::where('is_daxtro', false)->get() as $machine) {
             $this->assertSame('Brand X', $machine->brand);
+            $this->assertSame('Trader Co', $machine->trader_name);
             $this->assertSame('Other chiller', $machine->machine_name);
             $this->assertSame('Copeland', $machine->compressor);
             $this->assertSame('R22', $machine->refrigerant);
@@ -588,7 +589,7 @@ class ImprovementsTest extends TestCase
         $url = '/api/aftersales/customers/imports/'.$batch->id;
         $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Capacity' => '7', 'Compressor' => 'Bitzer', 'Refrigerant Type' => 'R404A']]]])
             ->assertOk()->assertJsonPath('data.rows.0.review.machine.machine_name', 'TD70 | Bitzer R404A');
-        $this->putJson($url.'/review', ['lock_version' => 1, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Machine Name' => 'Manual chiller']]]])
+        $this->putJson($url.'/review', ['lock_version' => 1, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'No', 'Brand' => 'Brand X', 'Trader' => 'Trader Co', 'Machine Name' => 'Manual chiller']]]])
             ->assertOk()->assertJsonPath('data.rows.0.review.machine.is_daxtro', false)
             ->assertJsonPath('data.rows.0.review.machine.serial_number', null)->assertJsonPath('data.rows.0.review.machine.machine_name_mode', 'manual');
         $this->assertSame(0, ServiceCustomerProduct::count());
@@ -598,22 +599,28 @@ class ImprovementsTest extends TestCase
         $this->assertSame('Manual chiller', $machine->machine_name);
     }
 
-    public function test_downloaded_v22_template_matches_parser_and_documents_legacy_capacity_conversion(): void
+    public function test_downloaded_v30_template_matches_parser_and_documents_trader_and_legacy_capacity_conversion(): void
     {
         $this->actingAs($this->user());
         $response = $this->get('/api/aftersales/customers/imports/template')->assertOk();
         $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($response->baseResponse->getFile()->getPathname());
         $this->assertSame(['Import Customer', 'Guide', 'Reference'], $book->getSheetNames());
         $sheet = $book->getSheetByName('Import Customer');
-        $this->assertSame(CustomerImports::HEADERS, $sheet->rangeToArray('A1:U1', null, false, false)[0]);
+        $this->assertSame(CustomerImports::HEADERS, $sheet->rangeToArray('A1:V1', null, false, false)[0]);
         $this->assertSame('@', $sheet->getStyle('C2')->getNumberFormat()->getFormatCode());
-        $this->assertSame('@', $sheet->getStyle('Q2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('@', $sheet->getStyle('R2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('@', $sheet->getStyle('N2')->getNumberFormat()->getFormatCode());
+        $this->assertSame('Trader', $sheet->getCell('N1')->getValue());
+        $this->assertNotEmpty($sheet->getCell('N3')->getValue());
         $this->assertSame('"Yes,No"', $sheet->getDataValidation('J2')->getFormula1());
+        $this->assertSame('"None,Basic,Premium"', $sheet->getDataValidation('U2')->getFormula1());
         $guide = implode(' ', array_column($book->getSheetByName('Guide')->toArray(), 0));
         $this->assertStringContainsString('dibagi 10', $guide);
         $this->assertStringContainsString('dikali 3', $guide);
         $this->assertStringContainsString('TD50', $guide);
         $this->assertStringContainsString('VCD20', $guide);
+        $this->assertStringContainsString('v3.0', $guide);
+        $this->assertStringContainsString('Brand, Trader, dan Machine Name', $guide);
         $this->assertStringNotContainsString('Machine Code dibuat otomatis', $guide);
         $book->disconnectWorksheets();
         $path = $response->baseResponse->getFile()->getPathname();
@@ -649,7 +656,7 @@ class ImprovementsTest extends TestCase
         $this->assertSame('review', $batch->fresh()->status);
     }
 
-    public function test_v22_export_contains_new_input_columns_and_errors_without_creating_machines(): void
+    public function test_v30_export_contains_new_input_columns_and_errors_without_creating_machines(): void
     {
         $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => '']]);
         $this->actingAs($this->user());
@@ -660,9 +667,144 @@ class ImprovementsTest extends TestCase
         $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
         $sheet = $book->getActiveSheet();
         $this->assertSame('Daxtro Machine', $sheet->getCell('J1')->getValue());
-        $this->assertSame('Compressor', $sheet->getCell('O1')->getValue());
-        $this->assertSame('Refrigerant Type', $sheet->getCell('P1')->getValue());
-        $this->assertStringContainsString('Brand is required.', $sheet->getCell('X2')->getValue());
+        $this->assertSame('Trader', $sheet->getCell('N1')->getValue());
+        $this->assertSame('Compressor', $sheet->getCell('P1')->getValue());
+        $this->assertSame('Refrigerant Type', $sheet->getCell('Q1')->getValue());
+        $this->assertStringContainsString('Brand is required.', $sheet->getCell('Y2')->getValue());
+        $this->assertStringContainsString('Trader is required.', $sheet->getCell('Y2')->getValue());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $book->disconnectWorksheets();
+    }
+
+    public function test_import_requires_non_daxtro_trader_trims_it_and_enforces_multibyte_length(): void
+    {
+        $base = ['Daxtro Machine' => 'No', 'Brand' => 'Other Brand', 'Machine Name' => 'Other machine'];
+        $batch = $this->upload([
+            $base,
+            $base + ['Trader' => " \t\n "],
+            $base + ['Trader' => str_repeat('界', 256)],
+            $base + ['Trader' => str_repeat('界', 255)],
+            $base + ['Trader' => '  Trader Co  '],
+            $base + ['Trader' => '0'],
+        ]);
+        $rows = $batch->rows()->orderBy('row_number')->get();
+        $this->assertContains('Trader is required.', $rows[0]->review['errors']);
+        $this->assertContains('Trader is required.', $rows[1]->review['errors']);
+        $this->assertContains('Trader exceeds 255 characters.', $rows[2]->review['errors']);
+        $this->assertSame(str_repeat('界', 255), $rows[3]->review['machine']['trader_name']);
+        $this->assertSame('Trader Co', $rows[4]->review['machine']['trader_name']);
+        $this->assertSame('0', $rows[5]->review['machine']['trader_name']);
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame(3, $batch->fresh()->error_count);
+        $this->assertSame(3, ServiceCustomerProduct::count());
+        $this->assertSame([str_repeat('界', 255), 'Trader Co', '0'], ServiceCustomerProduct::orderBy('id')->pluck('trader_name')->all());
+        $this->assertSame(['skipped', 'skipped', 'skipped', 'applied', 'applied', 'applied'], $batch->rows()->orderBy('row_number')->get()->pluck('result.status')->all());
+    }
+
+    public function test_import_ignores_trader_for_yes_or_empty_daxtro_with_warning_only_when_supplied(): void
+    {
+        $batch = $this->upload([
+            ['Daxtro Machine' => 'Yes', 'Trader' => 'Trader Co'],
+            ['Daxtro Machine' => '', 'Trader' => str_repeat('X', 256)],
+            ['Daxtro Machine' => 'yEs', 'Trader' => '0'],
+            ['Daxtro Machine' => 'Yes', 'Trader' => '   '],
+        ]);
+        $rows = $batch->rows()->orderBy('row_number')->get();
+        foreach ($rows as $index => $row) {
+            $this->assertSame([], $row->review['errors']);
+            $this->assertNull($row->review['machine']['trader_name']);
+            if ($index < 3) {
+                $this->assertContains('Trader is ignored for Daxtro machines.', $row->review['warnings']);
+            } else {
+                $this->assertNotContains('Trader is ignored for Daxtro machines.', $row->review['warnings']);
+            }
+            $this->assertNotContains('Trader is empty.', $row->review['warnings']);
+        }
+        app(CustomerImports::class)->apply($batch, 0, 1);
+        $this->assertSame(4, ServiceCustomerProduct::count());
+        $this->assertSame(0, ServiceCustomerProduct::whereNotNull('trader_name')->count());
+    }
+
+    public function test_review_corrects_missing_trader_and_apply_persists_it_once(): void
+    {
+        $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => 'Other Brand']]);
+        $row = $batch->rows()->firstOrFail();
+        $this->assertSame('error', $row->review['status']);
+        $this->actingAs($this->user(false));
+        $url = '/api/aftersales/customers/imports/'.$batch->id;
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Trader' => 'Unauthorized']]]])->assertForbidden();
+        $this->assertNull($row->fresh()->input['Trader']);
+        $this->actingAs($this->user());
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Trader' => '  Trader Co  ']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.machine.trader_name', 'Trader Co')
+            ->assertJsonPath('data.rows.0.review.template_version', '3.0')->assertJsonPath('data.rows.0.review.errors', []);
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->postJson($url.'/apply', ['lock_version' => 1])->assertOk();
+        $this->postJson($url.'/apply', ['lock_version' => 1])->assertOk();
+        $this->assertSame(1, ServiceCustomerProduct::count());
+        $this->assertSame('Trader Co', ServiceCustomerProduct::firstOrFail()->trader_name);
+    }
+
+    public function test_review_recomputes_trader_when_switching_between_daxtro_and_non_daxtro(): void
+    {
+        $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => 'Other Brand', 'Trader' => 'Trader Co']]);
+        $row = $batch->rows()->firstOrFail();
+        $this->actingAs($this->user());
+        $url = '/api/aftersales/customers/imports/'.$batch->id;
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'Yes']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.machine.trader_name', null);
+        $this->assertContains('Trader is ignored for Daxtro machines.', $row->fresh()->review['warnings']);
+        $this->putJson($url.'/review', ['lock_version' => 1, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'No', 'Trader' => '']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.status', 'error');
+        $this->assertContains('Trader is required.', $row->fresh()->review['errors']);
+        $this->putJson($url.'/review', ['lock_version' => 2, 'rows' => [['id' => $row->id, 'input' => ['Daxtro Machine' => 'Yes', 'Trader' => 'Ignored']]]])->assertOk();
+        $this->postJson($url.'/apply', ['lock_version' => 3])->assertOk();
+        $this->assertTrue(ServiceCustomerProduct::firstOrFail()->is_daxtro);
+        $this->assertNull(ServiceCustomerProduct::firstOrFail()->trader_name);
+    }
+
+    public function test_v22_upload_and_cached_review_cannot_bypass_v30_trader_requirement(): void
+    {
+        $file = $this->file([[]]);
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+        $book->getActiveSheet()->removeColumn('N');
+        (new Xlsx($book))->save($file->getRealPath());
+        $book->disconnectWorksheets();
+        $this->actingAs($this->user());
+        $this->postJson('/api/aftersales/customers/imports', ['file' => $file])->assertUnprocessable()->assertJsonValidationErrors('file');
+        $this->assertSame(0, CustomerImport::count());
+        $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => 'Other Brand', 'Trader' => 'Old Trader']]);
+        $row = $batch->rows()->firstOrFail();
+        $review = $row->review;
+        $raw = $row->input;
+        $review['template_version'] = '2.2';
+        unset($review['machine']['trader_name'], $raw['Trader']);
+        $row->update(['input' => $raw, 'review' => $review]);
+        $url = '/api/aftersales/customers/imports/'.$batch->id;
+        $this->postJson($url.'/apply', ['lock_version' => 0])->assertConflict();
+        $this->assertSame(0, ServiceCustomer::count());
+        $this->assertSame(0, ServiceCustomerProduct::count());
+        $this->putJson($url.'/review', ['lock_version' => 0, 'rows' => [['id' => $row->id, 'input' => ['Trader' => 'New Trader']]]])
+            ->assertOk()->assertJsonPath('data.rows.0.review.template_version', '3.0');
+        $this->postJson($url.'/apply', ['lock_version' => 1])->assertOk();
+        $this->assertSame('New Trader', ServiceCustomerProduct::firstOrFail()->trader_name);
+    }
+
+    public function test_trader_export_keeps_formula_like_input_as_text_without_creating_machines(): void
+    {
+        $trader = '=HYPERLINK("https://example.invalid", "Trader")';
+        $batch = $this->upload([['Daxtro Machine' => 'No', 'Brand' => 'Other Brand', 'Trader' => $trader]]);
+        $this->assertSame($trader, $batch->rows()->firstOrFail()->review['machine']['trader_name']);
+        $this->actingAs($this->user());
+        $response = $this->get('/api/aftersales/customers/imports/'.$batch->id.'/export')->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'v30-trader-export');
+        $this->beforeApplicationDestroyed(fn () => @unlink($path));
+        file_put_contents($path, $response->streamedContent());
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $cell = $book->getActiveSheet()->getCell('N2');
+        $this->assertSame($trader, $cell->getValue());
+        $this->assertSame(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING, $cell->getDataType());
         $this->assertSame(0, ServiceCustomerProduct::count());
         $book->disconnectWorksheets();
     }
@@ -858,6 +1000,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_09_03_010500_create_document_counters_table.php'))->up();
         (require database_path('migrations/2026_09_03_010000_create_ref_spareparts_table.php'))->up();
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
+        (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
     }
 
     private function ticketContactInput(ServiceCustomer $customer, ServiceCustomerProduct $machine): array
@@ -932,6 +1075,74 @@ class ImprovementsTest extends TestCase
         $this->assertSame(1, DB::table('ticket_logs')->where('step', 'published')->count());
     }
 
+    public function test_initial_cycle_sla_survives_ordinary_edits_and_is_frozen_after_survey(): void
+    {
+        $this->ticketContactTables();
+        Schema::table('ticket_satisfactions', fn (Blueprint $t) => $t->timestamp('filled_at')->nullable());
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $input = $this->ticketContactInput($customer, $machine);
+        $this->actingAs($this->user());
+        $id = $this->postJson('/api/aftersales/tickets', $input)->assertCreated()->json('data.data.id');
+        $ticket = Ticket::findOrFail($id);
+        $due = $ticket->sla_due_at;
+        $this->assertSame('duration', $ticket->currentCycle->sla_mode);
+        $this->assertEquals($due, $ticket->currentCycle->sla_due_at);
+        \Carbon\Carbon::setTestNow(now()->addHours(5));
+        try {
+            $url = '/api/aftersales/tickets/'.$id;
+            $this->putJson($url, array_replace($input, ['description' => 'Changed description']))->assertOk();
+            $this->assertEquals($due, $ticket->fresh()->currentCycle->sla_due_at);
+            $this->assertEquals($due, $ticket->fresh()->sla_due_at);
+            TicketSatisfaction::create(['ticket_id' => $id, 'review_status' => 'normal', 'filled_at' => now()]);
+            $this->getJson($url)->assertOk()->assertJsonPath('data.current_sla.state', 'stopped')
+                ->assertJsonPath('data.current_sla.result', 'On Time')->assertJsonPath('data.sla_status', 'On Time');
+            $this->putJson($url, array_replace($input, ['sla_value' => 4]))->assertUnprocessable()->assertJsonValidationErrors('sla_due_at');
+            $this->putJson($url, $input)->assertOk();
+            $this->assertEquals($due, $ticket->fresh()->currentCycle->sla_due_at);
+        } finally {
+            \Carbon\Carbon::setTestNow();
+        }
+    }
+
+    public function test_technician_sees_only_valid_ticket_score_and_cannot_select_another_owner(): void
+    {
+        $this->ticketContactTables();
+        Schema::table('ticket_satisfactions', function (Blueprint $t) {
+            $t->timestamp('filled_at')->nullable();
+            $t->text('feedback')->nullable();
+            $t->text('review_note')->nullable();
+            $t->string('source')->default('link');
+        });
+        $customer = ServiceCustomer::create(['name' => 'Customer', 'phone' => '08123456789', 'email' => 'customer@example.com']);
+        $machine = $customer->products()->create(['machine_name' => 'Machine']);
+        $this->actingAs($this->user());
+        $id = $this->postJson('/api/aftersales/tickets', $this->ticketContactInput($customer, $machine))->assertCreated()->json('data.data.id');
+        DB::table('tickets')->where('id', $id)->update(['assigned_technician_id' => 1]);
+        foreach (['ticket_service_forms', 'ticket_agreements', 'ticket_work_orders'] as $table) {
+            DB::table($table)->insert(['ticket_id' => $id]);
+        }
+        $response = TicketSatisfaction::create(['ticket_id' => $id, 'source' => 'link', 'review_status' => 'normal', 'timeliness' => 2,
+            'filled_at' => now(), 'feedback' => 'SECRET-CUSTOMER-ANSWER', 'review_note' => 'SECRET-REVIEW-NOTE']);
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->forceFill(['id' => 1]);
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $code === 'aftersales.tickets.view-own');
+        $this->actingAs($user);
+        $list = $this->getJson('/api/aftersales/tickets')->assertOk()->assertJsonPath('data.0.average_score', 2)->assertJsonCount(1, 'data');
+        $detail = $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.average_score', 2)->assertJsonPath('data.survey_responses', null);
+        foreach ([$list, $detail] as $result) {
+            $this->assertStringNotContainsString('SECRET-', $result->getContent());
+            $this->assertStringNotContainsString('"satisfaction":', $result->getContent());
+            $this->assertStringNotContainsString('"answers":', $result->getContent());
+        }
+        $this->getJson('/api/aftersales/tickets/1')->assertForbidden();
+        $this->getJson('/api/aftersales/satisfaction-surveys/'.$response->id.'/form')->assertForbidden();
+        \App\Services\Aftersales\TicketCycles::startRecoming(Ticket::findOrFail($id));
+        $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.survey_filled', false)->assertJsonPath('data.average_score', 2);
+        $response->update(['review_status' => 'needs_review']);
+        $this->getJson('/api/aftersales/tickets/'.$id)->assertOk()->assertJsonPath('data.average_score', null);
+    }
+
     public function test_recoming_assigns_a_new_cycle_to_the_visit_and_log_and_rescheduling_keeps_it(): void
     {
         $this->ticketContactTables();
@@ -945,6 +1156,7 @@ class ImprovementsTest extends TestCase
             $t->timestamps();
         });
         Schema::table('ticket_visits', fn (Blueprint $t) => $t->timestamps());
+        (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
         Schema::table('satisfaction_links', function (Blueprint $t) {
             $t->string('status')->default('inactive');
             $t->timestamps();
@@ -966,7 +1178,7 @@ class ImprovementsTest extends TestCase
         $initial = $ticket->currentCycle;
         $ticket->logs()->create(['step' => 'repair']);
         $url = '/api/aftersales/tickets/'.$id;
-        $response = $this->postJson($url.'/recoming', ['reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')])
+        $response = $this->postJson($url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'further_work_needed', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s'), 'sla_mode' => 'duration', 'sla_value' => 2, 'sla_unit' => 'day'])
             ->assertCreated();
         $cycle = $ticket->fresh()->currentCycle;
         $this->assertSame(2, $cycle->cycle_no);

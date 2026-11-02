@@ -53,6 +53,11 @@ class Ticket extends Model
 
     protected static function booted(): void
     {
+        static::updated(function (self $ticket) {
+            if ($ticket->workflow_version === self::WORKFLOW_V3 && $ticket->wasChanged(['customer_id', 'customer_product_id', 'assigned_technician_id', 'supervisor_id', 'service_type', 'workflow_version'])) {
+                \App\Services\Aftersales\ServiceFormRevisions::advance($ticket);
+            }
+        });
         static::created(function (Ticket $ticket) {
             $stored = $ticket->fresh();
             if ($stored->workflow_version !== null) {
@@ -200,6 +205,9 @@ class Ticket extends Model
      */
     public function hasVisitDue(): bool
     {
+        if ($this->workflow_version === self::WORKFLOW_V3 && \App\Services\Aftersales\TicketRecomings::current($this)?->recoming_type === TicketRecoming::TYPE_PHONE_CALL) {
+            return false;
+        }
         $visits = $this->relationLoaded('visits') ? $this->visits : $this->visits()->get();
         $latestVisit = $visits->sortByDesc('scheduled_at')->first();
 
@@ -230,6 +238,11 @@ class Ticket extends Model
      */
     public function getSlaStatusAttribute(): ?string
     {
+        if ($this->workflow_version === self::WORKFLOW_V3) {
+            $summary = \App\Services\Aftersales\TicketSla::summary($this);
+
+            return $summary && $summary['due_at'] ? ($summary['result'] ?? 'Pending') : null;
+        }
         if (! $this->sla_due_at) {
             return null;
         }

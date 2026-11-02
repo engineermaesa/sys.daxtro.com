@@ -12,7 +12,7 @@ class TicketDocumentDispatch extends Model
         'technician' => 'COPY FOR TECHNICIAN',
     ];
 
-    protected $fillable = ['ticket_id', 'document_type', 'recipient_role', 'recipient_email', 'copy_label', 'status', 'error', 'sent_at'];
+    protected $fillable = ['ticket_id', 'publication_id', 'document_type', 'recipient_role', 'recipient_email', 'copy_label', 'status', 'error', 'sent_at'];
 
     protected $casts = ['sent_at' => 'datetime'];
 

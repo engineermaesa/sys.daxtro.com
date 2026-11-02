@@ -84,6 +84,18 @@ class TicketSatisfaction extends Model
         'otp_verified_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(fn (self $response) => \App\Services\Aftersales\TicketSla::responseChanged($response));
+        static::updated(function (self $response) {
+            if ($response->wasChanged(['review_status', 'filled_at'])) {
+                \App\Services\Aftersales\TicketSla::responseChanged($response);
+            }
+        });
+        static::deleted(fn (self $response) => \App\Services\Aftersales\TicketSla::responseChanged($response));
+        static::restored(fn (self $response) => \App\Services\Aftersales\TicketSla::responseChanged($response));
+    }
+
     public function ticket()
     {
         return $this->belongsTo(Ticket::class, 'ticket_id');

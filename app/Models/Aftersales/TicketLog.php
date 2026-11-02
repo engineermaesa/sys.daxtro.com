@@ -47,6 +47,7 @@ class TicketLog extends Model
     protected $fillable = [
         'ticket_id',
         'cycle_id',
+        'satisfaction_id',
         'step',
         'actor_user_id',
         'note',

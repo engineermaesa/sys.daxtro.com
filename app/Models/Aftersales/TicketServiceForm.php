@@ -11,6 +11,7 @@ class TicketServiceForm extends Model
     use SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_SAVED = 'saved';
 
     protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id', 'ref_inspection_template_id', 'template_version'];
@@ -30,7 +31,21 @@ class TicketServiceForm extends Model
         return $this->hasMany(TicketPhoto::class, 'ticket_service_form_id')->where('category', 'diagnosis')->orderBy('sequence');
     }
 
-    protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime'];
+    protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime', 'sync_version' => 'integer'];
+
+    protected $hidden = ['sync_version'];
+
+    protected static function booted(): void
+    {
+        static::updated(function (self $form) {
+            if ($form->wasChanged(['status', 'ref_inspection_template_id', 'template_version', 'unlocked_at', 'unlocked_by_user_id'])) {
+                $ticket = $form->ticket()->withTrashed()->first();
+                if ($ticket && \App\Services\Aftersales\TicketDocumentWorkflow::enabled($ticket)) {
+                    \App\Services\Aftersales\ServiceFormRevisions::advance($ticket);
+                }
+            }
+        });
+    }
 
     public function ticket()
     {
@@ -54,6 +69,6 @@ class TicketServiceForm extends Model
 
     public function isLocked(): bool
     {
-        return $this->status === self::STATUS_SAVED;
+        return in_array($this->status, [self::STATUS_SAVED, 'awaiting_spv_signature'], true);
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Notifications\Aftersales\MachineNotWorkingNotification;
 use App\Services\Aftersales\SurveyResponses;
+use App\Services\Aftersales\TicketSla;
 use App\Services\WhatsAppSender;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -155,11 +156,11 @@ class CustomerSurveyController extends Controller
         $validated = $responseData['attributes'];
 
         $satisfaction = DB::transaction(function () use ($link, $otp, $validated, $responseData, $request) {
-
+            $ticket = Ticket::whereKey($link->ticket_id)->lockForUpdate()->firstOrFail();
             $locked = SatisfactionLink::whereKey($link->id)->lockForUpdate()->first();
             abort_if($locked->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'This link can no longer be used.');
-
-            $ticket = $link->ticket;
+            TicketSla::guardSurveyCycle($ticket, $locked->cycle_id);
+            $link = $locked;
             $now = Carbon::now('Asia/Jakarta');
             $duration = (int) abs($otp->verified_at->diffInSeconds($now, true));
             $reasons = $this->reviewReasons($ticket, $request, $duration);

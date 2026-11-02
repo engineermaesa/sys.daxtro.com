@@ -33,6 +33,9 @@ class TicketCycles
             $previous = $locked->cycles()->orderByDesc('cycle_no')->firstOrFail();
             $now = now();
             $previous->update(['ended_at' => $now]);
+            if (TicketDocumentWorkflow::enabled($locked)) {
+                $locked->update(['happy_call_due_at' => null]);
+            }
 
             return $locked->cycles()->create([
                 'cycle_no' => $previous->cycle_no + 1, 'started_at' => $now,

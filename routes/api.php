@@ -578,6 +578,7 @@ Route::group([
         Route::get('/next-code', [DatsTicketController::class, 'nextCode'])->name('next-code');
         Route::get('/exchange-rates', [DatsTicketController::class, 'exchangeRates'])->name('exchange-rates');
         Route::get('/supervisors', [DatsTicketController::class, 'supervisors'])->name('supervisors');
+        Route::get('/ready-to-close', [DatsTicketController::class, 'readyToClose'])->name('ready-to-close');
         Route::post('/{ticket}/happy-call', [DatsTicketController::class, 'happyCall'])->name('happy-call');
         Route::get('/{ticket}', [DatsTicketController::class, 'show'])->name('show');
         Route::put('/{ticket}', [DatsTicketController::class, 'update'])->name('update');
@@ -595,10 +596,12 @@ Route::group([
         Route::post('/{ticket}/survey-link/share', [DatsSurveyLinkController::class, 'share'])->name('survey-link.share');
         Route::post('/{ticket}/survey-link/regenerate', [DatsSurveyLinkController::class, 'regenerate'])->name('survey-link.regenerate');
         Route::post('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'enterOnBehalf'])->name('survey-response.store');
+        Route::get('/{ticket}/survey-response', [DatsSurveyLinkController::class, 'responseForm'])->name('survey-response.form');
 
         // SERVICE FORM, SERVICE AGREEMENT & DOCUMENTS
         Route::get('/{ticket}/documents', [DatsDocumentController::class, 'index'])->name('documents.index');
         Route::get('/{ticket}/service-form', [DatsServiceFormController::class, 'show'])->name('service-form.show');
+        Route::post('/{ticket}/service-form/submit', [DatsServiceFormController::class, 'submit'])->name('service-form.submit');
         Route::post('/{ticket}/service-form/diagnosis/photos', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'upload'])->name('diagnosis.photos.store');
         Route::put('/{ticket}/service-form/diagnosis/photos/{photo}', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'update'])->name('diagnosis.photos.update');
         Route::delete('/{ticket}/service-form/diagnosis/photos/{photo}', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'destroy'])->name('diagnosis.photos.destroy');

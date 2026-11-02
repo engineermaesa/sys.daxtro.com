@@ -78,8 +78,18 @@ return new class extends Migration
     public function down(): void
     {
         foreach (array_reverse(self::CHILDREN) as $name) {
+            Schema::table($name, fn (Blueprint $table) => $table->dropForeign(['ticket_id', 'cycle_id']));
+        
+            $foreignIndex = $name.'_ticket_id_cycle_id_foreign';
+            if (DB::getDriverName() === 'mysql' && Schema::hasIndex($name, $foreignIndex)) {
+                $hasTicketIndex = collect(Schema::getIndexes($name))->contains(fn ($index) => $index['name'] !== $foreignIndex
+                    && ($index['columns'][0] ?? null) === 'ticket_id');
+                if (! $hasTicketIndex) {
+                    Schema::table($name, fn (Blueprint $table) => $table->index('ticket_id'));
+                }
+                Schema::table($name, fn (Blueprint $table) => $table->dropIndex($foreignIndex));
+            }
             Schema::table($name, function (Blueprint $table) use ($name) {
-                $table->dropForeign(['ticket_id', 'cycle_id']);
                 if ($name === 'ticket_recomings') {
                     $table->dropUnique(['cycle_id']);
                 }

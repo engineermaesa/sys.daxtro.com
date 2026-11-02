@@ -14,6 +14,7 @@ function setup(source, start, end, products) {
             prop(key, value) { field.attributes[key] = value; return this; },
             attr(key, value) { field.attributes[key] = value; return this; },
             trigger() { return this; },
+            toggleClass() { return this; },
         };
     };
     $.ajax = request => {
@@ -24,6 +25,7 @@ function setup(source, start, end, products) {
         $, customerId: 1, apiBaseUrl: '/api/aftersales/customers',
         machineCreateBaseUrl: '/aftersales/customers/1/machines/create',
         machinesById: new Map(),
+        clearFieldInvalid() {},
         escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     };
     vm.createContext(context);

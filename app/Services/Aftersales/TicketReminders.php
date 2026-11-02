@@ -9,6 +9,16 @@ class TicketReminders
 {
     public static function for(Ticket $ticket): array
     {
+        if (TicketDocumentWorkflow::enabled($ticket)) {
+            $happy = TicketHappyCalls::state($ticket, false);
+            $cycle = $ticket->currentCycle;
+            $publishedAt = $ticket->logs->where('cycle_id', $cycle?->id)->where('step', TicketLog::STEP_DOCUMENTATION_PUBLISHED)->sortByDesc('id')->first()?->created_at;
+
+            return ['survey_due_at' => null, 'survey_due' => false,
+                'survey_waiting_days' => $happy['status'] === 'waiting_survey' && $publishedAt ? max(0, (int) $publishedAt->diffInDays(now('Asia/Jakarta'))) : null,
+                'happy_call_due_at' => $happy['due_at'], 'happy_call_due' => $happy['overdue'],
+                'happy_call_completed' => $happy['completed'], 'happy_call_required' => true, 'rating_scale_max' => 3];
+        }
         $saved = $ticket->serviceForm?->saved_at;
         $lastCycle = $ticket->logs->where('step', TicketLog::STEP_RECOMING)->max('id') ?? 0;
         $logs = $ticket->logs->where('id', '>', $lastCycle);
