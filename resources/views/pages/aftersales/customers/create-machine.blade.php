@@ -40,7 +40,7 @@
                             value="{{ $product->brand ?? '' }}"
                             class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 text-xs focus:outline-none!">
                     </div>
-                    {{-- AS-MCH-01: Trader is required for non-Daxtro machines. [API] field trader_name (assumed) --}}
+                    {{-- AS-MCH-01: Trader is required for non-Daxtro machines. Field trader_name (integrate-contract §3.1); the server also rejects it with 422. --}}
                     <div class="mb-3" id="machine-trader-group" hidden>
                         <label class="block text-xs font-medium mb-1">Trader<span class="text-red-600">*</span></label>
                         <input type="text" id="machine-trader" maxlength="255" placeholder="e.g. [trader]"
@@ -443,6 +443,22 @@
         $('#machine-form').on('submit', function (e) {
             e.preventDefault();
 
+            // Non-Daxtro: Brand and Trader are both required (integrate-contract §3.1).
+            if (!isDaxtro()) {
+                const missing = [];
+                if (!$('#machine-brand').val().trim()) missing.push('Brand');
+                if (!$('#machine-trader').val().trim()) missing.push('Trader');
+                if (missing.length) {
+                    Swal.fire({
+                        title: 'Incomplete',
+                        text: missing.join(' and ') + (missing.length > 1 ? ' are' : ' is') + ' required for a non-Daxtro machine.',
+                        icon: 'warning',
+                        confirmButtonColor: '#115640'
+                    });
+                    return;
+                }
+            }
+
             const losesDaxtroData = !!pageConfig.record?.is_daxtro && !isDaxtro();
             Swal.fire({
                 title: machineId ? 'Save changes to this machine?' : 'Add this machine?',
@@ -466,8 +482,8 @@
                     is_daxtro: daxtro ? 1 : 0,
                     serial_number: daxtro ? $('#machine-serial-number').val() : null,
                     ref_product_type_id: $('#machine-product-type-id').val() || null,
-                    brand: daxtro ? null : ($('#machine-brand').val() || null),
-                    trader_name: daxtro ? null : ($('#machine-trader').val() || null),
+                    brand: daxtro ? null : ($('#machine-brand').val().trim() || null),
+                    trader_name: daxtro ? null : ($('#machine-trader').val().trim() || null),
                     capacity: $('#machine-capacity').val() || null,
                     compressor: $('#machine-compressor').val() || null,
                     refrigerant: $('#machine-refrigerant').val() || null,

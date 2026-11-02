@@ -2,8 +2,10 @@
 
 @section('content')
 @php
-    // Technician = may only see own tickets (view-own without manage)
-    $isTechnician = ! hasPermission(auth()->user(), 'aftersales.tickets.manage') && hasPermission(auth()->user(), 'aftersales.tickets.view-own');
+    // Technician = may only see own tickets (view-own without manage or view-all; SPV/Head have view-all, integrate-contract §3.6)
+    $isTechnician = ! hasPermission(auth()->user(), 'aftersales.tickets.manage')
+        && ! hasPermission(auth()->user(), 'aftersales.tickets.view-all')
+        && hasPermission(auth()->user(), 'aftersales.tickets.view-own');
 @endphp
 <style>
     .ticket-filter-chip { padding: 6px 14px; border: 1px solid #D9D9D9; border-radius: 9999px; background: #fff; color: #1E1E1E; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -124,8 +126,7 @@
     const CAN_MANAGE = "{{ $canManageTickets }}" === "1";
     const IS_TECHNICIAN = "{{ $isTechnician ? 1 : 0 }}" === "1";
     const TABLE_COLS = IS_TECHNICIAN ? 13 : 14;
-    // v3.0 AS-ROLE-04: Close hanya Head Aftersales (permission aftersales.tickets.close). [API] BE harus mencabutnya dari role lain
-    const CAN_CLOSE = "{{ hasPermission(auth()->user(), 'aftersales.tickets.close') ? 1 : 0 }}" === "1";
+    // Close / Happy Call / Recoming / sign / unlock dibaca dari GET /tickets/{id} data.capabilities (integrate-contract §3.8), bukan flag Blade.
 
     const ticketState = {
         page: 1,
@@ -258,6 +259,10 @@
     //   document_status: 'incomplete'|'awaiting_spv_signature'|'documentation_published'
     function slaCell(row) {
         const sla = row.sla;
+        // integrate-contract §3.12: GET /tickets membawa sla_stopped_at walau objek `sla` belum ada
+        if (!sla && row.sla_stopped_at) {
+            return `<span class="font-semibold text-[#115640]">Stopped</span><div class="text-[10px] text-[#757575]">${formatDate(row.sla_stopped_at)}</div>`;
+        }
         if (!sla) return slaBadge(row.sla_status);
         if (sla.state === 'stopped') {
             return `<span class="font-semibold text-[#115640]">Stopped</span><div class="text-[10px] text-[#757575]">${formatDate(sla.stopped_at)}</div>`;
@@ -283,7 +288,9 @@
         return `<span class="font-semibold">${Number(score).toFixed(1)}</span> / 3`;
     }
 
-    function happyCallCell(hc) {
+    function happyCallCell(hc, dueAt) {
+        // integrate-contract §3.12: happy_call_due_at langsung di row; overdue tidak dihitung di FE
+        if (!hc && dueAt) hc = { due_at: dueAt };
         if (!hc) return '<span class="text-[#B0B0B0]">-</span>';
         if (hc.done_at) return `<span class="font-semibold text-[#115640]">Done</span><div class="text-[10px] text-[#757575]">${formatDate(hc.done_at)}</div>`;
         if (hc.overdue) return '<span class="font-semibold text-[#900B09]">Overdue</span>';
@@ -312,7 +319,7 @@
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
-                <td class="px-2 py-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}</div><div class="mt-1 text-[10px] font-normal text-[#757575]">${escapeHtml([customer.province?.name, customer.region?.name].filter(Boolean).join(' · '))}</div></td>
+                <td class="px-2 py-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}${row.workflow_version === 'legacy' ? '<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#F0F0F0] text-[#757575]">Legacy</span>' : ''}</div><div class="mt-1 text-[10px] font-normal text-[#757575]">${escapeHtml([customer.province?.name, customer.region?.name].filter(Boolean).join(' · '))}</div></td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Customer">${escapeHtml(customer.name)}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Machine">${escapeHtml(machineLabel(machine))}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
@@ -324,7 +331,7 @@
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
                 <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${docStatusBadge(row.document_status)}${reminderBadges(row.reminders)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Score">${scoreCell(row.average_score)}</td>
-                ${IS_TECHNICIAN ? '' : `<td class="px-2 py-3 text-center whitespace-nowrap" data-label="Happy Call">${happyCallCell(row.happy_call)}</td>`}
+                ${IS_TECHNICIAN ? '' : `<td class="px-2 py-3 text-center whitespace-nowrap" data-label="Happy Call">${happyCallCell(row.happy_call, row.happy_call_due_at)}</td>`}
                 <td class="px-2 py-3 text-center" data-actions data-label="Action">
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
@@ -535,7 +542,7 @@
             text('#tdProgress', STEP_LABEL[t.progress] || t.progress);
             text('#tdCustomer', t.customer?.name);
             text('#tdMachine', machineLabel(t.customer_product || {}));
-            // AS-MCH: Brand / Trader di bawah mesin, hanya Non-Daxtro. [API] trader_name di customer_product
+            // AS-MCH: Brand / Trader di bawah mesin, hanya Non-Daxtro (customer_product.trader_name, integrate-contract §3.1)
             const nonDaxtro = t.customer_product && t.customer_product.is_daxtro === false;
             const brandTrader = nonDaxtro ? [t.customer_product.brand, t.customer_product.trader_name].filter(Boolean).join(' / ') : '';
             if (brandTrader) {

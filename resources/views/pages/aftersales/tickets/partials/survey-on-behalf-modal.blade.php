@@ -53,12 +53,23 @@
             .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 
+    // integrate-contract §3.8: can_edit (= permission manage) from GET /tickets/{id}, announced by documents-script as 'ticket:detail'.
+    // Falls back to the Blade permission flag until the detail has loaded.
+    var detailCaps = null;
+    function syncFillButton() {
+        var canManage = detailCaps ? detailCaps.can_edit === true : (typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE);
+        $('#tdFillOnBehalf').toggleClass('hidden', !(canManage && template));
+    }
+    $(document).on('ticket:detail', function (e, t) {
+        detailCaps = (t && t.capabilities) || null;
+        syncFillButton();
+    });
+
     // The survey-link response is the only source of the pinned template: keep it when the ticket detail loads it.
     $(document).on('ticket:survey-link', function (e, id, link) {
         ticketId = id;
         template = link && link.template ? link.template : null;
-        var canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
-        $('#tdFillOnBehalf').toggleClass('hidden', !(canManage && template));
+        syncFillButton();
         // v3.0 AS-SVY-02: varian phone call diisi langsung setelah panggilan (tanpa link). [API] link.template.variant: site | phone_call
         var phone = !!template && template.variant === 'phone_call';
         $('#tdFillOnBehalf').text(phone ? 'Fill Phone Call Survey' : 'Fill on Behalf');

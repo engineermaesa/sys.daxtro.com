@@ -84,6 +84,9 @@
     const TICKETS_INDEX_URL = ticketBoot.dataset.indexUrl;
     let originalTechnicianId = EDIT_TICKET?.assigned_technician_id ? String(EDIT_TICKET.assigned_technician_id) : null;
     let originalVisitDate = null;
+    // integrate-contract §3.8: GET /tickets/{id} data.capabilities (diisi saat Edit). Null = belum termuat -> perilaku lama.
+    let EDIT_CAPS = null;
+    function editCan(key) { return EDIT_CAPS === null || EDIT_CAPS[key] === true; }
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -332,7 +335,7 @@
                 costs: payload.costs,
             };
 
-            if (isEdit) {
+            if (isEdit && editCan('can_assign')) {
                 ajaxData.assigned_technician_id = payload.assigned_technician_id;
             }
 
@@ -347,7 +350,7 @@
                     const ticketCode = response.data?.data?.ticket_code ?? EDIT_TICKET?.ticket_code;
                     const followUpTasks = [];
 
-                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId)) {
+                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId) && (!isEdit || editCan('can_assign'))) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/assign`,
@@ -357,7 +360,7 @@
                         });
                     }
 
-                    if (payload.scheduled_at && (!isEdit || (!originalVisitDate && payload.scheduled_at))) {
+                    if (payload.scheduled_at && (!isEdit || (!originalVisitDate && payload.scheduled_at)) && (!isEdit || editCan('can_schedule'))) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/visits`,
@@ -464,6 +467,18 @@
 
         if (EDIT_TICKET_ID) {
             $('#field-ticket-code').val(EDIT_TICKET.ticket_code || '-');
+
+            // can_assign / can_schedule decide whether the technician and visit-date fields are editable
+            const capsPromise = $.ajax({ url: '/api/aftersales/tickets/' + EDIT_TICKET_ID, method: 'GET' }).done(function (res) {
+                EDIT_CAPS = res.data?.capabilities || null;
+            });
+
+            $.when(capsPromise.then(null, function () { return $.Deferred().resolve(); }), customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
+                if (EDIT_CAPS) {
+                    $('#field-technician').prop('disabled', !EDIT_CAPS.can_assign);
+                    $('#field-visit-date').prop('disabled', !EDIT_CAPS.can_schedule);
+                }
+            });
 
             $.when(customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
                 $('#field-customer').val(String(EDIT_TICKET.customer_id)).trigger('change');

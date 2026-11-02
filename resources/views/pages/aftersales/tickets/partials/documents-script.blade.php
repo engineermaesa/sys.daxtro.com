@@ -11,6 +11,13 @@
 (function () {
     const API = '/api/aftersales';
     const S = { ticketId: null, docs: null, agreement: null, form: null, activeTab: null, openItem: null, ssDoc: null, ssData: null };
+
+    // GET /tickets/{id} -> data.capabilities (integrate-contract §3.8) is the source of truth for ticket buttons.
+    // cap(): strict, false until the ticket detail is loaded. capAllows(): layered on top of per-document `doc.can`, so it
+    // stays permissive while capabilities are absent (doc.can is already enforced server-side).
+    function cap(key) { const c = S.ticket && S.ticket.capabilities; return !!(c && c[key]); }
+    function capAllows(key) { const c = S.ticket && S.ticket.capabilities; return c && key in c ? !!c[key] : true; }
+    const SIGN_CAP = { agreement: 'can_sign_agreement', service_form: 'can_sign_service_form' };
     const VIEWS = ['ticketListView', 'ticketDetailsView', 'ticketWorkOrderView', 'ticketAgreementView', 'ticketServiceFormView', 'ticketSupervisorSignView'];
 
     // ---------- document language (PRD v2.2 IM-99..104) ----------
@@ -154,12 +161,27 @@
         return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
     }
 
+    // integrate-contract §2: 403 no permission, 409 ticket changed, 419 CSRF/session, 422 Laravel validation.
     function errMsg(xhr, fallback) {
         const j = xhr.responseJSON || {};
+        if (xhr.status === 403) return 'You do not have permission for this action.';
+        if (xhr.status === 419) return 'Your session has expired. Please reload the page and try again.';
+        if (xhr.status === 422 && j.errors) return Object.values(j.errors).flat()[0] || j.message || fallback;
         return j.message || (j.errors ? Object.values(j.errors).flat()[0] : null) || fallback;
     }
     function fail(xhr, fallback) {
-        Swal.fire({ title: 'Error', text: errMsg(xhr, fallback || 'Something went wrong.'), icon: 'error', confirmButtonColor: '#115640' });
+        const expired = xhr.status === 419;
+        Swal.fire({
+            title: expired ? 'Session expired' : 'Error',
+            text: errMsg(xhr, fallback || 'Something went wrong.'),
+            icon: 'error',
+            confirmButtonColor: '#115640',
+            confirmButtonText: expired ? 'Reload page' : 'OK'
+        }).then(function () {
+            if (expired) { window.location.reload(); return; }
+            // 409: progress berubah di sisi server -> muat ulang detail supaya tombol sesuai kondisi terbaru
+            if (xhr.status === 409 && typeof loadTicketDetail === 'function') loadTicketDetail();
+        });
     }
     function toast(title) {
         Swal.fire({ title: title, icon: 'success', timer: 1400, showConfirmButton: false });
@@ -248,7 +270,7 @@
         const html = ROLES.map(function (r) {
             const role = r[0];
             const s = sig[role];
-            const canSign = !locked && !!can['sign_' + role];
+            const canSign = !locked && !!can['sign_' + role] && (role !== 'supervisor' || capAllows(SIGN_CAP[type]));
             let body = '';
 
             if (s && s.url) {
@@ -411,6 +433,7 @@
             if (currentId() !== id) return; // user sudah pindah tiket
             const t = res.data || {};
             S.ticket = t;
+            $(document).trigger('ticket:detail', [t]); // survey-on-behalf-modal membaca capabilities.can_edit
             renderVisitHistory(t);
             renderSurveyCard(t);
             renderV3Detail(t);
@@ -433,7 +456,7 @@
     //   happy_call: { due_at, done_at, overdue }
     //   recoming_cycles: [{ cycle_no, recoming_type: phone_call|visit_site, reason, scheduled_by: {name},
     //                       scheduled_at, findings: { problem, root_cause, action }, sla: {state, due_at, stopped_at} }]
-    //   brand / trader_name ada di customer_product (hanya Non-Daxtro)
+    //   (brand / trader_name di customer_product sudah ada di kontrak §3.1; capabilities §3.8; cycles/current_cycle §3.12)
     const V3_DOC_STATUS = {
         incomplete: 'Incomplete',
         awaiting_spv_signature: 'Awaiting SPV signature',
@@ -457,7 +480,20 @@
     }
 
     function renderRecomingCycles(t) {
-        const cycles = t.recoming_cycles || [];
+        // Sumber utama t.recoming_cycles (asumsi UI); fallback ke t.cycles (integrate-contract §3.12): cycle_no >= 2 = Recoming,
+        // tanpa findings/scheduled_by karena kontrak belum memuatnya. Siklus awal (cycle_no 1) bukan Recoming.
+        const cycles = (t.recoming_cycles && t.recoming_cycles.length)
+            ? t.recoming_cycles
+            : (t.cycles || []).filter(function (c) { return Number(c.cycle_no) > 1; }).map(function (c) {
+                return {
+                    cycle_no: c.cycle_no,
+                    scheduled_at: c.started_at,
+                    ended_at: c.ended_at,
+                    sla: c.sla_due_at || c.sla_stopped_at
+                        ? { state: c.sla_stopped_at ? 'stopped' : 'running', due_at: c.sla_due_at, stopped_at: c.sla_stopped_at, cycle_no: c.cycle_no }
+                        : null,
+                };
+            });
         $('#tdRecomingCard').toggleClass('hidden', !cycles.length);
         $('#tdRecomingCycles').html(cycles.map(function (c) {
             const f = c.findings || {};
@@ -470,15 +506,18 @@
                 + '<p class="font-semibold">Cycle ' + esc(c.cycle_no) + ' <span class="text-[#757575] font-normal">· ' + esc(V3_TYPE[c.recoming_type] || dash(c.recoming_type)) + '</span></p>'
                 + '<span class="text-xs text-[#757575]">Cycle SLA: ' + esc(v3SlaText(c.sla)) + '</span></div>'
                 + '<p class="text-xs text-[#4B5563]" style="margin-top: 6px;">Reason: ' + esc(V3_REASON[c.reason] || dash(c.reason))
-                + ' · Scheduled by ' + esc(dash(c.scheduled_by && c.scheduled_by.name)) + ' · ' + esc(v3Date(c.scheduled_at)) + '</p>'
+                + ' · Scheduled by ' + esc(dash(c.scheduled_by && c.scheduled_by.name)) + ' · ' + esc(v3Date(c.scheduled_at))
+                + ('ended_at' in c ? ' · ' + (c.ended_at ? 'ended ' + esc(v3Date(c.ended_at)) : 'ongoing') : '') + '</p>'
                 + '<div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 10px;">' + findings + '</div></div>';
         }).join(''));
     }
 
     function renderHappyCallClose(t) {
-        const hc = t.happy_call || null;
-        const canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
-        const canClose = typeof CAN_CLOSE !== 'undefined' && CAN_CLOSE;
+        // happy_call{} belum ada di kontrak; happy_call_due_at (§3.12) dipakai sebagai fallback tanggal jatuh tempo
+        const hc = t.happy_call || (t.happy_call_due_at ? { due_at: t.happy_call_due_at, done_at: null, overdue: false } : null);
+        // integrate-contract §3.8: tombol mengikuti capabilities, bukan permission Blade.
+        const canManage = cap('can_record_happy_call');
+        const canClose = cap('can_close');
         const done = !!(hc && hc.done_at);
         const published = t.document_status === 'documentation_published';
         const recoming = t.progress === 'recoming';
@@ -493,7 +532,7 @@
         $('#tdHappyCallDue').text(hc && hc.due_at ? v3Date(hc.due_at) : '-');
         $('#tdHappyCallDone').text(done ? v3Date(hc.done_at) : '-');
 
-        // AS-HC-03/04: Admin saja, diblok selama Recoming
+        // AS-HC-03/04: can_record_happy_call (Admin, tiket belum Closed dan bukan Recoming); `recoming` tetap menonaktifkan
         $('#tdHappyCallBtn').toggleClass('hidden', !canManage || done).prop('disabled', recoming);
         // AS-ROLE-04 / AS-CLS-01: Close hanya Head, nonaktif sampai Documentation Published + Happy Call selesai
         const closed = t.progress === 'closed';
@@ -505,9 +544,33 @@
 
     function renderV3Detail(t) {
         $('#tdDocStatus').text(V3_DOC_STATUS[t.document_status] || '-');
-        if (t.sla) $('#tdSla').text(v3SlaText(t.sla));
+        const sla = t.sla || (t.sla_stopped_at ? { state: 'stopped', stopped_at: t.sla_stopped_at } : null);
+        if (sla) $('#tdSla').text(v3SlaText(sla));
+
+        // integrate-contract §3.11 / §3.8: penanda workflow dan tombol Edit (can_edit)
+        $('#tdWorkflowBadge').toggleClass('hidden', t.workflow_version !== 'legacy');
+        $('#tdEditLink').toggleClass('hidden', !cap('can_edit')).attr('href', '/aftersales/tickets/' + t.id + '/edit');
+
+        // integrate-contract §3.12: siklus berjalan. sla_* null (siklus Recoming sebelum Task 7) -> "-"
+        const cc = t.current_cycle;
+        $('#tdCycle').text(cc
+            ? 'Cycle ' + cc.cycle_no + ' · started ' + v3Date(cc.started_at)
+                + (cc.sla_stopped_at ? ' · SLA stopped ' + v3Date(cc.sla_stopped_at) : (cc.sla_due_at ? ' · SLA due ' + v3Date(cc.sla_due_at) : ''))
+            : '-');
+
         renderRecomingCycles(t);
         renderHappyCallClose(t);
+    }
+
+    // cycle_id -> nomor siklus (cycles[] dari GET /tickets/{id}). cycle_id null = data historis ambigu (§3.13): tanpa chip.
+    function cycleNo(cycleId, t) {
+        if (cycleId === null || cycleId === undefined) return null;
+        const c = ((t || S.ticket || {}).cycles || []).filter(function (x) { return Number(x.id) === Number(cycleId); })[0];
+        return c ? c.cycle_no : null;
+    }
+    function cycleChip(cycleId, t) {
+        const n = cycleNo(cycleId, t);
+        return n === null ? '' : ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7ECFB;color:#3B4FA6;">Cycle ' + esc(n) + '</span>';
     }
 
     function v3Reload(id) {
@@ -572,7 +635,7 @@
                 ? ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current</span>'
                 : '';
             return '<tr class="border-t border-[#EDEDED]">'
-                + '<td class="p-2">Visit ' + esc(v.visit_no) + badge + '</td>'
+                + '<td class="p-2">Visit ' + esc(v.visit_no) + badge + cycleChip(v.cycle_id, t) + '</td>'
                 + '<td class="p-2">' + esc(fmtVisitDate(v.scheduled_at)) + '</td>'
                 + '<td class="p-2 text-[#4B5563]">' + esc(dash(v.note)) + '</td></tr>';
         }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">No visit yet.</td></tr>');
@@ -585,7 +648,7 @@
         }
 
         // FR-E20: tombol hanya bila BE bilang boleh
-        $('#tdRescheduleBtn').toggleClass('hidden', t.can_reschedule !== true);
+        $('#tdRescheduleBtn').toggleClass('hidden', !(t.capabilities ? t.capabilities.can_reschedule === true : t.can_reschedule === true));
     }
 
     $(document).on('click', '#tdRescheduleBtn', function () {
@@ -616,6 +679,7 @@
                 return call('POST', '/tickets/' + id + '/recoming/reschedule', { planned_visit_at: date, note: note || null })
                     .then(function (res) { return res; }, function (xhr) {
                         Swal.showValidationMessage(errMsg(xhr, 'Failed to reschedule.'));
+                        if (xhr.status === 409) loadTicketDetail(); // progress changed: refresh so the button reflects the new state
                         return false;
                     });
             }
@@ -651,7 +715,7 @@
                     : '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">History' + variantLabel + '</span>';
                 const machine = r.machine_ok === null || r.machine_ok === undefined ? '\u2014' : (r.machine_ok ? 'Yes' : 'No');
                 return '<tr class="border-t border-[#EDEDED]">'
-                    + '<td class="p-2">' + tag + '</td>'
+                    + '<td class="p-2">' + tag + cycleChip(r.cycle_id, t) + '</td>'
                     + '<td class="p-2">' + esc(fmtDateTime(r.submitted_at)) + '</td>'
                     + '<td class="p-2 text-center">' + (r.average_score === null || r.average_score === undefined ? '\u2014' : Number(r.average_score).toFixed(1)) + '</td>'
                     + '<td class="p-2 text-center">' + machine + '</td>'
@@ -730,16 +794,16 @@
             const note = saved ? 'Saved ' + fmtDateTime(doc.saved_at) : ((doc.completeness && doc.completeness.summary) || 'Ready to save');
 
             let buttons = '<button type="button" class="doc-open bg-white border border-[#D9D9D9] rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">'
-                + (can.fill && !doc.locked ? 'Fill' : 'View') + '</button>';
+                + (can.fill && !doc.locked && (type !== 'service_form' || capAllows('can_fill_service_form')) ? 'Fill' : 'View') + '</button>';
 
-            if (can.sign_supervisor && !doc.locked) {
+            if (can.sign_supervisor && !doc.locked && capAllows(SIGN_CAP[type])) {
                 buttons += '<button type="button" class="doc-sign-supervisor bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Review &amp; Sign</button>';
             }
             if (can.save && !doc.locked) {
                 const ready = !!(doc.completeness && doc.completeness.complete);
                 buttons += '<button type="button" class="doc-save bg-[#115640] text-white font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;' + (ready ? '' : 'opacity:.5;') + '" ' + (ready ? '' : 'disabled') + '>Save</button>';
             }
-            if (can.unlock && doc.locked) {
+            if (can.unlock && doc.locked && (type !== 'service_form' || capAllows('can_unlock_service_form'))) {
                 buttons += '<button type="button" class="doc-unlock bg-white border border-[#EC221F] text-[#EC221F] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Unlock</button>';
             }
             if (saved && (can.download_copies || []).length) {
@@ -1584,7 +1648,7 @@
         const d = S.ssData;
         const sig = (d.signatures || {}).supervisor;
         const can = d.can || {};
-        const canSign = !!can.sign_supervisor && !d.locked;
+        const canSign = !!can.sign_supervisor && !d.locked && capAllows(SIGN_CAP[S.ssDoc]);
 
         // status dokumen v3.0: Incomplete -> Awaiting SPV signature -> Signed (Documentation Published setelah kedua dokumen signed)
         const complete = !!(d.completeness && d.completeness.complete);

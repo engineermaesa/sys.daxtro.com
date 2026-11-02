@@ -7,7 +7,12 @@
             <span class="text-[#115640] font-semibold underline">Detail</span>
         </p>
 
-        <h1 id="tdCode" class="text-[#115640] font-semibold text-2xl" style="margin-top: 20px;"></h1>
+        <div class="flex flex-wrap items-center" style="margin-top: 20px; gap: 12px;">
+            <h1 id="tdCode" class="text-[#115640] font-semibold text-2xl"></h1>
+            {{-- integrate-contract §3.11 workflow_version=legacy; §3.8 can_edit. Diisi renderV3Detail() --}}
+            <span id="tdWorkflowBadge" class="hidden rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">Legacy</span>
+            <a id="tdEditLink" href="#" class="hidden border border-[#115640] text-[#115640] font-semibold rounded-md text-xs" style="padding: 4px 12px;"><i class="bi bi-pencil"></i> Edit</a>
+        </div>
         <p class="text-[#757575]" style="margin-top: 4px;">Service ticket overview and supporting documents</p>
 
         {{-- TICKET INFORMATION --}}
@@ -26,7 +31,7 @@
                     ['Customer', 'tdCustomer'], ['Supervisor', 'tdSupervisor'], ['Visit Date', 'tdVisit'],
                     ['Complaint', 'tdCategory'], ['Progress', 'tdProgress'], ['Machine', 'tdMachine'],
                     ['Technician', 'tdTechnician'], ['SLA', 'tdSla'], ['Warranty', 'tdWarranty'],
-                    ['Document Status', 'tdDocStatus'],
+                    ['Document Status', 'tdDocStatus'], ['Cycle', 'tdCycle'],
                 ] as [$label, $id])
                     <div>
                         <p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">{{ $label }}</p>

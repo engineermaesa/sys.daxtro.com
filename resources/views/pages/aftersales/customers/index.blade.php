@@ -46,7 +46,7 @@
                     <input type="text" id="customer-search" placeholder="Search customer name, phone, or region"
                         class="w-full pl-10 pr-3 py-2 border border-[#D9D9D9] rounded-lg! text-left text-[#1E1E1E] focus:outline-none!">
                 </div>
-                {{-- AS-MCH-02: All / Daxtro / Non-Daxtro. [API] query param machine_type = all|daxtro|non_daxtro (assumed) --}}
+                {{-- AS-MCH-02: All / Daxtro / Non-Daxtro. query param machine_scope = all|daxtro|non_daxtro (integrate-contract §3.2) --}}
                 <select id="customer-machine-filter" aria-label="Machine type"
                     class="w-auto bg-white border border-[#D9D9D9] rounded-lg px-3 text-[#1E1E1E] focus:outline-none!">
                     <option value="all">All</option>
@@ -178,7 +178,7 @@
         return html;
     }
 
-    // AS-MCH-03: machine count badges. [API] daxtro_machines_count / non_daxtro_machines_count (assumed field names)
+    // AS-MCH-03: machine count badges from daxtro_machines_count / non_daxtro_machines_count (integrate-contract §3.2)
     function renderMachines(row) {
         const daxtro = Number(row.daxtro_machines_count) || 0;
         const nonDaxtro = Number(row.non_daxtro_machines_count) || 0;
@@ -270,7 +270,7 @@
                 page: customerState.page,
                 per_page: customerState.perPage,
                 search: customerState.search,
-                machine_type: customerState.machineType,
+                machine_scope: customerState.machineType,
             },
             success: function (response) {
                 const lastPage = Math.max(1, response.last_page || 1);

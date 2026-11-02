@@ -34,6 +34,8 @@
 
         function errMsg(xhr, fallback) {
             const body = xhr.responseJSON || {};
+            if (xhr.status === 403) return 'You do not have permission for this action.';
+            if (xhr.status === 419) return 'Your session has expired. Please reload the page and try again.';
             return Object.values(body.errors || {}).flat()[0] || body.message || fallback;
         }
 

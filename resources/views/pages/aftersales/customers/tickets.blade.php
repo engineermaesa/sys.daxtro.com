@@ -191,7 +191,9 @@
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
                 <td class="p-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID">${escapeHtml(row.ticket_code)}</td>
-                <td class="p-3" data-label="Machine">${escapeHtml(machine.product?.name)}</td>
+                <td class="p-3" data-label="Machine">${escapeHtml(machine.product?.name || machine.machine_name)}${machine.is_daxtro === false
+                    ? `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${[machine.brand, machine.trader_name].filter(Boolean).length ? ' · ' + escapeHtml([machine.brand, machine.trader_name].filter(Boolean).join(' / ')) : ''}</div>`
+                    : ''}</td>
                 <td class="p-3" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
                 <td class="p-3 sm:max-w-[160px]" data-label="Desc.">
                     <div class="min-w-0 flex-1 sm:flex-none">
@@ -204,7 +206,9 @@
                 <td class="p-3" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
                 <td class="p-3" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
                 <td class="p-3" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
-                <td class="p-3" data-label="SLA">${slaBadge(row.sla_status)}</td>
+                <td class="p-3" data-label="SLA">${row.sla_stopped_at
+                    ? `<span class="font-semibold text-[#115640]">Stopped</span><div class="text-[10px] text-[#757575]">${formatDate(row.sla_stopped_at)}</div>`
+                    : slaBadge(row.sla_status)}</td>
                 <td class="p-3" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
                 <td class="p-3" data-label="Priority">${priorityBadge(row.priority)}</td>
                 <td class="p-3" data-label="Steps">${stepBadge(row.progress)}</td>

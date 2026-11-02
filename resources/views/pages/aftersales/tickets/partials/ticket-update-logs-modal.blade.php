@@ -240,7 +240,10 @@
                         url: '/api/aftersales/tickets/' + ticketId,
                         method: 'GET',
                         success: function (response) {
-                            if (currentUpdateLogsTicketId === ticketId) renderTicketUpdateLogsRows(response.data?.logs || []);
+                            if (currentUpdateLogsTicketId === ticketId) {
+                                currentTicketCycles = response.data?.cycles || [];
+                                renderTicketUpdateLogsRows(response.data?.logs || []);
+                            }
                         },
                         error: function () {
                             if (currentUpdateLogsTicketId === ticketId) $('#ticketUpdateLogsRows').html('<tr><td colspan="4" class="p-2">Recoming saved. Reopen Update Logs to refresh the history.</td></tr>');
@@ -250,7 +253,16 @@
                 },
                 error: function (xhr) {
                     const body = xhr.responseJSON || {};
-                    $('#ticketLogsRecomingFeedback').text(Object.values(body.errors || {}).flat()[0] || body.message || 'Failed to schedule Recoming. Please try again.');
+                    const fallback = 'Failed to schedule Recoming. Please try again.';
+                    let msg = Object.values(body.errors || {}).flat()[0] || body.message || fallback;
+                    if (xhr.status === 403) msg = 'You do not have permission to schedule Recoming.';
+                    if (xhr.status === 419) msg = 'Your session has expired. Please reload the page and try again.';
+                    $('#ticketLogsRecomingFeedback').text(msg);
+                    // 409: progress changed while the form was open -> refresh logs and capabilities so the form matches the ticket
+                    if (xhr.status === 409 && currentUpdateLogsTicketId === ticketId) {
+                        $('#ticketLogsRecomingFeedback').text(msg + ' Reload to see the latest state.');
+                        loadTickets();
+                    }
                 },
                 complete: function () { recomingSaving = false; $buttons.prop('disabled', false); },
             });
@@ -368,6 +380,13 @@
         $('#ticketLogPhotoRows').append(html);
     }
 
+    // integrate-contract §3.12: cycle_id log -> cycles[].cycle_no; null cycle_id (data historis) tanpa chip
+    let currentTicketCycles = [];
+    function logCycleChip(cycleId) {
+        const c = cycleId == null ? null : currentTicketCycles.find(x => Number(x.id) === Number(cycleId));
+        return c ? `<span class="ml-2 rounded-full text-[10px] font-semibold" style="padding:2px 8px;background:#E7ECFB;color:#3B4FA6;">Cycle ${escapeHtml(c.cycle_no)}</span>` : '';
+    }
+
     function renderTicketUpdateLogsRows(logs) {
         logs = (logs || []).slice().sort((a, b) => a.id - b.id);
 
@@ -376,7 +395,7 @@
                 <tr class="border-t border-[#D9D9D9]">
                     <td class="p-2 whitespace-nowrap">${formatDateTime(log.created_at)}</td>
                     <td class="p-2 font-semibold text-[#1E1E1E]">
-                        ${escapeHtml(STEP_LABEL[log.step] || log.step)}
+                        ${escapeHtml(STEP_LABEL[log.step] || log.step)}${logCycleChip(log.cycle_id)}
                         ${PREVIEWABLE_STEPS.includes(log.step)
                             ? `<button type="button" class="btn-ticket-log-preview text-xs text-[#115640] underline cursor-pointer ml-2" data-step="${log.step}">Preview</button>`
                             : ''}
@@ -390,13 +409,16 @@
         $('#ticketUpdateLogsRows').html(html);
     }
 
-    // v3.0 bab 3: Happy Call & Schedule Recoming hanya Admin (manage), Close hanya Head (CAN_CLOSE). BE tetap menolak dengan 403.
+    // integrate-contract §3.8: GET /tickets/{id} data.capabilities decides the buttons; BE still rejects with 403.
+    // Until the detail has loaded, capabilities are unknown and every gated control stays hidden.
+    let currentTicketCaps = {};
     function applyTicketLogRoleGates() {
-        const canManage = typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE;
-        const canClose = typeof CAN_CLOSE !== 'undefined' && CAN_CLOSE;
-        $('#ticketLogStep option[value="happy_call_completed"]').prop('disabled', !canManage).toggleClass('hidden', !canManage);
+        const canHappyCall = !!currentTicketCaps.can_record_happy_call;
+        const canClose = !!currentTicketCaps.can_close;
+        const canRecoming = !!currentTicketCaps.can_trigger_recoming;
+        $('#ticketLogStep option[value="happy_call_completed"]').prop('disabled', !canHappyCall).toggleClass('hidden', !canHappyCall);
         $('#ticketLogStep option[value="closed"]').prop('disabled', !canClose).toggleClass('hidden', !canClose);
-        $('#ticketLogsScheduleRecoming').toggleClass('hidden', !canManage);
+        $('#ticketLogsScheduleRecoming').toggleClass('hidden', !canRecoming);
     }
 
     function resetTicketLogForm() {
@@ -416,6 +438,8 @@
         currentTicketPhotos = [];
         currentTicketSatisfaction = null;
         currentTicketSurvey = { loaded: false, responses: null, filled: false };
+        currentTicketCaps = {};
+        currentTicketCycles = [];
         $('#ticketUpdateLogsCode').text(ticket.ticket_code || 'Update Logs');
         renderTicketUpdateLogsRows(ticket.logs);
         resetTicketLogForm();
@@ -427,6 +451,9 @@
             success: function (response) {
                 currentTicketPhotos = response.data?.photos || [];
                 currentTicketSatisfaction = response.data?.satisfaction || null;
+                currentTicketCaps = response.data?.capabilities || {};
+                currentTicketCycles = response.data?.cycles || [];
+                applyTicketLogRoleGates();
                 currentTicketSurvey = {
                     loaded: true,
                     responses: response.data?.survey_responses ?? null,
@@ -501,6 +528,9 @@
                     success: function (response) {
                         currentTicketPhotos = response.data?.photos || [];
                         currentTicketSatisfaction = response.data?.satisfaction || null;
+                        currentTicketCaps = response.data?.capabilities || {};
+                        currentTicketCycles = response.data?.cycles || [];
+                        applyTicketLogRoleGates();
                         renderTicketUpdateLogsRows(response.data?.logs);
                     }
                 });
@@ -517,7 +547,9 @@
 
                 Swal.fire({
                     title: 'Failed to add activity',
-                    text: xhr.responseJSON?.message || 'An error occurred, please try again.',
+                    text: xhr.status === 403 ? 'You do not have permission for this action.'
+                        : xhr.status === 419 ? 'Your session has expired. Please reload the page and try again.'
+                        : (xhr.responseJSON?.message || 'An error occurred, please try again.'),
                     icon: 'error',
                     confirmButtonColor: '#115640'
                 });
