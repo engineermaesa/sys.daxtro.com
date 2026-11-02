@@ -35,8 +35,8 @@
         </div>
 
         {{--TABLE--}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Sparepart Name</th>
@@ -105,16 +105,16 @@
 
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-sparepart-id="${row.id}">
-                <td class="p-3">${escapeHtml(row.name)}</td>
-                <td class="p-3 text-center">${escapeHtml(row.part_number || '-')}</td>
-                <td class="p-3 text-center">${escapeHtml(row.brand || '-')}</td>
-                <td class="p-3 text-center">${escapeHtml(row.supplier || '-')}</td>
-                <td class="p-3 text-center">${formatCurrency(row.price)}</td>
-                <td class="p-3 text-center">${row.stock ?? 0}</td>
-                <td class="p-3 text-center">${row.min_stock ?? 0}</td>
-                <td class="p-3 text-center">${escapeHtml(row.rack_location || '-')}</td>
-                <td class="p-3 text-center">${stockStatusBadge(row.stock_status)}</td>
-                <td class="p-3 text-center">
+                <td class="p-3 font-semibold text-[#115640]" data-label="Sparepart Name" data-primary>${escapeHtml(row.name)}</td>
+                <td class="p-3 text-center" data-label="Code">${escapeHtml(row.part_number || '-')}</td>
+                <td class="p-3 text-center" data-label="Brand">${escapeHtml(row.brand || '-')}</td>
+                <td class="p-3 text-center" data-label="Supplier" data-secondary>${escapeHtml(row.supplier || '-')}</td>
+                <td class="p-3 text-center" data-label="Price (IDR)">${formatCurrency(row.price)}</td>
+                <td class="p-3 text-center" data-label="Stock">${row.stock ?? 0}</td>
+                <td class="p-3 text-center" data-label="Min Stock" data-secondary>${row.min_stock ?? 0}</td>
+                <td class="p-3 text-center" data-label="Rack Location" data-secondary>${escapeHtml(row.rack_location || '-')}</td>
+                <td class="p-3 text-center" data-label="Stock Status">${stockStatusBadge(row.stock_status)}</td>
+                <td class="p-3 text-center" data-label="Action" data-actions>
                     <div class="dropdown">
                         <button class="btn-sparepart-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-three-dots"></i>
@@ -125,6 +125,7 @@
                         </ul>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `).join('');
 
@@ -209,6 +210,12 @@
             sparepartState.search = $('#sparepart-search').val();
             sparepartState.page = 1;
             loadSpareparts();
+        });
+
+        // mobile card view: expand / collapse the secondary fields of one sparepart
+        $(document).on('click', '#sparepart-table-body .card-more', function () {
+            const $row = $(this).closest('tr').toggleClass('is-open');
+            $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
         });
 
         $(document).on('click', '#sparepart-pagination button', function () {

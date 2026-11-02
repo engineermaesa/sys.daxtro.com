@@ -27,9 +27,9 @@
             A ticket cannot be set to Closed while its latest response is Needs review or Rejected. Responses that are not Normal or Reviewed are left out of the technician rating.
         </div>
 
-        <div class="mt-4 bg-white border border-[#D9D9D9] rounded-lg">
+        <div class="table-cards-wrap mt-4 bg-white border border-[#D9D9D9] rounded-lg">
             <div class="overflow-x-auto">
-                <table class="w-full whitespace-nowrap">
+                <table class="table-cards w-full whitespace-nowrap">
                     <thead>
                         <tr class="border-b border-[#D9D9D9] text-[#757575] bg-[#FAFAFA] text-center">
                             <th class="p-3 font-semibold">Ticket ID</th>
@@ -167,18 +167,19 @@
                         : `<button type="button" data-id="${r.id}" class="view-detail px-3 py-1.5 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">View</button>`;
 
                     return `<tr class="border-b border-[#D9D9D9] last:border-b-0 ${r.is_current === false ? 'bg-[#FAFAFA]' : ''}">
-                        <td class="p-3 font-semibold text-[#115640] text-center">${esc(r.ticket_code)}${history}</td>
-                        <td class="p-3 font-semibold text-center">${esc(r.customer)}</td>
-                        <td class="text-center p-3 text-[#757575]">${esc(dash(r.technician))}</td>
-                        <td class="p-3 text-center text-[#757575]">${esc(dash(r.service_date))}</td>
-                        <td class="p-3 text-center text-[#757575]">${esc(fmtDateTime(r.submitted_at))}</td>
-                        <td class="p-3 font-semibold text-[#115640] text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / ' + RATING_SCALE_MAX}</td>
-                        <td class="p-3 text-center">${machineBadge(r.machine_ok)}</td>
-                        <td class="p-3 text-center text-[#757575]">${esc(dash(r.source_label))}</td>
-                        <td class="p-3 text-center">
+                        <td class="p-3 font-semibold text-[#115640] text-center" data-label="Ticket ID" data-primary>${esc(r.ticket_code)}${history}</td>
+                        <td class="p-3 font-semibold text-center" data-label="Customer">${esc(r.customer)}</td>
+                        <td class="text-center p-3 text-[#757575]" data-label="Technician">${esc(dash(r.technician))}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Service Date" data-secondary>${esc(dash(r.service_date))}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Submitted On" data-secondary>${esc(fmtDateTime(r.submitted_at))}</td>
+                        <td class="p-3 font-semibold text-[#115640] text-center" data-label="Average">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / ' + RATING_SCALE_MAX}</td>
+                        <td class="p-3 text-center" data-label="Machine OK">${machineBadge(r.machine_ok)}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Source" data-secondary>${esc(dash(r.source_label))}</td>
+                        <td class="p-3 text-center" data-label="Review">
                             <span class="font-semibold ${reviewColor(r)}">${esc(reviewText(r))}</span>
                         </td>
-                        <td class="p-3 text-center">${action}</td>
+                        <td class="p-3 text-center" data-label="Action">${action}</td>
+                        <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
                     </tr>`;
                 }).join('');
             }
@@ -228,6 +229,14 @@
         // ---------- ROW ACTIONS (delegated; rows are rendered dynamically) ----------
         // buka lewat hash supaya hashchange yang memuat layar (satu request, back/forward ikut jalan)
         tbody.addEventListener('click', function (e) {
+            // mobile card view: expand / collapse the secondary fields of one response
+            const more = e.target.closest('.card-more');
+            if (more) {
+                const row = more.closest('tr');
+                row.classList.toggle('is-open');
+                more.textContent = row.classList.contains('is-open') ? 'Show less' : 'Show more';
+                return;
+            }
             const review = e.target.closest('.review-response');
             const view = e.target.closest('.view-detail');
             if (review) location.hash = review.dataset.id + '/review';

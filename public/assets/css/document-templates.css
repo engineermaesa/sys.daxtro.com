@@ -390,3 +390,16 @@
 .dt-page select[multiple] { min-height: 100px; }
 @media(max-width:760px) { .it-field-grid { grid-template-columns: 1fr; } }
 
+
+/* Mobile card view: the Action cell is a normal labelled row here (two text buttons do not fit the card corner) */
+@media (max-width: 639px) {
+    .dt-table.table-cards tbody td[data-actions] {
+        position: static;
+        display: flex;
+        width: 100%;
+        padding: 6px 0 !important;
+    }
+    .dt-table.table-cards tbody td[data-actions]::before {
+        display: block;
+    }
+}

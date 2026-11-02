@@ -21,7 +21,7 @@
         function render(rows) {
             $('#td-recoming-body').html((rows || []).map(r => `
                 <tr class="border-t border-t-[#D9D9D9]">
-                    <td class="p-3 text-left">${escapeHtml(r.label || r.reason)}</td>
+                    <td class="p-3 text-left font-semibold text-[#115640]" data-label="Reason" data-primary>${escapeHtml(r.label || r.reason)}</td>
                     <td class="p-3">${escapeHtml(r.tickets)}</td>
                     <td class="p-3">${r.counted ? 'Counted' : 'Not counted'}</td>
                 </tr>

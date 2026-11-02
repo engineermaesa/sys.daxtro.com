@@ -37,7 +37,7 @@
         function render(rows) {
             $('#td-survey-body').html((rows || []).map(s => `
                 <tr class="border-t border-t-[#D9D9D9]">
-                    <td class="p-3">${escapeHtml(s.ticket_code)}</td>
+                    <td class="p-3 font-semibold text-[#115640]" data-label="Ticket" data-primary>${escapeHtml(s.ticket_code)}</td>
                     <td class="p-3 text-center">${formatLongDate(s.submitted_at)}</td>
                     <td class="p-3 text-center">${Number(s.score).toFixed(1)}</td>
                     <td class="p-3 text-center">${escapeHtml(REVIEW_LABEL[s.review_status] || s.review_status)}</td>

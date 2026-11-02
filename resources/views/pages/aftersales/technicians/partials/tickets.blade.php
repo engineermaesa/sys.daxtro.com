@@ -14,8 +14,8 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto mt-4">
-        <table class="w-full">
+    <div class="table-cards-wrap overflow-x-auto mt-4">
+        <table class="table-cards w-full">
             <thead class="text-[#1E1E1E]">
                 <tr>
                     <th style="background-color: #F3F4F6;" class="p-3 text-left font-semibold">Ticket</th>
@@ -110,17 +110,18 @@
 
             $body.html(rows.map(row => `
                 <tr class="border-t border-t-[#D9D9D9]">
-                    <td class="p-3 font-semibold text-[#115640]">${escapeHtml(row.ticket_code)}</td>
-                    <td class="p-3 text-center">${escapeHtml((row.customer || {}).name)}</td>
-                    <td class="p-3 text-center">${priorityBadge(row.priority)}</td>
-                    <td class="p-3 text-center">${stepBadge(row.progress, row.current_recoming)}</td>
-                    <td class="p-3 text-center">${formatDate(row.visit_date)}</td>
-                    <td class="p-3 text-center">
+                    <td class="p-3 font-semibold text-[#115640]" data-label="Ticket" data-primary>${escapeHtml(row.ticket_code)}</td>
+                    <td class="p-3 text-center" data-label="Customer">${escapeHtml((row.customer || {}).name)}</td>
+                    <td class="p-3 text-center" data-label="Priority" data-secondary>${priorityBadge(row.priority)}</td>
+                    <td class="p-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}</td>
+                    <td class="p-3 text-center" data-label="Visit Date" data-secondary>${formatDate(row.visit_date)}</td>
+                    <td class="p-3 text-center" data-label="Action" data-secondary>
                         <a href="/aftersales/tickets/${row.id}/work-order-pdf" target="_blank"
                             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#115640] text-[#115640] text-xs font-semibold hover:bg-[#115640] hover:text-white transition-colors">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
                         </a>
                     </td>
+                    <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
                 </tr>
             `).join(''));
         }
@@ -189,6 +190,11 @@
                 state.priority = this.value;
                 state.page = 1;
                 load();
+            });
+            // mobile card view: expand / collapse the secondary fields of one ticket
+            $(document).on('click', '#work-order-table-body .card-more', function () {
+                const $row = $(this).closest('tr').toggleClass('is-open');
+                $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
             });
             $(document).on('click', '#work-order-pagination button', function () {
                 const page = Number($(this).data('page'));

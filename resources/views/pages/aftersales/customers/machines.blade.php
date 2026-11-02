@@ -24,8 +24,8 @@
         </div>
 
         {{-- TABLE --}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-center uppercase text-xs font-bold">Machine Name</th>
@@ -197,17 +197,17 @@
         const dash = '<span class="text-[#B0B0B0]">&mdash;</span>';
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9]">
-                <td class="p-3 text-left text-black font-semibold">${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}${row.trader_name ? ' &middot; ' + escapeHtml(row.trader_name) : ''}</div>`}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro ? 'Daxtro' : (escapeHtml(row.brand) || '-')}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.serial_number) || '-') : dash}</td>
-                <td class="p-3 text-center text-black">${escapeHtml(row.product_type_name) || '-'}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_period) || '-') : dash}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_start) || '-') : dash}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro ? (escapeHtml(row.warranty_end) || '-') : dash}</td>
-                <td class="p-3 text-center">${row.is_daxtro ? machineBadge(row.warranty_active, 'Active', 'Expired') : dash}</td>
-                <td class="p-3 text-center">${row.is_daxtro ? pmContractBadge(row.pm_contract_status) : dash}</td>
-                <td class="p-3 text-center text-black">${row.is_daxtro && row.pm_frequency ? escapeHtml(row.pm_frequency) : dash}</td>
-                <td class="p-3 text-center">
+                <td class="p-3 text-left text-black font-semibold" data-label="Machine Name" data-primary>${escapeHtml(row.product_name) || '-'}${row.is_daxtro ? '' : `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${row.brand ? ' &middot; ' + escapeHtml(row.brand) : ''}${row.trader_name ? ' &middot; ' + escapeHtml(row.trader_name) : ''}</div>`}</td>
+                <td class="p-3 text-center text-black" data-label="Brand">${row.is_daxtro ? 'Daxtro' : (escapeHtml(row.brand) || '-')}</td>
+                <td class="p-3 text-center text-black" data-label="Serial Number">${row.is_daxtro ? (escapeHtml(row.serial_number) || '-') : dash}</td>
+                <td class="p-3 text-center text-black" data-label="Model">${escapeHtml(row.product_type_name) || '-'}</td>
+                <td class="p-3 text-center text-black" data-label="Warranty Period" data-secondary>${row.is_daxtro ? (escapeHtml(row.warranty_period) || '-') : dash}</td>
+                <td class="p-3 text-center text-black" data-label="Warranty Start" data-secondary>${row.is_daxtro ? (escapeHtml(row.warranty_start) || '-') : dash}</td>
+                <td class="p-3 text-center text-black" data-label="Warranty End" data-secondary>${row.is_daxtro ? (escapeHtml(row.warranty_end) || '-') : dash}</td>
+                <td class="p-3 text-center" data-label="Warranty Status">${row.is_daxtro ? machineBadge(row.warranty_active, 'Active', 'Expired') : dash}</td>
+                <td class="p-3 text-center" data-label="PM Contract" data-secondary>${row.is_daxtro ? pmContractBadge(row.pm_contract_status) : dash}</td>
+                <td class="p-3 text-center text-black" data-label="PM Frequency" data-secondary>${row.is_daxtro && row.pm_frequency ? escapeHtml(row.pm_frequency) : dash}</td>
+                <td class="p-3 text-center" data-label="Action" data-actions>
                     <div class="dropdown">
                         <button class="bg-white px-1! py-px! cursor-pointer border border-[#D5D5D5] rounded-md duration-300 ease-in-out hover:bg-[#115640]! transition-all! hover:text-white! dropdown-toggle"
                             type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -230,6 +230,7 @@
                         </div>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `).join('');
 
@@ -295,6 +296,12 @@
 
     $(function () {
         loadMachines();
+
+        // mobile card view: expand / collapse the secondary fields of one machine
+        $(document).on('click', '#machine-table-body .card-more', function () {
+            const $row = $(this).closest('tr').toggleClass('is-open');
+            $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
+        });
 
         $(document).on('click', '.btn-detail-machine', function () {
             const machine = machinesById.get(String($(this).data('id')));

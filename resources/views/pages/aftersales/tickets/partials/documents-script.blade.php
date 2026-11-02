@@ -635,7 +635,7 @@
                 ? ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#E7F3EE;color:#115640;">Current</span>'
                 : '';
             return '<tr class="border-t border-[#EDEDED]">'
-                + '<td class="p-2">Visit ' + esc(v.visit_no) + badge + cycleChip(v.cycle_id, t) + '</td>'
+                + '<td class="p-2" data-label="Visit" data-primary>Visit ' + esc(v.visit_no) + badge + cycleChip(v.cycle_id, t) + '</td>'
                 + '<td class="p-2">' + esc(fmtVisitDate(v.scheduled_at)) + '</td>'
                 + '<td class="p-2 text-[#4B5563]">' + esc(dash(v.note)) + '</td></tr>';
         }).join('') : '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="3">No visit yet.</td></tr>');
@@ -715,7 +715,7 @@
                     : '<span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; background:#F0F0F0;color:#757575;">History' + variantLabel + '</span>';
                 const machine = r.machine_ok === null || r.machine_ok === undefined ? '\u2014' : (r.machine_ok ? 'Yes' : 'No');
                 return '<tr class="border-t border-[#EDEDED]">'
-                    + '<td class="p-2">' + tag + cycleChip(r.cycle_id, t) + '</td>'
+                    + '<td class="p-2" data-label="Response" data-primary>' + tag + cycleChip(r.cycle_id, t) + '</td>'
                     + '<td class="p-2">' + esc(fmtDateTime(r.submitted_at)) + '</td>'
                     + '<td class="p-2 text-center">' + (r.average_score === null || r.average_score === undefined ? '\u2014' : Number(r.average_score).toFixed(1)) + '</td>'
                     + '<td class="p-2 text-center">' + machine + '</td>'

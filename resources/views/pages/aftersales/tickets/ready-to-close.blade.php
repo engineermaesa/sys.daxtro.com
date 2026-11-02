@@ -64,7 +64,7 @@
             <span class="font-semibold" data-ref="hcStatus"></span>
             <div class="text-[10px] text-[#757575]" data-ref="hcDue"></div>
         </td>
-        <td class="p-3 text-center" data-label="Action" data-actions>
+        <td class="p-3 text-center" data-label="Action">
             <a class="rtc-open border border-[#D9D9D9] rounded-md px-3 py-1 text-[#115640] font-semibold mr-1" data-ref="open">Open</a>
             <button type="button" class="rtc-close bg-[#115640] text-white font-semibold rounded-md px-3 py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Close</button>
         </td>
