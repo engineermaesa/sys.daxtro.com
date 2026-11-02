@@ -14,7 +14,7 @@
             <label class="block text-sm font-medium mb-1">Customer Name<span class="text-red-600">*</span></label>
             <select id="field-customer" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
                 <option value="">Choose customer</option>
-                {{-- TODO: fetch GET /api/aftersales/customers lalu isi <option value="{id}" data-*="...">{name}</option> --}}
+                <option value="{id}" data-*="...">{name}</option>
             </select>
         </div>
         <div class="mb-3">
@@ -46,7 +46,7 @@
             <label class="block text-sm font-medium mb-1">Machine Name<span class="text-red-600">*</span></label>
             <select id="field-machine" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required disabled>
                 <option value="">Please choose the customer first.</option>
-                {{-- TODO: after customer is selected, fetch GET /api/aftersales/customers/{id} then populate <option value="{product.id}">{machine_name}</option> --}}
+                <option value="{product.id}">{machine_name}</option>
             </select>
         </div>
         <div class="mb-3">

@@ -169,7 +169,41 @@
         if (xhr.status === 422 && j.errors) return Object.values(j.errors).flat()[0] || j.message || fallback;
         return j.message || (j.errors ? Object.values(j.errors).flat()[0] : null) || fallback;
     }
+    // integrate-contract §3.56: 409 service_form_conflict. Draft lokal (isian di layar) dipertahankan; data server tidak ditimpa
+    // otomatis dan current_revision tidak dipakai untuk retry otomatis. Pengguna memilih sendiri.
+    let conflictOpen = false;
+    function formConflict(xhr) {
+        if (conflictOpen) return;
+        conflictOpen = true;
+        Swal.fire({
+            title: 'The Service Form was changed',
+            text: 'The form or ticket workflow changed on the server since you opened it. Your unsaved entries are still on this screen.',
+            icon: 'warning',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'Load latest (discard my draft)',
+            denyButtonText: 'Keep my draft',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#115640',
+            denyButtonColor: '#757575'
+        }).then(function (r) {
+            conflictOpen = false;
+            if (r.isConfirmed) {
+                loadForm();
+                loadDocs();
+                if (typeof loadTicketDetail === 'function') loadTicketDetail();
+            } else if (r.isDenied) {
+                // hanya mengambil revision terbaru; isian di layar tidak dirender ulang. Menyimpan lagi = keputusan pengguna menimpa versi server.
+                call('GET', '/tickets/' + currentId() + '/service-form').done(function (res) {
+                    if (S.form && res.data && res.data.revision) S.form.revision = res.data.revision;
+                    toast('Your draft is kept. Saving again will overwrite the latest server version.');
+                }).fail(function (x) { fail(x, 'Failed to load the latest Service Form.'); });
+            }
+        });
+    }
+
     function fail(xhr, fallback) {
+        if (xhr.status === 409 && (xhr.responseJSON || {}).code === 'service_form_conflict') return formConflict(xhr);
         const expired = xhr.status === 419;
         Swal.fire({
             title: expired ? 'Session expired' : 'Error',
@@ -341,14 +375,15 @@
     }
 
     function completenessBox(sel, doc) {
-        const c = doc.completeness || {};
+        // v3: Service Form disubmit tanpa tanda tangan SPV -> pakai submission_completeness (§3.17)
+        const c = doc.submission_completeness || doc.completeness || {};
         const $el = $(sel);
         if (doc.locked) {
             $el.attr('style', 'margin-top: 16px; padding: 10px 14px; background:#E7F3EE; color:#115640;')
                 .text('This document is saved and locked' + (doc.saved_at ? ' (' + fmtDateTime(doc.saved_at) + ')' : '') + '.');
         } else if (c.complete) {
             $el.attr('style', 'margin-top: 16px; padding: 10px 14px; background:#E7F3EE; color:#115640;')
-                .text('All requirements are complete. The document can be saved.');
+                .text(doc.submission_completeness ? 'All requirements are complete. The form can be submitted.' : 'All requirements are complete. The document can be saved.');
         } else {
             $el.attr('style', 'margin-top: 16px; padding: 10px 14px; background:#FFF3CD; color:#8A6D00;')
                 .text(c.summary || 'Some requirements are still missing.');
@@ -486,6 +521,7 @@
             ? t.recoming_cycles
             : (t.cycles || []).filter(function (c) { return Number(c.cycle_no) > 1; }).map(function (c) {
                 return {
+                    cycle_id: c.id,
                     cycle_no: c.cycle_no,
                     scheduled_at: c.started_at,
                     ended_at: c.ended_at,
@@ -495,8 +531,28 @@
                 };
             });
         $('#tdRecomingCard').toggleClass('hidden', !cycles.length);
+        // §3.28: temuan per siklus ada di GET /service-form -> diagnosis.fields[].entries[] (cycle_id, field kanonis, body)
+        const byCycle = S.findingsByCycle || {};
+        const findingsKey = t.id + ':' + cycles.length;
+        if (cycles.length && S.findingsKey !== findingsKey) {
+            const ticketId = t.id;
+            S.findingsKey = findingsKey;
+            call('GET', '/tickets/' + ticketId + '/service-form').done(function (res) {
+                if (currentId() !== ticketId) return;
+                const map = {};
+                (((res.data || {}).diagnosis || {}).fields || []).forEach(function (fld) {
+                    (fld.entries || []).forEach(function (e) {
+                        if (e.cycle_id === null || e.cycle_id === undefined) return;
+                        const key = e.field || fld.canonical_key || (fld.key === 'cause' ? 'root_cause' : fld.key);
+                        (map[e.cycle_id] = map[e.cycle_id] || {})[key] = e.body;
+                    });
+                });
+                S.findingsByCycle = map;
+                renderRecomingCycles(t);
+            }).fail(function () { /* tidak punya akses baca form: kartu tampil tanpa temuan */ });
+        }
         $('#tdRecomingCycles').html(cycles.map(function (c) {
-            const f = c.findings || {};
+            const f = c.findings || byCycle[c.cycle_id] || {};
             const findings = [['Problem', f.problem], ['Root Cause', f.root_cause], ['Action', f.action]].map(function (p) {
                 return '<div><p class="uppercase font-semibold text-[#9CA3AF]" style="font-size: 10px;">' + p[0] + '</p>'
                     + '<p class="text-xs whitespace-pre-wrap" style="margin-top: 4px;">' + esc(dash(p[1])) + '</p></div>';
@@ -514,17 +570,20 @@
 
     function renderHappyCallClose(t) {
         // happy_call{} belum ada di kontrak; happy_call_due_at (§3.12) dipakai sebagai fallback tanggal jatuh tempo
+        // integrate-contract §3.45: happy_call { cycle_id, satisfaction_id, due_at, done_at, overdue, status, survey_valid, completed, can_record }
         const hc = t.happy_call || (t.happy_call_due_at ? { due_at: t.happy_call_due_at, done_at: null, overdue: false } : null);
         // integrate-contract §3.8: tombol mengikuti capabilities, bukan permission Blade.
         const canManage = cap('can_record_happy_call');
         const canClose = cap('can_close');
-        const done = !!(hc && hc.done_at);
-        const published = t.document_status === 'documentation_published';
+        const done = !!(hc && (hc.completed || hc.done_at));
+        const published = (t.documentation_status || t.document_status) === 'documentation_published';
         const recoming = t.progress === 'recoming';
 
         let label = '-', style = 'background:#F0F0F0;color:#757575;';
         if (done) { label = 'Done'; style = 'background:#E7F3EE;color:#115640;'; }
         else if (hc && hc.overdue) { label = 'Overdue'; style = 'background:#FBEAEA;color:#900B09;'; }
+        else if (hc && hc.status === 'waiting_survey') { label = 'Waiting survey'; }
+        else if (hc && hc.status === 'needs_review') { label = 'Needs review'; style = 'background:#FFF3CD;color:#8A6D00;'; }
         else if (hc && hc.due_at) { label = 'Due (H+3)'; style = 'background:#E7ECFB;color:#3B4FA6;'; }
         $('#tdHappyCallStatus').text(label).attr('style', 'padding: 3px 12px;' + style);
 
@@ -533,18 +592,24 @@
         $('#tdHappyCallDone').text(done ? v3Date(hc.done_at) : '-');
 
         // AS-HC-03/04: can_record_happy_call (Admin, tiket belum Closed dan bukan Recoming); `recoming` tetap menonaktifkan
-        $('#tdHappyCallBtn').toggleClass('hidden', !canManage || done).prop('disabled', recoming);
-        // AS-ROLE-04 / AS-CLS-01: Close hanya Head, nonaktif sampai Documentation Published + Happy Call selesai
+        // can_record_happy_call sudah memeriksa survey valid + siklus aktif (§3.45); data-* dipakai sebagai konteks anti-stale (§3.44)
+        $('#tdHappyCallBtn').toggleClass('hidden', !canManage || done).prop('disabled', recoming)
+            .data('cycleId', hc ? hc.cycle_id : null).data('satisfactionId', hc ? hc.satisfaction_id : null);
+        // AS-ROLE-04 / AS-CLS-01: Close hanya Head; can_close sudah mencakup seluruh syarat v3
         const closed = t.progress === 'closed';
-        const blocked = !(published && done);
-        $('#tdCloseBtn').toggleClass('hidden', !canClose || closed).prop('disabled', blocked);
-        $('#tdCloseHint').toggleClass('hidden', !canClose || closed || !blocked)
-            .text(!published ? 'Documentation must be published first.' : 'Happy Call must be completed first.');
+        // can_close hanya true untuk Head dengan semua syarat terpenuhi (§3.45): tombol hanya muncul saat siap
+        $('#tdCloseBtn').toggleClass('hidden', !canClose || closed).prop('disabled', false)
+            .data('cycleId', hc ? hc.cycle_id : null).data('satisfactionId', hc ? hc.satisfaction_id : null);
+        $('#tdCloseHint').addClass('hidden');
     }
 
     function renderV3Detail(t) {
-        $('#tdDocStatus').text(V3_DOC_STATUS[t.document_status] || '-');
-        const sla = t.sla || (t.sla_stopped_at ? { state: 'stopped', stopped_at: t.sla_stopped_at } : null);
+        $('#tdDocStatus').text(V3_DOC_STATUS[t.documentation_status || t.document_status] || '-');
+        // §3.35: current_sla { state: running|stopped|closed|not_configured, label, due_at, stopped_at, cycle_no }
+        const cs = t.current_sla;
+        const sla = cs && cs.state !== 'not_configured'
+            ? { state: cs.state === 'running' ? 'running' : 'stopped', stopped_at: cs.stopped_at || cs.closed_at, due_at: cs.due_at, cycle_no: cs.cycle_no }
+            : (t.sla || (t.sla_stopped_at ? { state: 'stopped', stopped_at: t.sla_stopped_at } : null));
         if (sla) $('#tdSla').text(v3SlaText(sla));
 
         // integrate-contract §3.11 / §3.8: penanda workflow dan tombol Edit (can_edit)
@@ -578,8 +643,17 @@
         if (typeof loadTickets === 'function') loadTickets();
     }
 
+    // §3.44: cycle_id / satisfaction_id opsional, mendeteksi halaman stale (409 ticket_cycle_changed / survey_response_changed)
+    function hcContext($btn) {
+        const ctx = {};
+        if ($btn.data('cycleId')) ctx.cycle_id = Number($btn.data('cycleId'));
+        if ($btn.data('satisfactionId')) ctx.satisfaction_id = Number($btn.data('satisfactionId'));
+        return ctx;
+    }
+
     $(document).on('click', '#tdHappyCallBtn', function () {
         const id = currentId();
+        const ctx = hcContext($(this));
         Swal.fire({
             title: 'Record Happy Call',
             input: 'textarea',
@@ -589,7 +663,7 @@
             confirmButtonColor: '#115640'
         }).then(function (r) {
             if (!r.isConfirmed) return;
-            call('POST', '/tickets/' + id + '/happy-call', { note: r.value || null })
+            call('POST', '/tickets/' + id + '/happy-call', Object.assign({ note: r.value || null }, ctx))
                 .done(function () { toast('Happy Call recorded'); v3Reload(id); })
                 .fail(function (xhr) { fail(xhr, 'Failed to record Happy Call.'); });
         });
@@ -597,6 +671,7 @@
 
     $(document).on('click', '#tdCloseBtn', function () {
         const id = currentId();
+        const ctx = hcContext($(this));
         Swal.fire({
             title: 'Close this ticket?',
             text: 'Closing is manual and cannot be undone from here.',
@@ -606,7 +681,7 @@
             confirmButtonColor: '#115640'
         }).then(function (r) {
             if (!r.isConfirmed) return;
-            call('POST', '/tickets/' + id + '/close', {})
+            call('POST', '/tickets/' + id + '/close', ctx)
                 .done(function () { toast('Ticket closed'); v3Reload(id); })
                 .fail(function (xhr) { fail(xhr, 'Failed to close ticket.'); });
         });
@@ -1273,6 +1348,8 @@
         $('#sfSaveDraft').toggleClass('hidden', ro);
         $('#sfSaveForm').toggleClass('hidden', !(f.can && f.can.save) || !!f.locked);
         setSaveState($('#sfSaveForm'), f);
+        // v3: can.save selalu false; Submit memakai can.submit / capabilities.can_send_service_form (§3.17)
+        $('#sfSubmitForm').toggleClass('hidden', !(!f.locked && ((f.can && f.can.submit) || cap('can_send_service_form'))));
     }
 
     function refreshHelper($field) {
@@ -1378,6 +1455,9 @@
             S.form = res.data;
             renderForm();
             loadDocs();
+        }).fail(function (xhr) {
+            // juga untuk simpan diagnosis (service-diagnosis.js), yang tidak lewat fail(); formConflict() menolak dialog ganda
+            if (xhr.status === 409 && (xhr.responseJSON || {}).code === 'service_form_conflict') formConflict(xhr);
         });
     }
 
@@ -1436,6 +1516,28 @@
         } else {
             run();
         }
+    });
+
+    // Submit (v3): simpan isian terakhir (revision diperbarui dari response PUT), lalu POST .../service-form/submit
+    $(document).on('click', '#sfSubmitForm', function () {
+        const $b = $(this);
+        if ($b.data('busy')) return;
+        $b.data('busy', true).prop('disabled', true);
+        const submit = function () {
+            return call('POST', '/tickets/' + currentId() + '/service-form/submit', S.form && S.form.revision ? { revision: S.form.revision } : {})
+                .done(function (res) {
+                    toast((res && res.message) || 'Service Form submitted.');
+                    loadForm();
+                    loadDocs();
+                    if (typeof loadTicketDetail === 'function') loadTicketDetail();
+                })
+                .fail(function (xhr) { fail(xhr, 'Cannot submit the Service Form yet.'); });
+        };
+        const run = formReadOnly()
+            ? submit()
+            : putForm({ service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect() })
+                .then(submit, function (xhr) { /* putForm sudah menangani 409; error lain: */ if (!(xhr.status === 409 && (xhr.responseJSON || {}).code === 'service_form_conflict')) fail(xhr, 'Failed to save draft.'); });
+        $.when(run).always(function () { $b.data('busy', false).prop('disabled', false); });
     });
 
     // ---- inspection photo capture (camera on mobile, QR on desktop) ----

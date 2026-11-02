@@ -167,7 +167,8 @@
                 await callbacks.persist();
                 document.getElementById('sfSignatures')?.scrollIntoView({behavior:'smooth',block:'start'});
             } catch (error) {
-                Swal.fire({icon:'error',text:error.responseJSON?.message || error.message || 'Could not save diagnosis. Retry before continuing.'});
+                // 409 service_form_conflict ditangani dialog pilihan di documents-script (draft dipertahankan)
+                if (error.responseJSON?.code !== 'service_form_conflict') Swal.fire({icon:'error',text:error.responseJSON?.message || error.message || 'Could not save diagnosis. Retry before continuing.'});
             } finally { busy = false; render(); }
             return;
         }

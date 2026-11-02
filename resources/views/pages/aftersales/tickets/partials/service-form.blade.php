@@ -138,6 +138,8 @@
                 <div class="flex items-center" style="gap: 10px;">
                     <button type="button" id="sfSaveDraft" class="bg-white border border-[#115640] text-[#115640] font-semibold rounded-lg cursor-pointer" style="padding: 8px 18px;">Save Draft</button>
                     <button type="button" id="sfSaveForm" class="bg-[#115640] text-white font-semibold rounded-lg cursor-pointer" style="padding: 8px 18px;">Save Service Form</button>
+                    {{-- workflow v3 (integrate-contract §3.16): Technician submit; menggantikan Save Service Form --}}
+                    <button type="button" id="sfSubmitForm" class="hidden bg-[#115640] text-white font-semibold rounded-lg cursor-pointer" style="padding: 8px 18px;">Submit</button>
                 </div>
             </div>
         </div>

@@ -106,19 +106,23 @@
 
         rows.forEach(function (row) {
             const hc = row.happy_call || {};
-            const done = !!hc.done_at;
+            const done = !!(hc.completed || hc.done_at);
             const $row = fill(clone('tpl-rtc-row'), {
                 code: row.ticket_code,
                 customer: (row.customer || {}).name || '-',
                 score: row.average_score === null || row.average_score === undefined ? '-' : Number(row.average_score).toFixed(1) + ' / 3',
-                hcStatus: done ? 'Done' : 'Not done',
+                hcStatus: done ? 'Done' : ({ waiting_survey: 'Waiting survey', needs_review: 'Needs review', overdue: 'Overdue' }[hc.status] || 'Not done'),
                 hcDue: done ? fmtDate(hc.done_at) : (hc.due_at ? 'Due ' + fmtDate(hc.due_at) + ' (H+3)' : ''),
             });
             $row.find('[data-ref="hcStatus"]').css('color', done ? '#115640' : (hc.overdue ? '#900B09' : '#3B4FA6'));
             $row.find('[data-ref="open"]').attr('href', TICKET_PAGE + row.id);
             // AC-CLS-01: Close nonaktif sampai Happy Call selesai
-            $row.find('.rtc-close').attr('data-id', row.id).attr('data-code', row.ticket_code).prop('disabled', !done)
-                .attr('title', done ? '' : 'Complete the Happy Call first');
+            // §3.46: can_close sudah memperhitungkan pembaca + semua syarat v3; baris legacy tanpa can_close tetap pakai Happy Call
+            const canClose = 'can_close' in row ? !!row.can_close : done;
+            $row.find('.rtc-close').attr('data-id', row.id).attr('data-code', row.ticket_code)
+                .attr('data-cycle', row.cycle_id || '').attr('data-satisfaction', hc.satisfaction_id || '')
+                .prop('disabled', !canClose)
+                .attr('title', canClose ? '' : 'Documentation, a valid survey and the Happy Call must be completed first');
             $body.append($row);
         });
     }
@@ -126,7 +130,7 @@
     // Alert Happy Call overdue (AS-HC-02). Sementara diturunkan dari daftar yang sama.
     // [API] ganti ke endpoint notifikasi in-app bila BE sudah menyediakan.
     function renderAlerts(rows) {
-        const overdue = (rows || []).filter(function (r) { return r.happy_call && !r.happy_call.done_at && r.happy_call.overdue; });
+        const overdue = (rows || []).filter(function (r) { return r.happy_call && !r.happy_call.completed && !r.happy_call.done_at && r.happy_call.overdue; });
         $('#rtc-alerts').toggleClass('hidden', !overdue.length);
         const $list = $('#rtc-alert-list').empty();
         overdue.forEach(function (r) {
@@ -169,6 +173,10 @@
     $(document).on('click', '.rtc-close', function () {
         const id = $(this).data('id');
         const code = $(this).data('code');
+        // §3.44: konteks anti-stale (409 ticket_cycle_changed / survey_response_changed)
+        const ctx = {};
+        if ($(this).attr('data-cycle')) ctx.cycle_id = Number($(this).attr('data-cycle'));
+        if ($(this).attr('data-satisfaction')) ctx.satisfaction_id = Number($(this).attr('data-satisfaction'));
         Swal.fire({
             title: 'Close ' + code + '?',
             text: 'Closing is manual and cannot be undone from here.',
@@ -178,7 +186,7 @@
             confirmButtonColor: '#115640'
         }).then(function (r) {
             if (!r.isConfirmed) return;
-            $.ajax({ url: API_TICKETS + '/' + id + '/close', method: 'POST', headers: { Accept: 'application/json' } })
+            $.ajax({ url: API_TICKETS + '/' + id + '/close', method: 'POST', headers: { Accept: 'application/json' }, contentType: 'application/json', data: JSON.stringify(ctx) })
                 .done(function () {
                     Swal.fire({ title: 'Ticket closed', icon: 'success', timer: 1400, showConfirmButton: false });
                     load();

@@ -66,17 +66,48 @@
     });
 
     // The survey-link response is the only source of the pinned template: keep it when the ticket detail loads it.
-    $(document).on('ticket:survey-link', function (e, id, link) {
-        ticketId = id;
-        template = link && link.template ? link.template : null;
-        syncFillButton();
-        // v3.0 AS-SVY-02: varian phone call diisi langsung setelah panggilan (tanpa link). [API] link.template.variant: site | phone_call
-        var phone = !!template && template.variant === 'phone_call';
+    // Phone call (integrate-contract §3.38): survey-link menjawab variant "phone_call" tanpa template; form dibaca lewat
+    // GET /tickets/{id}/survey-response, lalu cycle_id + ref_survey_template_id dikirim kembali saat POST.
+    var phoneForm = null;
+
+    function applyVariantTexts(phone) {
         $('#tdFillOnBehalf').text(phone ? 'Fill Phone Call Survey' : 'Fill on Behalf');
         $('#sob-title').text(phone ? 'Fill Phone Call Survey' : 'Fill Survey on Behalf of Customer');
         $('#sob-subtitle').text(phone
             ? 'Record the customer\'s answers given by phone. The ticket becomes Satisfaction Submitted. A reason is required.'
             : 'The response is saved as Needs review. A reason is required.');
+    }
+
+    function loadPhoneForm(id) {
+        $.ajax({ url: '/api/aftersales/tickets/' + id + '/survey-response', headers: { Accept: 'application/json' }, dataType: 'json' })
+            .done(function (res) {
+                if (ticketId !== id) return;
+                var form = res.data || {};
+                // can_submit false: sudah ada respons yang belum di-reject pada siklus ini
+                phoneForm = form.can_submit ? form : null;
+                template = phoneForm ? form.template : null;
+                syncFillButton();
+            })
+            .fail(function () {
+                // 403 (permission tidak lengkap) / 422 (dokumentasi belum published): tombol tetap tersembunyi
+                if (ticketId !== id) return;
+                phoneForm = null; template = null; syncFillButton();
+            });
+    }
+
+    $(document).on('ticket:survey-link', function (e, id, link) {
+        ticketId = id;
+        phoneForm = null;
+        if (link && link.variant === 'phone_call') {
+            template = null;
+            applyVariantTexts(true);
+            syncFillButton();
+            loadPhoneForm(id);
+            return;
+        }
+        template = link && link.template ? link.template : null;
+        syncFillButton();
+        applyVariantTexts(false);
     });
 
     function questionField(q) {
@@ -146,6 +177,10 @@
             answers: answers,
             machine_issue_note: answers.machine_ok === false ? ($('#sob-machine-issue').val() || null) : null
         };
+        if (phoneForm) {
+            payload.cycle_id = phoneForm.cycle_id;
+            payload.ref_survey_template_id = phoneForm.ref_survey_template_id;
+        }
 
         var $btn = $('#sob-submit').prop('disabled', true);
         $('#sob-error').addClass('hidden').text('');
@@ -167,6 +202,11 @@
             var fields = [];
             Object.keys(body.errors || {}).forEach(function (k) { fields = fields.concat(body.errors[k]); });
             $('#sob-error').text(fields.length ? fields.join(' ') : (body.message || 'Failed to save the survey response.')).removeClass('hidden');
+            // 409 survey_cycle_not_current / survey_template_changed / survey_already_submitted: form basi -> muat ulang
+            if (xhr.status === 409 && phoneForm) {
+                loadPhoneForm(ticketId);
+                if (typeof loadTicketSurveyLink === 'function') loadTicketSurveyLink(ticketId);
+            }
         }).always(function () {
             $btn.prop('disabled', false);
         });

@@ -210,8 +210,9 @@
             // AS-REC-04 / AC-REC-04: setup SLA wajib, ditolak di UI bila kosong (BE tetap memvalidasi)
             const slaDeadline = $('input[name="ticket_logs_recoming_sla_mode"]:checked').val() === 'deadline';
             const slaPayload = slaDeadline
-                ? { sla_due_at: $('#ticketLogsRecomingSlaDeadline').val() }
-                : { sla_value: $('#ticketLogsRecomingSlaValue').val(), sla_unit: $('#ticketLogsRecomingSlaUnit').val() };
+                ? { sla_mode: 'deadline', sla_due_at: $('#ticketLogsRecomingSlaDeadline').val() }
+                // integrate-contract §3.32: sla_mode wajib; sla_unit hanya hour|day (UI business_day -> day)
+                : { sla_mode: 'duration', sla_value: $('#ticketLogsRecomingSlaValue').val(), sla_unit: $('#ticketLogsRecomingSlaUnit').val() === 'business_day' ? 'day' : $('#ticketLogsRecomingSlaUnit').val() };
             if (!(slaDeadline ? slaPayload.sla_due_at : Number(slaPayload.sla_value) >= 1)) {
                 $('#ticketLogsRecomingFeedback').text('SLA for this cycle is required (duration or deadline).');
                 return;
@@ -222,14 +223,17 @@
             recomingSaving = true;
             $buttons.prop('disabled', true);
             $('#ticketLogsRecomingFeedback').text('');
+            // integrate-contract §3.22: phone_call -> planned_call_at, visit_site -> planned_visit_at (saling dilarang)
+            const recomingType = $('input[name="ticket_logs_recoming_type"]:checked').val();
+            const scheduleField = recomingType === 'phone_call' ? 'planned_call_at' : 'planned_visit_at';
             $.ajax({
                 url: '/api/aftersales/tickets/' + ticketId + '/recoming',
                 method: 'POST',
                 headers: { Accept: 'application/json' },
                 data: {
-                    recoming_type: $('input[name="ticket_logs_recoming_type"]:checked').val(),
+                    recoming_type: recomingType,
                     reason: reasons[$('input[name="ticket_logs_recoming_reason"]:checked').val()],
-                    planned_visit_at: $('#ticketLogsRecomingDate').val(),
+                    [scheduleField]: $('#ticketLogsRecomingDate').val(),
                     notes: $('#ticketLogsRecomingNotes').val().trim(),
                     ...slaPayload,
                 },

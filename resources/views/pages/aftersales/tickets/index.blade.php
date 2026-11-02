@@ -258,7 +258,11 @@
     //   happy_call: { due_at, done_at, overdue }
     //   document_status: 'incomplete'|'awaiting_spv_signature'|'documentation_published'
     function slaCell(row) {
-        const sla = row.sla;
+        // integrate-contract §3.35: current_sla { state, due_at, stopped_at, closed_at, cycle_no }; null untuk legacy
+        const cs = row.current_sla;
+        const sla = cs && cs.state !== 'not_configured'
+            ? { state: cs.state === 'running' ? 'running' : 'stopped', stopped_at: cs.stopped_at || cs.closed_at, due_at: cs.due_at, cycle_no: cs.cycle_no }
+            : row.sla;
         // integrate-contract §3.12: GET /tickets membawa sla_stopped_at walau objek `sla` belum ada
         if (!sla && row.sla_stopped_at) {
             return `<span class="font-semibold text-[#115640]">Stopped</span><div class="text-[10px] text-[#757575]">${formatDate(row.sla_stopped_at)}</div>`;
@@ -292,7 +296,7 @@
         // integrate-contract §3.12: happy_call_due_at langsung di row; overdue tidak dihitung di FE
         if (!hc && dueAt) hc = { due_at: dueAt };
         if (!hc) return '<span class="text-[#B0B0B0]">-</span>';
-        if (hc.done_at) return `<span class="font-semibold text-[#115640]">Done</span><div class="text-[10px] text-[#757575]">${formatDate(hc.done_at)}</div>`;
+        if (hc.completed || hc.done_at) return `<span class="font-semibold text-[#115640]">Done</span><div class="text-[10px] text-[#757575]">${formatDate(hc.done_at)}</div>`;
         if (hc.overdue) return '<span class="font-semibold text-[#900B09]">Overdue</span>';
         if (hc.due_at) return `<span class="font-semibold text-[#3B4FA6]">Due ${formatDate(hc.due_at)}</span><div class="text-[10px] text-[#757575]">(H+3)</div>`;
         return '<span class="text-[#B0B0B0]">-</span>';
@@ -329,7 +333,7 @@
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Close Date" data-secondary>${formatDate(row.closed_at)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="SLA">${slaCell(row)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Aging" data-secondary>${row.aging_days ?? 0}</td>
-                <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${docStatusBadge(row.document_status)}${reminderBadges(row.reminders)}</td>
+                <td class="px-2 py-3 text-center" data-label="Steps">${stepBadge(row.progress, row.current_recoming)}${docStatusBadge(row.documentation_status || row.document_status)}${reminderBadges(row.reminders)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Score">${scoreCell(row.average_score)}</td>
                 ${IS_TECHNICIAN ? '' : `<td class="px-2 py-3 text-center whitespace-nowrap" data-label="Happy Call">${happyCallCell(row.happy_call, row.happy_call_due_at)}</td>`}
                 <td class="px-2 py-3 text-center" data-actions data-label="Action">
@@ -611,13 +615,15 @@
                     if (currentTicket?.id !== ticketId) return;
                     const link = res.data || {};
                     const labels = { active: 'Active', inactive: 'Inactive', used: 'Completed', expired: 'Expired', replaced: 'Replaced' };
-                    $('#tdSurveyStatus').text(labels[link.status] || 'Unavailable');
+                    const phoneSurvey = link.variant === 'phone_call'; // §3.38: tanpa link/OTP, diisi Admin setelah panggilan
+                    $('#tdSurveyStatus').text(phoneSurvey ? 'Phone call' : (labels[link.status] || 'Unavailable'));
                     $(document).trigger('ticket:survey-link', [ticketId, link]); // banner Resubmission di documents-script
                     if (link.url && link.can_share) {
                         $('#tdSurveyUrl').attr('href', link.url).text(link.url);
                         $('#tdShareLink, #tdShareWhatsapp').prop('disabled', false).data('url', link.url);
                     } else {
-                        $('#tdSurveyUrl').text(link.status === 'used' ? 'This survey has already been completed.' : 'No active survey link is available.');
+                        $('#tdSurveyUrl').text(phoneSurvey ? 'Phone call survey has no link. Fill it in after the call.'
+                            : (link.status === 'used' ? 'This survey has already been completed.' : 'No active survey link is available.'));
                     }
                 })
                 .fail(function () {
