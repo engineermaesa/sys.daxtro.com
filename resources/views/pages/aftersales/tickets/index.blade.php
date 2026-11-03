@@ -114,7 +114,6 @@
 
 @include('pages.aftersales.tickets.partials.ticket-delete-modal')
 
-@include('pages.aftersales.tickets.partials.survey-on-behalf-modal')
 @endsection
 
 @section('scripts')
