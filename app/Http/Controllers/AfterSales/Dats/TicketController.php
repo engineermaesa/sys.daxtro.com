@@ -38,7 +38,7 @@ class TicketController extends Controller
     public function page(Request $request)
     {
         $user = $request->user();
-        abort_unless(($user && TicketDocuments::canViewAll($user)) || $user?->hasPermission('aftersales.tickets.view-own'), 403);
+        abort_unless($user && TicketDocuments::canListTickets($user), 403);
 
         $this->pageTitle = 'Tickets';
 
@@ -57,8 +57,12 @@ class TicketController extends Controller
     public function workOrderPdf(Request $request, Ticket $ticket)
     {
         $user = $request->user();
+        if ($user && TicketDocuments::isSupervisorScoped($user)) {
+            TicketDocuments::authorizeView($user, $ticket);
+        }
         abort_unless(
             $user?->hasPermission('aftersales.work-orders.issue')
+            || ($user && TicketDocuments::isSupervisorScoped($user) && $ticket->supervisor_id === $user->id)
             || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
             403
         );
@@ -104,11 +108,7 @@ class TicketController extends Controller
     public function showPage(Request $request, Ticket $ticket)
     {
         $user = $request->user();
-        abort_unless(
-            ($user && TicketDocuments::canViewAll($user))
-            || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
-            403
-        );
+        TicketDocuments::authorizeView($user, $ticket);
 
         $this->pageTitle = 'Ticket '.$ticket->ticket_code;
 
@@ -150,18 +150,13 @@ class TicketController extends Controller
             return $this->readyToClose($request);
         }
         $user = $request->user();
-        $isManager = $user && TicketDocuments::canViewAll($user);
-
-        $ownOnly = ! $isManager && $user?->hasPermission('aftersales.tickets.view-own');
-        abort_unless($isManager || $ownOnly, 403);
+        abort_unless($user && TicketDocuments::canListTickets($user), 403);
 
         $filters = $request->validate(['visit_date' => 'nullable|date_format:Y-m-d']);
 
         $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction', 'satisfactions.answers']);
 
-        if ($ownOnly) {
-            $query->where('assigned_technician_id', $user->id);
-        }
+        TicketDocuments::scopeVisibleTickets($query, $user);
 
         if ($request->input('supervisor') === 'me') {
             $query->where('supervisor_id', $user->id);
@@ -247,11 +242,7 @@ class TicketController extends Controller
     public function show(Request $request, Ticket $ticket)
     {
         $user = $request->user();
-        abort_unless(
-            ($user && TicketDocuments::canViewAll($user))
-            || ($user?->hasPermission('aftersales.tickets.view-own') && $ticket->assigned_technician_id === $user->id),
-            403
-        );
+        TicketDocuments::authorizeView($user, $ticket);
 
         TicketDocuments::ensure($ticket);
 
@@ -1010,9 +1001,11 @@ class TicketController extends Controller
     public function readyToClose(Request $request)
     {
         $user = $request->user();
-        abort_unless(TicketDocuments::canViewAll($user), 403);
+        abort_unless(TicketDocuments::canListTickets($user)
+            && (TicketDocuments::canViewAll($user) || TicketDocuments::isSupervisorScoped($user)), 403);
         $filters = $request->validate(['search' => 'nullable|string|max:100', 'page' => 'sometimes|integer|min:1', 'per_page' => 'sometimes|integer|min:1|max:100']);
         $query = TicketHappyCalls::readyQuery()->with(['customer', 'technician', 'currentCycle', 'logs', 'visits', 'recomings', 'satisfactions.answers']);
+        TicketDocuments::scopeVisibleTickets($query, $user);
         if (filled($filters['search'] ?? null)) {
             $search = trim($filters['search']);
             $query->where(fn ($q) => $q->where('ticket_code', 'like', '%'.$search.'%')

@@ -304,7 +304,9 @@
         const html = ROLES.map(function (r) {
             const role = r[0];
             const s = sig[role];
-            const canSign = !locked && !!can['sign_' + role] && (role !== 'supervisor' || capAllows(SIGN_CAP[type]));
+            const canSign = role === 'supervisor'
+                ? !!can.sign_supervisor && capAllows(SIGN_CAP[type])
+                : !locked && !!can['sign_' + role];
             let body = '';
 
             if (s && s.url) {
@@ -360,9 +362,10 @@
 
         const $btn = $(this).prop('disabled', true);
         call('POST', '/tickets/' + currentId() + '/documents/' + type + '/signatures', body)
-            .done(function () {
+            .done(function (res) {
                 toast('Signature saved');
                 reloadDocument(type);
+                if (['incomplete', 'awaiting_spv_signature', 'documentation_published'].includes((res.data || {}).status)) loadTicketDetail();
             })
             .fail(function (xhr) { fail(xhr, 'Failed to save signature.'); })
             .always(function () { $btn.prop('disabled', false); });
@@ -380,7 +383,8 @@
         const $el = $(sel);
         if (doc.locked) {
             $el.attr('style', 'margin-top: 16px; padding: 10px 14px; background:#E7F3EE; color:#115640;')
-                .text('This document is saved and locked' + (doc.saved_at ? ' (' + fmtDateTime(doc.saved_at) + ')' : '') + '.');
+                .text(doc.status === 'awaiting_spv_signature' ? 'Awaiting SPV signature. Technician editing is locked.'
+                    : 'This document is saved and locked' + (doc.saved_at ? ' (' + fmtDateTime(doc.saved_at) + ')' : '') + '.');
         } else if (c.complete) {
             $el.attr('style', 'margin-top: 16px; padding: 10px 14px; background:#E7F3EE; color:#115640;')
                 .text(doc.submission_completeness ? 'All requirements are complete. The form can be submitted.' : 'All requirements are complete. The document can be saved.');
@@ -391,8 +395,9 @@
     }
 
     function statusBadge(sel, doc) {
-        const saved = doc.status === 'saved';
-        $(sel).text(saved ? 'Saved' : 'Draft')   // translated by applyLang() after render
+        const saved = doc.status === 'saved' || doc.status === 'documentation_published';
+        const label = saved ? 'Saved' : (doc.status === 'awaiting_spv_signature' ? 'Awaiting SPV signature' : (doc.status === 'incomplete' ? 'Incomplete' : 'Draft'));
+        $(sel).text(label)   // translated by applyLang() after render
             .attr('style', 'padding: 4px 12px;' + (saved ? 'background:#E7F3EE;color:#115640;' : 'background:#FFF3CD;color:#D97706;'));
     }
 
@@ -858,7 +863,10 @@
             if (!doc) return '';
             const can = doc.can || {};
             const sig = doc.signatures || {};
-            const saved = doc.status === 'saved';
+            const saved = doc.status === 'saved' || doc.status === 'documentation_published';
+            const statusLabel = saved ? 'Saved' : (doc.status === 'awaiting_spv_signature'
+                ? (sig.supervisor ? 'Signed' : 'Awaiting SPV signature')
+                : (doc.status === 'incomplete' ? 'Incomplete' : 'Draft'));
 
             const chips = ROLES.map(function (r) {
                 const on = !!sig[r[0]];
@@ -871,7 +879,7 @@
             let buttons = '<button type="button" class="doc-open bg-white border border-[#D9D9D9] rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">'
                 + (can.fill && !doc.locked && (type !== 'service_form' || capAllows('can_fill_service_form')) ? 'Fill' : 'View') + '</button>';
 
-            if (can.sign_supervisor && !doc.locked && capAllows(SIGN_CAP[type])) {
+            if (can.review_supervisor === true || (can.review_supervisor === undefined && can.sign_supervisor && capAllows(SIGN_CAP[type]))) {
                 buttons += '<button type="button" class="doc-sign-supervisor bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Review &amp; Sign</button>';
             }
             if (can.save && !doc.locked) {
@@ -904,7 +912,7 @@
 
             return '<div class="border-b border-[#EDEDED] last:border-b-0" style="padding: 14px 0;">'
                 + '<div class="flex items-center justify-between flex-wrap" style="gap: 12px;">'
-                + '<div><p class="font-semibold">' + TYPE_TITLE[type] + ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; ' + (saved ? 'background:#E7F3EE;color:#115640;' : 'background:#FFF3CD;color:#D97706;') + '">' + (saved ? 'Saved' : 'Draft') + '</span></p>'
+                + '<div><p class="font-semibold">' + TYPE_TITLE[type] + ' <span class="rounded-full text-[10px] font-semibold" style="padding: 2px 8px; ' + (saved ? 'background:#E7F3EE;color:#115640;' : 'background:#FFF3CD;color:#D97706;') + '">' + statusLabel + '</span></p>'
                 + '<p class="text-[#9CA3AF] text-xs" style="margin-top: 4px;">' + esc(note) + (doc.template_version ? ' &middot; Template v' + esc(doc.template_version) : '') + '</p>'
                 + '<div style="margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap;">' + chips + '</div></div>'
                 + '<div class="flex items-center flex-wrap" style="gap: 8px;">' + buttons + '</div></div>'
@@ -1337,7 +1345,7 @@
         $('.sf-field').each(function () { refreshHelper($(this)); });
 
         window.ServiceDiagnosisEditor.mount({ticketId: currentId(), number: f.number, data: f.diagnosis, readOnly: ro,
-            readOnlyReason: f.locked ? 'This Service Form is saved and locked. Diagnosis and attachments are read-only.' : 'Only the technician assigned to this ticket can enter diagnosis and attach photos. This account has view-only access.',
+            readOnlyReason: f.locked ? 'This Service Form is saved and locked. Diagnosis and attachments are read-only.' : 'Only the assigned Technician or SPV can enter diagnosis and attach photos. This account has view-only access.',
             persist: function () { return putForm({service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect()}); },
             reload: function () { return loadForm(); }
         });
@@ -1734,7 +1742,7 @@
         renderSupervisorFindings();
         $('#ssTicket').text(t.ticket_code || '-');
         $('#ssCustomer').text((t.customer || {}).name || '-');
-        $('#ssMachine').text(((t.customer_product || {}).product || {}).name || '-');
+        $('#ssMachine').text((t.customer_product || {}).machine_name || ((t.customer_product || {}).product || {}).name || '-');
         $('#ssTechnician').text((t.technician || {}).name || '-');
         $('#ssName').val((S.docs && S.docs.supervisor && S.docs.supervisor.name) || '');
         $('#ssError').addClass('hidden');
@@ -1751,10 +1759,12 @@
         const d = S.ssData;
         const sig = (d.signatures || {}).supervisor;
         const can = d.can || {};
-        const canSign = !!can.sign_supervisor && !d.locked && capAllows(SIGN_CAP[S.ssDoc]);
+        // Pending SPV review locks Technician edits, but signing is explicitly authorized by BE.
+        const canSign = !!can.sign_supervisor && capAllows(SIGN_CAP[S.ssDoc]);
+        const canReview = can.review_supervisor === true || canSign;
 
         // status dokumen v3.0: Incomplete -> Awaiting SPV signature -> Signed (Documentation Published setelah kedua dokumen signed)
-        const complete = !!(d.completeness && d.completeness.complete);
+        const complete = canSign || !!(d.completeness && d.completeness.complete);
         $('#ssStatusBadge').text(sig ? 'Signed' : (complete ? 'Awaiting SPV signature' : 'Incomplete'))
             .css(sig ? { background: '#E7F3EE', color: '#115640' } : (complete ? { background: '#FFF3CD', color: '#D97706' } : { background: '#FBEAEA', color: '#900B09' }));
 
@@ -1765,10 +1775,14 @@
             $('#ssTechImage').attr('src', techSig.url);
             $('#ssTechMeta').text((techSig.signer_name || '-') + ' · ' + fmtDateTime(techSig.signed_at));
         }
-        $('#ssCompleteness').text(d.locked ? 'Document is saved and locked.' : ((d.completeness || {}).summary || 'All requirements are complete.'));
+        $('#ssCompleteness').text(canSign ? 'Ready for your signature. You can sign this document without waiting for Technician submission.'
+            : (canReview && !sig ? 'You and the assigned Technician can fill this document. Complete the required fields and Technician/Customer signatures before signing. ' + ((d.completeness || {}).summary || '')
+                : (d.locked ? 'Document is locked for editing.' : ((d.completeness || {}).summary || 'All requirements are complete.'))));
+
+        $('#ssFillDocument').toggleClass('hidden', !can.fill || !!d.locked).data('doc', S.ssDoc);
 
         $('#ssSignArea').toggleClass('hidden', !canSign);
-        $('#ssSign').toggleClass('hidden', !canSign);
+        $('#ssSign').toggleClass('hidden', !canReview || !!sig).prop('disabled', true);
         $('#ssSignedArea').toggleClass('hidden', !sig);
         if (sig && sig.url) $('#ssSignedImage').attr('src', sig.url);
 
@@ -1814,7 +1828,15 @@
 
         const $b = $(this).prop('disabled', true);
         call('POST', '/tickets/' + currentId() + '/documents/' + S.ssDoc + '/signatures', { role: 'supervisor', signature: pad.dataUrl() })
-            .done(function () {
+            .done(function (res) {
+                if (['incomplete', 'awaiting_spv_signature', 'documentation_published'].includes((res.data || {}).status)) {
+                    // v3 signature already finalizes/publishes on the server; /save is legacy only.
+                    toast('Signature saved');
+                    openSupervisorSign(S.ssDoc);
+                    loadDocs();
+                    loadTicketDetail();
+                    return;
+                }
                 // "Save and sign": setelah tanda tangan tersimpan, dokumen langsung disimpan.
                 // Bila kedua dokumen sudah signed, BE menerbitkan Documentation Published.
                 saveDocument(S.ssDoc, function () { openSupervisorSign(S.ssDoc); loadDocs(); })

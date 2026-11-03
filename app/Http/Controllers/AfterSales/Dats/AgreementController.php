@@ -39,7 +39,7 @@ class AgreementController extends Controller
 
     public function saveDraft(Request $request, Ticket $ticket)
     {
-        abort_unless(TicketDocuments::isTechnician($request->user(), $ticket), 403, 'Only the assigned technician can fill the Service Agreement.');
+        abort_unless(TicketDocuments::canFill($request->user(), $ticket), 403, 'Only the assigned technician or supervisor can fill the Service Agreement.');
 
         $validated = $request->validate([
             'accepted_clauses' => 'nullable|array',

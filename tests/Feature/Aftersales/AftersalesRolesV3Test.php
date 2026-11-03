@@ -121,4 +121,17 @@ class AftersalesRolesV3Test extends TestCase
         $spv = $this->capabilities(['aftersales.documents.sign'], 20, $ticket, TicketLog::STEP_DOCUMENTATION_PUBLISHED, ['saved', 'saved']);
         $this->assertFalse($spv['can_sign_service_form'] || $spv['can_unlock_service_form']);
     }
+
+    public function test_tc007_spv_role_remains_scoped_even_with_stale_admin_permissions(): void
+    {
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->setRawAttributes(['id' => 20]);
+        $user->setRelation('role', (new UserRole)->forceFill(['code' => 'supervisor_after_sales']));
+        $user->shouldReceive('hasPermission')->andReturn(true);
+        $this->assertFalse(\App\Services\Aftersales\TicketDocuments::canViewAll($user));
+        $this->assertTrue(\App\Services\Aftersales\TicketDocuments::canListTickets($user));
+        \App\Services\Aftersales\TicketDocuments::authorizeView($user, (new Ticket)->forceFill(['supervisor_id' => 20]));
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        \App\Services\Aftersales\TicketDocuments::authorizeView($user, (new Ticket)->forceFill(['supervisor_id' => 21]));
+    }
 }

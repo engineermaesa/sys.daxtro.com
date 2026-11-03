@@ -125,9 +125,6 @@ class TicketDocumentWorkflow
                 abort_unless(in_array($role, TicketSignature::ROLES, true), 422, 'Invalid signature role.');
                 $supervisor = $role === 'supervisor';
                 abort_unless($supervisor ? TicketDocuments::isSupervisor($user, $ticket) : TicketDocuments::isTechnician($user, $ticket), 403);
-                if ($supervisor && ! $cycle->service_form_submitted_at) {
-                    self::error(409, 'service_form_not_submitted', 'The technician must submit the Service Form before SPV can sign.');
-                }
                 $existing = $doc->signatures()->where('role', $role)->first();
                 if ($supervisor && $doc->status === 'saved' && $existing) {
                     return $existing;
@@ -165,6 +162,10 @@ class TicketDocumentWorkflow
                     TicketCycleEdits::record($ticket, $user->id);
                 }
                 if ($supervisor) {
+                    if ($doc instanceof TicketServiceForm && ! $cycle->service_form_submitted_at) {
+                        $cycle->update(['service_form_submitted_at' => now('Asia/Jakarta'),
+                            'service_form_submitted_by' => $user->id, 'documentation_status' => 'awaiting_spv_signature']);
+                    }
                     $doc->update(['status' => 'saved', 'saved_at' => now('Asia/Jakarta'), 'saved_by_user_id' => $user->id]);
                     if ($doc instanceof TicketServiceForm) {
                         app(ServiceDiagnosis::class)->lock($doc, $ticket);

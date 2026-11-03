@@ -45,7 +45,7 @@ class HappyCallV3Test extends TestCase
             $t->id();
             $t->string('ticket_code');
             $t->string('workflow_version')->default('v3');
-            foreach (['customer_id', 'assigned_technician_id', 'created_by'] as $c) {
+            foreach (['customer_id', 'assigned_technician_id', 'supervisor_id', 'created_by'] as $c) {
                 $t->unsignedBigInteger($c)->nullable();
             }
             $t->unsignedInteger('sla_value')->nullable();
@@ -175,7 +175,7 @@ class HappyCallV3Test extends TestCase
     private function ticket(bool $published = true, string $workflow = 'v3'): Ticket
     {
         $ticket = Ticket::create(['ticket_code' => 'T-'.(Ticket::withTrashed()->count() + 1), 'workflow_version' => $workflow,
-            'customer_id' => 1, 'assigned_technician_id' => 4, 'created_by' => 1, 'sla_value' => 7, 'sla_unit' => 'day', 'sla_due_at' => now()->addDays(7)]);
+            'customer_id' => 1, 'assigned_technician_id' => 4, 'supervisor_id' => 3, 'created_by' => 1, 'sla_value' => 7, 'sla_unit' => 'day', 'sla_due_at' => now()->addDays(7)]);
         DB::table('ticket_service_forms')->insert(['ticket_id' => $ticket->id]);
         if ($published) {
             $this->publish($ticket);
@@ -442,6 +442,22 @@ class HappyCallV3Test extends TestCase
         $this->getJson($url)->assertOk();
         $this->login(4);
         $this->getJson($url)->assertForbidden();
+    }
+
+    public function test_tc007_ready_queue_cannot_expose_other_supervisors_tickets(): void
+    {
+        $mine = $this->ticket();
+        $other = $this->ticket();
+        DB::table('tickets')->where('id', $other->id)->update(['supervisor_id' => 99]);
+        $unassigned = $this->ticket();
+        DB::table('tickets')->where('id', $unassigned->id)->update(['supervisor_id' => null]);
+        $this->login(3);
+        foreach (['/api/aftersales/tickets/ready-to-close', '/api/aftersales/tickets?ready_to_close=1'] as $url) {
+            $this->getJson($url)->assertOk()->assertJsonPath('total', 1)
+                ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $mine->id);
+        }
+        $this->login(2);
+        $this->getJson('/api/aftersales/tickets/ready-to-close')->assertOk()->assertJsonPath('total', 3);
     }
 
     public function test_v3_replaces_survey_due_and_h_plus_one_reminders_while_legacy_is_preserved(): void

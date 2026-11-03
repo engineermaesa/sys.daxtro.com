@@ -2008,6 +2008,32 @@ class ImprovementsTest extends TestCase
         $this->assertArrayNotHasKey('satisfaction', $response->json('data.0'));
     }
 
+    public function test_tc007_spv_ticket_list_is_scoped_before_pagination_and_filters_cannot_bypass_it(): void
+    {
+        $this->ticketAuxiliaryTables();
+        Schema::table('tickets', fn (Blueprint $table) => $table->unsignedBigInteger('supervisor_id')->nullable());
+        $mine = $this->visitDateTicket('SPV-MINE', [], ['supervisor_id' => 20]);
+        $this->visitDateTicket('SPV-OTHER', [], ['supervisor_id' => 21]);
+        $this->visitDateTicket('SPV-UNASSIGNED', []);
+        $spv = Mockery::mock(User::class)->makePartial();
+        $spv->setRawAttributes(['id' => 20]);
+        $spv->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => in_array($code, ['aftersales.tickets.view-all', 'aftersales.documents.sign'], true));
+        $this->actingAs($spv);
+        $this->getJson('/api/aftersales/tickets?per_page=1')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('last_page', 1)
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $mine->id);
+        foreach (['supervisor_id=21', 'search=SPV-OTHER', 'assigned_technician_id=20', 'page=2&per_page=1'] as $filter) {
+            $this->getJson('/api/aftersales/tickets?'.$filter)->assertOk()->assertJsonCount(0, 'data');
+        }
+        $this->actingAs($this->user());
+        $this->getJson('/api/aftersales/tickets?search=SPV-')->assertOk()->assertJsonPath('total', 3);
+        $head = Mockery::mock(User::class)->makePartial();
+        $head->setRawAttributes(['id' => 30]);
+        $head->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => in_array($code, ['aftersales.tickets.view-all', 'aftersales.tickets.close'], true));
+        $this->actingAs($head);
+        $this->getJson('/api/aftersales/tickets?search=SPV-')->assertOk()->assertJsonPath('total', 3);
+    }
+
     public function test_ticket_detail_fetches_survey_answers_once_for_history(): void
     {
         $this->ticketAuxiliaryTables(true);

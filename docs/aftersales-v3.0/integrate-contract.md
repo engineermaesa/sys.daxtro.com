@@ -1214,11 +1214,66 @@ Run tambahan seluruh repository: **350 test, 3036 assertions, 5 errors, 1 failur
 
 Browser E2E, login/cookie browser, penyimpanan/indikator draft offline dan pilihan konflik, serta integrasi delivery provider nyata belum diverifikasi. Kontrak offline FE tetap §3.54–3.56. Scope BE Task 12 selesai; integrasi/E2E FE tetap tindak lanjut.
 
+### Perbaikan TC-007 — Scope SPV dan tanda tangan dokumen (2026-11-03)
+
+Bagian ini memperbarui aturan baca SPV pada §0.5/Task 2, Ready to Close Task 9, dan snapshot Task 11. Izin `aftersales.tickets.view-all` yang masih tercatat pada role SPV **tidak lagi berarti akses ke seluruh tiket**. Admin dan Head tetap mempunyai cakupan baca seluruh tiket; SPV hanya tiket dengan `tickets.supervisor_id` sama dengan ID user login. Pembatasan juga berlaku pada tiket legacy. Tidak ada migration, permission baru, atau seeder ulang untuk perbaikan ini.
+
+#### Scope backend
+
+- `GET /api/aftersales/tickets`: scope SPV diterapkan pada query **sebelum pagination**, sehingga `total`, `last_page`, dan isi halaman hanya menghitung tiket SPV tersebut. Filter `supervisor_id`, `supervisor=me`, search, dan pagination hanya mempersempit hasil; tidak dapat membuka tiket supervisor lain. Tiket tanpa supervisor tidak masuk daftar SPV.
+- `GET /api/aftersales/tickets/ready-to-close` dan alias `GET /api/aftersales/tickets?ready_to_close=1`: scope yang sama, tetap `can_close=false` bagi SPV.
+- Detail tiket, halaman detail, dokumen, Service Form, Agreement, foto/signature serta Work Order mengikuti assignment supervisor. Tiket SPV lain ditolak **403**, termasuk ketika dibuka lewat URL langsung.
+- Guard role `supervisor_after_sales` tetap membatasi scope walaupun assignment permission lama masih memuat `manage/view-all`. Helper membedakan cakupan baca global dari akses menandatangani tiket yang diawasi.
+- Admin/Head tetap dapat melihat seluruh tiket sesuai hak masing-masing; Technician tetap hanya tiket yang ditugaskan kepadanya. Hak mutation lain tidak diperluas.
+
+#### Tanda tangan dan kontrak FE
+
+Endpoint tidak berubah: `POST /api/aftersales/tickets/{ticket}/documents/{type}/signatures`, `{type}=service_form|agreement`, payload `{ "role": "supervisor", "signature": "data:image/png;base64,..." }`.
+
+`locked` berarti pengeditan isi/signature Technician ditutup, **bukan larangan universal untuk SPV menandatangani**. Ketika form lengkap sudah disubmit, response dokumen/form boleh memuat kombinasi berikut (subset):
+
+```json
+{"status":"awaiting_spv_signature","locked":true,"can":{"fill":false,"sign_supervisor":true,"save":false}}
+```
+
+FE menampilkan signature pad inline dan mengaktifkan Save and sign berdasarkan `can.sign_supervisor` beserta capability ticket `can_sign_service_form` / `can_sign_agreement`; jangan menambahkan syarat `!locked` untuk signature SPV. Akses membuka Review & Sign mengikuti `can.review_supervisor` seperti adjustment di bawah. Technician tetap tidak boleh mengedit atau menandatangani ulang ketika locked. Semua kelengkapan, assignment, submit, signature, dan publication tetap divalidasi backend; tidak ada bypass untuk dokumen belum lengkap atau belum disubmit.
+
+Sesudah SPV menggambar signature, tombol aktif. Signature response v3 mempunyai status `awaiting_spv_signature` atau `documentation_published`; FE memuat ulang review, dokumen, dan detail tiket. FE **tidak memanggil `/documents/{type}/save`** setelah signature v3 karena endpoint Save legacy menghasilkan `409 document_save_disabled`. Untuk workflow legacy, mekanisme Save existing tetap dipakai.
+
+Ketika kedua signature SPV lengkap, backend mengembalikan status Documentation Published, membuat satu log `documentation_published`, dan mempertahankan idempotensi publikasi. Label UI kini mengenali Incomplete, Awaiting SPV signature, Signed, dan Saved sesuai state serta signature yang tersedia.
+
+#### Verifikasi TC-007
+
+- Backend: 5 regression khusus TC-007 lulus; regression lengkap Aftersales **347 tests, 3.094 assertions lulus** pada SQLite in-memory.
+- Frontend: **51 tests lulus**, termasuk 6 test TC-007 yang menguji tombol/pad untuk pending locked form, penolakan capability, state published, signature inline, pemisahan Save v3/legacy, dan refresh status.
+- Mock deferred pada test revision existing dilengkapi `.fail()` agar mengikuti callback client yang sudah ada sebelum perbaikan TC-007; tidak ada perubahan alur revision/offline pada runtime.
+- Browser E2E dengan akun UAT dan data screenshot belum dijalankan. Untuk retest manual: login SPV, pastikan hanya tiket supervisor tersebut terlihat; buka form lengkap yang sudah disubmit Technician, tanda tangani kedua dokumen, lalu periksa status dan log Documentation Published.
+
+#### Adjustment lanjutan TC-007 — Review tersedia sejak Incomplete
+
+Konfirmasi UAT 2026-11-03: tiket v3 `DAX-AF-20261103-1` belum mempunyai form lengkap/submitted, sehingga `can.sign_supervisor=false`. Sebelumnya FE memakai flag Sign sekaligus untuk membuka Review dan menyembunyikan seluruh tombol. Tiket legacy berbeda karena aturan signature draft lama.
+
+Response `can` pada `GET /tickets/{ticket}/documents`, `/service-form`, dan `/agreement` kini menambahkan **`review_supervisor`**. Nilai true hanya untuk SPV yang ditunjuk dan mempunyai permission `aftersales.documents.sign`. Flag ini independen dari kelengkapan, submit, lock, dan state publikasi, agar review awal dan histori tetap bisa dibuka. Contoh subset dokumen v3 sebelum Technician melengkapi/mengirim form:
+
+```json
+{"status":"incomplete","locked":false,"can":{"review_supervisor":true,"sign_supervisor":false,"fill":false,"save":false}}
+```
+
+- Supporting Documents menampilkan **Review & Sign** jika `can.review_supervisor=true`, meskipun capability ticket `can_sign_service_form`/`can_sign_agreement` masih false. Flag Sign tidak digunakan sebagai penghalang membuka Review.
+- Review menampilkan persyaratan yang belum terpenuhi. Save and sign terlihat tetapi disabled selama `can.sign_supervisor=false`; signature pad hanya aktif setelah izin Sign true. Signature yang sudah ada tetap bisa ditinjau tanpa menandatangani ulang.
+- Client lama tetap dapat membaca seluruh field lama. Bila server belum mengirim flag Review, FE memakai izin Sign sebagai fallback. Server baru mengirim flag tersebut pada workflow v3 dan legacy.
+- Penolakan akses SPV lain, guard form belum disubmit (`409 service_form_not_submitted`), guard kelengkapan dokumen, dan publikasi sekali per siklus tetap berlaku. Tidak ada migration/seeder atau perubahan data tiket UAT.
+- Verifikasi khusus: **6 test BE / 79 assertions** dan **8 test FE TC-007** lulus. Regression lengkap: **348 test BE / 3.112 assertions** dan **53 test FE lulus**. Formatter PHP serta `git diff --check` juga lulus. Browser UAT belum dijalankan ulang.
+
 ## 4. Pending (belum dikerjakan)
 
 Tidak ada task BE 1–12 yang tersisa pada scope yang disepakati. E2E UI bersama FE, termasuk penyimpanan/indikator draft offline dan pilihan konflik (§3.54–3.56), menunggu integrasi FE. Kegagalan test repository di luar Aftersales tercatat di §3.60 dan [laporan verifikasi](backend-verification.md).
 
 ## 5. Change log
+
+2026-11-03 — TC-007 fullstack: scope tiket SPV di query/read guard dan perbaikan kontrol signature locked serta penghapusan pemanggilan Save legacy sesudah signature v3. Tidak memerlukan migration/seeder.
+
+2026-11-03 — Adjustment TC-007: tambah `can.review_supervisor` untuk membuka Review sejak Incomplete, terpisah dari izin menandatangani. Form yang belum lengkap/submitted tetap tidak dapat ditandatangani.
 
 | Tanggal | Task | Status |
 |---|---|---|

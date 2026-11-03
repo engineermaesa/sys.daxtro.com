@@ -10,7 +10,10 @@ function client() {
     const end = source.indexOf('\n    function saveItem(', start);
     assert.ok(start >= 0 && end > start);
     const state = { form: { revision: 'original-revision' }, requests: [], renders: 0, docs: 0 };
-    const pending = { done(callback) { state.onSuccess = callback; return pending; } };
+    const pending = {
+        done(callback) { state.onSuccess = callback; return pending; },
+        fail(callback) { state.onFailure = callback; return pending; },
+    };
     const put = vm.runInNewContext(source.slice(start, end) + '; putForm;', {
         S: state, currentId: () => 7,
         call(method, url, data) { state.requests.push({ method, url, data }); return pending; },

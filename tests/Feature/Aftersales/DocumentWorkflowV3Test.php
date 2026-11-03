@@ -369,13 +369,11 @@ class DocumentWorkflowV3Test extends TestCase
         Queue::assertPushed(SendTicketDocumentEmail::class, 6);
     }
 
-    public function test_signing_requires_submission_and_the_assigned_spv(): void
+    public function test_signing_requires_the_assigned_spv_but_not_technician_submission(): void
     {
         $this->prepare();
         $this->login(2);
-        $this->signature('service_form', 'supervisor')->assertConflict()->assertJsonPath('code', 'service_form_not_submitted');
-        $this->login(1);
-        $this->submitForm()->assertOk();
+        $this->signature('service_form', 'supervisor')->assertCreated();
         foreach ([1, 3, 4, 5, 6] as $id) {
             $this->login($id);
             $this->signature('service_form', 'supervisor')->assertForbidden();
@@ -516,6 +514,121 @@ class DocumentWorkflowV3Test extends TestCase
         $this->assertTrue($capabilities()['can_sign_agreement']);
         $this->login(5);
         $this->assertFalse($capabilities()['can_sign_service_form']);
+    }
+
+    public function test_tc007_assigned_spv_can_review_locked_pending_form_and_publish_both_documents(): void
+    {
+        $this->prepare();
+        $this->submitForm()->assertOk();
+        $this->login(2);
+        $this->getJson($this->url.'/documents')->assertOk()
+            ->assertJsonPath('data.documents.service_form.locked', true)
+            ->assertJsonPath('data.documents.service_form.can.fill', false)
+            ->assertJsonPath('data.documents.service_form.can.sign_supervisor', true)
+            ->assertJsonPath('data.documents.agreement.can.sign_supervisor', true);
+        $this->signature('service_form', 'supervisor')->assertCreated();
+        $this->signature('agreement', 'supervisor')->assertCreated()
+            ->assertJsonPath('data.status', 'documentation_published');
+        $this->assertSame('documentation_published', Ticket::first()->progress);
+        $this->assertDatabaseCount('ticket_document_publications', 1);
+        $this->assertSame(1, DB::table('ticket_logs')->where('step', 'documentation_published')->count());
+        $this->signature('agreement', 'supervisor')->assertCreated();
+        $this->assertSame(1, DB::table('ticket_logs')->where('step', 'documentation_published')->count());
+    }
+
+    public function test_tc007_complete_agreement_can_be_signed_while_the_form_is_still_incomplete(): void
+    {
+        $this->prepare();
+        DB::table('service_customer_products')->where('id', 1)->update(['voltage' => null]);
+        DB::table('ticket_diagnosis_entries')->update(['body' => '']);
+        $this->login(2);
+        $this->getJson($this->url.'/documents')->assertOk()
+            ->assertJsonPath('data.documents.service_form.can.review_supervisor', true)
+            ->assertJsonPath('data.documents.agreement.can.review_supervisor', true)
+            ->assertJsonPath('data.documents.service_form.can.sign_supervisor', false)
+            ->assertJsonPath('data.documents.agreement.can.sign_supervisor', true)
+            ->assertJsonPath('data.documents.agreement.can.fill', true)
+            ->assertJsonPath('data.documents.service_form.can.fill', true);
+        foreach (['/service-form', '/agreement'] as $path) {
+            $this->getJson($this->url.$path)->assertOk()->assertJsonPath('data.can.review_supervisor', true);
+        }
+        $this->signature('service_form', 'supervisor')->assertUnprocessable()->assertJsonPath('code', 'document_incomplete');
+        $this->signature('agreement', 'supervisor')->assertCreated();
+        $this->assertDatabaseCount('ticket_document_publications', 0);
+    }
+
+    public function test_tc007_other_spv_cannot_open_ticket_or_documents_using_view_all_grant(): void
+    {
+        $this->prepare();
+        $this->submitForm()->assertOk();
+        $this->login(5);
+        foreach (['', '/documents', '/service-form', '/agreement', '/documents/service_form/signatures/technician/image'] as $path) {
+            $this->getJson($this->url.$path)->assertForbidden();
+        }
+        $this->signature('service_form', 'supervisor')->assertForbidden();
+        $this->signature('agreement', 'supervisor')->assertForbidden();
+        $this->assertDatabaseCount('ticket_document_publications', 0);
+    }
+
+    public function test_assigned_spv_and_technician_can_share_draft_entry_but_other_users_cannot(): void
+    {
+        $this->login(2);
+        $this->putForm(['unit' => ['voltage' => '230'], 'diagnosis' => [['field' => 'problem', 'body' => 'SPV finding']]])
+            ->assertOk()->assertJsonPath('data.can.fill', true);
+        $this->putJson($this->url.'/agreement', ['accepted_clauses' => [], 'customer_name' => 'SPV entered PIC'])
+            ->assertOk()->assertJsonPath('data.can.fill', true);
+        $this->signature('service_form', 'technician')->assertForbidden();
+        $this->login(1);
+        $this->putForm(['unit' => ['voltage' => '380']])->assertOk();
+        $this->putJson($this->url.'/agreement', ['accepted_clauses' => ['A1']])->assertOk();
+        $this->assertDatabaseHas('ticket_diagnosis_entries', ['body' => 'SPV finding']);
+        $this->assertDatabaseHas('service_customer_products', ['voltage' => '380']);
+        foreach ([3, 4, 5, 6] as $id) {
+            $this->login($id);
+            $this->putForm(['service_type' => 'preventive'])->assertForbidden();
+            $this->putJson($this->url.'/agreement', ['customer_name' => 'Unauthorized'])->assertForbidden();
+        }
+        $this->assertDatabaseHas('ticket_agreements', ['customer_name' => 'SPV entered PIC']);
+    }
+
+    public function test_assigned_spv_can_publish_complete_documents_without_a_separate_technician_submit(): void
+    {
+        $this->prepare();
+        $this->login(2);
+        $this->getJson($this->url.'/documents')->assertOk()
+            ->assertJsonPath('data.documents.agreement.can.sign_supervisor', true)
+            ->assertJsonPath('data.documents.service_form.can.sign_supervisor', true);
+        $this->signature('agreement', 'supervisor')->assertCreated();
+        $this->assertDatabaseCount('ticket_document_publications', 0);
+        $this->signature('service_form', 'supervisor')->assertCreated()->assertJsonPath('data.status', 'documentation_published');
+        $this->assertSame('documentation_published', Ticket::first()->progress);
+        $this->signature('service_form', 'supervisor')->assertCreated();
+        $this->assertDatabaseCount('ticket_document_publications', 1);
+        $this->assertDatabaseCount('satisfaction_links', 1);
+        $this->assertSame(1, DB::table('ticket_logs')->where('step', 'documentation_published')->count());
+        $this->putForm(['service_type' => 'preventive'])->assertConflict();
+    }
+
+    public function test_shared_spv_drafts_preserve_revision_conflict_protection(): void
+    {
+        $this->login(2);
+        $revision = $this->getJson($this->url.'/service-form')->assertOk()->json('data.revision');
+        $this->login(1);
+        $this->putForm(['unit' => ['voltage' => '400']])->assertOk();
+        $this->login(2);
+        $this->putJson($this->url.'/service-form', ['revision' => $revision, 'unit' => ['voltage' => '200']])
+            ->assertConflict()->assertJsonPath('code', 'service_form_conflict');
+        $this->assertDatabaseHas('service_customer_products', ['voltage' => '400']);
+        $this->putForm(['unit' => ['voltage' => '380']])->assertOk();
+    }
+
+    public function test_assigned_spv_can_attach_diagnosis_evidence_to_shared_drafts(): void
+    {
+        $this->login(2);
+        $this->post($this->url.'/service-form/diagnosis/photos', [
+            'field' => 'problem', 'photo' => \Illuminate\Http\UploadedFile::fake()->image('spv-evidence.jpg'),
+        ], ['Accept' => 'application/json'])->assertCreated();
+        $this->assertSame(2, DB::table('ticket_photos')->where('diagnosis_field', 'problem')->count());
     }
 
     public function test_camera_upload_rechecks_form_lock_even_with_a_pre_submission_value(): void

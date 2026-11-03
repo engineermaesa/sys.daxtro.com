@@ -90,6 +90,7 @@
                 <i class="bi bi-chevron-left text-[10px]"></i> Back
             </button>
             <div class="flex items-center" style="gap: 12px;">
+                <button type="button" id="ssFillDocument" class="doc-open hidden bg-white border border-[#115640] text-[#115640] rounded-lg cursor-pointer" style="padding: 8px 16px;">Fill document</button>
                 <span class="text-[#757575] text-xs">Signing confirms that the document has been checked.</span>
                 <button type="button" id="ssSign" disabled class="bg-[#115640] text-white font-semibold rounded-lg cursor-pointer disabled:opacity-50" style="padding: 8px 22px;">Save and sign</button>
             </div>

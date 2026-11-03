@@ -22,6 +22,7 @@ use App\Models\Aftersales\TicketSignature;
 use App\Models\Aftersales\TicketWorkOrder;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -97,6 +98,12 @@ class TicketDocuments
         return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.documents.sign');
     }
 
+    public static function canFill(User $user, Ticket $ticket): bool
+    {
+        return self::isTechnician($user, $ticket)
+            || (TicketDocumentWorkflow::enabled($ticket) && self::isSupervisor($user, $ticket));
+    }
+
     public static function isManager(User $user): bool
     {
         return (bool) $user->hasPermission('aftersales.tickets.manage');
@@ -104,11 +111,44 @@ class TicketDocuments
 
     public static function canViewAll(User $user): bool
     {
-        return $user->hasPermission('aftersales.tickets.manage') || $user->hasPermission('aftersales.tickets.view-all');
+        return ! self::isSupervisorScoped($user)
+            && ($user->hasPermission('aftersales.tickets.manage') || $user->hasPermission('aftersales.tickets.view-all'));
+    }
+
+    public static function isSupervisorScoped(User $user): bool
+    {
+        return $user->role?->code === 'supervisor_after_sales'
+            || ($user->hasPermission('aftersales.documents.sign')
+                && ! $user->hasPermission('aftersales.tickets.manage')
+                && ! $user->hasPermission('aftersales.tickets.close'));
+    }
+
+    public static function canListTickets(User $user): bool
+    {
+        return self::canViewAll($user)
+            || $user->hasPermission('aftersales.tickets.view-own')
+            || (self::isSupervisorScoped($user)
+                && ($user->hasPermission('aftersales.documents.sign') || $user->hasPermission('aftersales.tickets.view-all')));
+    }
+
+    public static function scopeVisibleTickets(Builder $query, User $user): Builder
+    {
+        abort_unless(self::canListTickets($user), 403);
+
+        if (self::isSupervisorScoped($user)) {
+            return $query->where('supervisor_id', $user->id);
+        }
+
+        return self::canViewAll($user) ? $query : $query->where('assigned_technician_id', $user->id);
     }
 
     public static function authorizeView(User $user, Ticket $ticket): void
     {
+        if (self::isSupervisorScoped($user)) {
+            abort_unless(self::canListTickets($user) && $ticket->supervisor_id === $user->id, 403);
+
+            return;
+        }
         abort_unless(self::canViewAll($user) || self::isTechnician($user, $ticket) || ($ticket->assigned_technician_id === $user->id && $user->hasPermission('aftersales.tickets.view-own')), 403);
     }
 
@@ -125,10 +165,11 @@ class TicketDocuments
             $type = $doc instanceof TicketServiceForm ? self::TYPE_FORM : self::TYPE_AGREEMENT;
 
             return [
-                'fill' => $draft && $tech && ! $published,
+                'review_supervisor' => $sup,
+                'fill' => $draft && self::canFill($user, $ticket) && ! $published,
                 'sign_technician' => $draft && $tech && ! $published,
                 'sign_customer' => $draft && $tech && ! $published,
-                'sign_supervisor' => $open && $sup && ! $published && $cycle?->service_form_submitted_at !== null
+                'sign_supervisor' => $open && $sup && ! $published
                     && $doc->status !== 'saved' && self::completeness($ticket, $type, false)['complete'],
                 'save' => false,
                 'submit' => $doc instanceof TicketServiceForm && TicketDocumentWorkflow::canSubmit($ticket, $doc, $user),
@@ -139,6 +180,7 @@ class TicketDocuments
         }
 
         return [
+            'review_supervisor' => $sup,
             'fill' => $draft && $tech,
             'sign_technician' => $draft && $tech,
             'sign_customer' => $draft && $tech,
@@ -309,7 +351,7 @@ class TicketDocuments
         DB::transaction(function () use ($ticket, $form, $data, $user, $revision) {
             if (TicketDocumentWorkflow::enabled($ticket)) {
                 $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
-                abort_unless(self::isTechnician($user, $ticket), 403);
+                abort_unless(self::canFill($user, $ticket), 403);
                 $form = ServiceFormRevisions::lockMaterial($ticket);
                 if ($revision !== null) {
                     ServiceFormRevisions::guard($ticket, $form, $revision);
@@ -432,7 +474,7 @@ class TicketDocuments
         if (TicketDocumentWorkflow::enabled($ticket)) {
             DB::transaction(function () use ($ticket, $agreement, $data, $user) {
                 $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
-                abort_unless($user && self::isTechnician($user, $ticket), 403);
+                abort_unless($user && self::canFill($user, $ticket), 403);
                 $agreement = TicketAgreement::whereKey($agreement->id)->lockForUpdate()->firstOrFail();
                 abort_if($ticket->progress === TicketLog::STEP_CLOSED || $agreement->isLocked(), 422, 'The Agreement is locked.');
                 if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
@@ -482,7 +524,9 @@ class TicketDocuments
                     TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
                 }
 
-                abort_unless($userId !== null && $ticket->assigned_technician_id === $userId, 403, 'This camera link belongs to a different technician.');
+                $actor = auth()->id() === $userId ? auth()->user() : ($userId ? User::find($userId) : null);
+                abort_unless($userId !== null && ($ticket->assigned_technician_id === $userId
+                    || ($actor && self::isSupervisor($actor, $ticket))), 403, 'This camera link belongs to a different technician or supervisor.');
                 $photo = self::storePhoto($value, $file, $ticket);
                 TicketCycleEdits::record($ticket, $userId);
 
