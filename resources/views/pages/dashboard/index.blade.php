@@ -2698,7 +2698,9 @@
 @elseif(auth()->user()->role?->code === 'sales')
     @include('pages.dashboard.sales.index')
 @elseif(auth()->user()->role?->code === 'after_sales')
-    @include('pages.dashboard.after-sales.index')
+    @include('pages.dashboard.after-sales.admin.index')
+@elseif(in_array(auth()->user()->role?->code, ['supervisor_after_sales', 'head_after_sales'], true))
+    @include('pages.dashboard.after-sales.supervisor.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}

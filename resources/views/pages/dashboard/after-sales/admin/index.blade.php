@@ -1,6 +1,6 @@
 <section class="min-h-screen sm:text-xs lg:text-sm" aria-labelledby="after-sales-heading">
     <header class="pt-4">
-        <h1 id="after-sales-heading" class="text-[#115640] font-semibold text-2xl">Supervisor Dashboad</h1>
+        <h1 id="after-sales-heading" class="text-[#115640] font-semibold text-2xl">Admin Dashboad</h1>
         <p class="text-[#757575] mt-1">Financial performance, service quality, and operational trends.</p>
     </header>
 
@@ -9,6 +9,7 @@
         <x-after-sales.stat-card
             icon="bi-clipboard-check"
             icon-bg="bg-yellow-50"
+            
             label="Pending Profiles"
             value="-"
             unit="units"
