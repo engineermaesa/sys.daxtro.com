@@ -9,16 +9,27 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TicketLog extends Model
 {
-    use HasFactory, SoftDeletes;
+    use Concerns\BelongsToTicketCycle, HasFactory, SoftDeletes;
 
     public const STEP_PUBLISHED = 'published';
+
     public const STEP_ASSIGNED = 'assigned';
+
     public const STEP_ON_SITE = 'on_site';
+
     public const STEP_REPAIR = 'repair';
+
     public const STEP_WAITING_SPAREPART = 'waiting_sparepart';
+
     public const STEP_DOCUMENTATION_PUBLISHED = 'documentation_published';
+
     public const STEP_SATISFACTION_SUBMITTED = 'satisfaction_submitted';
+
     public const STEP_CLOSED = 'closed';
+
+    public const STEP_HAPPY_CALL_COMPLETED = 'happy_call_completed';
+
+    public const STEP_RECOMING = 'recoming';
 
     public const STEPS = [
         self::STEP_PUBLISHED,
@@ -28,11 +39,15 @@ class TicketLog extends Model
         self::STEP_WAITING_SPAREPART,
         self::STEP_DOCUMENTATION_PUBLISHED,
         self::STEP_SATISFACTION_SUBMITTED,
+        self::STEP_HAPPY_CALL_COMPLETED,
         self::STEP_CLOSED,
+        self::STEP_RECOMING,
     ];
 
     protected $fillable = [
         'ticket_id',
+        'cycle_id',
+        'satisfaction_id',
         'step',
         'actor_user_id',
         'note',

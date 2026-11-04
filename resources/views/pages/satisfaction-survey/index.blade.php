@@ -1,505 +1,654 @@
 @extends('layouts.app')
 
 @section('content')
-<section class="text-xs! lg:text-sm! text-[#1E1E1E]">
-    <div class="pt-4">
-        <h1 class="font-bold text-xl lg:text-2xl text-[#1E1E1E]">Satisfaction Survey</h1>
-        <p class="text-[#757575] mt-1">Customer satisfaction tracking for after-sales service quality.</p>
-    </div>
-
-    {{-- SUMMARY CARDS --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-        {{-- WORK TYPE --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#417866] text-[#417866] [&_svg]:w-4 [&_svg]:h-4"><x-icon.task/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">WORK TYPE</span>
-            </div>
-            <p class="mt-4 text-2xl font-bold">{{ $totalWorkType }} <span class="text-sm font-normal text-[#757575]">total</span></p>
-            <ul class="mt-3 divide-y divide-[#EDEDED]">
-                @foreach ($jobTypes as $type)
-                    <li class="flex items-center justify-between py-1.5">
-                        <span>{{ $type }}</span>
-                        <span class="font-semibold">{{ $jobTypeCounts[$type] ?? 0 }}</span>
-                    </li>
-                @endforeach
-            </ul>
+<section id="surveyRoot" class="text-xs! lg:text-sm! text-[#1E1E1E]"
+    data-can-review="{{ auth()->user()?->hasPermission('satisfaction-survey.review') ? 1 : 0 }}">
+    {{-- LIST VIEW --}}
+    <div id="surveyListView">
+        <div class="pt-4">
+            <h1 class="font-bold text-xl lg:text-2xl text-[#115640]">Satisfaction Survey</h1>
+            <p class="text-[#757575] mt-1">Review customer feedback and service quality responses.</p>
         </div>
 
-        {{-- PENDING MACHINES --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#E8B931] text-[#E8B931] [&_svg]:w-4 [&_svg]:h-4"><x-icon.info/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">PENDING MACHINES</span>
-            </div>
-            <p class="mt-4 text-3xl font-bold text-[#E8B931]">{{ $pendingCount }}</p>
-            <p class="text-[#757575] mt-1">Machines not yet resolved</p>
-            @if ($pendingCompanies->isNotEmpty())
-                <hr class="my-3 border-[#EDEDED]">
-                <ul class="space-y-1.5">
-                    @foreach ($pendingCompanies->take(3) as $company)
-                        <li class="text-[#1E1E1E] truncate">{{ $company }}</li>
-                    @endforeach
-                </ul>
-                @if ($pendingCompanies->count() > 3)
-                    <button type="button" id="openPendingModal" class="mt-2 text-[#115640] font-semibold hover:underline cursor-pointer">
-                        View more ({{ $pendingCompanies->count() - 3 }})
-                    </button>
-                @endif
-            @endif
+        <form id="surveySearchForm" class="mt-4 p-4 bg-white border border-[#D9D9D9] rounded-lg flex flex-col lg:flex-row lg:items-center gap-3">
+            <input type="text" id="surveySearchInput" placeholder="Search ticket, customer, or technician"
+                class="flex-1 border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none focus:border-[#115640]" />
+            <select id="surveyReviewFilter" class="border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none focus:border-[#115640]">
+                <option value="">All review status</option>
+                <option value="normal">Normal</option>
+                <option value="needs_review">Needs review</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="rejected">Rejected</option>
+            </select>
+            <button type="submit" class="px-5 py-2 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Search</button>
+        </form>
+
+        <div class="mt-4 rounded-lg" style="padding: 12px 16px; background:#FFF3CD; color:#8A6D00;">
+            A ticket cannot be set to Closed while its latest response is Needs review or Rejected. Responses that are not Normal or Reviewed are left out of the technician rating.
         </div>
 
-        {{-- RESOLVED MACHINES --}}
-        <div class="p-5 bg-white border border-[#D9D9D9] rounded-lg">
-            <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full border border-[#115640] text-[#115640] [&_svg]:w-4 [&_svg]:h-4"><x-icon.circle-check/></span>
-                <span class="text-[#757575] font-semibold tracking-wide">RESOLVED MACHINES</span>
-            </div>
-            <p class="mt-4 text-3xl font-bold text-[#115640]">{{ $resolvedCount }}</p>
-            <p class="text-[#757575] mt-1">Machines working properly</p>
-            <div class="mt-4 flex items-center gap-3">
-                <div class="flex-1 h-2 bg-[#EDEDED] rounded-full overflow-hidden">
-                    <div class="h-full bg-[#115640] rounded-full" style="width: {{ $resolvedPct }}%"></div>
-                </div>
-                <span class="font-semibold text-[#757575]">{{ $resolvedPct }}%</span>
-            </div>
-        </div>
-    </div>
-
-    {{-- PENDING MACHINES MODAL --}}
-    @if ($pendingCompanies->count() > 3)
-        <div id="pendingModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-            <div class="bg-white rounded-lg w-full max-w-sm max-h-[70vh] overflow-y-auto p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-semibold">Pending Machines ({{ $pendingCompanies->count() }})</h3>
-                    <button type="button" id="closePendingModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
-                </div>
-                <ul class="divide-y divide-[#EDEDED]">
-                    @foreach ($pendingCompanies as $company)
-                        <li class="text-[#1E1E1E] py-2">{{ $company }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        </div>
-    @endif
-
-    {{-- SURVEY RESULTS --}}
-    <div class="mt-4 bg-white border border-[#D9D9D9] rounded-lg">
-        <div class="p-4 border-b border-[#D9D9D9]">
-            <h2 class="font-semibold text-base">Survey Results</h2>
-            <p class="text-[#757575]">{{ $responses->total() }} entries found</p>
-
-            <form id="surveyFilterForm" method="GET" action="{{ route('satisfaction-survey.index') }}"
-                class="mt-3 flex flex-col lg:flex-row lg:items-center gap-3">
-
-                <div class="flex-1 border border-[#D9D9D9] rounded-lg flex items-center gap-2 px-3">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
-                        <path d="M6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L17.3 15.9C17.4833 16.0833 17.575 16.3167 17.575 16.6C17.575 16.8833 17.4833 17.1167 17.3 17.3C17.1167 17.4833 16.8833 17.575 16.6 17.575C16.3167 17.575 16.0833 17.4833 15.9 17.3L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z" fill="#6B7786" />
-                    </svg>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Search customer, company, technician..."
-                        class="w-full py-2 border-none focus:outline-none" />
-                </div>
-
-                <select name="job_type" class="border border-[#D9D9D9] rounded-lg px-3 py-2 lg:w-48">
-                    <option value="">All Job Types</option>
-                    @foreach ($jobTypes as $type)
-                        <option value="{{ $type }}" @selected(request('job_type') === $type)>{{ $type }}</option>
-                    @endforeach
-                </select>
-
-                <select name="sort" class="border border-[#D9D9D9] rounded-lg px-3 py-2 lg:w-44">
-                    <option value="">Sort by Score</option>
-                    <option value="score_asc" @selected(request('sort') === 'score_asc')>Score: Low to High</option>
-                    <option value="score_desc" @selected(request('sort') === 'score_desc')>Score: High to Low</option>
-                </select>
-
-                <div class="relative shrink-0" id="serviceDateFilter">
-                    <button type="button" id="openServiceDate"
-                        class="flex items-center gap-2 border border-[#D9D9D9] rounded-lg px-3 py-2 w-full lg:w-auto cursor-pointer">
-                        <span id="serviceDateLabel" class="text-[#1E1E1E] whitespace-nowrap">
-                            @if (request('from_date') && request('to_date'))
-                                {{ request('from_date') }} &rarr; {{ request('to_date') }}
-                            @else
-                                Service Date
-                            @endif
-                        </span>
-                        <i id="serviceDateChevron" class="fas fa-chevron-down text-xs text-[#757575] transition-transform duration-200"></i>
-                    </button>
-
-                    <div id="serviceDateDropdown"
-                        class="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl w-[320px] p-4 z-50 opacity-0 scale-95 pointer-events-none transition-all duration-200 ease-out origin-top-right">
-                        <h3 class="font-semibold mb-2">Select Service Date Range</h3>
-
-                        <div class="flex justify-center">
-                            <input type="text" id="service-date-picker" class="hidden">
-                        </div>
-
-                        <div class="flex justify-end gap-2 mt-3">
-                            <button type="button" id="cancelServiceDate" class="px-3 py-1 text-[#303030] cursor-pointer">Cancel</button>
-                            <button type="button" id="applyServiceDate" class="px-3 py-1 bg-[#115640] text-white rounded-lg cursor-pointer">Apply</button>
-                        </div>
-                    </div>
-                </div>
-
-                <input type="hidden" name="from_date" id="fromDateInput" value="{{ request('from_date') }}">
-                <input type="hidden" name="to_date" id="toDateInput" value="{{ request('to_date') }}">
-            </form>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full whitespace-nowrap">
-                <thead>
-                    <tr class="border-b border-[#D9D9D9] text-left text-[#757575]">
-                        <th class="p-3 font-semibold">Customer / Company</th>
-                        <th class="p-3 font-semibold">WO #</th>
-                        <th class="p-3 font-semibold">Date</th>
-                        <th class="p-3 font-semibold">Technician</th>
-                        <th class="p-3 font-semibold">Job Type</th>
-                        <th class="p-3 font-semibold">Avg Score</th>
-                        <th class="p-3 font-semibold">Machine Functioning</th>
-                        <th class="p-3 font-semibold">Pending Issues</th>
-                        <th class="p-3 font-semibold">Feedback</th>
-                        <th class="p-3 font-semibold">Respondent / Role</th>
-                        <th class="p-3 font-semibold">Submitted</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($responses as $row)
-                        <tr class="border-b border-[#D9D9D9] align-top">
-                            <td class="p-3">
-                                <p class="font-semibold">{{ $row['customer'] }}</p>
-                                <p class="text-[#757575]">{{ $row['company'] }}</p>
-                            </td>
-                            <td class="p-3">{{ $row['wo_number'] }}</td>
-                            <td class="p-3">{{ $row['service_date']?->format('d M y') }}</td>
-                            <td class="p-3">{{ $row['technician'] }}</td>
-                            <td class="p-3">
-                                @if ($row['job_type'] !== '')
-                                    @php
-                                        $jobTypeLabels = ['Preventive Maintenance' => 'PM', 'Installation' => 'Install'];
-                                    @endphp
-                                    <span class="px-2 py-1 rounded-md bg-[#EDEDED] text-[#1E1E1E] font-medium">
-                                        {{ $jobTypeLabels[$row['job_type']] ?? $row['job_type'] }}
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                @if (! is_null($row['avg_score']))
-                                    @php
-                                        $scoreColor = $row['avg_score'] >= 4 ? '#115640' : ($row['avg_score'] >= 3 ? '#B4841F' : '#EC221F');
-                                        $scoreModalData = [
-                                            'avg' => $row['avg_score'],
-                                            'customer' => $row['customer'],
-                                            'wo' => $row['wo_number'],
-                                            'date' => optional($row['service_date'])->format('d M Y'),
-                                            'technician' => $row['technician'],
-                                            'breakdown' => $row['score_breakdown'],
-                                        ];
-                                    @endphp
-                                    <span class="inline-flex items-center gap-1.5">
-                                        <span class="font-semibold" style="color: {{ $scoreColor }}">{{ number_format($row['avg_score'], 1) }}</span>
-                                        <button type="button"
-                                            class="score-trigger w-5 h-5 flex items-center justify-center rounded-full border border-[#115640] text-[#115640] cursor-pointer"
-                                            data-score="{{ json_encode($scoreModalData) }}">
-                                            <i class="fas fa-info text-[9px]"></i>
-                                        </button>
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                @if ($row['machine_ok'] === true)
-                                    <span class="px-2 py-1 rounded-md bg-[#E7F3EE] text-[#115640] font-medium">Yes</span>
-                                @elseif ($row['machine_ok'] === false)
-                                    <span class="px-2 py-1 rounded-md bg-[#FBEAEA] text-[#EC221F] font-medium">No</span>
-                                @endif
-                            </td>
-                            @php
-                                $issueModalMeta = [
-                                    'customer' => $row['customer'],
-                                    'wo' => $row['wo_number'],
-                                    'date' => optional($row['service_date'])->format('d M Y'),
-                                    'technician' => $row['technician'],
-                                ];
-                            @endphp
-                            <td class="p-3 w-[160px]">
-                                @if ($row['pending_issues'])
-                                    <button type="button" class="issue-trigger flex items-center gap-2 w-full text-left cursor-pointer"
-                                        data-issue="{{ json_encode($issueModalMeta + ['title' => 'Pending Issues', 'text' => $row['pending_issues']]) }}">
-                                        <span class="truncate min-w-0">{{ \Illuminate\Support\Str::limit($row['pending_issues'], 25) }}</span>
-                                        <span class="shrink-0 w-6 h-6 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#757575]">
-                                            <i class="fas fa-arrow-right text-[10px]"></i>
-                                        </span>
-                                    </button>
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            <td class="p-3 w-[160px]">
-                                @if ($row['feedback'])
-                                    <button type="button" class="issue-trigger flex items-center gap-2 w-full text-left cursor-pointer"
-                                        data-issue="{{ json_encode($issueModalMeta + ['title' => 'Feedback', 'text' => $row['feedback']]) }}">
-                                        <span class="truncate min-w-0 text-[#115640]">{{ \Illuminate\Support\Str::limit($row['feedback'], 25) }}</span>
-                                        <span class="shrink-0 w-6 h-6 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#757575]">
-                                            <i class="fas fa-arrow-right text-[10px]"></i>
-                                        </span>
-                                    </button>
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            <td class="p-3">
-                                <p class="font-semibold">{{ $row['respondent'] }}</p>
-                                <p class="text-[#757575]">{{ $row['role'] }}</p>
-                            </td>
-                            <td class="p-3">{{ $row['submitted_at']?->format('d M Y H:i') }}</td>
+        <div class="table-cards-wrap mt-4 bg-white border border-[#D9D9D9] rounded-lg">
+            <div class="overflow-x-auto">
+                <table class="table-cards w-full whitespace-nowrap">
+                    <thead>
+                        <tr class="border-b border-[#D9D9D9] text-[#757575] bg-[#FAFAFA] text-center">
+                            <th class="p-3 font-semibold">Ticket ID</th>
+                            <th class="p-3 font-semibold">Customer</th>
+                            <th class="p-3 font-semibold">Technician</th>
+                            <th class="p-3 font-semibold">Service Date</th>
+                            <th class="p-3 font-semibold">Submitted On</th>
+                            <th class="p-3 font-semibold">Average</th>
+                            <th class="p-3 font-semibold">Machine OK</th>
+                            <th class="p-3 font-semibold">Source</th>
+                            <th class="p-3 font-semibold">Review</th>
+                            <th class="p-3 font-semibold">Action</th>
                         </tr>
-                    @empty
-                        <tr>
-                            <td class="p-10 text-center text-[#757575]" colspan="11">No survey responses found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        {{-- PAGINATION --}}
-        <div class="flex justify-between items-center px-4 py-3 text-[#1E1E1E] border-t border-[#D9D9D9]">
-            <p class="text-[#757575]">
-                Showing {{ $responses->firstItem() ?? 0 }} to {{ $responses->lastItem() ?? 0 }} of {{ $responses->total() }} entries
-            </p>
-
-            @if ($responses->lastPage() > 1)
-                <div class="flex items-center gap-1">
-                    <a href="{{ $responses->previousPageUrl() ?? '#' }}"
-                        class="p-2 border border-[#D9D9D9] rounded-md {{ $responses->onFirstPage() ? 'pointer-events-none opacity-40' : '' }}">
-                        <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
-                    </a>
-
-                    @for ($p = 1; $p <= $responses->lastPage(); $p++)
-                        <a href="{{ $responses->url($p) }}"
-                            class="px-3 py-1.5 rounded-md border {{ $p === $responses->currentPage() ? 'bg-[#115640] text-white border-[#115640]' : 'border-[#D9D9D9]' }}">
-                            {{ $p }}
-                        </a>
-                    @endfor
-
-                    <a href="{{ $responses->nextPageUrl() ?? '#' }}"
-                        class="p-2 border border-[#D9D9D9] rounded-md {{ ! $responses->hasMorePages() ? 'pointer-events-none opacity-40' : '' }}">
-                        <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
-                    </a>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- ISSUE / FEEDBACK DETAIL MODAL --}}
-    <div id="issueModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg w-full max-w-sm p-5">
-            <div class="flex items-center justify-between mb-4">
-                <h3 id="issueModalTitle" class="font-semibold text-base"></h3>
-                <button type="button" id="closeIssueModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
+                    </thead>
+                    <tbody id="surveyTableBody">
+                        <tr><td class="p-10 text-center text-[#757575]" colspan="10">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="flex items-center justify-between bg-[#F7F7F7] rounded-lg p-3 mb-4">
-                <div>
-                    <p id="issueModalCustomer" class="font-semibold"></p>
-                    <p id="issueModalMeta" class="text-[#757575] text-xs mt-0.5"></p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] uppercase text-[#9CA3AF] font-semibold">Technician</p>
-                    <p id="issueModalTechnician" class="font-semibold"></p>
-                </div>
-            </div>
-            <p id="issueModalText" class="text-[#1E1E1E]"></p>
-        </div>
-    </div>
-
-    {{-- SCORE BREAKDOWN MODAL --}}
-    <div id="scoreModal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg w-full max-w-md p-5">
-            <div class="flex items-start justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="bg-[#E7F3EE] rounded-lg px-3 py-1.5 text-center">
-                        <p id="scoreModalAvg" class="text-[#115640] font-bold text-lg leading-none"></p>
-                        <p class="text-[10px] text-[#417866]">/ 5.0</p>
-                    </div>
-                    <div>
-                        <p class="font-semibold">Score Breakdown</p>
-                        <p id="scoreModalCriteria" class="text-[#757575] text-xs"></p>
-                    </div>
-                </div>
-                <button type="button" id="closeScoreModal" class="text-[#757575] cursor-pointer text-lg leading-none">&times;</button>
-            </div>
-
-            <div class="flex items-center justify-between bg-[#F7F7F7] rounded-lg p-3 mb-4">
-                <div>
-                    <p id="scoreModalCustomer" class="font-semibold"></p>
-                    <p id="scoreModalMeta" class="text-[#757575] text-xs mt-0.5"></p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] uppercase text-[#9CA3AF] font-semibold">Technician</p>
-                    <p id="scoreModalTechnician" class="font-semibold"></p>
-                </div>
-            </div>
-
-            <ul id="scoreModalList" class="space-y-2.5 max-h-[45vh] overflow-y-auto"></ul>
-
-            <div class="mt-4 pt-3 border-t border-[#EDEDED] flex items-center justify-between gap-3">
-                <p class="text-[#757575] shrink-0"><span class="text-[#115640] font-semibold">Overall</span> Average</p>
-                <div class="flex items-center gap-2 flex-1">
-                    <div class="flex-1 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden">
-                        <div id="scoreModalOverallBar" class="h-full bg-[#115640] rounded-full"></div>
-                    </div>
-                    <span id="scoreModalOverallValue" class="font-bold text-[#115640] shrink-0"></span>
+            <div class="flex items-center justify-between gap-3 p-3 border-t border-[#D9D9D9]">
+                <p id="surveyPageInfo" class="text-[#757575]"></p>
+                <div class="flex gap-2">
+                    <button type="button" id="surveyPrev" class="px-3 py-1.5 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">Previous</button>
+                    <button type="button" id="surveyNext" class="px-3 py-1.5 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">Next</button>
                 </div>
             </div>
         </div>
     </div>
+
+    @include('pages.satisfaction-survey.details')
+    @include('pages.satisfaction-survey.review')
+    @include('pages.satisfaction-survey.view-form')
+    @include('pages.satisfaction-survey.recoming')
 </section>
 @endsection
 
 @section('scripts')
 <script>
     (function () {
-        const form = document.getElementById('surveyFilterForm');
-        if (! form) return;
+        const API = '/api/aftersales';
+        const root = document.getElementById('surveyRoot');
+        const canReview = root.dataset.canReview === '1';
+        const listView = document.getElementById('surveyListView');
+        const detailView = document.getElementById('surveyDetailView');
+        const formView = document.getElementById('surveyFormView');
+        const reviewView = document.getElementById('surveyReviewView');
+        const tbody = document.getElementById('surveyTableBody');
 
-        form.querySelectorAll('select').forEach(function (el) {
-            el.addEventListener('change', function () { form.requestSubmit(); });
-        });
+        const state = { page: 1, lastPage: 1, search: '', review: '' };
+        let rows = [];          // list rows of the current page
+        let current = null;     // { id, row, detail }
+        const recomingIds = {}; // response ids that were scheduled for Recoming in this session
 
-        let searchTimer = null;
-        form.querySelector('input[name="search"]').addEventListener('input', function () {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(function () { form.requestSubmit(); }, 500);
-        });
+        const RATING_SCALE_MAX = 3;
+        const REVIEW_LABEL = { normal: 'Normal', needs_review: 'Needs review', reviewed: 'Reviewed', rejected: 'Rejected' };
+        const REVIEW_REASON_TEXT = {
+            fast_completion: 'Completed in under 30 seconds',
+            same_browser_as_technician: 'Browser/device signature matches a technician login within 24 hours',
+            same_network_as_technician: 'Same network as the technician',
+            phone_changed_recently: 'Customer WhatsApp number changed in the last 24 hours',
+            admin_input: 'Entered by admin',
+        };
+        const RECOMING_REASON = {
+            'Spare part not available yet': 'sparepart_unavailable',
+            'Further work needed': 'further_work_needed',
+            'Site access / conditions': 'site_access',
+            'Other': 'other',
+        };
 
-        // SERVICE DATE RANGE PICKER
-        const openBtn = document.getElementById('openServiceDate');
-        const dropdown = document.getElementById('serviceDateDropdown');
-        const chevron = document.getElementById('serviceDateChevron');
-        const fromInput = document.getElementById('fromDateInput');
-        const toInput = document.getElementById('toDateInput');
-        const label = document.getElementById('serviceDateLabel');
+        const set = (id, text) => { document.getElementById(id).textContent = text; };
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const dash = (v) => (v === null || v === undefined || v === '') ? '-' : v;
 
-        const fp = flatpickr('#service-date-picker', {
-            mode: 'range',
-            inline: true,
-            dateFormat: 'Y-m-d',
-            defaultDate: (fromInput.value && toInput.value) ? [fromInput.value, toInput.value] : null,
-        });
-
-        function closeDropdown() {
-            dropdown.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            chevron.classList.remove('rotate-180');
+        function errMsg(xhr, fallback) {
+            return (xhr.responseJSON && (xhr.responseJSON.message || Object.values(xhr.responseJSON.errors || {}).flat()[0])) || fallback;
+        }
+        function fail(xhr, fallback) {
+            Swal.fire({ title: 'Error', text: errMsg(xhr, fallback), icon: 'error', confirmButtonColor: '#115640' });
         }
 
-        openBtn.addEventListener('click', function () {
-            dropdown.classList.toggle('opacity-0');
-            dropdown.classList.toggle('scale-95');
-            dropdown.classList.toggle('pointer-events-none');
-            chevron.classList.toggle('rotate-180');
-        });
-
-        document.addEventListener('click', function (e) {
-            if (! document.getElementById('serviceDateFilter').contains(e.target)) closeDropdown();
-        });
-
-        document.getElementById('cancelServiceDate').addEventListener('click', closeDropdown);
-
-        document.getElementById('applyServiceDate').addEventListener('click', function () {
-            const dates = fp.selectedDates;
-            if (dates.length !== 2) return closeDropdown();
-
-            const startDate = fp.formatDate(dates[0], 'Y-m-d');
-            const endDate = fp.formatDate(dates[1], 'Y-m-d');
-
-            fromInput.value = startDate;
-            toInput.value = endDate;
-            label.textContent = `${startDate} → ${endDate}`;
-
-            closeDropdown();
-            form.requestSubmit();
-        });
-
-        // PENDING MACHINES MODAL
-        const pendingModal = document.getElementById('pendingModal');
-        const openPendingModal = document.getElementById('openPendingModal');
-        const closePendingModal = document.getElementById('closePendingModal');
-
-        if (pendingModal && openPendingModal) {
-            openPendingModal.addEventListener('click', function () { pendingModal.classList.remove('hidden'); });
-            closePendingModal.addEventListener('click', function () { pendingModal.classList.add('hidden'); });
-            pendingModal.addEventListener('click', function (e) {
-                if (e.target === pendingModal) pendingModal.classList.add('hidden');
-            });
+        function fmtDateTime(iso) {
+            if (! iso) return '-';
+            const d = new Date(iso);
+            if (isNaN(d)) return iso;
+            return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
         }
-
-        // ISSUE / FEEDBACK DETAIL MODAL
-        const issueModal = document.getElementById('issueModal');
-
-        document.querySelectorAll('.issue-trigger').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const data = JSON.parse(this.dataset.issue);
-                document.getElementById('issueModalTitle').textContent = data.title;
-                document.getElementById('issueModalCustomer').textContent = data.customer;
-                document.getElementById('issueModalMeta').textContent = [data.wo, data.date].filter(Boolean).join(' · ');
-                document.getElementById('issueModalTechnician').textContent = data.technician;
-                document.getElementById('issueModalText').textContent = data.text;
-                issueModal.classList.remove('hidden');
-            });
-        });
-
-        document.getElementById('closeIssueModal').addEventListener('click', function () { issueModal.classList.add('hidden'); });
-        issueModal.addEventListener('click', function (e) {
-            if (e.target === issueModal) issueModal.classList.add('hidden');
-        });
-
-        // SCORE BREAKDOWN MODAL
-        const scoreModal = document.getElementById('scoreModal');
-
-        function scoreBarColor(score) {
-            if (score === null) return '#D9D9D9';
-            if (score >= 4.5) return '#115640';
-            if (score >= 3.5) return '#3FA772';
-            if (score >= 2.5) return '#E8B931';
-            return '#EC221F';
+        function fmtDuration(sec) {
+            if (sec === null || sec === undefined) return '-';
+            return String(Math.floor(sec / 60)).padStart(2, '0') + 'm ' + String(sec % 60).padStart(2, '0') + 's';
         }
+        function parseBrowser(ua) {
+            if (! ua) return '';
+            const mobile = /Mobile|Android|iPhone/i.test(ua) ? ' Mobile' : '';
+            if (/Edg\//.test(ua)) return 'Edge' + mobile;
+            if (/OPR\/|Opera/.test(ua)) return 'Opera' + mobile;
+            if (/Chrome\//.test(ua)) return 'Chrome' + mobile;
+            if (/Firefox\//.test(ua)) return 'Firefox' + mobile;
+            if (/Safari\//.test(ua)) return 'Safari' + mobile;
+            return 'Unknown browser';
+        }
+        function machineBadge(v) {
+            if (v === true) return '<span class="px-2.5 py-1 rounded-full bg-[#E7F3EE] text-[#115640] font-semibold">Yes</span>';
+            if (v === false) return '<span class="px-2.5 py-1 rounded-full bg-[#FBEAEA] text-[#EC221F] font-semibold">No</span>';
+            return '<span class="text-[#757575]">-</span>';
+        }
+        function reviewText(row) {
+            return recomingIds[row.id] ? 'Recoming' : (REVIEW_LABEL[row.review_status] || '-');
+        }
+        function reviewColor(row) {
+            if (row.review_status === 'rejected') return 'text-[#EC221F]';
+            return (row.review_status === 'reviewed' && ! recomingIds[row.id]) ? 'text-[#115640]'
+                : (row.review_status === 'normal' ? 'text-[#757575]' : 'text-[#D97706]');
+        }
+        function scoreColor(score) {
+            return score >= 3 ? '#115640' : (score >= 2 ? '#E8B931' : '#EC221F');
+        }
+        function machineText(v, long) {
+            if (v === true) return long ? 'Yes, machine is working properly' : 'Working properly';
+            if (v === false) return long ? 'No, machine is not working properly' : 'Not working properly';
+            return '-';
+        }
+        function machineColor(v) { return v === true ? '#115640' : (v === false ? '#EC221F' : ''); }
 
-        document.querySelectorAll('.score-trigger').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const data = JSON.parse(this.dataset.score);
+        // ---------- LIST ----------
+        function renderList(meta) {
+            if (! rows.length) {
+                tbody.innerHTML = '<tr><td class="p-10 text-center text-[#757575]" colspan="10">No survey responses found.</td></tr>';
+            } else {
+                tbody.innerHTML = rows.map(function (r) {
+                    const needsReview = r.review_status === 'needs_review';
+                    const history = r.is_current === false
+                        ? ' <span class="px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#757575] text-[10px] font-semibold">History</span>' : '';
+                    const action = (needsReview && canReview)
+                        ? `<button type="button" data-id="${r.id}" class="review-response px-3 py-1.5 bg-[#115640] text-white font-semibold rounded-lg cursor-pointer">Review</button>`
+                        : `<button type="button" data-id="${r.id}" class="view-detail px-3 py-1.5 bg-white border border-[#D9D9D9] rounded-lg cursor-pointer">View</button>`;
 
-                document.getElementById('scoreModalAvg').textContent = data.avg !== null ? Number(data.avg).toFixed(1) : '-';
-                document.getElementById('scoreModalCriteria').textContent = data.breakdown.length + ' criteria evaluated';
-                document.getElementById('scoreModalCustomer').textContent = data.customer;
-                document.getElementById('scoreModalMeta').textContent = [data.wo, data.date].filter(Boolean).join(' · ');
-                document.getElementById('scoreModalTechnician').textContent = data.technician;
-
-                document.getElementById('scoreModalList').innerHTML = data.breakdown.map(function (item, index) {
-                    const num = String(index + 1).padStart(2, '0');
-                    const width = item.score !== null ? (item.score / 5 * 100) : 0;
-
-                    return `<li class="flex items-center gap-3">
-                        <span class="text-[#B0B0B0] font-semibold w-5 shrink-0">${num}</span>
-                        <span class="flex-1 text-[#1E1E1E] truncate">${item.label}</span>
-                        <span class="w-24 h-1.5 bg-[#EDEDED] rounded-full overflow-hidden shrink-0">
-                            <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreBarColor(item.score)}"></span>
-                        </span>
-                        <span class="w-7 text-center font-semibold text-[#115640] bg-[#E7F3EE] rounded-md py-0.5 shrink-0">${item.score ?? '-'}</span>
-                    </li>`;
+                    return `<tr class="border-b border-[#D9D9D9] last:border-b-0 ${r.is_current === false ? 'bg-[#FAFAFA]' : ''}">
+                        <td class="p-3 font-semibold text-[#115640] text-center" data-label="Ticket ID" data-primary>${esc(r.ticket_code)}${history}</td>
+                        <td class="p-3 font-semibold text-center" data-label="Customer">${esc(r.customer)}</td>
+                        <td class="text-center p-3 text-[#757575]" data-label="Technician">${esc(dash(r.technician))}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Service Date" data-secondary>${esc(dash(r.service_date))}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Submitted On" data-secondary>${esc(fmtDateTime(r.submitted_at))}</td>
+                        <td class="p-3 font-semibold text-[#115640] text-center" data-label="Average">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1) + ' / ' + RATING_SCALE_MAX}</td>
+                        <td class="p-3 text-center" data-label="Machine OK">${machineBadge(r.machine_ok)}</td>
+                        <td class="p-3 text-center text-[#757575]" data-label="Source" data-secondary>${esc(dash(r.source_label))}</td>
+                        <td class="p-3 text-center" data-label="Review">
+                            <span class="font-semibold ${reviewColor(r)}">${esc(reviewText(r))}</span>
+                        </td>
+                        <td class="p-3 text-center" data-label="Action">${action}</td>
+                        <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
+                    </tr>`;
                 }).join('');
+            }
+            state.lastPage = meta.last_page || 1;
+            set('surveyPageInfo', 'Page ' + (meta.current_page || 1) + ' of ' + state.lastPage + ' · ' + (meta.total || 0) + ' responses');
+            document.getElementById('surveyPrev').disabled = state.page <= 1;
+            document.getElementById('surveyNext').disabled = state.page >= state.lastPage;
+        }
 
-                const overallWidth = data.avg !== null ? (data.avg / 5 * 100) : 0;
-                document.getElementById('scoreModalOverallBar').style.width = overallWidth + '%';
-                document.getElementById('scoreModalOverallValue').textContent = data.avg !== null ? Number(data.avg).toFixed(1) : '-';
+        function loadList() {
+            tbody.innerHTML = '<tr><td class="p-10 text-center text-[#757575]" colspan="10">Loading...</td></tr>';
+            $.ajax({
+                url: API + '/satisfaction-surveys',
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                data: { search: state.search, review_status: state.review, page: state.page, per_page: 15 },
+                success: function (res) {
+                    rows = res.data || [];
+                    renderList(res);
+                },
+                error: function (xhr) {
+                    rows = [];
+                    tbody.innerHTML = '<tr><td class="p-10 text-center text-[#EC221F]" colspan="10">' + esc(errMsg(xhr, 'Failed to load survey responses.')) + '</td></tr>';
+                },
+            });
+        }
 
-                scoreModal.classList.remove('hidden');
+        document.getElementById('surveySearchForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            state.search = document.getElementById('surveySearchInput').value.trim();
+            state.review = document.getElementById('surveyReviewFilter').value;
+            state.page = 1;
+            loadList();
+        });
+        document.getElementById('surveyReviewFilter').addEventListener('change', function () {
+            state.review = this.value;
+            state.page = 1;
+            loadList();
+        });
+        document.getElementById('surveyPrev').addEventListener('click', function () {
+            if (state.page > 1) { state.page--; loadList(); }
+        });
+        document.getElementById('surveyNext').addEventListener('click', function () {
+            if (state.page < state.lastPage) { state.page++; loadList(); }
+        });
+
+        // ---------- ROW ACTIONS (delegated; rows are rendered dynamically) ----------
+        // buka lewat hash supaya hashchange yang memuat layar (satu request, back/forward ikut jalan)
+        tbody.addEventListener('click', function (e) {
+            // mobile card view: expand / collapse the secondary fields of one response
+            const more = e.target.closest('.card-more');
+            if (more) {
+                const row = more.closest('tr');
+                row.classList.toggle('is-open');
+                more.textContent = row.classList.contains('is-open') ? 'Show less' : 'Show more';
+                return;
+            }
+            const review = e.target.closest('.review-response');
+            const view = e.target.closest('.view-detail');
+            if (review) location.hash = review.dataset.id + '/review';
+            else if (view) location.hash = view.dataset.id;
+        });
+
+        // ---------- DETAIL ----------
+        function showView(which) {
+            listView.classList.toggle('hidden', which !== 'list');
+            detailView.classList.toggle('hidden', which !== 'detail');
+            formView.classList.toggle('hidden', which !== 'form');
+            reviewView.classList.toggle('hidden', which !== 'review');
+            window.scrollTo(0, 0);
+        }
+
+        function showList() {
+            current = null;
+            showView('list');
+            if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+        }
+
+        function setSignature(imgId, url) {
+            const img = document.getElementById(imgId);
+            img.classList.toggle('hidden', ! url);
+            if (url) img.src = url; else img.removeAttribute('src');
+        }
+
+        function showDetail(id) {
+            id = parseInt(id, 10);
+            if (! id) return showList();
+
+            $.ajax({
+                url: API + '/satisfaction-surveys/' + id,
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                success: function (res) {
+                    const d = res.data;
+                    const row = rows.find(function (r) { return r.id === d.id; }) || {};
+                    current = { id: d.id, row: row, detail: d };
+                    renderDetail();
+                    showView('detail');
+                },
+                error: function (xhr) {
+                    fail(xhr, 'Failed to load survey response.');
+                    showList();
+                },
+            });
+        }
+
+        function renderDetail() {
+            const d = current.detail, f = d.feedback || {}, s = d.summary || {}, t = d.security_trail || {};
+            const machine = s.machine_ok;
+
+            set('dTicketCrumb', d.ticket_code);
+            set('dAvg', s.average_score === null || s.average_score === undefined ? '-' : Number(s.average_score).toFixed(1));
+            set('dCustomer', dash(s.customer));
+            set('dMachineTop', machineText(machine, false));
+            const topEl = document.getElementById('dMachineTop');
+            topEl.className = 'inline-block px-3 py-1 rounded-md text-sm font-semibold ' + (machine === true ? 'bg-[#E6F4EF] text-[#115640]' : (machine === false ? 'bg-[#FBEAEA] text-[#900B09]' : ''));
+            set('dAvgLabel', s.average_score === null || s.average_score === undefined ? '' : (Number(s.average_score) < 2.5 ? 'Needs improvement' : 'Good'));
+            set('dMachine', machineText(machine, false));
+            document.getElementById('dMachine').style.color = machineColor(machine);
+            set('dSource', dash(s.source_label));
+            set('dExplanation', dash(f.machine_issue_note));
+            set('dComments', dash(f.comments));
+            set('dSigner', [f.signer_name, f.signer_position].filter(Boolean).join(' · ') || '-');
+            setSignature('dSignature', f.signature_url);
+
+            document.getElementById('dAdminReasonWrap').classList.toggle('hidden', ! s.admin_input_reason);
+            set('dAdminReason', s.admin_input_reason || '');
+
+            set('dOtp', t.otp_verified === null || t.otp_verified === undefined ? '-'
+                : (t.otp_verified ? 'Yes' : 'No') + (t.otp_phone_masked ? ' · ' + t.otp_phone_masked : ''));
+            set('dLinkBy', dash(t.link_created_by));
+            set('dSharedVia', t.shared_via === 'copy' ? 'Copied link' : (t.shared_via === 'whatsapp' ? 'WhatsApp' : '-'));
+            set('dDevice', [t.ip_address, parseBrowser(t.user_agent)].filter(Boolean).join(' · ') || '-');
+            set('dDuration', fmtDuration(t.duration_seconds));
+            const reasons = t.review_reasons || [];
+            set('dReason', reasons.length ? reasons.map(function (c) { return REVIEW_REASON_TEXT[c] || c; }).join(', ') : 'High confidence response');
+
+            const ratings = (f.ratings || []).slice().sort(function (x, y) { return x.score - y.score; });
+            document.getElementById('dBreakdown').innerHTML = ratings.map(function (item, i) {
+                const width = item.score / RATING_SCALE_MAX * 100;
+                const rounded = Math.round(item.score);
+                const tag = rounded <= 1 ? 'Needs attention' : (rounded === 2 ? 'Fair' : 'Good');
+                const span = (ratings.length % 2 === 1 && i === ratings.length - 1) ? ' sm:col-span-2' : '';
+                return `<li class="p-4 border border-[#D9D9D9] rounded-lg${span}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm">${esc(item.label)}</span>
+                        <span class="px-2 py-0.5 rounded-md bg-[#E6F4EF] text-[#115640] text-[10px]">${tag}</span>
+                    </div>
+                    <p class="mt-2"><span class="text-2xl font-bold text-[#115640]">${Number(item.score).toFixed(1).replace(/\.0$/, '')}</span> <span class="text-[10px] text-[#9CA3AF]">/ ${RATING_SCALE_MAX}</span></p>
+                    <div class="relative mt-2 h-2 rounded-full bg-[#EDEDED] overflow-hidden">
+                        <span class="block h-full rounded-full" style="width:${width}%; background-color:${scoreColor(item.score)}"></span>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:33.33%"></span>
+                        <span class="absolute top-0 h-full w-0.5 bg-white" style="left:66.66%"></span>
+                    </div>
+                    <div class="flex justify-between mt-1 text-[9px] text-[#9CA3AF]"><span>0</span><span>1</span><span>2</span><span>3</span></div>
+                </li>`;
+            }).join('');
+
+            // review (D9): status, reviewer, note, dan semua respons pada tiket ini
+            set('dReviewStatus', REVIEW_LABEL[t.review_status] || '-');
+            set('dReviewedBy', dash(d.reviewed_by));
+            set('dReviewNote', dash(d.review_note));
+            document.getElementById('dResponsesBody').innerHTML = (d.responses || []).map(function (r) {
+                const tag = r.current
+                    ? '<span class="px-2 py-0.5 rounded-full bg-[#E7F3EE] text-[#115640] text-[10px] font-semibold">Current</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-[#F0F0F0] text-[#757575] text-[10px] font-semibold">History</span>';
+                const sub = [r.reviewed_by, r.review_note].filter(Boolean).join(' · ');
+                return `<tr class="border-t border-[#EDEDED] ${r.id === d.id ? 'bg-[#F5FAF8]' : ''}">
+                    <td class="p-2">${r.id === d.id ? tag : `<button type="button" class="response-link underline text-[#115640] cursor-pointer" data-id="${r.id}">${tag.replace(/<[^>]+>/g, '')}</button>`}</td>
+                    <td class="p-2">${esc(fmtDateTime(r.submitted_at))}</td>
+                    <td class="p-2 text-center">${r.average_score === null ? '-' : Number(r.average_score).toFixed(1)}</td>
+                    <td class="p-2 font-semibold">${esc(REVIEW_LABEL[r.review_status] || r.review_status)}</td>
+                    <td class="p-2 text-[#757575]">${esc(dash(sub))}</td>
+                </tr>`;
+            }).join('') || '<tr class="border-t border-[#EDEDED]"><td class="p-2 text-[#9CA3AF]" colspan="5">No other responses.</td></tr>';
+
+            renderActions();
+        }
+
+        document.getElementById('dResponsesBody').addEventListener('click', function (e) {
+            const link = e.target.closest('.response-link');
+            if (link) location.hash = link.dataset.id;
+        });
+
+        function renderActions() {
+            const d = current.detail;
+            const status = d.security_trail ? d.security_trail.review_status : null;
+            // tombol Review hanya untuk respons Needs review dan user yang boleh mereview
+            document.getElementById('btnReview').classList.toggle('hidden', ! (canReview && status === 'needs_review'));
+
+            const done = !! recomingIds[d.id];
+            const rcBtn = document.getElementById('btnScheduleRecoming');
+            rcBtn.textContent = done ? 'Recoming scheduled' : 'Schedule Recoming';
+            rcBtn.disabled = done;
+            rcBtn.classList.toggle('opacity-60', done);
+            rcBtn.classList.toggle('cursor-not-allowed', done);
+        }
+
+        document.getElementById('btnReview').addEventListener('click', function () {
+            if (current) location.hash = current.id + '/review';
+        });
+
+        // ---------- D12 REVIEW RESPONSE ----------
+        const rvNote = document.getElementById('rvNote');
+        const rvFeedback = document.getElementById('rvFeedback');
+
+        function showReview(id) {
+            id = parseInt(id, 10);
+            if (! id) return showList();
+
+            const loadForm = function (detail) {
+                $.ajax({
+                    url: API + '/satisfaction-surveys/' + id + '/form',
+                    method: 'GET',
+                    headers: { Accept: 'application/json' },
+                    success: function (res) { renderReview(detail, res.data || {}); showView('review'); },
+                    error: function (xhr) { fail(xhr, 'Failed to load survey form.'); showList(); },
+                });
+            };
+
+            if (current && current.id === id) return loadForm(current.detail);
+
+            $.ajax({
+                url: API + '/satisfaction-surveys/' + id,
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                success: function (res) {
+                    const d = res.data;
+                    current = { id: d.id, row: rows.find(function (r) { return r.id === d.id; }) || {}, detail: d };
+                    loadForm(d);
+                },
+                error: function (xhr) { fail(xhr, 'Failed to load survey response.'); showList(); },
+            });
+        }
+
+        function renderReview(d, form) {
+            const f = d.feedback || {}, s = d.summary || {}, t = d.security_trail || {}, job = form.job_information || {};
+            const status = t.review_status;
+
+            set('rvTicketCrumb', d.ticket_code);
+            set('rvTicket', dash(job.ticket_code || d.ticket_code));
+            set('rvCustomer', dash(job.customer || s.customer));
+            set('rvTechnician', dash(job.technician));
+            set('rvServiceDate', dash(job.service_date));
+
+            set('rvAvg', s.average_score === null || s.average_score === undefined ? '-' : Number(s.average_score).toFixed(1));
+            document.getElementById('rvRatings').innerHTML = (f.ratings || []).map(function (item) {
+                return `<li class="flex items-center gap-4">
+                    <span style="flex:0 0 200px; width:200px;">${esc(item.label)}</span>
+                    <span style="flex:1 1 0; min-width:0; height:8px; background:#EDEDED; border-radius:9999px; overflow:hidden;">
+                        <span class="block h-full rounded-full" style="width:${item.score / RATING_SCALE_MAX * 100}%; background-color:${scoreColor(item.score)}"></span>
+                    </span>
+                    <span style="flex:0 0 40px; width:40px; text-align:right;" class="font-bold text-[#115640]">${Number(item.score).toFixed(1)}</span>
+                </li>`;
+            }).join('');
+
+            set('rvMachine', machineText(f.machine_ok, true));
+            document.getElementById('rvMachine').style.color = machineColor(f.machine_ok);
+            document.getElementById('rvMachineNoteWrap').classList.toggle('hidden', ! f.machine_issue_note);
+            set('rvMachineNote', f.machine_issue_note || '');
+            set('rvComments', dash(f.comments));
+
+            const reasons = t.review_reasons || [];
+            document.getElementById('rvFlagged').innerHTML = reasons.length
+                ? reasons.map(function (c) { return '<li>' + esc(REVIEW_REASON_TEXT[c] || c) + '</li>'; }).join('')
+                : '<li>No specific reason recorded.</li>';
+
+            set('rvOtp', t.otp_verified === null || t.otp_verified === undefined ? '-'
+                : (t.otp_verified ? 'Yes' : 'No') + (t.otp_phone_masked ? ' · ' + t.otp_phone_masked : ''));
+            set('rvLinkBy', dash(t.link_created_by));
+            set('rvSharedVia', t.shared_via === 'copy' ? 'Copied link' : (t.shared_via === 'whatsapp' ? 'WhatsApp' : '-'));
+            set('rvDevice', [t.ip_address, parseBrowser(t.user_agent)].filter(Boolean).join(' · ') || '-');
+            set('rvDuration', fmtDuration(t.duration_seconds));
+
+            // decision panel: hanya respons Needs review dan user dengan izin review
+            const canDecide = canReview && status === 'needs_review';
+            const locked = document.getElementById('rvDecisionLocked');
+            locked.classList.toggle('hidden', canDecide);
+            locked.textContent = ! canReview ? 'You do not have permission to review responses.'
+                : 'This response is ' + (REVIEW_LABEL[status] || status || 'not available').toLowerCase() + ' and cannot be reviewed again.';
+            document.getElementById('rvDecisionForm').classList.toggle('hidden', ! canDecide);
+            // card Decision baru tampil setelah klik Review Response (kalau tidak bisa memutuskan, langsung tampil sebagai info)
+            document.getElementById('rvSubmit').classList.add('hidden');
+            document.getElementById('rvStartReview').classList.toggle('hidden', ! canDecide);
+            document.getElementById('rvDecisionCard').classList.toggle('hidden', canDecide);
+
+            document.querySelectorAll('input[name="rvDecision"]').forEach(function (r) { r.checked = false; });
+            rvNote.value = '';
+            rvFeedback.textContent = '';
+            document.getElementById('rvNoteRequired').classList.add('hidden');
+        }
+
+        document.getElementById('rvStartReview').addEventListener('click', function () {
+            this.classList.add('hidden');
+            const card = document.getElementById('rvDecisionCard');
+            card.classList.remove('hidden');
+            document.getElementById('rvSubmit').classList.remove('hidden');
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+        document.querySelectorAll('input[name="rvDecision"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                document.getElementById('rvNoteRequired').classList.toggle('hidden', this.value !== 'reject');
             });
         });
 
-        document.getElementById('closeScoreModal').addEventListener('click', function () { scoreModal.classList.add('hidden'); });
-        scoreModal.addEventListener('click', function (e) {
-            if (e.target === scoreModal) scoreModal.classList.add('hidden');
+        document.getElementById('rvSubmit').addEventListener('click', function () {
+            if (! current) return;
+            const picked = document.querySelector('input[name="rvDecision"]:checked');
+            const note = rvNote.value.trim();
+
+            if (! picked) { rvFeedback.textContent = 'Choose Approve or Reject.'; return; }
+            if (picked.value === 'reject' && ! note) { rvFeedback.textContent = 'A note is required when rejecting.'; rvNote.focus(); return; }
+
+            const btn = this;
+            btn.disabled = true;
+            rvFeedback.textContent = '';
+            $.ajax({
+                url: API + '/satisfaction-surveys/' + current.id + '/review',
+                method: 'POST',
+                contentType: 'application/json',
+                headers: { Accept: 'application/json' },
+                data: JSON.stringify({ decision: picked.value, note: note || null }),
+                success: function (res) {
+                    const id = current.id;
+                    current = null; // paksa muat ulang detail dengan status baru
+                    Swal.fire({ title: res.message || 'Decision saved', icon: 'success', confirmButtonColor: '#115640', timer: 2000 });
+                    loadList();
+                    location.hash = String(id);
+                },
+                error: function (xhr) { rvFeedback.textContent = errMsg(xhr, 'Failed to save the decision.'); },
+                complete: function () { btn.disabled = false; },
+            });
         });
+
+        // ---------- SCHEDULE RECOMING ----------
+        const recomingModal = document.getElementById('recomingModal');
+        const rcDate = document.getElementById('rcDate');
+        const rcDateError = document.getElementById('rcDateError');
+        let rcReason = null;
+
+        function setReason(btn) {
+            rcReason = btn.textContent.trim();
+            document.querySelectorAll('.rc-reason').forEach(function (b) {
+                const on = b === btn;
+                b.classList.toggle('bg-[#115640]', on);
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('border-[#115640]', on);
+                b.classList.toggle('bg-white', ! on);
+                b.classList.toggle('border-[#D9D9D9]', ! on);
+            });
+        }
+        function closeRecoming() { recomingModal.classList.add('hidden'); }
+
+        document.getElementById('btnScheduleRecoming').addEventListener('click', function () {
+            if (! current) return;
+            set('rcTicket', current.detail.ticket_code);
+            setReason(document.querySelector('.rc-reason'));
+            rcDate.value = '';
+            rcDate.min = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+            document.getElementById('rcNotes').value = '';
+            rcDateError.classList.add('hidden');
+            recomingModal.classList.remove('hidden');
+        });
+        document.querySelectorAll('.rc-reason').forEach(function (b) {
+            b.addEventListener('click', function () { setReason(this); });
+        });
+        document.getElementById('rcCancel').addEventListener('click', closeRecoming);
+        recomingModal.addEventListener('click', function (e) { if (e.target === recomingModal) closeRecoming(); });
+
+        document.getElementById('rcSave').addEventListener('click', function () {
+            if (! current) return;
+            if (! rcDate.value || rcDate.value < rcDate.min) return rcDateError.classList.remove('hidden');
+
+            const saveBtn = this;
+            saveBtn.disabled = true;
+            $.ajax({
+                url: API + '/tickets/' + current.detail.ticket_id + '/recoming',
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                data: {
+                    reason: RECOMING_REASON[rcReason] || 'other',
+                    planned_visit_at: rcDate.value,
+                    notes: document.getElementById('rcNotes').value.trim(),
+                },
+                success: function () {
+                    recomingIds[current.id] = true;
+                    closeRecoming();
+                    renderActions();
+                    loadList();
+                    Swal.fire({ title: 'Recoming scheduled', icon: 'success', confirmButtonColor: '#115640', timer: 1500 });
+                },
+                error: function (xhr) { fail(xhr, 'Failed to schedule Recoming.'); },
+                complete: function () { saveBtn.disabled = false; },
+            });
+        });
+
+        // ---------- VIEW FORM (read-only) ----------
+        document.getElementById('btnViewForm').addEventListener('click', function () {
+            if (! current) return;
+            $.ajax({
+                url: API + '/satisfaction-surveys/' + current.id + '/form',
+                method: 'GET',
+                headers: { Accept: 'application/json' },
+                success: function (res) { renderForm(res.data); showView('form'); },
+                error: function (xhr) { fail(xhr, 'Failed to load survey form.'); },
+            });
+        });
+
+        function renderForm(f) {
+            const job = f.job_information || {}, signer = f.signer || {};
+            set('vfTemplateVersion', f.template ? '· Template v' + f.template.version : '');
+            const extras = (f.answers || []).filter(function (answer) { return answer.type !== 'rating' && answer.question_key !== 'machine_ok' && !(answer.question_key === 'feedback' && ['short_text', 'long_text'].includes(answer.type)); });
+            const extraBox = document.getElementById('vfAdditionalQuestions');
+            extraBox.classList.toggle('hidden', !extras.length);
+            extraBox.innerHTML = extras.map(function (answer) {
+                const value = answer.type === 'yes_no' && answer.value !== null ? (answer.value ? 'Yes' : 'No') : dash(answer.value);
+                return '<div class="py-3"><p class="font-semibold">' + esc(answer.label) + '</p><p style="white-space:pre-wrap">' + esc(value) + '</p></div>';
+            }).join('');
+            set('vfTicket', dash(job.ticket_code));
+            set('vfCustomer', dash(job.customer));
+            set('vfTechnician', dash(job.technician));
+            set('vfServiceDate', dash(job.service_date));
+            set('vfComments', dash(f.comments));
+            set('vfMachineBadge', 'Machine: ' + (f.machine_ok === true ? 'Yes' : (f.machine_ok === false ? 'No' : '-')));
+            set('vfMachine', machineText(f.machine_ok, true));
+            document.getElementById('vfMachine').style.color = machineColor(f.machine_ok);
+            document.getElementById('vfExplanationWrap').classList.toggle('hidden', ! f.machine_issue_note);
+            set('vfExplanation', f.machine_issue_note || '');
+            set('vfSigner', [signer.name, signer.position].filter(Boolean).join(' · ') || '-');
+            setSignature('vfSignature', signer.signature_url);
+
+            document.getElementById('vfRatings').innerHTML = (f.template ? '<p class="text-xs text-[#757575]">' + f.template.scale_labels.map(function (label, i) { return (i + 1) + ': ' + esc(label); }).join(' · ') + '</p>' : '') + (f.ratings || []).map(function (item) {
+                // 3-level scale (Kurang Puas / Puas / Sangat Puas); labels come from the pinned template
+                const scaleLabels = (f.template && f.template.scale_labels) || [];
+                const boxes = [1, 2, 3].map(function (n) {
+                    const on = n === Math.round(item.score);
+                    return `<span class="flex flex-col items-center justify-center h-14 rounded-lg border font-semibold ${on ? 'bg-[#115640] border-[#115640] text-white' : 'bg-white border-[#D9D9D9] text-[#4B5563]'}">${n}<span class="text-[10px] font-normal">${esc(scaleLabels[n - 1] || '')}</span></span>`;
+                }).join('');
+                return `<div class="py-4 border-b border-[#EDEDED] last:border-b-0">
+                    <p class="font-medium mb-3">${esc(item.label)}</p>
+                    <div class="grid grid-cols-3 gap-2">${boxes}</div>
+                </div>`;
+            }).join('');
+        }
+
+        document.querySelectorAll('.back-to-response').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (current && /\/review$/.test(location.hash)) location.hash = String(current.id);
+                else showView('detail');
+            });
+        });
+        document.querySelectorAll('.back-to-list').forEach(function (btn) {
+            btn.addEventListener('click', showList);
+        });
+
+        // hash: #id = detail (D9), #id/review = Review Response (D12); back/forward ikut sinkron
+        function route() {
+            const m = /^#(\d+)(\/review)?$/.exec(location.hash);
+            if (! m) return showList();
+            return m[2] ? showReview(m[1]) : showDetail(m[1]);
+        }
+        window.addEventListener('hashchange', route);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRecoming();
+        });
+
+        loadList();
+        if (location.hash) route();
     })();
 </script>
 @endsection

@@ -7,8 +7,10 @@ use App\Models\Aftersales\TechnicianProfile;
 use App\Models\Aftersales\TechnicianSkill;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
+use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\Aftersales\TechnicianScore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,19 +34,20 @@ class TechnicianController extends Controller
         return $this->render('pages.aftersales.technicians.create');
     }
 
-    public function workOrdersPage(Request $request, TechnicianProfile $technician)
+    public function detailsPage(Request $request, TechnicianProfile $technician)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
 
         $technician->load('user');
-        $this->pageTitle = $technician->user->name . ' — Work Order';
+        $this->pageTitle = $technician->user->name.' — Detail';
 
-        return $this->render('pages.aftersales.technicians.work-orders', ['technician' => $technician]);
+        return $this->render('pages.aftersales.technicians.details', ['technician' => $technician]);
     }
 
     public function index(Request $request)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+        $request->validate(['period' => 'nullable|in:'.implode(',', array_keys(TechnicianScore::PERIODS))]);
 
         $query = TechnicianProfile::with(['user', 'region', 'skills']);
 
@@ -59,11 +62,13 @@ class TechnicianController extends Controller
         $perPage = (int) $request->input('per_page', 15);
         $paginated = $query->orderByDesc('id')->paginate($perPage);
 
-        $items = collect($paginated->items())->map(function (TechnicianProfile $profile) {
+        $scores = TechnicianScore::summaries(collect($paginated->items())->pluck('user_id')->all(), TechnicianScore::since($request->input('period')));
+
+        $items = collect($paginated->items())->map(function (TechnicianProfile $profile) use ($scores) {
             return array_merge($profile->toArray(), [
                 'status' => $profile->status,
                 'total_tickets' => Ticket::where('assigned_technician_id', $profile->user_id)->count(),
-            ]);
+            ], $scores[$profile->user_id] ?? []);
         });
 
         return response()->json([
@@ -78,6 +83,7 @@ class TechnicianController extends Controller
     public function show(Request $request, TechnicianProfile $technician)
     {
         abort_unless($request->user()?->hasPermission('masters.technicians'), 403);
+        $request->validate(['period' => 'nullable|in:'.implode(',', array_keys(TechnicianScore::PERIODS))]);
 
         $technician->load(['user', 'region', 'skills']);
 
@@ -86,6 +92,7 @@ class TechnicianController extends Controller
             'data' => array_merge($technician->toArray(), [
                 'status' => $technician->status,
                 'kpi' => $this->kpiFor($technician->user_id),
+                'score' => TechnicianScore::detail($technician->user_id, TechnicianScore::since($request->input('period'))),
             ]),
         ]);
     }
@@ -214,7 +221,7 @@ class TechnicianController extends Controller
      */
     private function kpiFor(int $userId): array
     {
-        $tickets = Ticket::where('assigned_technician_id', $userId)->with('logs', 'satisfaction')->get();
+        $tickets = Ticket::where('assigned_technician_id', $userId)->with('logs', 'satisfaction', 'satisfactions.answers')->get();
 
         $totalTickets = $tickets->count();
         $closedTickets = $tickets->filter(fn (Ticket $t) => $t->progress === TicketLog::STEP_CLOSED);
@@ -223,7 +230,20 @@ class TechnicianController extends Controller
         $onTimeClosed = $closedTickets->filter(fn (Ticket $t) => $t->sla_status === 'On Time')->count();
         $slaAdherence = $closedTickets->count() > 0 ? round($onTimeClosed / $closedTickets->count() * 100, 2) : 0;
 
-        $avgCsat = $tickets->pluck('satisfaction')->filter()->avg('average_score');
+        // Legacy retains SV-22; v3 includes reviewed Admin responses per cycle.
+        $v3 = $tickets->filter(fn ($t) => $t->workflow_version === Ticket::WORKFLOW_V3);
+        $scores = TicketSatisfaction::whereIn('ticket_id', $tickets->where('workflow_version', '<>', Ticket::WORKFLOW_V3)->pluck('id'))
+            ->whereNull('admin_input_reason')
+            ->with('answers')->get()
+            ->pluck('average_score')->filter(fn ($score) => $score !== null);
+        foreach ($v3 as $ticket) {
+            foreach ($ticket->satisfactions as $response) {
+                if (\App\Services\Aftersales\TicketSurveys::exclusion($ticket, $response) === null) {
+                    $scores = $scores->concat(\App\Services\Aftersales\TicketSurveys::values($response));
+                }
+            }
+        }
+        $avgCsat = $scores->avg();
 
         return [
             'total_tickets' => $totalTickets,

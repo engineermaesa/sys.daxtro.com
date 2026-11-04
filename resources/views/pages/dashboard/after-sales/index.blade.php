@@ -1,7 +1,7 @@
 <section class="min-h-screen sm:text-xs lg:text-sm" aria-labelledby="after-sales-heading">
     <header class="pt-4">
-        <h1 id="after-sales-heading" class="text-[#115640] font-semibold text-2xl">After-Sales Performance</h1>
-        <p class="text-[#757575] mt-1">Monitoring industrial machinery deployment and customer onboarding status.</p>
+        <h1 id="after-sales-heading" class="text-[#115640] font-semibold text-2xl">Supervisor Dashboad</h1>
+        <p class="text-[#757575] mt-1">Financial performance, service quality, and operational trends.</p>
     </header>
 
     {{-- STAT CARDS --}}

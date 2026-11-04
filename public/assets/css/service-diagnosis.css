@@ -1,0 +1,254 @@
+.sd-card {
+    border: 1px solid #dfe3eb;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+    font-size: 12px;
+    color: #344563;
+}
+.sd-readonly { margin: 16px 20px 0; padding: 12px 14px; border: 1px solid #c6e6dc; border-radius: 5px; background: #edf8f5; color: #115640; font-size: 11px; }
+.sd-card .sd-photos { grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); }
+.sd-photos > .sd-empty { order: 0; display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.sd-empty > .sd-photo-picker { flex: none; }
+.sd-empty > div:last-child { align-self: stretch; }
+.sd-preview-list { order: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; min-width: 0; }
+.sd-preview-list:empty { display: none; }
+.sd-preview-list .sd-photo { flex-direction: column; align-items: stretch; border: 1px solid #dfe3eb; padding: 12px; border-radius: 6px; }
+.sd-preview-list .sd-photo > a { flex: none; }
+.sd-preview-list .sd-photo img { width: 100%; height: 155px; object-fit: contain; background: #f8f9fb; }
+.sd-preview-list .sd-photo .sd-actions { justify-content: space-between; }
+@media (max-width: 760px) { .sd-card .sd-photos { grid-template-columns: 1fr; } }
+.sd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid #dfe3eb;
+}
+.sd-head h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+}
+.sd-head span,
+.sd-entry header > span {
+    font-size: 11px;
+    color: #115640;
+}
+.sd-intro {
+    padding: 18px 20px;
+    font-size: 11px;
+    color: #7f8a9b;
+}
+.sd-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 20px;
+    padding: 16px 20px;
+    border-block: 1px solid #dfe3eb;
+    background: #f8f9fb;
+}
+.sd-meta small {
+    display: block;
+    color: #929ba7;
+    font-size: 9px;
+    margin-bottom: 8px;
+}
+.sd-body {
+    padding: 18px;
+}
+.sd-entry {
+    border: 1px solid #dfe3eb;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+.sd-entry header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8f9fb;
+    padding: 14px;
+    border-bottom: 1px solid #dfe3eb;
+}
+.sd-entry header > strong {
+    font-size: 19px;
+    color: #115640;
+}
+.sd-entry header > div {
+    flex: 1;
+}
+.sd-entry header small {
+    display: block;
+    color: #929ba7;
+    font-size: 10px;
+    margin-top: 5px;
+}
+.sd-fields {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 14px;
+    padding: 16px;
+}
+.sd-full {
+    grid-column: 1/-1;
+}
+.sd-card label {
+    display: block;
+    font-size: 11px;
+}
+.sd-card input:not([type="file"]),
+.sd-card textarea {
+    display: block;
+    width: 100%;
+    border: 1px solid #cdd4df;
+    border-radius: 5px;
+    padding: 11px;
+    margin-top: 7px;
+    background: #fff;
+    color: #344563;
+    font: inherit;
+}
+.sd-card textarea {
+    min-height: 85px;
+    resize: vertical;
+}
+.sd-card input:read-only {
+    background: #f8f9fb;
+}
+.sd-photos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 16px;
+    border-top: 1px solid #eff1f5;
+}
+.sd-photo {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.sd-photo > a {
+    flex: 0 0 125px;
+}
+.sd-photo img {
+    width: 125px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+.sd-photo > div {
+    flex: 1;
+    min-width: 0;
+}
+.sd-photo small,
+.sd-upload small {
+    font-size: 10px;
+    color: #929ba7;
+}
+.sd-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 7px;
+}
+.sd-card button {
+    border: 1px solid #cdd4df;
+    border-radius: 4px;
+    padding: 6px 10px;
+    background: white;
+    color: #115640;
+    cursor: pointer;
+    font-size: 11px;
+}
+.sd-card :disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+.sd-picker {
+    padding: 15px;
+    border: 1px dashed #8c99a9;
+    border-radius: 5px;
+    color: #115640;
+}
+.sd-picker input {
+    display: block;
+    max-width: 100%;
+    margin-top: 10px;
+}
+.sd-warning {
+    background: #fffaeb;
+    border: 1px solid #fedf89;
+    border-radius: 4px;
+    color: #996000;
+    margin: 0 16px 14px;
+    padding: 10px;
+    font-size: 11px;
+}
+.sd-history {
+    padding: 16px;
+    border-bottom: 1px solid #eff1f5;
+    background: #fbfcfd;
+}
+.sd-history p {
+    white-space: pre-wrap;
+    margin: 8px 0 0;
+}
+.sd-history strong {
+    font-size: 11px;
+    color: #115640;
+}
+.sd-upload-state {
+    margin: 0 16px 14px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+.sd-upload-state progress {
+    max-width: 200px;
+}
+@media (max-width: 760px) {
+    .sd-fields,
+    .sd-photos,
+    .sd-meta {
+        grid-template-columns: 1fr;
+    }
+    .sd-photo > a {
+        flex-basis: 90px;
+    }
+    .sd-photo img {
+        width: 90px;
+    }
+    .sd-full {
+        grid-column: auto;
+    }
+}
+
+/* Diagnosis sheet layout matching the service form mockup. */
+.sd-head h2 { text-transform: uppercase; }
+.sd-intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.sd-overall { min-width: 145px; text-align: right; color: #115640; font-size: 11px; }
+.sd-overall progress { display: block; width: 145px; height: 7px; margin-top: 8px; accent-color: #115640; }
+.sd-meta { grid-template-columns: 1fr 1.3fr 1.9fr; }
+.sd-entry:last-child { margin-bottom: 0; }
+.sd-entry header > strong { font-size: 16px; }
+.sd-fields { gap: 14px 12px; }
+.sd-card textarea { min-height: 80px; }
+.sd-card input:read-only { background: #fff; }
+.sd-photo-picker { flex: 0 0 132px; }
+.sd-placeholder { min-height: 86px; border: 1px dashed #9ca3af; border-radius: 5px; background: #f8f9fb; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center; }
+.sd-placeholder i { font-size: 20px; color: #6b7786; }
+.sd-placeholder strong { font-size: 10px; font-weight: 600; }
+.sd-placeholder small { font-size: 9px; color: #929ba7; }
+.sd-empty > div:last-child { align-self: center; }
+.sd-picker-actions { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.sd-picker-actions button { width: 100%; padding: 6px; font-size: 10px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.sd-card input[type=file][hidden] { display: none; }
+.sd-photos { align-items: start; }
+.sd-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 16px 20px; border-top: 1px solid #dfe3eb; }
+.sd-footer small { color: #7f8a9b; font-size: 10px; }
+.sd-footer button { padding: 10px 16px; font-weight: 600; }
+.sd-footer button:enabled { background: #115640; border-color: #115640; color: white; }
+.sd-card button:hover:enabled { filter: brightness(.96); }
+.sd-card button:focus-visible, .sd-card input:focus-visible, .sd-card textarea:focus-visible { outline: 2px solid #115640; outline-offset: 2px; }
+@media (max-width: 760px) { .sd-meta { grid-template-columns: 1fr; } .sd-intro,.sd-footer { align-items: flex-start; flex-direction: column; } .sd-photo-picker { flex-basis: 115px; } }
+

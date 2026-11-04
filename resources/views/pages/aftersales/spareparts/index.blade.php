@@ -8,9 +8,15 @@
                 <h1 class="text-[#115640] font-semibold text-2xl">Sparepart</h1>
                 <p class="text-[#757575] mt-1">Manage sparepart inventory, suppliers, and stock levels.</p>
             </div>
-            <a href="{{ route('aftersales.pages.spareparts.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
-                <i class="bi bi-plus-lg"></i> Add Sparepart
-            </a>
+            <div class="flex items-center gap-2">
+                <button type="button" data-toggle="modal" data-target="#sparepartImportModal"
+                    class="bg-white border border-[#D9D9D9] text-[#1E1E1E] px-4 py-2 rounded-lg hover:bg-[#E8E8E8] transition-colors cursor-pointer">
+                    Import Sparepart
+                </button>
+                <a href="{{ route('aftersales.pages.spareparts.create') }}" class="bg-[#115640] text-white px-4 py-2 rounded-lg hover:bg-[#0d4633] transition-colors flex items-center gap-2">
+                    <i class="bi bi-plus-lg"></i> Add Sparepart
+                </a>
+            </div>
         </div>
 
         {{--SEARCH--}}
@@ -29,19 +35,20 @@
         </div>
 
         {{--TABLE--}}
-        <div class="bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
-            <table class="w-full">
+        <div class="table-cards-wrap bg-white rounded-lg border border-[#D9D9D9] mt-4 overflow-x-auto">
+            <table class="table-cards w-full">
                 <thead class="text-[#1E1E1E]">
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs">Sparepart Name</th>
-                        <th class="p-3 text-left uppercase text-xs">Brand</th>
-                        <th class="p-3 text-left uppercase text-xs">Supplier</th>
-                        <th class="p-3 text-left uppercase text-xs">Price (IDR)</th>
-                        <th class="p-3 text-left uppercase text-xs">Stock</th>
-                        <th class="p-3 text-left uppercase text-xs">Min Stock</th>
-                        <th class="p-3 text-left uppercase text-xs">Rack Location</th>
-                        <th class="p-3 text-left uppercase text-xs">Stock Status</th>
-                        <th class="p-3 text-left uppercase text-xs">Action</th>
+                        <th class="p-3 text-center uppercase text-xs">Code</th>
+                        <th class="p-3 text-center uppercase text-xs">Brand</th>
+                        <th class="p-3 text-center uppercase text-xs">Supplier</th>
+                        <th class="p-3 text-center uppercase text-xs">Price (IDR)</th>
+                        <th class="p-3 text-center uppercase text-xs">Stock</th>
+                        <th class="p-3 text-center uppercase text-xs">Min Stock</th>
+                        <th class="p-3 text-center uppercase text-xs">Rack Location</th>
+                        <th class="p-3 text-center uppercase text-xs">Stock Status</th>
+                        <th class="p-3 text-center uppercase text-xs">Action</th>
                     </tr>
                 </thead>
                 <tbody id="sparepart-table-body" class="text-left"></tbody>
@@ -55,6 +62,7 @@
         </div>
     </div>
 </section>
+@include('pages.aftersales.spareparts.partials.import-modal')
 @endsection
 
 @section('scripts')
@@ -97,15 +105,16 @@
 
         const html = rows.map(row => `
             <tr class="border-t border-t-[#D9D9D9] align-top" data-sparepart-id="${row.id}">
-                <td class="p-3 font-semibold text-[#1E1E1E]">${escapeHtml(row.name)}</td>
-                <td class="p-3">${escapeHtml(row.brand || '-')}</td>
-                <td class="p-3">${escapeHtml(row.supplier || '-')}</td>
-                <td class="p-3 font-semibold">${formatCurrency(row.price)}</td>
-                <td class="p-3 font-semibold">${row.stock ?? 0}</td>
-                <td class="p-3">${row.min_stock ?? 0}</td>
-                <td class="p-3">${escapeHtml(row.rack_location || '-')}</td>
-                <td class="p-3">${stockStatusBadge(row.stock_status)}</td>
-                <td class="p-3">
+                <td class="p-3 font-semibold text-[#115640]" data-label="Sparepart Name" data-primary>${escapeHtml(row.name)}</td>
+                <td class="p-3 text-center" data-label="Code">${escapeHtml(row.part_number || '-')}</td>
+                <td class="p-3 text-center" data-label="Brand">${escapeHtml(row.brand || '-')}</td>
+                <td class="p-3 text-center" data-label="Supplier" data-secondary>${escapeHtml(row.supplier || '-')}</td>
+                <td class="p-3 text-center" data-label="Price (IDR)">${formatCurrency(row.price)}</td>
+                <td class="p-3 text-center" data-label="Stock">${row.stock ?? 0}</td>
+                <td class="p-3 text-center" data-label="Min Stock" data-secondary>${row.min_stock ?? 0}</td>
+                <td class="p-3 text-center" data-label="Rack Location" data-secondary>${escapeHtml(row.rack_location || '-')}</td>
+                <td class="p-3 text-center" data-label="Stock Status">${stockStatusBadge(row.stock_status)}</td>
+                <td class="p-3 text-center" data-label="Action" data-actions>
                     <div class="dropdown">
                         <button class="btn-sparepart-action w-8 h-8 rounded-lg border border-[#D9D9D9] bg-white cursor-pointer" type="button" data-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-three-dots"></i>
@@ -116,6 +125,7 @@
                         </ul>
                     </div>
                 </td>
+                <td class="card-more-cell"><button type="button" class="card-more">Show more</button></td>
             </tr>
         `).join('');
 
@@ -200,6 +210,12 @@
             sparepartState.search = $('#sparepart-search').val();
             sparepartState.page = 1;
             loadSpareparts();
+        });
+
+        // mobile card view: expand / collapse the secondary fields of one sparepart
+        $(document).on('click', '#sparepart-table-body .card-more', function () {
+            const $row = $(this).closest('tr').toggleClass('is-open');
+            $(this).text($row.hasClass('is-open') ? 'Show less' : 'Show more');
         });
 
         $(document).on('click', '#sparepart-pagination button', function () {

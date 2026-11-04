@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\UserRole;
+use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
 {
@@ -20,6 +20,7 @@ class RoleSeeder extends Seeder
             ['name' => 'Accountant Director', 'code' => 'accountant_director'],
             ['name' => 'Purchasing', 'code' => 'purchasing'],
             ['name' => 'After Sales', 'code' => 'after_sales'],
+            ['name' => 'Supervisor After Sales', 'code' => 'supervisor_after_sales'],
             ['name' => 'Technician', 'code' => 'technician'],
         ];
 

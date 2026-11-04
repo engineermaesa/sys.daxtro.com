@@ -13,7 +13,12 @@ class Ticket extends Model
     use HasFactory, SoftDeletes;
 
     public const CATEGORIES = ['electrical', 'mechanical', 'refrigeration_system', 'production'];
+
     public const PRIORITIES = ['low', 'medium', 'high'];
+
+    public const WORKFLOW_LEGACY = 'legacy';
+
+    public const WORKFLOW_V3 = 'v3';
 
     protected $fillable = [
         'ticket_code',
@@ -25,13 +30,42 @@ class Ticket extends Model
         'sla_value',
         'sla_unit',
         'sla_due_at',
+        'cost_display_currency',
         'assigned_technician_id',
         'supervisor_id',
+        'service_type',
+        'created_by',
+        'updated_by',
+        'happy_call_required',
+        'workflow_version',
+        'happy_call_due_at',
+        'sla_stopped_at',
     ];
 
     protected $casts = [
         'sla_due_at' => 'datetime',
+        'happy_call_due_at' => 'datetime',
+        'sla_stopped_at' => 'datetime',
+        'assigned_technician_id' => 'integer',
+        'supervisor_id' => 'integer',
+        'happy_call_required' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (self $ticket) {
+            if ($ticket->workflow_version === self::WORKFLOW_V3 && $ticket->wasChanged(['customer_id', 'customer_product_id', 'assigned_technician_id', 'supervisor_id', 'service_type', 'workflow_version'])) {
+                \App\Services\Aftersales\ServiceFormRevisions::advance($ticket);
+            }
+        });
+        static::created(function (Ticket $ticket) {
+            $stored = $ticket->fresh();
+            if ($stored->workflow_version !== null) {
+                $ticket->workflow_version = $stored->workflow_version;
+                \App\Services\Aftersales\TicketCycles::initial($ticket);
+            }
+        });
+    }
 
     public function customer()
     {
@@ -56,6 +90,11 @@ class Ticket extends Model
     public function logs()
     {
         return $this->hasMany(TicketLog::class, 'ticket_id');
+    }
+
+    public function latestLog()
+    {
+        return $this->hasOne(TicketLog::class, 'ticket_id')->latestOfMany();
     }
 
     public function visits()
@@ -85,7 +124,47 @@ class Ticket extends Model
 
     public function satisfaction()
     {
-        return $this->hasOne(TicketSatisfaction::class, 'ticket_id');
+        return $this->hasOne(TicketSatisfaction::class, 'ticket_id')->latestOfMany();
+    }
+
+    public function satisfactions()
+    {
+        return $this->hasMany(TicketSatisfaction::class, 'ticket_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function serviceForm()
+    {
+        return $this->hasOne(TicketServiceForm::class, 'ticket_id');
+    }
+
+    public function agreement()
+    {
+        return $this->hasOne(TicketAgreement::class, 'ticket_id');
+    }
+
+    public function surveyLink()
+    {
+        return $this->hasOne(SatisfactionLink::class, 'ticket_id')->latestOfMany();
+    }
+
+    public function recomings()
+    {
+        return $this->hasMany(TicketRecoming::class, 'ticket_id');
+    }
+
+    public function cycles()
+    {
+        return $this->hasMany(TicketCycle::class, 'ticket_id');
+    }
+
+    public function currentCycle()
+    {
+        return $this->hasOne(TicketCycle::class, 'ticket_id')->ofMany('cycle_no', 'max');
     }
 
     /**
@@ -126,6 +205,9 @@ class Ticket extends Model
      */
     public function hasVisitDue(): bool
     {
+        if ($this->workflow_version === self::WORKFLOW_V3 && \App\Services\Aftersales\TicketRecomings::current($this)?->recoming_type === TicketRecoming::TYPE_PHONE_CALL) {
+            return false;
+        }
         $visits = $this->relationLoaded('visits') ? $this->visits : $this->visits()->get();
         $latestVisit = $visits->sortByDesc('scheduled_at')->first();
 
@@ -156,6 +238,11 @@ class Ticket extends Model
      */
     public function getSlaStatusAttribute(): ?string
     {
+        if ($this->workflow_version === self::WORKFLOW_V3) {
+            $summary = \App\Services\Aftersales\TicketSla::summary($this);
+
+            return $summary && $summary['due_at'] ? ($summary['result'] ?? 'Pending') : null;
+        }
         if (! $this->sla_due_at) {
             return null;
         }
@@ -172,7 +259,7 @@ class Ticket extends Model
     }
 
     /**
-     * Sum of actual sparepart usage + operational costs (USD converted at the
+     * Sum of actual sparepart usage + operational costs (USD/CNY converted at the
      * snapshot exchange_rate). Estimated parts are excluded.
      */
     public function getTotalCostAttribute(): float
@@ -183,7 +270,7 @@ class Ticket extends Model
 
         $costs = $this->relationLoaded('costs') ? $this->costs : $this->costs()->get();
         $costsTotal = $costs->sum(function (TicketCost $c) {
-            return $c->currency === 'usd'
+            return $c->currency !== 'idr'
                 ? (float) $c->amount * (float) ($c->exchange_rate ?? 1)
                 : (float) $c->amount;
         });

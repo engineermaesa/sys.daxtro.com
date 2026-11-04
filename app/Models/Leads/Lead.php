@@ -2,15 +2,12 @@
 
 namespace App\Models\Leads;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use App\Models\Masters\Branch;
 use App\Models\Masters\Agent;
-use App\Models\Leads\LeadSource;
-use App\Models\Leads\LeadSegment;
+use App\Models\Masters\Branch;
 use App\Models\Orders\Quotation;
 use App\Models\User;
-use App\Models\Leads\LeadPicExtension;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Lead extends Model
 {
@@ -68,6 +65,11 @@ class Lead extends Model
         return $this->belongsTo(LeadStatus::class, 'status_id');
     }
 
+    public function customerDeal()
+    {
+        return $this->hasOne(\App\Models\Aftersales\CustomerDeal::class, 'lead_id');
+    }
+
     public function source()
     {
         return $this->belongsTo(LeadSource::class, 'source_id');
@@ -113,7 +115,6 @@ class Lead extends Model
         return $this->hasOne(Customer::class, 'leads_id');
     }
 
-
     public function region()
     {
         return $this->belongsTo(\App\Models\Masters\Region::class, 'region_id');
@@ -127,6 +128,7 @@ class Lead extends Model
     public function factoryCity()
     {
         \Log::debug('Accessing factoryCity relation');
+
         return $this->belongsTo(\App\Models\Masters\Region::class, 'factory_city_id');
     }
 
@@ -164,7 +166,7 @@ class Lead extends Model
     {
         // grabs the single most‐recent log by created_at
         return $this->hasOne(LeadStatusLog::class)
-                    ->latest('created_at');
+            ->latest('created_at');
     }
 
     public function activityLogs()

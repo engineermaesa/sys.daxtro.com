@@ -40,6 +40,10 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout')->middleware('auth');
 
+// Halaman kamera HP untuk foto bukti Service Form (publik, token pendek di URL; API: /api/inspection-photo/{token})
+Route::view('capture/{token}', 'pages.aftersales.capture')->name('aftersales.capture');
+Route::view('survey/{token}', 'pages.aftersales.customer-survey')->name('aftersales.customer-survey');
+
 
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -597,6 +601,17 @@ Route::get('/debug/expense-realizations', function () {
         'prefix' => 'aftersales',
         'as' => 'aftersales.pages.',
     ], function () {
+        Route::get('/document-templates/{template}', function (string $template) {
+            abort_unless(auth()->user()->hasPermission('aftersales.tickets.manage'), 403);
+            return view('pages.aftersales.document-templates.show', compact('template'));
+        })->whereIn('template', ['service-agreement', 'service-inspection-report', 'satisfaction-survey'])->name('document-templates.show');
+
+        // Ready to Close (v3.0 W5): halaman FE untuk Head Aftersales; gate permission juga dicek di view-nya.
+        Route::get('/ready-to-close', function () {
+            abort_unless(auth()->user()->hasPermission('aftersales.tickets.close'), 403);
+            return view('pages.aftersales.tickets.ready-to-close');
+        })->name('ready-to-close');
+
         Route::name('customers.')->prefix('customers')->group(function () {
             Route::get('/', [DatsServiceCustomerController::class, 'page'])->name('index');
             Route::get('/create', [DatsServiceCustomerController::class, 'createPage'])->name('create');
@@ -609,7 +624,7 @@ Route::get('/debug/expense-realizations', function () {
         Route::name('technicians.')->prefix('technicians')->group(function () {
             Route::get('/', [DatsTechnicianController::class, 'page'])->name('index');
             Route::get('/create', [DatsTechnicianController::class, 'createPage'])->name('create');
-            Route::get('/{technician}/work-orders', [DatsTechnicianController::class, 'workOrdersPage'])->name('work-orders');
+            Route::get('/{technician}/details', [DatsTechnicianController::class, 'detailsPage'])->name('details');
         });
 
         Route::name('spareparts.')->prefix('spareparts')->group(function () {

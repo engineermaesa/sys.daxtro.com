@@ -13,15 +13,23 @@
             class="transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap">
             <img
                 id="sidebarLogo"
-                src="{{ asset('assets/images/favicon-newer.png') }}"
+                src="{{ asset('assets/images/Logo Daxtro Ice Machine.png') }}"
                 alt="DAXTRO Logo"
-                class="max-lg:hidden h-10 transition-all duration-300 ease-in-out">
+                class="max-lg:hidden max-sm:block h-10 transition-all duration-300 ease-in-out">
         </a>
+
+        <button
+            type="button"
+            aria-label="Close menu"
+            onclick="window.closeMobileSidebar && window.closeMobileSidebar()"
+            class="sm:hidden cursor-pointer hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0 text-[#115640] text-xl">
+            <i class="bi bi-x-lg"></i>
+        </button>
 
         <button
             id="toggleSidepanel"
             type="button"
-            class="cursor-pointer duration-300 hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0">
+            class="max-sm:hidden cursor-pointer duration-300 hover:bg-[#CFE7DE] p-3 rounded-lg flex items-center justify-center shrink-0">
             <span id="iconClosed">
                 <x-icon.right-closed/>
             </span>
@@ -175,7 +183,10 @@
         {{-- CUSTOMER MENU (AFTER SALES) --}}
         @if(auth()->check() && auth()->user()->hasPermission('masters.service-customers'))
         <li
-            class="{{ request()->routeIs('aftersales.pages.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            class="{{ request()->routeIs('aftersales.pages.customers.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3 relative">
+            {{-- Deals Review badge (IM-86): number of Deals pending review; hidden at 0, "99+" above 99 --}}
+            <span class="deal-review-badge absolute top-1 right-1 hidden items-center justify-center rounded-full bg-[#D92D20] text-white font-bold"
+                style="min-width:18px;height:18px;padding:0 5px;font-size:10px;line-height:1"></span>
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
                 href="{{ route('aftersales.pages.customers.index') }}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -187,10 +198,29 @@
                     class="sidebar-label {{ request()->routeIs('aftersales.pages.customers.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Customer</span>
             </a>
         </li>
+        <script>
+            // Shared by the sidebar and the Deals Review tab (customers/index): one source for the badge number.
+            
+            window.setDealBadge = function (summary) {
+                if (!summary || typeof summary.has_pending === 'undefined') return;
+                document.querySelectorAll('.deal-review-badge').forEach(function (el) {
+                    el.textContent = summary.badge_label || '';
+                    el.classList.toggle('hidden', !summary.has_pending);
+                    el.classList.toggle('inline-flex', !!summary.has_pending);
+                });
+            };
+            window.refreshDealBadge = function () {
+                fetch('/api/aftersales/customers/deal-reviews/pending-count', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                    .then(function (res) { return res.ok ? res.json() : null; })
+                    .then(function (res) { if (res) window.setDealBadge(res.data); })
+                    .catch(function () {});
+            };
+            document.addEventListener('DOMContentLoaded', window.refreshDealBadge);
+        </script>
         @endif
 
-        {{-- TICKETING MENU --}}
-        @if(auth()->check() && auth()->user()->hasPermission('aftersales.tickets.manage'))
+        {{-- TICKETING MENU (admin/supervisor, atau teknisi yang hanya melihat tiket miliknya) --}}
+        @if(auth()->check() && (auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own') || auth()->user()->hasPermission('aftersales.tickets.close')))
         <li id="listTicketing" class="rounded-lg mt-2">
             <button id="ticketingToggle"  class="cursor-pointer w-full text-left rounded-lg px-3 py-2 grid place-items-center lg:flex lg:items-center lg:justify-between">
                 <div class="lg:flex! lg:items-center! lg:justify-start! lg:gap-3!">
@@ -210,6 +240,7 @@
             <div id="ticketingMenu" class="sidebar-submenu block mt-2 overflow-hidden transition-all duration-300 max-h-0">
                 <div class="lg:pl-4 lg:space-y-2 pl-2 space-y-1">
                     {{-- ALL TICKET --}}
+                    @if(auth()->user()->hasPermission('aftersales.tickets.manage') || auth()->user()->hasPermission('aftersales.tickets.view-own'))
                     <a class="flex items-center sm:gap-2 lg:gap-3"
                         href="{{ route('aftersales.pages.tickets.index') }}">
                         <span
@@ -220,12 +251,26 @@
                             All Ticket
                         </span>
                     </a>
+                    @endif
+                    {{-- READY TO CLOSE (Head Aftersales) --}}
+                    @if(auth()->user()->hasPermission('aftersales.tickets.close'))
+                    <a class="flex items-center sm:gap-2 lg:gap-3"
+                        href="{{ route('aftersales.pages.ready-to-close') }}">
+                        <span
+                            class="block sm:h-[15px] lg:h-[20px] w-[3px] {{ request()->routeIs('aftersales.pages.ready-to-close') ? 'bg-[#115640]' : 'bg-[#6B7786]' }}">
+                        </span>
+                        <span
+                            class="sidebar-label {{ request()->routeIs('aftersales.pages.ready-to-close') ? 'text-[#115640]' : 'text-[#6B7786]' }} font-semibold sm:text-xs lg:text-sm">
+                            Ready to Close
+                        </span>
+                    </a>
+                    @endif
                 </div>
             </div>
         </li>
         @endif
         @php
-            $isTicketingActive = request()->is('aftersales/tickets*');
+            $isTicketingActive = request()->is('aftersales/tickets*') || request()->is('aftersales/ready-to-close');
         @endphp
 
         {{-- TECHNICIAN --}}
@@ -256,8 +301,11 @@
 
         {{-- SATISFACTION SURVEY MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('satisfaction-survey.view'))
+        @php
+            $needsReview = \App\Http\Controllers\AfterSales\Dats\SatisfactionSurveyController::needsReview();
+        @endphp
         <li
-            class="{{ request()->routeIs('satisfaction-survey.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3">
+            class="{{ request()->routeIs('satisfaction-survey.*') ? 'bg-[#CFE7DE]' : 'bg-white' }} rounded-lg p-3 relative">
             <a class="lg:flex lg:items-center lg:gap-3 grid grid-cols-1 place-items-center lg:justify-start"
                 href="{{ route('satisfaction-survey.index') }}">
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -267,9 +315,15 @@
                 </svg>
                 <span
                     class="sidebar-label {{ request()->routeIs('satisfaction-survey.*') ? 'text-[#115640]' : 'text-[#1E1E1E]' }} font-semibold sm:hidden lg:inline">Satisfaction Survey</span>
+                @if ($needsReview > 0)
+                    <span class="rounded-full font-bold text-white" title="{{ $needsReview }} response(s) need review"
+                        style="position:absolute; top:4px; right:6px; min-width:18px; padding:0 5px; font-size:10px; line-height:18px; text-align:center; background:#D97706;">{{ $needsReview }}</span>
+                @endif
             </a>
         </li>
         @endif
+
+        @include('partials.sidebar.document-templates-menu')
 
         {{-- INCENTIVES MENU --}}
         @if(auth()->check() && auth()->user()->hasPermission('incentives.view'))
@@ -534,7 +588,7 @@
         const ticketingSpan = document.getElementById('ticketingSpan');
         const chevronTicketingMenu = document.getElementById('chevronTicketingMenu');
 
-        const isActive = @json($isTicketingActive);
+        const isActive = Boolean(Number("{{ $isTicketingActive }}"));
         function openTicketing() {
             ticketingMenu.classList.remove('max-h-0');
             ticketingMenu.classList.add('max-h-[500px]');

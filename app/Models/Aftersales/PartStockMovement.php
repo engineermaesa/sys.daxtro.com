@@ -13,12 +13,16 @@ class PartStockMovement extends Model
     public const TYPE_IN = 'in';
     public const TYPE_OUT = 'out';
     public const TYPE_ADJUSTMENT = 'adjustment';
+    public const TYPE_TICKET_OUT = 'ticket_out';
+    public const TYPE_TICKET_RETURN = 'ticket_return';
 
     protected $fillable = [
         'ref_sparepart_id',
         'type',
         'qty',
         'ticket_id',
+        'ticket_part_id',
+        'created_by',
         'note',
     ];
 

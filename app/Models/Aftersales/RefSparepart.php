@@ -2,6 +2,7 @@
 
 namespace App\Models\Aftersales;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -28,6 +29,13 @@ class RefSparepart extends Model
         'stock' => 'integer',
         'min_stock' => 'integer',
     ];
+
+    protected function partNumber(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => filled($value) ? mb_strtoupper(trim($value)) : null,
+        );
+    }
 
     public function ticketParts()
     {

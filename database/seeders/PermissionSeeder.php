@@ -42,9 +42,17 @@ class PermissionSeeder extends Seeder
             ['name' => 'Quotation Approvals', 'code' => 'quotation.approvals', 'description' => 'Quotation Approvals'],
             ['name' => 'Customers', 'code' => 'customers.view', 'description' => 'View customer technical specification data'],
             ['name' => 'Satisfaction Survey', 'code' => 'satisfaction-survey.view', 'description' => 'View technician satisfaction survey responses'],
+            ['name' => 'Review Satisfaction Survey', 'code' => 'satisfaction-survey.review', 'description' => 'Mark satisfaction survey responses as reviewed'],
 
             // DATS (Aftersales Ticketing System)
             ['name' => 'Manage Tickets', 'code' => 'aftersales.tickets.manage', 'description' => 'Create and manage aftersales tickets'],
+            ['name' => 'Schedule Recoming', 'code' => 'aftersales.tickets.recoming', 'description' => 'Schedule a follow-up visit (Recoming) on own assigned ticket'],
+            ['name' => 'Share Survey Link', 'code' => 'aftersales.survey-link.share', 'description' => 'Copy/share the satisfaction survey link of own assigned ticket'],
+            ['name' => 'Change Customer Phone', 'code' => 'aftersales.customer-phone.change', 'description' => 'Change the customer WhatsApp number (OTP destination)'],
+            ['name' => 'View Own Tickets', 'code' => 'aftersales.tickets.view-own', 'description' => 'Technician: see and open own assigned tickets'],
+            ['name' => 'View All Tickets', 'code' => 'aftersales.tickets.view-all', 'description' => 'Read-only access to all aftersales tickets and their documents'],
+            ['name' => 'Sign Documents', 'code' => 'aftersales.documents.sign', 'description' => 'SPV Technician: review and sign Service Form and Service Agreement of the ticket supervised'],
+            ['name' => 'Fill Documents', 'code' => 'aftersales.documents.fill', 'description' => 'Technician: fill and sign Service Form and Service Agreement of own tickets'],
             ['name' => 'Assign Technician', 'code' => 'aftersales.tickets.assign', 'description' => 'Assign technician to a ticket'],
             ['name' => 'Close Tickets', 'code' => 'aftersales.tickets.close', 'description' => 'Close aftersales tickets'],
             ['name' => 'Submit Documentation', 'code' => 'aftersales.documentation.submit', 'description' => 'Submit ticket repair documentation'],

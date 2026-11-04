@@ -11,7 +11,7 @@ class TicketCost extends Model
     use HasFactory, SoftDeletes;
 
     public const CATEGORIES = ['labor', 'accommodation', 'transportation', 'other'];
-    public const CURRENCIES = ['idr', 'usd'];
+    public const CURRENCIES = ['idr', 'usd', 'cny'];
 
     protected $fillable = [
         'ticket_id',
@@ -34,7 +34,7 @@ class TicketCost extends Model
 
     public function getAmountIdrAttribute(): float
     {
-        return $this->currency === 'usd'
+        return $this->currency !== 'idr'
             ? round((float) $this->amount * (float) ($this->exchange_rate ?? 1), 2)
             : (float) $this->amount;
     }

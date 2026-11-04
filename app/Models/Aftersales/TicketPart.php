@@ -19,6 +19,10 @@ class TicketPart extends Model
         'ticket_id',
         'ref_sparepart_id',
         'qty',
+        'planned_quantity',
+        'untracked_quantity',
+        'created_by',
+        'updated_by',
         'unit',
         'unit_price',
         'type',
@@ -26,6 +30,7 @@ class TicketPart extends Model
 
     protected $casts = [
         'qty' => 'decimal:2',
+        'planned_quantity' => 'integer',
         'unit_price' => 'decimal:2',
     ];
 

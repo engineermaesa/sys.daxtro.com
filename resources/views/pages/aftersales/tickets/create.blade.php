@@ -69,14 +69,24 @@
 @endsection
 
 @section('scripts')
+{{-- data Blade dibawa lewat atribut HTML supaya kode JS di bawah tetap JS murni --}}
+<div id="ticketBoot" class="hidden"
+    data-ticket-id="{{ $ticket->id ?? '' }}"
+    data-ticket="{{ json_encode(isset($ticket) ? $ticket->toArray() : null) }}"
+    data-index-url="{{ route('aftersales.pages.tickets.index') }}"></div>
 <script>
     const TOTAL_STEPS = 5;
     let currentStep = 1;
 
-    const EDIT_TICKET_ID = @json($ticket->id ?? null);
-    const EDIT_TICKET = @json(isset($ticket) ? $ticket->toArray() : null);
+    const ticketBoot = document.getElementById('ticketBoot');
+    const EDIT_TICKET_ID = ticketBoot.dataset.ticketId ? Number(ticketBoot.dataset.ticketId) : null;
+    const EDIT_TICKET = JSON.parse(ticketBoot.dataset.ticket || 'null');
+    const TICKETS_INDEX_URL = ticketBoot.dataset.indexUrl;
     let originalTechnicianId = EDIT_TICKET?.assigned_technician_id ? String(EDIT_TICKET.assigned_technician_id) : null;
     let originalVisitDate = null;
+    // integrate-contract §3.8: GET /tickets/{id} data.capabilities (diisi saat Edit). Null = belum termuat -> perilaku lama.
+    let EDIT_CAPS = null;
+    function editCan(key) { return EDIT_CAPS === null || EDIT_CAPS[key] === true; }
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -110,12 +120,16 @@
 
         $('.wizard-step').addClass('hidden');
         $(`.wizard-step[data-step="${currentStep}"]`).removeClass('hidden');
+        if (currentStep === 5 && typeof recalculateCostTotal === 'function') recalculateCostTotal();
 
         $('#btn-wizard-back').toggle(currentStep > 1);
         const saveLabel = EDIT_TICKET_ID ? 'Update Ticket' : 'Save Ticket';
         $('#btn-wizard-next').html(currentStep === TOTAL_STEPS
             ? `${saveLabel} <i class="bi bi-check-lg"></i>`
             : 'Next <i class="bi bi-arrow-right"></i>');
+
+        // IM-89: Next stays disabled on step 1 while the selected customer has no Phone or Email
+        if (typeof applyCustomerGate === 'function') applyCustomerGate();
     }
 
     const REQUIRED_FIELDS_BY_STEP = {
@@ -138,7 +152,9 @@
     }
 
     function validateCurrentStep() {
-        const selectors = REQUIRED_FIELDS_BY_STEP[currentStep] || [];
+        const selectors = (REQUIRED_FIELDS_BY_STEP[currentStep] || []).filter(selector =>
+            selector !== '#field-serial-number' || serialNumberRequired()
+        );
         const missing = selectors.filter(selector => !$(selector).val());
 
         selectors.forEach(clearFieldInvalid);
@@ -151,6 +167,11 @@
                 icon: 'warning',
                 confirmButtonColor: '#115640'
             });
+            return false;
+        }
+
+        // Every sparepart row requires a unit before continuing, including newly added rows.
+        if (currentStep === 4 && (!checkSparepartUnits(true) || !checkSparepartStock())) {
             return false;
         }
 
@@ -180,8 +201,8 @@
             const itemId = $(this).find('.sparepart-item').val();
             const qty = $(this).find('.sparepart-qty').val();
             const unit = $(this).find('.sparepart-unit').val();
-            if (itemId && qty && unit) {
-                parts.push({ ref_sparepart_id: itemId, qty: qty, unit: unit });
+            if (itemId && Number(qty) > 0 && unit) {
+                parts.push({ ref_sparepart_id: itemId, qty: Number(qty), unit: unit });
             }
         });
 
@@ -193,19 +214,17 @@
                     category: $(this).data('cost-category'),
                     amount: amount,
                     currency: $(this).find('.cost-currency').val(),
+                    exchange_rate: $(this).find('.cost-currency').val() === 'idr' ? null : costRateFor($(this).find('.cost-currency').val()),
                     remarks: $(this).find('.cost-remarks').val() || null,
                 });
             }
         });
 
-        const slaDueDate = $('#field-sla-due-date').val();
+        const slaDueAt = $('#field-sla-due-date').val();
         let slaValue = 1;
-        if (slaDueDate) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const due = new Date(slaDueDate + 'T00:00:00');
-            const diffDays = Math.round((due - today) / (1000 * 60 * 60 * 24));
-            slaValue = Math.max(diffDays, 1);
+        if (slaDueAt) {
+            const diffHours = Math.ceil((new Date(slaDueAt) - new Date()) / (1000 * 60 * 60));
+            slaValue = Math.max(diffHours, 1);
         }
 
         return {
@@ -215,7 +234,9 @@
             priority: $('#field-priority').val(),
             description: $('#field-description').val(),
             sla_value: slaValue,
-            sla_unit: 'day',
+            sla_unit: 'hour',
+            sla_due_at: slaDueAt || null,
+            cost_display_currency: $('#cost-total-currency').val() || 'idr',
             supervisor_id: $('#field-supervisor').val() || null,
             assigned_technician_id: $('#field-technician').val() || null,
             scheduled_at: $('#field-visit-date').val() || null,
@@ -261,6 +282,30 @@
             return;
         }
 
+        if (customerGateBlocked()) {
+            Swal.fire({
+                title: 'Customer data is incomplete',
+                text: selectedCustomer()?.ticket_creation?.message || 'Phone and Email are required. Please complete the customer data first.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 1;
+            updateStepper();
+            return;
+        }
+
+        if (payload.scheduled_at && payload.sla_due_at && new Date(payload.sla_due_at) < new Date(payload.scheduled_at)) {
+            Swal.fire({
+                title: 'Invalid SLA Target',
+                text: 'SLA Target cannot be earlier than the Visit Schedule.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 3;
+            updateStepper();
+            return;
+        }
+
         Swal.fire({
             title: isEdit ? 'Update this ticket?' : 'Save this ticket?',
             text: 'Make sure all the data entered is correct.',
@@ -283,25 +328,29 @@
                 description: payload.description,
                 sla_value: payload.sla_value,
                 sla_unit: payload.sla_unit,
+                sla_due_at: payload.sla_due_at,
+                cost_display_currency: payload.cost_display_currency,
                 supervisor_id: payload.supervisor_id,
                 parts: payload.parts,
                 costs: payload.costs,
             };
 
-            if (isEdit) {
+            if (isEdit && editCan('can_assign')) {
                 ajaxData.assigned_technician_id = payload.assigned_technician_id;
             }
 
             $.ajax({
                 url: isEdit ? `/api/aftersales/tickets/${EDIT_TICKET_ID}` : '/api/aftersales/tickets',
                 method: isEdit ? 'PUT' : 'POST',
-                data: ajaxData,
+                // JSON: jQuery tidak mengirim array kosong, padahal parts: [] berarti semua part dihapus
+                contentType: 'application/json',
+                data: JSON.stringify(ajaxData),
                 success: function (response) {
                     const ticketId = isEdit ? EDIT_TICKET_ID : response.data?.data?.id;
                     const ticketCode = response.data?.data?.ticket_code ?? EDIT_TICKET?.ticket_code;
                     const followUpTasks = [];
 
-                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId)) {
+                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId) && (!isEdit || editCan('can_assign'))) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/assign`,
@@ -311,7 +360,7 @@
                         });
                     }
 
-                    if (payload.scheduled_at && (!isEdit || payload.scheduled_at !== originalVisitDate)) {
+                    if (payload.scheduled_at && (!isEdit || (!originalVisitDate && payload.scheduled_at)) && (!isEdit || editCan('can_schedule'))) {
                         followUpTasks.push((next, fail) => {
                             $.ajax({
                                 url: `/api/aftersales/tickets/${ticketId}/visits`,
@@ -330,7 +379,7 @@
                                 icon: 'success',
                                 confirmButtonColor: '#115640'
                             }).then(function () {
-                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                                window.location.href = TICKETS_INDEX_URL;
                             });
                         },
                         function (xhr) {
@@ -340,12 +389,27 @@
                                 icon: 'warning',
                                 confirmButtonColor: '#115640'
                             }).then(function () {
-                                window.location.href = '{{ route('aftersales.pages.tickets.index') }}';
+                                window.location.href = TICKETS_INDEX_URL;
                             });
                         }
                     );
                 },
                 error: function (xhr) {
+                    // stok kurang: 422 { message, errors: { parts: ["Not enough stock: ..."] } }, tiket tidak tersimpan
+                    const stockError = xhr.status === 422 ? xhr.responseJSON?.errors?.parts?.[0] : null;
+                    if (stockError) {
+                        currentStep = 4;
+                        updateStepper();
+                        showSparepartStockAlert('Ticket was not saved. ' + stockError);
+                        return;
+                    }
+
+                    if (xhr.responseJSON?.code === 'customer_contact_incomplete') {
+                        setTicketCreation(xhr.responseJSON.customer_id, xhr.responseJSON.ticket_creation);
+                        currentStep = 1;
+                        updateStepper();
+                    }
+
                     Swal.fire({
                         title: isEdit ? 'Failed to update ticket' : 'Failed to save ticket',
                         text: formatApiErrors(xhr),
@@ -374,10 +438,24 @@
         }
     }
 
-    $(function () {
-        // TODO: fetch GET /api/aftersales/tickets/supervisors to populate #field-supervisor
-        // (endpoint not yet available in backend)
+    function loadSupervisorOptions() {
+        return $.ajax({
+            url: '/api/aftersales/tickets/supervisors',
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+            success: function (response) {
+                const options = (response.data || []).map(function (u) {
+                    return '<option value="' + u.id + '">' + escapeHtml(u.name) + '</option>';
+                }).join('');
+                $('#field-supervisor').html('<option value="">Select Supervisor</option>' + options);
+            },
+            error: function (xhr) {
+                console.error('Failed to load supervisors', xhr.responseJSON?.message || xhr.statusText);
+            }
+        });
+    }
 
+    $(function () {
         initSelect2();
         initTooltips();
         updateStepper();
@@ -385,11 +463,24 @@
         const customerPromise = loadCustomerOptions();
         const technicianPromise = loadTechnicianOptions();
         const sparepartPromise = loadSparepartOptions();
+        const supervisorPromise = loadSupervisorOptions();
 
         if (EDIT_TICKET_ID) {
             $('#field-ticket-code').val(EDIT_TICKET.ticket_code || '-');
 
-            $.when(customerPromise, technicianPromise, sparepartPromise).done(function () {
+            // can_assign / can_schedule decide whether the technician and visit-date fields are editable
+            const capsPromise = $.ajax({ url: '/api/aftersales/tickets/' + EDIT_TICKET_ID, method: 'GET' }).done(function (res) {
+                EDIT_CAPS = res.data?.capabilities || null;
+            });
+
+            $.when(capsPromise.then(null, function () { return $.Deferred().resolve(); }), customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
+                if (EDIT_CAPS) {
+                    $('#field-technician').prop('disabled', !EDIT_CAPS.can_assign);
+                    $('#field-visit-date').prop('disabled', !EDIT_CAPS.can_schedule);
+                }
+            });
+
+            $.when(customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
                 $('#field-customer').val(String(EDIT_TICKET.customer_id)).trigger('change');
                 $('#field-category').val(EDIT_TICKET.category || '');
                 $('#field-priority').val(EDIT_TICKET.priority || 'medium');
@@ -399,13 +490,20 @@
                     $('#field-technician').val(String(EDIT_TICKET.assigned_technician_id)).trigger('change.select2');
                 }
                 if (EDIT_TICKET.supervisor_id) {
+                    // Older tickets may have a supervisor who is not in the new dropdown (role supervisor_after_sales):
+                    // keep showing the existing one instead of clearing it. Keeping the same ID is allowed by the API.
+                    if (!$('#field-supervisor option[value="' + EDIT_TICKET.supervisor_id + '"]').length) {
+                        $('#field-supervisor').append('<option value="' + EDIT_TICKET.supervisor_id + '">' +
+                            escapeHtml(EDIT_TICKET.supervisor?.name || ('User #' + EDIT_TICKET.supervisor_id)) + '</option>');
+                    }
                     $('#field-supervisor').val(String(EDIT_TICKET.supervisor_id));
                 }
                 if (EDIT_TICKET.sla_due_at) {
-                    $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 10));
+                    $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 16).replace(' ', 'T'));
+                    slaTouched = true;
                 }
 
-                const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at))[0];
+                const latestVisit = (EDIT_TICKET.visits || []).slice().sort((a, b) => b.id - a.id)[0];
                 if (latestVisit) {
                     originalVisitDate = String(latestVisit.scheduled_at).slice(0, 16).replace(' ', 'T');
                     $('#field-visit-date').val(originalVisitDate);
@@ -414,9 +512,6 @@
                 prefillSparepartAndCostRows();
             });
         } else {
-            const defaultSlaDate = new Date();
-            defaultSlaDate.setDate(defaultSlaDate.getDate() + 3);
-            $('#field-sla-due-date').val(defaultSlaDate.toISOString().slice(0, 10));
             addSparepartRow();
 
             $.ajax({
@@ -430,6 +525,19 @@
                 }
             });
         }
+
+        // SLA Target default: 8 jam setelah Visit Schedule, selama belum diubah manual
+        var slaTouched = false;
+        function pad(n) { return String(n).padStart(2, '0'); }
+        $(document).on('input change', '#field-sla-due-date', function () { slaTouched = true; });
+        $(document).on('input change', '#field-visit-date', function () {
+            const v = $(this).val();
+            if (slaTouched || !v) return;
+            const d = new Date(v);
+            if (isNaN(d)) return;
+            d.setHours(d.getHours() + 8);
+            $('#field-sla-due-date').val(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+        });
 
         $(document).on('input change', '#field-customer, #field-pic-name, #field-phone, #field-location, #field-machine, #field-serial-number, #field-category, #field-description, #field-technician, #field-visit-date', function () {
             if ($(this).val()) {

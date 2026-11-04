@@ -72,7 +72,7 @@
                 const html = Object.keys(SATISFACTION_LABEL).map(key => `
                     <div class="flex items-center justify-between border-b border-[#F0F0F0] py-2">
                         <span class="text-sm text-[#1E1E1E]">${escapeHtml(SATISFACTION_LABEL[key])}</span>
-                        <span class="font-semibold text-[#115640]">${escapeHtml(currentTicketSatisfaction[key] ?? '-')} / 5</span>
+                        <span class="font-semibold text-[#115640]">${escapeHtml(currentTicketSatisfaction[key] ?? '-')} / 3</span>
                     </div>
                 `).join('');
 

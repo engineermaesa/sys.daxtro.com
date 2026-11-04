@@ -4,6 +4,7 @@ namespace App\Models\Aftersales;
 
 use App\Models\Masters\Province;
 use App\Models\Masters\Region;
+use App\Services\Aftersales\TicketCustomerContact;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,15 +15,31 @@ class ServiceCustomer extends Model
 
     protected $table = 'service_customers';
 
+    protected $appends = ['maps_link'];
+
     protected $fillable = [
         'name',
         'address',
+        'maps_link',
         'ref_province_id',
         'ref_region_id',
         'pic_name',
         'email',
         'phone',
+        'address_maps_url', 'source', 'created_by', 'updated_by', 'deleted_by', 'is_deleted',
     ];
+
+    public function getMapsLinkAttribute(?string $value): ?string
+    {
+        return array_key_exists('address_maps_url', $this->attributes)
+            ? $this->attributes['address_maps_url']
+            : $value;
+    }
+
+    public function setMapsLinkAttribute(?string $value): void
+    {
+        $this->attributes['address_maps_url'] = $value;
+    }
 
     public function province()
     {
@@ -42,5 +59,25 @@ class ServiceCustomer extends Model
     public function tickets()
     {
         return $this->hasMany(Ticket::class, 'customer_id');
+    }
+
+    public function deals()
+    {
+        return $this->hasMany(CustomerDeal::class, 'service_customer_id');
+    }
+
+    public function getLeadNoLongerDealAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->whereNotNull('left_deal_at')->isNotEmpty() : $this->deals()->whereNotNull('left_deal_at')->exists();
+    }
+
+    public function getLeadUpdatedAttribute(): bool
+    {
+        return $this->relationLoaded('deals') ? $this->deals->contains(fn ($d) => ! empty($d->pending_changes)) : $this->deals()->whereNotNull('pending_changes')->exists();
+    }
+
+    public function getTicketCreationAttribute(): array
+    {
+        return TicketCustomerContact::summary($this);
     }
 }

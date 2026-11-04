@@ -24,6 +24,7 @@ class AuthenticatedSessionController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
+            app(\App\Services\UserLoginAudit::class)->record($request, Auth::user());
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'Authenticated',

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Masters;
 
-use App\Http\Controllers\Controller;
-use App\Models\Masters\ProductType;
-use App\Models\Masters\Product;
 use App\Http\Classes\ActivityLogger;
+use App\Http\Controllers\Controller;
+use App\Models\Masters\Product;
+use App\Models\Masters\ProductType;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -48,7 +48,7 @@ class ProductTypeController extends Controller
                         $del = url('/api/masters/product-types/delete/'.$row->id);
                     }
 
-                    return '<a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>' .
+                    return '<a href="'.$edit.'" class="btn btn-sm btn-primary"><i class="bi bi-pencil"></i> Edit</a>'.
                            ' <a href="'.$del.'" data-id="'.$row->id.'" data-table="productTypesTable" class="btn btn-sm btn-danger delete-data"><i class="bi bi-trash"></i> Delete</a>';
                 })
                 ->rawColumns(['actions'])
@@ -57,6 +57,7 @@ class ProductTypeController extends Controller
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             $types = $query->get();
+
             return response()->json([
                 'status' => true,
                 'data' => $types,
@@ -68,7 +69,7 @@ class ProductTypeController extends Controller
 
     public function form(Request $request, $id = null)
     {
-        $form_data = $id ? ProductType::findOrFail($id) : new ProductType();
+        $form_data = $id ? ProductType::findOrFail($id) : new ProductType;
 
         if ($request->is('api/*') || $request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -98,12 +99,17 @@ class ProductTypeController extends Controller
     {
         $request->validate([
             'name' => 'required',
+            'code_prefix' => 'sometimes|nullable|string|max:20|regex:/^[A-Za-z0-9]+$/',
         ]);
 
-        $type = $id ? ProductType::findOrFail($id) : new ProductType();
+        $type = $id ? ProductType::findOrFail($id) : new ProductType;
         $before = $id ? $type->toArray() : null;
 
         $type->name = $request->name;
+        if ($request->exists('code_prefix')) {
+            abort_unless($request->user()?->hasPermission('masters.product-types'), 403);
+            $type->code_prefix = $request->filled('code_prefix') ? strtoupper($request->input('code_prefix')) : null;
+        }
         $type->save();
 
         $after = $type->fresh()->toArray();
@@ -127,7 +133,7 @@ class ProductTypeController extends Controller
         if ($hasRelation) {
             return response()->json([
                 'status' => false,
-                'message' => 'Product type cannot be deleted because it has related products.'
+                'message' => 'Product type cannot be deleted because it has related products.',
             ], 400);
         }
 
