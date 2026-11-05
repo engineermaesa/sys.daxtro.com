@@ -2687,7 +2687,9 @@
 
 @section('content')
 
-@include('pages.templates.main-headers')
+@unless(in_array(auth()->user()->role?->code, ['after_sales', 'supervisor_after_sales', 'head_after_sales', 'technician'], true))
+    @include('pages.templates.main-headers')
+@endunless
 
 @if(auth()->user()->role?->code === 'super_admin')
     @include('pages.dashboard.super-admin.index')
@@ -2706,6 +2708,8 @@
     @else
     @include('pages.dashboard.after-sales.supervisor.index')
     @endif
+@elseif(auth()->user()->role?->code === 'technician')
+    @include('pages.dashboard.after-sales.technician.index')
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}
@@ -4517,11 +4521,13 @@
             @parent
             <script src="{{ asset('sb-admin-2/vendor/chart.js/Chart.min.js') }}"></script>
             <script>
+                const DASH_IS_SUPER_ADMIN = "{{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }}" === 'true';
+                const DASH_BRANCH_ID = JSON.parse("{{ auth()->user()->branch_id ?? 'null' }}");
                 let svtPercentChart;
 
 function loadAchievementMonthlyPercent() {
   const params = { year: $('#svt_year').val() };
-  $.post('{{ route('dashboard.sales-achievement-monthly-percent') }}', params, function(res){
+  $.post("{{ route('dashboard.sales-achievement-monthly-percent') }}", params, function(res){
     const labels = res.labels || [];
     const datasets = (res.datasets || []).map((d,i)=>({
       label: d.label,
@@ -4620,7 +4626,7 @@ function loadTargetVsSalesMonthly() {
     year:  $('#tvsm_year').val()
   };
 
-  $.post('{{ route('dashboard.target-vs-sales-monthly') }}', params, function(res){
+  $.post("{{ route('dashboard.target-vs-sales-monthly') }}", params, function(res){
     console.log('Target vs Sales Monthly Response:', res);
     const labels = res.labels || [];
     const series = res.series || [];
@@ -4818,8 +4824,8 @@ function loadSalesAchievementDonuts() {
     end_date:   $('#donut_end').val()
   };
 
-  $.post('{{ route('dashboard.sales-achievement-donut') }}', params, function(res){
-    const isSuperAdmin = {{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }};
+  $.post("{{ route('dashboard.sales-achievement-donut') }}", params, function(res){
+    const isSuperAdmin = DASH_IS_SUPER_ADMIN;
     
     if (isSuperAdmin) {
         const g = res.global || { achieved:0, target:10000000, percent:0 };
@@ -4923,7 +4929,7 @@ function loadSalesPerformanceBar() {
     start_date: $('#sp_start').val(),
     end_date:   $('#sp_end').val()
   };
-  $.post('{{ route('dashboard.sales-performance-bar') }}', params, function(res){
+  $.post("{{ route('dashboard.sales-performance-bar') }}", params, function(res){
     const labels = res.labels || [];
     const ds = res.datasets || [];
     const ctx = document.getElementById('sp_bar').getContext('2d');
@@ -4964,7 +4970,7 @@ function loadSalesAchievementTrend() {
     start_date: $('#sp_start').val(),
     end_date:   $('#sp_end').val()
   };
-  $.post('{{ route('dashboard.sales-achievement-trend') }}', params, function(res){
+  $.post("{{ route('dashboard.sales-achievement-trend') }}", params, function(res){
     const labels = res.labels || [];
     const series = res.series || [];
     const colors = ['#4e73df', '#e74a3b', '#1cc88a', '#f6c23e']; 
@@ -5026,7 +5032,7 @@ function loadBranchSalesTrend() {
         end_date:   $('#branch_sales_end').val()
     };
 
-    $.post('{{ route('dashboard.branch-sales-trend') }}', params, function(res) {
+    $.post("{{ route('dashboard.branch-sales-trend') }}", params, function(res) {
         const labels = res.labels || [];
         const series = res.series || [];
 
@@ -5089,7 +5095,7 @@ function loadOrdersMonthly() {
         end_date:   $('#orders_end').val()
     };
 
-    $.post('{{ route('dashboard.orders-monthly') }}', params, function(rows) {
+    $.post("{{ route('dashboard.orders-monthly') }}", params, function(rows) {
         const labels  = rows.map(r => r.label);
         const counts  = rows.map(r => r.count);
         const amounts = rows.map(r => r.amount);
@@ -5197,26 +5203,26 @@ function loadOrdersMonthly() {
             function loadProcessFlowMkt5a(startDate = null, endDate = null, branchId = null) {
                 const params = {};
 
-                @if(auth()->user()->role?->code === 'super_admin')
+                if (DASH_IS_SUPER_ADMIN) {
                     if (branchId) {
                         params.branch_id = branchId;
                     }
-                @else
-                    @if(auth()->user()->branch_id)
-                        params.branch_id = {{ auth()->user()->branch_id }};
-                    @endif
-                @endif
+                } else {
+                    if (DASH_BRANCH_ID) {
+                        params.branch_id = DASH_BRANCH_ID;
+                    }
+                }
 
                 if (startDate) {
                     params.start_date = startDate;
                 } else {
-                    params.start_date = '{{ now()->startOfYear()->format('Y-m-d') }}';
+                    params.start_date = "{{ now()->startOfYear()->format('Y-m-d') }}";
                 }
                 
                 if (endDate) {
                     params.end_date = endDate;
                 } else {
-                    params.end_date = '{{ now()->endOfYear()->format('Y-m-d') }}';
+                    params.end_date = "{{ now()->endOfYear()->format('Y-m-d') }}";
                 }
                 
                 console.log('Loading PROCESS FLOW with params:', params);
@@ -5313,15 +5319,15 @@ function loadOrdersMonthly() {
 
             $(function() {
                 const statusMap = {
-                    cold: {{ \App\Models\Leads\LeadStatus::COLD }},
-                    warm: {{ \App\Models\Leads\LeadStatus::WARM }},
-                    hot: {{ \App\Models\Leads\LeadStatus::HOT }}
+                    cold: Number("{{ \App\Models\Leads\LeadStatus::COLD }}"),
+                    warm: Number("{{ \App\Models\Leads\LeadStatus::WARM }}"),
+                    hot: Number("{{ \App\Models\Leads\LeadStatus::HOT }}")
                 };
 
                 const charts = {};
 
-                const defaultStartDate = '{{ now()->startOfYear()->format('Y-m-d') }}';
-                const defaultEndDate = '{{ now()->endOfYear()->format('Y-m-d') }}';
+                const defaultStartDate = "{{ now()->startOfYear()->format('Y-m-d') }}";
+                const defaultEndDate = "{{ now()->endOfYear()->format('Y-m-d') }}";
                 
                 loadSourceConversionStats(); 
                 $('#source-apply').on('click', loadSourceConversionStats);
@@ -5407,7 +5413,7 @@ loadBranchSalesTrend();
                         start_date: $('#' + prefix + '_start').val(),
                         end_date: $('#' + prefix + '_end').val()
                     };
-                    $.post('{{ route('dashboard.group7.leads-source') }}', params, function(data) {
+                    $.post("{{ route('dashboard.group7.leads-source') }}", params, function(data) {
                         const ctx = document.getElementById(prefix + '_chart').getContext('2d');
                         if (charts[prefix]) {
                             charts[prefix].destroy();
@@ -5422,7 +5428,7 @@ loadBranchSalesTrend();
                         start_date: $('#overview_start').val(),
                         end_date: $('#overview_end').val()
                     };
-                    $.post('{{ route('dashboard.group3.lead-overview') }}', params, function(data) {
+                    $.post("{{ route('dashboard.group3.lead-overview') }}", params, function(data) {
                         const ctx = document.getElementById('overview_chart').getContext('2d');
                         if (charts.overview) {
                             charts.overview.destroy();
@@ -5440,7 +5446,7 @@ loadBranchSalesTrend();
 
                     const statuses = ['cold', 'warm', 'hot'];
                     const requests = statuses.map(function(status) {
-                        return $.post('{{ route('dashboard.group5.lead-total') }}',
+                        return $.post("{{ route('dashboard.group5.lead-total') }}",
                             Object.assign({
                                 status_id: statusMap[status]
                             }, baseParams));
@@ -5463,7 +5469,7 @@ loadBranchSalesTrend();
                 }
 
                 function loadColdWarmChart() {
-                    $.post('{{ route('dashboard.group4.cold-warm') }}', function(data) {
+                    $.post("{{ route('dashboard.group4.cold-warm') }}", function(data) {
                         const ctx = document.getElementById('cw_chart').getContext('2d');
                         if (charts.cw) {
                             charts.cw.destroy();
@@ -5473,7 +5479,7 @@ loadBranchSalesTrend();
                 }
 
                 function loadWarmHotChart() {
-                    $.post('{{ route('dashboard.group4.warm-hot') }}', function(data) {
+                    $.post("{{ route('dashboard.group4.warm-hot') }}", function(data) {
                         const ctx = document.getElementById('wh_chart').getContext('2d');
                         if (charts.wh) {
                             charts.wh.destroy();
@@ -5493,7 +5499,7 @@ loadBranchSalesTrend();
                     };
 
                     const requests = quotationStatuses.map(function(status) {
-                        return $.post('{{ route('dashboard.group6.quotation-status') }}',
+                        return $.post("{{ route('dashboard.group6.quotation-status') }}",
                             Object.assign({
                                 status: status
                             }, baseParams));
@@ -5518,7 +5524,7 @@ loadBranchSalesTrend();
 
 
                 function loadProcessFlow() {
-                    const branchId = {{ Auth::user()->branch_id ?? 'null' }};
+                    const branchId = DASH_BRANCH_ID;
                     const apiUrl = '/api/dashboard/mkt5a' + (branchId ? '?branch_id=' + branchId : '');
                     
                     $.get(apiUrl, function(response) {
@@ -5595,16 +5601,16 @@ loadBranchSalesTrend();
                 function loadSourceConversionStats() {
                     const params = {};
                     
-                    @if(auth()->user()->role?->code === 'super_admin')
+                    if (DASH_IS_SUPER_ADMIN) {
                         const branchId = $('#source-branch').val();
                         if (branchId && branchId !== '') {
                             params.branch_id = branchId;
                         }
-                    @else
-                        @if(auth()->user()->branch_id)
-                            params.branch_id = {{ auth()->user()->branch_id }};
-                        @endif
-                    @endif
+                    } else {
+                        if (DASH_BRANCH_ID) {
+                            params.branch_id = DASH_BRANCH_ID;
+                        }
+                    }
                     
                     const sourceFilter = $('#source-filter').val();
                     const sourceFilterNew = $('#source-filter-new').val();
@@ -6027,14 +6033,14 @@ loadBranchSalesTrend();
                         year: $('#source-monitoring-year').val() || new Date().getFullYear()
                     };
 
-                    @if(auth()->user()->role?->code !== 'super_admin')
-                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
-                    @else
+                    if (!DASH_IS_SUPER_ADMIN) {
+                        params.branch_id = DASH_BRANCH_ID;
+                    } else {
                         const branchId = $('#source-monitoring-branch').val();
                         if (branchId && branchId !== '') {
                             params.branch_id = branchId;
                         }
-                    @endif
+                    }
 
                     console.log('Loading source monitoring chart with params: ', params);
 
@@ -6177,14 +6183,14 @@ loadBranchSalesTrend();
                         year: $('#source-monitoring-table-year').val() || new Date().getFullYear()
                     };
 
-                    @if(auth()->user()->role?->code !== 'super_admin')
-                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
-                    @else
+                    if (!DASH_IS_SUPER_ADMIN) {
+                        params.branch_id = DASH_BRANCH_ID;
+                    } else {
                         const branchId = $('#source-monitoring-table-branch').val();
                         if (branchId && branchId !== '') {
                             params.branch_id = branchId;
                         }
-                    @endif
+                    }
 
                     const sourceFilter = $('#source-monitoring-source-filter').val();
                     if (sourceFilter && sourceFilter !== '') {
@@ -6311,9 +6317,9 @@ loadBranchSalesTrend();
                 }
 
                 $('#source-monitoring-apply').on('click', function() {
-                    @if(auth()->user()->role?->code === 'super_admin')
+                    if (DASH_IS_SUPER_ADMIN) {
                         $('#source-monitoring-table-branch').val($('#source-monitoring-branch').val());
-                    @endif
+                    }
                     $('#source-monitoring-table-year').val($('#source-monitoring-year').val());
                     
                     loadSourceMonitoringStats();
@@ -6321,9 +6327,9 @@ loadBranchSalesTrend();
                 });
 
                 $('#source-monitoring-table-apply').on('click', function() {
-                    @if(auth()->user()->role?->code === 'super_admin')
+                    if (DASH_IS_SUPER_ADMIN) {
                         $('#source-monitoring-branch').val($('#source-monitoring-table-branch').val());
-                    @endif
+                    }
                     $('#source-monitoring-year').val($('#source-monitoring-table-year').val());
                     
                     loadSourceMonitoringStats();
@@ -6355,14 +6361,14 @@ loadBranchSalesTrend();
                 function loadSlsDealingChart() {
                     const params = {};
 
-                    @if(auth()->user()->role?->code !== 'super_admin')
-                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
-                    @else
+                    if (!DASH_IS_SUPER_ADMIN) {
+                        params.branch_id = DASH_BRANCH_ID;
+                    } else {
                         const branchId = $('#sls-dealing-branch').val();
                         if (branchId && branchId !== '') {
                             params.branch_id = branchId;
                         }
-                    @endif
+                    }
 
                     const startDate = $('#sls-dealing-start-date').val();
                     const endDate = $('#sls-dealing-end-date').val();
@@ -6595,14 +6601,14 @@ loadBranchSalesTrend();
                 function loadSlsDealingTable() {
                     const params = {};
 
-                    @if(auth()->user()->role?->code !== 'super_admin')
-                        params.branch_id = {{ auth()->user()->branch_id ?? 'null' }};
-                    @else
+                    if (!DASH_IS_SUPER_ADMIN) {
+                        params.branch_id = DASH_BRANCH_ID;
+                    } else {
                         const branchId = $('#sls-dealing-table-branch').val();
                         if (branchId && branchId !== '') {
                             params.branch_id = branchId;
                         }
-                    @endif
+                    }
 
                     const startDate = $('#sls-dealing-table-start-date').val();
                     const endDate = $('#sls-dealing-table-end-date').val();
@@ -6701,8 +6707,8 @@ loadBranchSalesTrend();
 
                 function loadPotentialBranchTable() {
                     const selectedBranch = $('#potential-branch-branch').val();
-                    const userBranchId = {{ auth()->user()->branch_id ?? 'null' }};
-                    const isSuperAdmin = {{ auth()->user()->role?->code === 'super_admin' ? 'true' : 'false' }};
+                    const userBranchId = DASH_BRANCH_ID;
+                    const isSuperAdmin = DASH_IS_SUPER_ADMIN;
                     
                     console.log('=== BRANCH DEBUG INFO ===');
                     console.log('Selected branch from dropdown:', selectedBranch);
@@ -6961,9 +6967,9 @@ loadBranchSalesTrend();
 
                 $('#sls-dealing-apply').on('click', function() {
 
-                    @if(auth()->user()->role?->code === 'super_admin')
+                    if (DASH_IS_SUPER_ADMIN) {
                         $('#sls-dealing-table-branch').val($('#sls-dealing-branch').val());
-                    @endif
+                    }
                     $('#sls-dealing-table-start-date').val($('#sls-dealing-start-date').val());
                     $('#sls-dealing-table-end-date').val($('#sls-dealing-end-date').val());
                     
@@ -6973,9 +6979,9 @@ loadBranchSalesTrend();
 
                 $('#sls-dealing-table-apply').on('click', function() {
  
-                    @if(auth()->user()->role?->code === 'super_admin')
+                    if (DASH_IS_SUPER_ADMIN) {
                         $('#sls-dealing-branch').val($('#sls-dealing-table-branch').val());
-                    @endif
+                    }
                     $('#sls-dealing-start-date').val($('#sls-dealing-table-start-date').val());
                     $('#sls-dealing-end-date').val($('#sls-dealing-table-end-date').val());
                     
