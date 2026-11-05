@@ -55,6 +55,11 @@ use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/supervisor')->name('dashboard.aftersales.supervisor.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'summary'])->name('summary');
+    Route::get('/tickets', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'tickets'])->name('tickets');
+});
+
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {
     Route::get('/', [SurveyTemplateController::class, 'index'])->name('index');
     Route::get('/question-scores', [SurveyTemplateController::class, 'questionScores'])->name('question-scores');
