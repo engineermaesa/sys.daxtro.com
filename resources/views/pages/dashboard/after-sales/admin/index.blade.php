@@ -66,24 +66,55 @@
 
     const C = { green: '#14573F', sage: '#7FAF9A', sageLight: '#9CC4B2', gold: '#D9B65B', grey: '#A9B8B0' };
 
-    // [API] Ganti objek dummy ini dengan fetch() ke endpoint ringkasan admin aftersales (belum tersedia di BE).
+    // Data dari GET /api/dashboard/aftersales/admin (snapshot saat ini, tanpa filter Period).
+    const API = '/api/dashboard/aftersales/admin';
+    const STATUS_LABEL = { on_duty: 'On duty', standby: 'Standby' };
     const adminData = {
-        progress: [
-            ['Published', 6, 'warn'], ['Assigned', 5], ['On Site', 4], ['Report', 3],
-            ['Waiting Sparepart', 2], ['Docs Published', 4], ['Survey Submitted', 3], ['Happy Call Completed', 2],
-        ],
-        sla: { onTrack: 3, atRisk: 2, overdue: 1 },
-        visits: {
-            labels: ['Today', '+1 day', '+2 days', '+3 days'],
-            visits: [4, 3, 5, 2], recomings: [2, 1, 2, 1],
-        },
-        followUp: [['Survey due', 5], ['Link expired', 2], ['Need Recoms', 4], ['Blocked Closed', 1], ['Happy Call due', 3], ['Ready to Close', 6]],
-        hygiene: [['Docs Rework', 2], ['No phone or email', 4], ['No warranty date', 3], ['Spareparts BADREEN', 5]],
-        technicians: [
-            ['Arya', 'On duty', 6], ['Dimas', 'On duty', 5], ['Bagas', 'On duty', 4], ['Fajar', 'On duty', 4],
-            ['Zahrah', 'On duty', 3], ['Citra', 'Standby', 2], ['Eka', 'Standby', 2],
-        ],
+        progress: [], sla: { onTrack: 0, atRisk: 0, overdue: 0 },
+        visits: { labels: [], visits: [], recomings: [] },
+        followUp: [], hygiene: [],
+        technicians: { items: [], total: 0, hasMore: false, maxActive: 0, page: 1 },
     };
+
+    const getJson = async (url) => {
+        const res = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`Dashboard request failed: ${res.status}`);
+        return res.json();
+    };
+    const mapTech = t => ({ rank: t.rank, name: t.name, status: STATUS_LABEL[t.status] ?? t.status, count: t.active_tickets });
+
+    async function loadDashboard() {
+        const { data } = await getJson(API);
+        adminData.progress = data.progress.items.map(i => [i.label, i.count, i.key === 'published' ? 'warn' : undefined]);
+        adminData.sla = { onTrack: data.sla.on_track, atRisk: data.sla.at_risk, overdue: data.sla.overdue };
+        adminData.visits = {
+            labels: data.visits.days.map(d => d.label),
+            visits: data.visits.days.map(d => d.visits),
+            recomings: data.visits.days.map(d => d.recomings),
+        };
+        adminData.followUp = data.follow_up.map(i => [i.label, i.count]);
+        adminData.hygiene = data.hygiene.map(i => [i.label, i.count]);
+        adminData.technicians = {
+            items: data.technicians.items.map(mapTech), total: data.technicians.total,
+            hasMore: data.technicians.has_more, maxActive: data.technicians.max_active, page: 1,
+        };
+    }
+
+    // Load more workload saat scroll mentok bawah (max_active dari summary dipakai agar skala bar tetap).
+    let loadingMore = false;
+    async function loadMoreTechnicians() {
+        const t = adminData.technicians;
+        if (loadingMore || !t.hasMore) return;
+        loadingMore = true;
+        try {
+            const next = t.page + 1;
+            const res = await getJson(`${API}/technicians?${new URLSearchParams({ page: next, per_page: 20 })}`);
+            t.items.push(...res.data.map(mapTech));
+            t.page = next;
+            t.hasMore = res.current_page < res.last_page;
+            renderWorkload();
+        } catch (e) { console.error(e); } finally { loadingMore = false; }
+    }
 
     const charts = {};
     const mount = (id, opts) => {
@@ -161,15 +192,15 @@
     }
 
     function renderWorkload() {
-        const list = adminData.technicians;
-        const max = Math.max(...list.map(t => t[2]), 1);
+        const list = adminData.technicians.items;
+        const max = Math.max(adminData.technicians.maxActive, 1);
         const step = Math.ceil(max / 3);
         document.getElementById('admin-workload-axis').innerHTML = [0, step, step * 2, step * 3].map(n => `<span>${n}</span>`).join('');
         const tpl = document.getElementById('admin-rank-template');
         const wrap = document.getElementById('admin-workload');
-        wrap.replaceChildren(...list.map(([name, status, count], i) => {
+        wrap.replaceChildren(...list.map(({ rank, name, status, count }) => {
             const node = tpl.content.firstElementChild.cloneNode(true);
-            node.querySelector('[data-rank]').textContent = i + 1;
+            node.querySelector('[data-rank]').textContent = rank;
             node.querySelector('[data-name]').textContent = name;
             node.querySelector('[data-status]').textContent = status;
             node.querySelector('[data-value]').textContent = count;
@@ -178,7 +209,13 @@
         }));
     }
 
-    function init() {
+    async function init() {
+        try {
+            await loadDashboard();
+        } catch (e) {
+            console.error(e); // 401/403/5xx: jangan tampilkan dummy sebagai data live
+            return;
+        }
         renderProgress();
         renderSla();
         renderVisits();
@@ -190,6 +227,10 @@
         });
         renderWorkload();
     }
+    document.getElementById('admin-workload').addEventListener('scroll', e => {
+        const el = e.currentTarget;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) loadMoreTechnicians();
+    });
     init();
 })();
 </script>
