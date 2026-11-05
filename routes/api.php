@@ -55,6 +55,13 @@ use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/admin')->name('dashboard.aftersales.admin.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'summary'])->name('summary');
+    Route::get('/tickets', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'tickets'])->name('tickets');
+    Route::get('/hygiene', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'hygiene'])->name('hygiene');
+    Route::get('/technicians', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'technicians'])->name('technicians');
+});
+
 Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/technician')->name('dashboard.aftersales.technician.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'summary'])->name('summary');
     Route::get('/tasks', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tasks'])->name('tasks');
