@@ -33,7 +33,7 @@
     <div class="grid lg:grid-cols-2 gap-4">
         <x-after-sales.ui.panel title="Warranty Cost by model" subtitle="Highest warranty exposure across the selected breakdown.">
             <x-slot:actions>
-                <x-after-sales.spv.segmented-toggle name="warranty" :options="['model' => 'Model', 'region' => 'Region', 'technician' => 'Technician']" />
+                <x-after-sales.spv.segmented-toggle name="warranty" :options="['model' => 'Model']" />
             </x-slot:actions>
             <div id="spv-warranty-list" class="space-y-5 pt-2"></div>
         </x-after-sales.ui.panel>
