@@ -86,9 +86,10 @@
     if (!root || !window.AS) return;
     const { colors: C, baseChart, mount } = window.AS;
 
-    // [API] Ganti objek dummy ini dengan fetch() ke endpoint dashboard technician (hanya tiket milik sendiri; belum ada di BE).
+    // Rating sudah dari API (GET /api/dashboard/aftersales/technician). Panel lain masih dummy.
+    // [API] Sambungkan tickets/sla/tasks/closed/todo ke respons yang sama (lihat docs/aftersales-dashboards/integrate-contract.md).
     const techData = {
-        rating: { score: 2.7, max: 3, label: 'Excellent', responses: 24 },
+        rating: { score: null, max: 3 },
         tickets: { Assigned: 3, 'On Site': 4, Repair: 3, Waiting: 2 },
         sla: { value: 92, target: 96, months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], series: [86, 88, 87, 91, 90, 92] },
         tasks: [
@@ -118,19 +119,33 @@
             stroke: { width: 2, colors: ['#fff'] }, tooltip: { enabled: false },
             plotOptions: { pie: { donut: { size: '70%', labels: {
                 show: true,
-                name: { show: true, fontSize: '10px', color: '#8A948F', offsetY: 16 },
-                value: { show: true, fontSize: '24px', fontWeight: 700, color: C.green, offsetY: -10, formatter: () => centerValue },
+                name: { show: true, fontSize: '11px', color: '#8A948F', offsetY: 28 },
+                value: { show: true, fontSize: '24px', fontWeight: 700, color: C.green, offsetY: -12, formatter: () => centerValue },
                 total: { show: true, label: centerLabel, color: '#8A948F', formatter: () => centerValue },
             } } } },
         });
     }
 
     function renderRating() {
-        const r = techData.rating;
-        donut('tech-chart-rating', [r.score, r.max - r.score], ['Score', ''], [C.green, C.track], String(r.score), '/ ' + r.max);
+        const { score, max } = techData.rating;
+        const has = score !== null && score !== undefined;
+        donut('tech-chart-rating', has ? [score, max - score] : [0, 1], ['Score', ''], [C.green, C.track],
+            has ? Number(score).toFixed(1) : '—', '/ ' + max);
         const side = document.getElementById('tech-rating-side');
-        side.querySelector('[data-side-value]').textContent = r.label;
-        side.querySelector('[data-side-note]').innerHTML = `<b class="text-[#2B3441]">${r.responses}</b> responses`;
+        side.querySelector('[data-side-value]').textContent = has ? `${Number(score).toFixed(1)} / ${max}` : '—';
+        side.querySelector('[data-side-note]').textContent = 'Average of approved surveys';
+    }
+
+    let controller;
+    async function loadDashboard(period) {
+        controller?.abort(); // abaikan response lama bila Period berubah cepat
+        controller = new AbortController();
+        const res = await fetch(`/api/dashboard/aftersales/technician?${new URLSearchParams({ period })}`, {
+            credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Dashboard request failed: ${res.status}`);
+        const { data } = await res.json();
+        techData.rating = data.rating; // { score: number|null, max: 3 }
     }
 
     function renderTickets() {
@@ -224,11 +239,18 @@
         });
     }
 
-    function init() {
+    async function init() {
+        const period = root.ownerDocument.querySelector('#tech-filters [data-filter="period"]')?.value || 'this_month';
+        try {
+            await loadDashboard(period);
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+            console.error(e); // 401/403/422/5xx: jangan tampilkan dummy sebagai data live
+        }
         renderRating(); renderTickets(); renderSla(); renderTasks();
         renderClosed(); renderTodo(); renderWeekly();
     }
-    // [API] filter Period: panggil ulang endpoint dengan nilai terpilih lalu init().
+    // Filter Period: panggil ulang endpoint lalu render ulang.
     root.ownerDocument.querySelectorAll('#tech-filters [data-filter]').forEach(sel => sel.addEventListener('change', init));
     init();
 })();
