@@ -59,7 +59,7 @@
     {{-- Reported problem --}}
     <x-after-sales.ui.panel title="Reported problem" subtitle="Problem concentration by category and machine group over time.">
         <x-slot:actions>
-            <x-after-sales.spv.segmented-toggle name="problem" :options="['machine' => 'Machine', 'region' => 'Region', 'month' => 'Month']" />
+            <x-after-sales.spv.segmented-toggle name="problem" :options="['machine' => 'Machine']" />
         </x-slot:actions>
         <x-after-sales.spv.heatmap-matrix />
     </x-after-sales.ui.panel>
