@@ -1,477 +1,196 @@
-<section class="min-h-screen sm:text-xs lg:text-sm" aria-labelledby="after-sales-heading">
-    <header class="pt-4">
-        <h1 id="after-sales-heading" class="text-[#115640] font-semibold text-2xl">Admin Dashboad</h1>
-        <p class="text-[#757575] mt-1">Financial performance, service quality, and operational trends.</p>
-    </header>
+@include('pages.templates.main-headers', [
+    'title' => 'Admin Dashboard',
+    'subtitle' => 'Operational queues, visits, follow-up, and data quality.',
+    'action' => '<a href="#" class="px-3 py-1.5 rounded-lg border border-[#D9D9D9] bg-white text-xs font-medium text-[#1E1E1E]">Supervisor view</a>',
+])
 
-    {{-- STAT CARDS --}}
-    <section class="grid! grid-cols-2! gap-4 mt-4" aria-label="After-sales summary">
-        <x-after-sales.stat-card
-            icon="bi-clipboard-check"
-            icon-bg="bg-yellow-50"
-            
-            label="Pending Profiles"
-            value="-"
-            unit="units"
-            id="stat-pending-profiles"
-        />
-        <x-after-sales.stat-card
-            icon="bi-patch-check-fill"
-            icon-bg="bg-green-50"
-            label="Completed Profiles"
-            value="-"
-            unit="units"
-            id="stat-completed-profiles"
-        />
-    </section>
+<div id="admin-dashboard" class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
 
-    {{-- PROVINCE DISTRIBUTION --}}
-    <x-after-sales.province-distribution class="bg-white rounded-lg border border-[#D9D9D9] p-4 mt-4" />
+    {{-- Progress + SLA --}}
+    <div class="grid md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+        <x-after-sales.ui.panel title="Open tickets by progress" subtitle="Tap a bar to open. All Ticket.">
+            <div id="admin-progress-counts" class="grid gap-2 text-center text-sm font-semibold text-[#2B3441] tabular-nums"></div>
+            <div id="admin-chart-progress"></div>
+        </x-after-sales.ui.panel>
 
-    {{-- CUSTOMER OVERVIEW --}}
-    <x-after-sales.customer-overview class="bg-white rounded-lg border border-[#D9D9D9] mt-4" />
-</section>
+        <x-after-sales.ui.panel title="SLA of open tickets" subtitle="Current SLA exposure across every open service ticket.">
+            <div id="admin-chart-sla"></div>
+            <div class="mt-2 divide-y divide-[#EEF1EF]" id="admin-sla-legend">
+                <x-after-sales.ui.legend-row color="#14573F" label="On track" />
+                <x-after-sales.ui.legend-row color="#D9B65B" label="At risk <24h" />
+                <x-after-sales.ui.legend-row color="#A9B8B0" label="Overdue" />
+            </div>
+        </x-after-sales.ui.panel>
+    </div>
 
+    {{-- Visits --}}
+    <x-after-sales.ui.panel title="Visits, next 3 days" subtitle="Scheduled visits and recomings from today through the next three days.">
+        <div id="admin-chart-visits"></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 mt-4 border border-[#E3E8E5] rounded-xl overflow-hidden" id="admin-days">
+            @for($i = 0; $i < 4; $i++)
+                <x-after-sales.ui.day-stat />
+            @endfor
+        </div>
+    </x-after-sales.ui.panel>
+
+    {{-- Follow-up + hygiene --}}
+    <div class="grid md:grid-cols-2 gap-4">
+        <x-after-sales.ui.panel title="Follow-up" subtitle="Queues that need admin action before tickets can move forward.">
+            <div id="admin-followup-counts" class="grid gap-2 text-center text-sm font-semibold text-[#2B3441] tabular-nums"></div>
+            <div id="admin-chart-followup"></div>
+        </x-after-sales.ui.panel>
+
+        <x-after-sales.ui.panel title="Setup and data hygiene" subtitle="Records that need setup corrections or missing data.">
+            <div id="admin-hygiene-counts" class="grid gap-2 text-center text-sm font-semibold text-[#2B3441] tabular-nums"></div>
+            <div id="admin-chart-hygiene"></div>
+        </x-after-sales.ui.panel>
+    </div>
+
+    {{-- Technician workload --}}
+    <x-after-sales.ui.panel title="Technician workload" subtitle="Active ticket workload across all technicians. Scroll to view more.">
+        <div class="grid grid-cols-[150px_minmax(0,1fr)_48px] gap-3 text-[10px] text-[#9AA39E] pb-2 border-b border-[#EEF1EF]">
+            <span>Technician</span>
+            <div class="flex justify-between" id="admin-workload-axis"></div>
+            <span class="text-right">Active tickets</span>
+        </div>
+        <div id="admin-workload" class="max-h-[420px] overflow-y-auto divide-y divide-[#F1F4F2]"></div>
+        <template id="admin-rank-template"><x-after-sales.ui.rank-bar-row /></template>
+    </x-after-sales.ui.panel>
+</div>
+
+@push('scripts')
 <script>
-    (function () {
-        const afterSalesState = {
-            provinceId: '',
-            timeframe: 'monthly',
-        };
+(function () {
+    const root = document.getElementById('admin-dashboard');
+    if (!root) return;
 
-        let provinceDistributionChart = null;
-        let customerOverviewDetailUrl = null;
-        let customerOverviewUploadUrl = null;
+    const C = { green: '#14573F', sage: '#7FAF9A', sageLight: '#9CC4B2', gold: '#D9B65B', grey: '#A9B8B0' };
 
-        function escapeHtml(value) {
-            return String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
+    // [API] Ganti objek dummy ini dengan fetch() ke endpoint ringkasan admin aftersales (belum tersedia di BE).
+    const adminData = {
+        progress: [
+            ['Published', 6, 'warn'], ['Assigned', 5], ['On Site', 4], ['Report', 3],
+            ['Waiting Sparepart', 2], ['Docs Published', 4], ['Survey Submitted', 3], ['Happy Call Completed', 2],
+        ],
+        sla: { onTrack: 3, atRisk: 2, overdue: 1 },
+        visits: {
+            labels: ['Today', '+1 day', '+2 days', '+3 days'],
+            visits: [4, 3, 5, 2], recomings: [2, 1, 2, 1],
+        },
+        followUp: [['Survey due', 5], ['Link expired', 2], ['Need Recoms', 4], ['Blocked Closed', 1], ['Happy Call due', 3], ['Ready to Close', 6]],
+        hygiene: [['Docs Rework', 2], ['No phone or email', 4], ['No warranty date', 3], ['Spareparts BADREEN', 5]],
+        technicians: [
+            ['Arya', 'On duty', 6], ['Dimas', 'On duty', 5], ['Bagas', 'On duty', 4], ['Fajar', 'On duty', 4],
+            ['Zahrah', 'On duty', 3], ['Citra', 'Standby', 2], ['Eka', 'Standby', 2],
+        ],
+    };
 
-        function formatFileSize(bytes) {
-            if (!bytes && bytes !== 0) return '';
-            if (bytes < 1024) return `${bytes} B`;
-            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-        }
+    const charts = {};
+    const mount = (id, opts) => {
+        charts[id]?.destroy();
+        charts[id] = new ApexCharts(document.getElementById(id), opts);
+        charts[id].render();
+    };
+    const baseChart = { toolbar: { show: false }, fontFamily: 'inherit', animations: { speed: 400 }, parentHeightOffset: 0 };
 
-        function fileIconClass(name) {
-            const ext = (name.split('.').pop() || '').toLowerCase();
-            if (ext === 'zip') return 'bi-file-earmark-zip';
-            return 'bi-file-earmark-text';
-        }
-
-        function setStat(prefix, { value, percentage, trend }) {
-            const card = document.getElementById(prefix);
-            if (!card) return;
-
-            const valueEl = card.querySelector('[data-stat="value"]');
-            if (valueEl) valueEl.textContent = Number(value ?? 0).toLocaleString('id-ID');
-
-            if (percentage === undefined) return;
-
-            const badge = card.querySelector('.rounded-full');
-            if (!badge) return;
-
-            const icon = badge.querySelector('i');
-            const trendClass = trend === 'up'
-                ? 'bg-green-50 text-green-700'
-                : trend === 'down'
-                    ? 'bg-red-50 text-red-700'
-                    : 'bg-gray-100 text-gray-600';
-
-            badge.className = `flex items-center gap-1 text-xs font-medium ${trendClass} px-2 py-1 rounded-full`;
-            if (icon) {
-                icon.className = `bi ${trend === 'up' ? 'bi-arrow-up-short' : trend === 'down' ? 'bi-arrow-down-short' : 'bi-dash'}`;
-            }
-            badge.lastChild.textContent = ` ${percentage}%`;
-        }
-
-        async function loadGrid() {
-            try {
-                const response = await fetch('/api/dashboard/after-sales/grid', {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const result = await response.json();
-                const data = result?.data || {};
-
-                setStat('stat-pending-profiles', { value: data.pending_profiles?.total ?? 0 });
-                setStat('stat-completed-profiles', {
-                    value: data.completed_profiles?.total ?? 0,
-                    percentage: data.completed_profiles?.percentage_change ?? 0,
-                    trend: data.completed_profiles?.trend ?? 'flat',
-                });
-            } catch (error) {
-                console.error('Error loadGrid:', error);
-            }
-        }
-
-        async function loadProvinceOptions() {
-            const select = document.getElementById('province-distribution-region');
-            if (!select) return;
-
-            try {
-                const response = await fetch('/api/dashboard/after-sales/provinces', {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const result = await response.json();
-                const provinces = Array.isArray(result?.data) ? result.data : [];
-
-                provinces.forEach((province) => {
-                    const option = document.createElement('option');
-                    option.value = province.id;
-                    option.textContent = province.name;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Error loadProvinceOptions:', error);
-            }
-        }
-
-        function renderProvinceDistributionChart(rows) {
-            const chartElement = document.querySelector('#province-distribution-chart');
-            if (!chartElement) return;
-
-            const labels = rows.map((row) => row.region || '-');
-            const series = rows.map((row) => Number(row.total || 0));
-
-            if (provinceDistributionChart) {
-                provinceDistributionChart.destroy();
-                provinceDistributionChart = null;
-            }
-
-            provinceDistributionChart = new ApexCharts(chartElement, {
-                chart: {
-                    type: 'bar',
-                    height: 320,
-                    toolbar: { show: false },
-                },
-                series: [{ name: 'Units', data: series }],
-                xaxis: {
-                    categories: labels,
-                    labels: { style: { colors: '#757575' } },
-                },
-                yaxis: {
-                    labels: {
-                        style: { colors: '#757575' },
-                        formatter: (value) => Math.round(value).toLocaleString('id-ID'),
-                    },
-                    forceNiceScale: true,
-                    decimalsInFloat: 0,
-                },
-                plotOptions: {
-                    bar: {
-                        borderRadius: 6,
-                        columnWidth: '45%',
-                        distributed: false,
-                    },
-                },
-                colors: ['#115640'],
-                dataLabels: { enabled: false },
-                grid: { borderColor: '#F0F0F0' },
-                tooltip: {
-                    y: {
-                        formatter: (value) => `${Number(value || 0).toLocaleString('id-ID')} units`,
-                    },
-                },
-                noData: { text: 'No data available' },
-            });
-
-            provinceDistributionChart.render();
-        }
-
-        function updatePeriodLabel() {
-            const label = document.getElementById('province-distribution-period-text');
-            if (!label) return;
-            label.textContent = afterSalesState.timeframe === 'yearly' ? 'Last 12 Months' : 'Last 1 Month';
-        }
-
-        async function loadProvinceDistribution() {
-            const params = new URLSearchParams();
-            if (afterSalesState.provinceId) params.set('province_id', afterSalesState.provinceId);
-            params.set('timeframe', afterSalesState.timeframe);
-
-            try {
-                const response = await fetch(`/api/dashboard/after-sales/province-distribution?${params.toString()}`, {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const result = await response.json();
-                renderProvinceDistributionChart(Array.isArray(result?.data) ? result.data : []);
-            } catch (error) {
-                console.error('Error loadProvinceDistribution:', error);
-                renderProvinceDistributionChart([]);
-            }
-        }
-
-        function renderCustomerOverviewRows(rows) {
-            const body = document.getElementById('customer-overview-table-body');
-            if (!body) return;
-
-            if (!rows || rows.length === 0) {
-                body.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-[#757575]">No customers found</td></tr>';
-                return;
-            }
-
-            body.innerHTML = rows.map((row) => `
-                <tr class="border-t border-t-[#D9D9D9]">
-                    <td class="p-3 text-center font-medium text-[#1E1E1E]">${escapeHtml(row.customer_name)}</td>
-                    <td class="p-3 text-center">${escapeHtml(row.telephone)}</td>
-                    <td class="p-3 text-center">${escapeHtml(row.machine_type)}</td>
-                    <td class="p-3 text-center">${row.power_watts ? `${escapeHtml(row.power_watts)}W` : '-'}</td>
-                    <td class="p-3 text-center">${row.room_area_m2 ? `${escapeHtml(row.room_area_m2)} m2` : '-'}</td>
-                    <td class="p-3 text-center">${row.road_width_m ? `${escapeHtml(row.road_width_m)} m` : '-'}</td>
-                    <td class="p-3 text-center">${row.actions || ''}</td>
-                </tr>
-            `).join('');
-        }
-
-        async function loadCustomerOverview() {
-            const body = document.getElementById('customer-overview-table-body');
-            if (body) {
-                body.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-[#757575]">Loading...</td></tr>';
-            }
-
-            try {
-                const response = await fetch(`/api/aftersales/customers?per_page=5`, {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const result = await response.json();
-                renderCustomerOverviewRows(result?.data || []);
-            } catch (error) {
-                console.error('Error loadCustomerOverview:', error);
-                if (body) {
-                    body.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-[#900B09]">Failed to load customers</td></tr>';
-                }
-            }
-        }
-
-        function loadCustomerOverviewDetail(url) {
-            customerOverviewDetailUrl = url;
-
-            $('#customer-overview-detail-body').html('<p class="col-span-2 text-center text-[#757575]">Loading...</p>');
-            $('#customer-overview-cad-list').html('');
-            $('#customerDetailModal').modal('show');
-
-            $.get(url, function (response) {
-                const c = response.customer;
-                $('#customer-overview-detail-body').html(`
-                    <div class="border-b border-[#D9D9D9] mb-2 pb-2">
-                        <label class="uppercase text-[#115640] text-base font-bold tracking-wide mb-0">Customer Information</label>
-                    </div>
-                    <div class="border-b border-[#D9D9D9] mb-2 pb-2">
-                        <label class="uppercase text-[#115640] text-base font-bold tracking-wide mb-0">Technical Specifications</label>
-                    </div>
-
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575] font-medium">Contact Person</label>
-                        <p class="font-semibold pb-2">${escapeHtml(c.contact_person)}</p>
-                    </div>
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575]">Machine Type</label>
-                        <p class="font-semibold">${escapeHtml(c.machine_type)}</p>
-                    </div>
-
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575]">Phone Number</label>
-                        <p class="font-semibold">${escapeHtml(c.phone_number)}</p>
-                    </div>
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575] font-medium">Power Requirements</label>
-                        <p class="font-medium">${c.power_watts ? escapeHtml(c.power_watts) + ' W' : '-'}</p>
-                    </div>
-
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575] font-medium">Site Address</label>
-                        <p class="font-semibold">${escapeHtml(c.site_address)}</p>
-                        ${c.location_link ? `<a href="${c.location_link}" target="_blank" class="text-[#115640] text-xs text-sm hover:opacity-50">View Detail</a>` : ''}
-                    </div>
-                    <div>
-                        <label class="uppercase text-[11px] text-[#757575] font-medium">Site Dimensions</label>
-                        <p class="font-semibold">${c.building_area_m2 ? escapeHtml(c.building_area_m2) + ' m2' : '-'}${c.road_width_m ? ' (Road: ' + escapeHtml(c.road_width_m) + ' m)' : ''}</p>
-                    </div>
-                `);
-                renderCustomerOverviewCadList(c.file_cad);
-            });
-        }
-
-        function renderCustomerOverviewCadList(files) {
-            const $list = $('#customer-overview-cad-list');
-
-            if (!files || files.length === 0) {
-                $list.html('');
-                return;
-            }
-
-            const html = files.map(file => `
-                <div class="flex items-center justify-between border border-[#D9D9D9] rounded-lg p-3">
-                    <div class="flex items-center gap-3">
-                        <i class="bi ${fileIconClass(file.name)} text-2xl text-[#900B09]"></i>
-                        <div>
-                            <p class="font-medium mb-0">${escapeHtml(file.name)}</p>
-                            <p class="text-xs text-[#757575] mb-0">
-                                ${formatFileSize(file.size)}
-                                <span class="text-[#115640]"><i class="bi bi-check-circle-fill"></i> Complete</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button type="button" class="btn-customer-overview-cad-delete border border-[#900B09] text-[#900B09]! rounded-lg px-3 py-1 cursor-pointer hover:bg-[#FBEAEA]"
-                            data-path="${escapeHtml(file.path)}">Delete</button>
-                        <a href="${file.url}" target="_blank"
-                            class="bg-[#115640] text-white rounded-lg px-3 py-1 hover:bg-[#0d4633]">Preview</a>
-                    </div>
-                </div>
-            `).join('');
-
-            $list.html(html);
-        }
-
-        function uploadCustomerOverviewCadFiles(files) {
-            if (!customerOverviewUploadUrl || !files || files.length === 0) return;
-
-            const formData = new FormData();
-            Array.from(files).forEach(file => formData.append('file_cad[]', file));
-
-            $.ajax({
-                url: customerOverviewUploadUrl,
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                success: function () {
-                    notif('CAD file(s) uploaded successfully!');
-                    loadCustomerOverviewDetail(customerOverviewDetailUrl);
-                },
-                error: function (xhr) {
-                    notif(xhr.responseJSON?.message || 'Failed to upload CAD file', 'error');
-                }
-            });
-        }
-
-        function deleteCustomerOverviewCadFile(path) {
-            if (!customerOverviewUploadUrl) return;
-
-            const formData = new FormData();
-            formData.append('remove_file_cad[]', path);
-
-            $.ajax({
-                url: customerOverviewUploadUrl,
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                success: function () {
-                    notif('CAD file deleted successfully!');
-                    loadCustomerOverviewDetail(customerOverviewDetailUrl);
-                },
-                error: function (xhr) {
-                    notif(xhr.responseJSON?.message || 'Failed to delete CAD file', 'error');
-                }
-            });
-        }
-
-        function bindCustomerOverviewDetailModal() {
-            $(document).on('click', '.btn-customer-detail', function (e) {
-                e.preventDefault();
-
-                customerOverviewUploadUrl = $(this).data('upload-url');
-                loadCustomerOverviewDetail($(this).data('url'));
-            });
-
-            $('#customer-overview-cad-dropzone').on('click', function () {
-                document.getElementById('customer-overview-cad-input').click();
-            });
-
-            $('#customer-overview-cad-browse-btn').on('click', function (e) {
-                e.stopPropagation();
-                document.getElementById('customer-overview-cad-input').click();
-            });
-
-            $('#customer-overview-cad-input').on('change', function () {
-                uploadCustomerOverviewCadFiles(this.files);
-                $(this).val('');
-            });
-
-            $('#customer-overview-cad-save-btn').on('click', function () {
-                $('#customerDetailModal').modal('hide');
-            });
-
-            const $dropzone = $('#customer-overview-cad-dropzone');
-            $dropzone.on('dragover', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                $dropzone.addClass('bg-[#F5FAF8]');
-            });
-            $dropzone.on('dragleave', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                $dropzone.removeClass('bg-[#F5FAF8]');
-            });
-            $dropzone.on('drop', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                $dropzone.removeClass('bg-[#F5FAF8]');
-                const files = e.originalEvent.dataTransfer?.files;
-                if (files && files.length) uploadCustomerOverviewCadFiles(files);
-            });
-
-            $(document).on('click', '.btn-customer-overview-cad-delete', function () {
-                const path = $(this).data('path');
-                if (path) deleteCustomerOverviewCadFile(path);
-            });
-        }
-
-        function bindTimeframeToggle() {
-            const buttons = document.querySelectorAll('.btn-timeframe');
-
-            function paint() {
-                buttons.forEach((button) => {
-                    const active = button.dataset.timeframe === afterSalesState.timeframe;
-                    button.setAttribute('aria-pressed', String(active));
-                    button.className = `btn-timeframe px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                        active ? 'bg-[#115640] text-white' : 'text-[#757575]'
-                    }`;
-                });
-            }
-
-            buttons.forEach((button) => {
-                button.addEventListener('click', function () {
-                    afterSalesState.timeframe = this.dataset.timeframe;
-                    paint();
-                    updatePeriodLabel();
-                    loadProvinceDistribution();
-                });
-            });
-
-            paint();
-        }
-
-        function bindProvinceFilter() {
-            const select = document.getElementById('province-distribution-region');
-            if (!select) return;
-
-            select.addEventListener('change', function () {
-                afterSalesState.provinceId = this.value || '';
-                loadProvinceDistribution();
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            bindTimeframeToggle();
-            bindProvinceFilter();
-            bindCustomerOverviewDetailModal();
-            updatePeriodLabel();
-
-            loadGrid();
-            loadProvinceOptions();
-            loadProvinceDistribution();
-            loadCustomerOverview();
+    // Chart kolom dengan angka di baris atas (sejajar dengan tiap kolom). Dipakai: progress, follow-up, hygiene.
+    function renderCountBars(chartId, countsId, items, { colors, height = 220 } = {}) {
+        const counts = document.getElementById(countsId);
+        counts.style.gridTemplateColumns = `repeat(${items.length}, minmax(0, 1fr))`;
+        counts.innerHTML = items.map(i => `<span>${i[1]}</span>`).join('');
+        mount(chartId, {
+            chart: { ...baseChart, type: 'bar', height },
+            series: [{ name: 'Tickets', data: items.map(i => i[1]) }],
+            plotOptions: { bar: { distributed: true, columnWidth: '38%', borderRadius: 3 } },
+            colors: colors ?? items.map(() => C.green),
+            legend: { show: false }, dataLabels: { enabled: false },
+            xaxis: { categories: items.map(i => i[0]), axisBorder: { show: false }, axisTicks: { show: false },
+                labels: { style: { fontSize: '10px', colors: '#5F6B65' }, rotate: 0, trim: true, hideOverlappingLabels: false } },
+            yaxis: { show: false, min: 0 },
+            grid: { show: false, padding: { left: 0, right: 0 } },
+            tooltip: { y: { formatter: v => v + ' tickets' } },
         });
-    })();
+    }
+
+    function renderProgress() {
+        renderCountBars('admin-chart-progress', 'admin-progress-counts', adminData.progress, {
+            colors: adminData.progress.map(i => i[2] === 'warn' ? C.gold : C.green), height: 240,
+        });
+    }
+
+    function renderSla() {
+        const s = adminData.sla, total = s.onTrack + s.atRisk + s.overdue;
+        mount('admin-chart-sla', {
+            chart: { ...baseChart, type: 'donut', height: 220 },
+            series: [s.onTrack, s.atRisk, s.overdue], labels: ['On track', 'At risk <24h', 'Overdue'],
+            colors: [C.green, C.gold, C.grey], dataLabels: { enabled: false }, legend: { show: false },
+            stroke: { width: 2, colors: ['#fff'] },
+            plotOptions: { pie: { donut: { size: '66%', labels: {
+                show: true,
+                name: { show: true, fontSize: '11px', color: '#8A948F', offsetY: 18 },
+                value: { show: true, fontSize: '30px', fontWeight: 700, color: C.green, offsetY: -14, formatter: () => total },
+                total: { show: true, label: 'open', color: '#8A948F', formatter: () => total },
+            } } } },
+        });
+        const rows = [s.onTrack, s.atRisk, s.overdue];
+        root.querySelectorAll('#admin-sla-legend [data-legend]').forEach((el, i) => {
+            el.querySelector('[data-legend-count]').textContent = rows[i];
+            el.querySelector('[data-legend-percent]').textContent = total ? Math.round((rows[i] / total) * 100) + '%' : '0%';
+        });
+    }
+
+    function renderVisits() {
+        const v = adminData.visits;
+        mount('admin-chart-visits', {
+            chart: { ...baseChart, type: 'line', height: 260 },
+            series: [{ name: 'Visits', data: v.visits }, { name: 'Recoming', data: v.recomings }],
+            colors: [C.green, C.gold], stroke: { width: 3, curve: 'straight' },
+            markers: { size: 0 }, dataLabels: { enabled: false },
+            xaxis: { categories: v.labels, axisBorder: { show: false }, axisTicks: { show: false }, labels: { show: false } },
+            yaxis: { show: false, min: 0 },
+            grid: { borderColor: '#EEF1EF', yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
+            legend: { position: 'top', horizontalAlign: 'right', markers: { size: 5, shape: 'square' } },
+        });
+        const cells = root.querySelectorAll('#admin-days [data-day-label]');
+        v.labels.forEach((label, i) => {
+            const cell = cells[i].parentElement;
+            cell.querySelector('[data-day-label]').textContent = label;
+            cell.querySelector('[data-day-value]').textContent = v.visits[i] + v.recomings[i];
+            cell.querySelector('[data-day-note]').textContent = `${v.visits[i]} visits · ${v.recomings[i]} recomings`;
+        });
+    }
+
+    function renderWorkload() {
+        const list = adminData.technicians;
+        const max = Math.max(...list.map(t => t[2]), 1);
+        const step = Math.ceil(max / 3);
+        document.getElementById('admin-workload-axis').innerHTML = [0, step, step * 2, step * 3].map(n => `<span>${n}</span>`).join('');
+        const tpl = document.getElementById('admin-rank-template');
+        const wrap = document.getElementById('admin-workload');
+        wrap.replaceChildren(...list.map(([name, status, count], i) => {
+            const node = tpl.content.firstElementChild.cloneNode(true);
+            node.querySelector('[data-rank]').textContent = i + 1;
+            node.querySelector('[data-name]').textContent = name;
+            node.querySelector('[data-status]').textContent = status;
+            node.querySelector('[data-value]').textContent = count;
+            node.querySelector('[data-bar]').style.width = (count / (step * 3)) * 100 + '%';
+            return node;
+        }));
+    }
+
+    function init() {
+        renderProgress();
+        renderSla();
+        renderVisits();
+        renderCountBars('admin-chart-followup', 'admin-followup-counts', adminData.followUp, {
+            colors: adminData.followUp.map((_, i) => (i === 3 ? C.sageLight : i === 5 || i === 0 ? C.green : C.sage)), height: 200,
+        });
+        renderCountBars('admin-chart-hygiene', 'admin-hygiene-counts', adminData.hygiene, {
+            colors: [C.green, '#4F9374', '#6FA58C', C.sage], height: 200,
+        });
+        renderWorkload();
+    }
+    init();
+})();
 </script>
+@endpush

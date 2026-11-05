@@ -2687,7 +2687,9 @@
 
 @section('content')
 
-@include('pages.templates.main-headers')
+@unless(in_array(auth()->user()->role?->code, ['after_sales', 'supervisor_after_sales', 'head_after_sales'], true))
+    @include('pages.templates.main-headers')
+@endunless
 
 @if(auth()->user()->role?->code === 'super_admin')
     @include('pages.dashboard.super-admin.index')
