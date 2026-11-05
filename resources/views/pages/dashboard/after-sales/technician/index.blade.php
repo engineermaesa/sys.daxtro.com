@@ -11,6 +11,10 @@
 @include('pages.dashboard.after-sales._chart-helpers')
 
 <div id="tech-dashboard" class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
+    <div id="tech-error" class="hidden items-center justify-between gap-3 rounded-xl border border-[#F0C9C9] bg-[#FDF3F3] px-4 py-3 text-sm text-[#8A2B2B]" role="alert">
+        <span data-error-text>Failed to load dashboard.</span>
+        <button type="button" data-error-retry class="shrink-0 rounded-lg border border-[#8A2B2B] px-3 py-1 text-xs font-medium">Retry</button>
+    </div>
     {{-- Rating + My tickets + SLA --}}
     <div class="grid md:grid-cols-3 gap-4">
         <x-after-sales.ui.panel title="Overall rating" subtitle="Approved customer survey average.">
@@ -143,7 +147,7 @@
         const res = await fetch(`/api/dashboard/aftersales/technician?${new URLSearchParams({ period })}`, {
             credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: controller.signal,
         });
-        if (!res.ok) throw new Error(`Dashboard request failed: ${res.status}`);
+        if (!res.ok) throw Object.assign(new Error(`Dashboard request failed: ${res.status}`), { status: res.status });
         const { data } = await res.json();
         techData.rating = data.rating; // { score: number|null, max: 3 }
     }
@@ -239,13 +243,26 @@
         });
     }
 
+    const errorBox = document.getElementById('tech-error');
+    function errorText(e) {
+        if (e.status === 401) return 'Session expired. Please log in again.';
+        if (e.status === 403) return 'Access denied for your role.';
+        if (e.status === 422) return 'Invalid request.';
+        return 'Failed to load dashboard. Check your connection and retry.';
+    }
+    errorBox.querySelector('[data-error-retry]').addEventListener('click', () => init());
+
     async function init() {
+        errorBox.classList.add('hidden'); errorBox.classList.remove('flex');
         const period = root.ownerDocument.querySelector('#tech-filters [data-filter="period"]')?.value || 'this_month';
         try {
             await loadDashboard(period);
         } catch (e) {
             if (e.name === 'AbortError') return;
-            console.error(e); // 401/403/422/5xx: jangan tampilkan dummy sebagai data live
+            console.error(e); // jangan render dummy sebagai data live
+            errorBox.querySelector('[data-error-text]').textContent = errorText(e);
+            errorBox.classList.remove('hidden'); errorBox.classList.add('flex');
+            return;
         }
         renderRating(); renderTickets(); renderSla(); renderTasks();
         renderClosed(); renderTodo(); renderWeekly();
