@@ -2700,7 +2700,12 @@
 @elseif(auth()->user()->role?->code === 'after_sales')
     @include('pages.dashboard.after-sales.admin.index')
 @elseif(in_array(auth()->user()->role?->code, ['supervisor_after_sales', 'head_after_sales'], true))
+    @if(request('view') === 'admin')
+        <a href="{{ route('dashboard') }}" class="inline-block px-3 py-2 text-sm text-[#14573F]">Supervisor view</a>
+        @include('pages.dashboard.after-sales.admin.index')
+    @else
     @include('pages.dashboard.after-sales.supervisor.index')
+    @endif
 @else
 
 {{-- MARKETING DASHBOARD HEADER NEW --}}

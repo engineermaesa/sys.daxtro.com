@@ -1,8 +1,8 @@
 @php
     $filters = [
         'period' => ['Period', ['this_month' => 'This month', 'last_month' => 'Last month', 'this_year' => 'This year']],
-        'region' => ['Region', ['all' => 'All regions', 'java' => 'Java', 'sumatera' => 'Sumatera', 'kalimantan' => 'Kalimantan']],
-        'category' => ['Machine Category', ['all' => 'All categories', 'ice' => 'Ice machine', 'cold' => 'Cold room']],
+        'region' => ['Region', ['' => 'All regions']],
+        'category' => ['Machine Category', ['' => 'All categories']],
     ];
 @endphp
 
