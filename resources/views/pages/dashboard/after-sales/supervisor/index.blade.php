@@ -7,7 +7,7 @@
 
 <div id="spv-dashboard" class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
 
-    <x-after-sales.spv.filter-bar />
+    <x-after-sales.ui.filter-bar />
 
     {{-- KPI --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
