@@ -379,7 +379,26 @@
                 ),
             );
             select.value = value;
+            if (window.jQuery?.fn?.select2)
+                window.jQuery(select).trigger("change.select2");
         });
+    }
+
+    function bindDimensionFilter(select) {
+        if (!window.jQuery?.fn?.select2) {
+            select.addEventListener("change", load);
+            return;
+        }
+        window.jQuery(select).select2({
+            width: "220px",
+            minimumResultsForSearch: 0,
+            dropdownAutoWidth: true,
+            dropdownParent: window.jQuery(root),
+            language: {
+                searching: () => "Searching…",
+                noResults: () => "No results found",
+            },
+        }).on("change.spvDashboard", load);
     }
 
     function render() {
@@ -579,7 +598,7 @@
             if ([...select.options].some((option) => option.value === value))
                 select.value = value;
         }
-        select.addEventListener("change", load);
+        bindDimensionFilter(select);
     });
     load();
 })();

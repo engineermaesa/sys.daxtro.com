@@ -1,3 +1,7 @@
+<style>
+    #spv-dimension-filters label { flex-wrap: wrap; max-width: 100%; }
+    #spv-dimension-filters label > .select2-container { width: 220px !important; max-width: 100%; }
+</style>
 <div id="spv-dashboard" data-api="{{ route('dashboard.aftersales.supervisor.summary') }}" data-tickets-api="{{ route('dashboard.aftersales.supervisor.tickets') }}">
 @include('pages.templates.main-headers', [
     'title' => 'Supervisor Dashboard',
