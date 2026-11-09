@@ -280,6 +280,85 @@
             .join("");
     }
 
+    function initDateRange(initial) {
+        const host = root.querySelector("[data-spv-date-filter]");
+        const toggle = host.querySelector("[data-date-toggle]");
+        const dropdown = host.querySelector("[data-date-dropdown]");
+        const apply = host.querySelector("[data-date-apply]");
+        const period = host.querySelector('[data-filter="period"]');
+        const start = host.querySelector('[data-filter="start_date"]');
+        const end = host.querySelector('[data-filter="end_date"]');
+        const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jakarta" });
+        const [year, month] = today.split("-").map(Number);
+        const iso = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+        const validDate = (value) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+            const [y, m, d] = value.split("-").map(Number);
+            return iso(new Date(y, m - 1, d)) === value && value >= "2000-01-01" && value <= "2100-12-31";
+        };
+        let from = iso(new Date(year, month - 1, 1));
+        let to = iso(new Date(year, month, 0));
+        const requested = initial.get("period");
+        if (requested === "custom" && validDate(initial.get("start_date")) && validDate(initial.get("end_date")) && initial.get("start_date") <= initial.get("end_date")) {
+            period.value = "custom";
+            from = start.value = initial.get("start_date");
+            to = end.value = initial.get("end_date");
+        } else if (requested === "last_month") {
+            period.value = requested;
+            from = iso(new Date(year, month - 2, 1));
+            to = iso(new Date(year, month - 1, 0));
+        } else if (requested === "this_year") {
+            period.value = requested;
+            from = `${year}-01-01`;
+            to = `${year}-12-31`;
+        } else if (requested === "this_quarter") {
+            period.value = requested;
+            const firstMonth = Math.floor((month - 1) / 3) * 3;
+            from = iso(new Date(year, firstMonth, 1));
+            to = iso(new Date(year, firstMonth + 3, 0));
+        } else if (requested === "last_7_days") {
+            period.value = requested;
+            const [y, m, d] = today.split("-").map(Number);
+            from = iso(new Date(y, m - 1, d - 6));
+            to = today;
+        }
+        let applied = [from, to];
+        const updateLabel = () => { host.querySelector("[data-date-label]").textContent = applied.join(" → "); };
+        updateLabel();
+        if (typeof flatpickr === "undefined") { toggle.disabled = true; return; }
+        const picker = flatpickr(host.querySelector("[data-date-input]"), {
+            mode: "range", inline: true, dateFormat: "Y-m-d", defaultDate: applied,
+            minDate: "2000-01-01", maxDate: "2100-12-31",
+            appendTo: host.querySelector("[data-date-calendar]"),
+            onChange: (dates) => { apply.disabled = dates.length !== 2; },
+        });
+        const close = () => {
+            dropdown.classList.add("hidden");
+            toggle.setAttribute("aria-expanded", "false");
+            picker.setDate(applied, false);
+            apply.disabled = false;
+        };
+        toggle.addEventListener("click", () => {
+            if (toggle.getAttribute("aria-expanded") === "true") { close(); return; }
+            dropdown.classList.remove("hidden");
+            toggle.setAttribute("aria-expanded", "true");
+        });
+        host.querySelector("[data-date-cancel]").addEventListener("click", close);
+        apply.addEventListener("click", () => {
+            if (picker.selectedDates.length !== 2) return;
+            applied = picker.selectedDates.map((date) => picker.formatDate(date, "Y-m-d"));
+            period.value = "custom";
+            [start.value, end.value] = applied;
+            updateLabel();
+            close();
+            load();
+        });
+        document.addEventListener("click", (event) => { if (!host.contains(event.target)) close(); });
+        host.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") { close(); toggle.focus(); }
+        });
+    }
+
     function params() {
         const result = new URLSearchParams();
         root.querySelectorAll("[data-filter]").forEach((el) => {
@@ -491,7 +570,8 @@
         },
     );
     const initial = new URLSearchParams(location.search);
-    root.querySelectorAll("[data-filter]").forEach((select) => {
+    initDateRange(initial);
+    root.querySelectorAll("select[data-filter]").forEach((select) => {
         const value = initial.get(select.dataset.filter);
         if (value && value !== "all") {
             if (select.dataset.filter !== "period" && /^\d+$/.test(value))

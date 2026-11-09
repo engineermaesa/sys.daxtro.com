@@ -134,3 +134,83 @@ test("failed loading clears stale values and uses the existing application alert
     assert.equal(f.element("spv-warranty-list").cleared, true);
     assert.match(f.element("error").textContent, /Unable to load dashboard/);
 });
+
+function setupDateRange(query = "") {
+    const nodes = new Map(), loads = [];
+    const element = (selector) => {
+        if (!nodes.has(selector)) nodes.set(selector, {
+            value: "", dataset: {}, events: {}, attributes: {}, hidden: true,
+            classList: { add() {}, remove() {} },
+            addEventListener(name, fn) { this.events[name] = fn; },
+            setAttribute(name, value) { this.attributes[name] = value; },
+            getAttribute(name) { return this.attributes[name]; },
+            focus() { this.focused = true; },
+        });
+        return nodes.get(selector);
+    };
+    const controls = ["period", "start_date", "end_date", "region", "category"].map(key => {
+        const node = element(`[data-filter="${key}"]`);
+        node.dataset.filter = key;
+        node.value = ({ period: "this_month", region: "3", category: "9" })[key] || "";
+        return node;
+    });
+    const host = { querySelector: element, addEventListener() {}, contains: () => false };
+    let picker, options;
+    const format = date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+    const context = {
+        URLSearchParams, Date,
+        root: { querySelector: () => host, querySelectorAll: () => controls },
+        document: { addEventListener() {} },
+        flatpickr(_input, opts) {
+            options = opts;
+            picker = {
+                selectedDates: [], formatDate: format,
+                setDate(dates) { this.selectedDates = dates.map(value => new Date(value + "T00:00:00")); },
+            };
+            picker.setDate(opts.defaultDate);
+            return picker;
+        },
+        load() { loads.push(context.params().toString()); },
+    };
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf("    function initDateRange("), source.indexOf("    function populateOptions()")), context);
+    context.initDateRange(new URLSearchParams(query));
+    return { context, element, loads, picker, options };
+}
+
+test("date range restores custom URL values and Apply sends both dates with the other dashboard filters", () => {
+    const f = setupDateRange("period=custom&start_date=2026-10-01&end_date=2026-10-31");
+    assert.equal(f.options.mode, "range");
+    assert.equal(f.options.inline, true);
+    assert.equal(f.element("[data-date-label]").textContent, "2026-10-01 → 2026-10-31");
+    f.picker.setDate(["2026-11-02", "2026-11-09"]);
+    f.options.onChange(f.picker.selectedDates);
+    f.element("[data-date-apply]").events.click();
+    const applied = new URLSearchParams(f.loads[0]);
+    assert.equal(applied.get("period"), "custom");
+    assert.equal(applied.get("start_date"), "2026-11-02");
+    assert.equal(applied.get("end_date"), "2026-11-09");
+    assert.equal(applied.get("region"), "3");
+    assert.equal(applied.get("category"), "9");
+    assert.equal(f.element("[data-date-toggle]").attributes["aria-expanded"], "false");
+});
+
+test("Cancel restores the applied dates and incomplete selections cannot reload the dashboard", () => {
+    const f = setupDateRange("period=custom&start_date=2026-10-01&end_date=2026-10-31");
+    f.picker.setDate(["2026-11-05"]);
+    f.options.onChange(f.picker.selectedDates);
+    assert.equal(f.element("[data-date-apply]").disabled, true);
+    f.element("[data-date-apply]").events.click();
+    assert.equal(f.loads.length, 0);
+    f.element("[data-date-cancel]").events.click();
+    assert.deepEqual(Array.from(f.picker.selectedDates, date => f.picker.formatDate(date)), ["2026-10-01", "2026-10-31"]);
+    assert.equal(f.element("[data-date-label]").textContent, "2026-10-01 → 2026-10-31");
+    assert.equal(f.loads.length, 0);
+});
+
+test("invalid custom URL dates fall back to the current month without submitting malformed parameters", () => {
+    const f = setupDateRange("period=custom&start_date=2026-02-31&end_date=2026-03-10");
+    assert.equal(f.context.params().get("period"), "this_month");
+    assert.equal(f.context.params().has("start_date"), false);
+    assert.equal(f.context.params().has("end_date"), false);
+});

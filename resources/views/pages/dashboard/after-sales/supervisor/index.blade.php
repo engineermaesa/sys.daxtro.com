@@ -8,7 +8,30 @@
 
 <div class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
 
-    <x-after-sales.ui.filter-bar />
+    <div class="flex flex-wrap items-center justify-end gap-3" id="spv-filters">
+        <div class="relative" data-spv-date-filter>
+            <input type="hidden" data-filter="period" value="this_month">
+            <input type="hidden" data-filter="start_date">
+            <input type="hidden" data-filter="end_date">
+            <button type="button" data-date-toggle aria-expanded="false" aria-controls="spv-date-dropdown"
+                class="flex items-center gap-2 rounded-lg border border-[#D9D9D9] bg-white px-3 py-1.5 text-sm text-[#1E1E1E]">
+                <span class="text-xs text-[#8A948F]">Period</span>
+                <span data-date-label>Select date range</span>
+                <i class="bi bi-chevron-down text-xs" aria-hidden="true"></i>
+            </button>
+            <div id="spv-date-dropdown" data-date-dropdown class="hidden absolute left-0 top-full z-50 mt-2 w-[350px] max-w-[calc(100vw-3rem)] rounded-lg bg-white p-4 shadow-xl">
+                <h3 class="mb-2 font-semibold text-[#303030]">Select Date Range</h3>
+                <div data-date-calendar class="flex justify-center">
+                    <input type="text" data-date-input class="sr-only" aria-label="Period date range" tabindex="-1">
+                </div>
+                <div class="mt-3 flex justify-end gap-2">
+                    <button type="button" data-date-cancel class="px-3 py-1 text-[#303030]">Cancel</button>
+                    <button type="button" data-date-apply class="rounded-lg bg-[#115640] px-3 py-1 text-white disabled:opacity-50">Apply</button>
+                </div>
+            </div>
+        </div>
+        <x-after-sales.ui.filter-bar :only="['region', 'category']" id="spv-dimension-filters" />
+    </div>
 
     {{-- KPI --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
