@@ -1,6 +1,11 @@
 <style>
     #spv-dimension-filters label { flex-wrap: wrap; max-width: 100%; }
     #spv-dimension-filters label > .select2-container { width: 220px !important; max-width: 100%; }
+    #spv-dashboard > .select2-container--open { width: auto !important; }
+    #spv-dashboard .spv-filter-dropdown { box-sizing: border-box; max-width: calc(100vw - 32px); }
+    #spv-dashboard .spv-filter-dropdown .select2-search__field { box-sizing: border-box; width: 100%; }
+    #spv-dashboard .spv-filter-dropdown .select2-results__options { max-height: 240px; overflow-y: auto; }
+    #spv-dashboard .spv-filter-dropdown .select2-results__option { white-space: normal; overflow-wrap: anywhere; }
 </style>
 <div id="spv-dashboard" data-api="{{ route('dashboard.aftersales.supervisor.summary') }}" data-tickets-api="{{ route('dashboard.aftersales.supervisor.tickets') }}">
 @include('pages.templates.main-headers', [

@@ -254,6 +254,8 @@ test("searchable filters are initialized with the full API list and keep options
     assert.deepEqual(jquery(selects.category).search().map(row => row.text), ["All categories", "Tube Ice", "Cube Ice"]);
     assert.equal(jquery(selects.region).config.minimumInputLength, 0);
     assert.equal(jquery(selects.category).config.minimumResultsForSearch, 0);
+    assert.equal(jquery(selects.region).config.dropdownAutoWidth, false);
+    assert.equal(jquery(selects.category).config.dropdownCssClass, "spv-filter-dropdown");
     assert.deepEqual(jquery(selects.region).search("bel").map(row => row.text), ["Belitung"]);
     selects.region.value = "2";
     jquery(selects.region).events["change.spvDashboard"]();

@@ -403,7 +403,8 @@
             width: "220px",
             minimumResultsForSearch: 0,
             minimumInputLength: 0,
-            dropdownAutoWidth: true,
+            dropdownAutoWidth: false,
+            dropdownCssClass: "spv-filter-dropdown",
             dropdownParent: window.jQuery(root),
             language: {
                 searching: () => "Searching…",
