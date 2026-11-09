@@ -10,7 +10,7 @@
 
 @include('pages.dashboard.after-sales._chart-helpers')
 
-<div id="tech-dashboard" class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
+<div id="tech-dashboard" data-ticket-url="{{ route('aftersales.pages.tickets.show', ['ticket' => '__ID__']) }}" class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
     <div id="tech-error" class="hidden items-center justify-between gap-3 rounded-xl border border-[#F0C9C9] bg-[#FDF3F3] px-4 py-3 text-sm text-[#8A2B2B]" role="alert">
         <span data-error-text>Failed to load dashboard.</span>
         <button type="button" data-error-retry class="shrink-0 rounded-lg border border-[#8A2B2B] px-3 py-1 text-xs font-medium">Retry</button>
@@ -50,6 +50,8 @@
     {{-- Today task --}}
     <x-after-sales.ui.panel title="Today Task" subtitle="Your assigned visits and service tasks for today.">
         <div id="tech-tasks" class="divide-y divide-[#EEF1EF]"></div>
+        <p id="tech-tasks-total" class="text-xs text-[#5F6B65]" aria-live="polite"></p>
+        <button id="tech-tasks-more" type="button" class="hidden mt-3 rounded-lg border px-3 py-2 text-xs">Load more</button>
         <template id="tech-task-template"><x-after-sales.ui.task-row /></template>
     </x-after-sales.ui.panel>
 
@@ -83,6 +85,16 @@
     </x-after-sales.ui.panel>
 </div>
 
+<dialog id="tech-ticket-list" aria-labelledby="tech-ticket-list-title" class="w-full max-w-2xl rounded-xl p-0 backdrop:bg-black/40">
+    <div class="flex items-center justify-between border-b p-4">
+        <h2 id="tech-ticket-list-title" class="font-semibold">My tickets</h2>
+        <button type="button" data-list-close class="rounded-lg border px-3 py-1 text-xs">Close</button>
+    </div>
+    <p data-list-total class="px-4 py-2 text-xs" role="status"></p>
+    <div data-list-body class="max-h-[60vh] overflow-y-auto divide-y"></div>
+    <div class="p-4"><button type="button" data-list-more class="hidden rounded-lg border px-3 py-2 text-xs">Load more</button></div>
+</dialog>
+
 @push('scripts')
 <script>
 (function () {
@@ -90,24 +102,22 @@
     if (!root || !window.AS) return;
     const { colors: C, baseChart, mount } = window.AS;
 
-    // Rating sudah dari API (GET /api/dashboard/aftersales/technician). Panel lain masih dummy.
-    // [API] Sambungkan tickets/sla/tasks/closed/todo ke respons yang sama (lihat docs/aftersales-dashboards/integrate-contract.md).
+    const API = '/api/dashboard/aftersales/technician';
+    const TICKET_URL = root.dataset.ticketUrl;
     const techData = {
         rating: { score: null, max: 3 },
-        tickets: { Assigned: 3, 'On Site': 4, Repair: 3, Waiting: 2 },
-        sla: { value: 92, target: 96, months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], series: [86, 88, 87, 91, 90, 92] },
-        tasks: [
-            { time: '08:30', code: 'DAX-AF-20261016-4', meta: 'Global Dynamic · RD 1445 · Cold Room', tone: 'done', status: 'Done' },
-            { time: '10:15', code: 'DAX-AF-20261016-3', meta: 'PT Sejuk Sentosa · CD 10 · Cube Ice', tone: 'active', status: 'Active' },
-            { time: '13:00', code: 'DAX-AF-20261015-2', meta: 'CV Tirta Abadi · FM 40 · Flake Ice', tone: 'next', status: 'Next' },
-            { time: '15:30', code: 'DAX-AF-20261015-1', meta: 'PT Sumber Es · TD 150 · Tube Ice', tone: 'waiting', status: 'Waiting' },
-            { time: '17:00', code: 'DAX-AF-20261014-3', meta: 'PT Dingin Jaya · CR 20 · Cold Room', tone: 'next', status: 'Next' },
-        ],
-        weeks: ['W1', 'W2', 'W3', 'W4'],
-        onTime: [6, 8, 6, 9],
-        overtime: [1, 1, 2, 1],
-        todo: [['Share survey', 5, C.green], ['Documents', 3, C.sage], ['Recoming', 2, C.sageLight]],
+        tickets: [], totalActive: 0,
+        sla: { value: null, target: null, months: [], series: [] },
+        tasks: [], taskTotal: 0, taskPage: 1, taskHasMore: false,
+        weeks: [], closed: 0, closedTotals: [], onTime: [], overtime: [], todo: [],
     };
+
+    function mapTask(task) {
+        return { ...task, code: task.ticket_code,
+            meta: [task.customer_name, task.machine_name, task.machine_category,
+                task.type === 'phone_call' ? 'Phone call' : null].filter(Boolean).join(' · '),
+            tone: task.status, status: ({ done: 'Done', active: 'Active', next: 'Next', waiting: 'Waiting' })[task.status] || task.status };
+    }
 
     const TONE = {
         done:    { dot: 'text-[#14573F]', pill: 'bg-[#E3F1EA] text-[#14573F]' },
@@ -116,9 +126,10 @@
         waiting: { dot: 'text-[#A9B8B0]', pill: 'bg-[#EEF1EF] text-[#5F6B65]' },
     };
 
-    function donut(id, series, labels, colorList, centerValue, centerLabel) {
+    function donut(id, series, labels, colorList, centerValue, centerLabel, onSelect) {
         mount(id, {
-            chart: { ...baseChart, type: 'donut', height: 150, sparkline: { enabled: true } },
+            chart: { ...baseChart, type: 'donut', height: 150, sparkline: { enabled: true },
+                events: { dataPointSelection: (_event, _chart, config) => onSelect?.(config.dataPointIndex) } },
             series, labels, colors: colorList, dataLabels: { enabled: false }, legend: { show: false },
             stroke: { width: 2, colors: ['#fff'] }, tooltip: { enabled: false },
             plotOptions: { pie: { donut: { size: '70%', labels: {
@@ -140,33 +151,57 @@
         side.querySelector('[data-side-note]').textContent = 'Average of approved surveys';
     }
 
-    let controller;
+    let controller, generation = 0;
+    async function getJson(url, signal) {
+        const res = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal });
+        if (!res.ok) throw Object.assign(new Error(`Dashboard request failed: ${res.status}`), { status: res.status });
+        return res.json();
+    }
+
     async function loadDashboard(period) {
         controller?.abort(); // abaikan response lama bila Period berubah cepat
         controller = new AbortController();
-        const res = await fetch(`/api/dashboard/aftersales/technician?${new URLSearchParams({ period })}`, {
-            credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: controller.signal,
-        });
-        if (!res.ok) throw Object.assign(new Error(`Dashboard request failed: ${res.status}`), { status: res.status });
-        const { data } = await res.json();
-        techData.rating = data.rating; // { score: number|null, max: 3 }
+        const signal = controller.signal;
+        const { data } = await getJson(`${API}?${new URLSearchParams({ period })}`, signal);
+        if (signal.aborted) return;
+        techData.rating = data.rating;
+        techData.tickets = data.tickets.statuses;
+        techData.totalActive = data.tickets.total_active;
+        techData.sla = { ...data.sla, months: data.sla.months.map(m => m.label), series: data.sla.months.map(m => m.value) };
+        techData.tasks = data.today.items.map(mapTask);
+        techData.taskTotal = data.today.total;
+        techData.taskHasMore = data.today.has_more;
+        techData.taskPage = 1;
+        techData.closed = data.closed.total;
+        techData.weeks = data.closed.weeks.map(w => w.label);
+        techData.closedTotals = data.closed.weeks.map(w => w.total);
+        techData.onTime = data.closed.weeks.map(w => w.on_time);
+        techData.overtime = data.closed.weeks.map(w => w.overtime);
+        techData.todo = data.todo.items.map((item, i) => [item.label, item.count, [C.green, C.sage, C.sageLight][i]]);
     }
 
     function renderTickets() {
-        const entries = Object.entries(techData.tickets);
-        const total = entries.reduce((s, [, v]) => s + v, 0);
-        donut('tech-chart-tickets', entries.map(e => e[1]), entries.map(e => e[0]),
-            [C.sageLight, C.green, C.sage, C.gold], String(total), 'active');
+        const entries = techData.tickets;
+        const total = techData.totalActive;
+        donut('tech-chart-tickets', total ? entries.map(e => e.count) : [1], total ? entries.map(e => e.label) : ['No tickets'],
+            total ? [C.sageLight, C.green, C.sage, C.gold] : [C.track], String(total), 'active',
+            i => { if (total && entries[i]) openTickets(entries[i]); });
         root.querySelectorAll('#tech-tickets-legend [data-legend]').forEach((el, i) => {
-            el.querySelector('[data-legend-count]').textContent = entries[i][1];
-            el.querySelector('[data-legend-percent]').textContent = total ? Math.round((entries[i][1] / total) * 100) + '%' : '0%';
+            const entry = entries[i];
+            el.querySelector('[data-legend-count]').textContent = entry?.count ?? 0;
+            el.querySelector('[data-legend-percent]').textContent = total ? Math.round(((entry?.count ?? 0) / total) * 100) + '%' : '0%';
+            el.setAttribute('role', 'button');
+            el.setAttribute('tabindex', '0');
+            el.classList.add('cursor-pointer');
+            el.onclick = () => { if (entry) openTickets(entry); };
+            el.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); el.onclick(); } };
         });
     }
 
     function renderSla() {
         const s = techData.sla;
-        document.getElementById('tech-sla-value').textContent = s.value + '%';
-        document.getElementById('tech-sla-target').textContent = 'Target ' + s.target + '%';
+        document.getElementById('tech-sla-value').textContent = s.value === null ? '—' : s.value + '%';
+        document.getElementById('tech-sla-target').textContent = s.target === null ? 'Target —' : 'Target ' + s.target + '%';
         mount('tech-chart-sla', {
             chart: { ...baseChart, type: 'area', height: 130 },
             series: [{ name: 'On time', data: s.series }], colors: [C.green],
@@ -175,7 +210,7 @@
             markers: { size: 3, colors: ['#fff'], strokeColors: C.green, strokeWidth: 2 },
             dataLabels: { enabled: false },
             xaxis: { categories: s.months, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { fontSize: '10px', colors: '#9AA39E' } } },
-            yaxis: { show: false, min: 70, max: 100 },
+            yaxis: { show: false, min: 0, max: 100 },
             grid: { show: false, padding: { left: 6, right: 6 } },
             annotations: { yaxis: [{ y: s.target, borderColor: '#B9C4BE', strokeDashArray: 4 }] },
             tooltip: { y: { formatter: v => v + '%' } },
@@ -184,7 +219,8 @@
 
     function renderTasks() {
         const tpl = document.getElementById('tech-task-template');
-        document.getElementById('tech-tasks').replaceChildren(...techData.tasks.map(t => {
+        const list = document.getElementById('tech-tasks');
+        list.replaceChildren(...techData.tasks.map(t => {
             const node = tpl.content.firstElementChild.cloneNode(true);
             node.querySelector('[data-time]').textContent = t.time;
             node.querySelector('[data-dot]').className = 'size-4 rounded-full border-2 border-current grid place-items-center ' + TONE[t.tone].dot;
@@ -195,11 +231,14 @@
             pill.textContent = t.status;
             return node;
         }));
+        if (!techData.tasks.length) list.append(textNode('No assigned tasks today.', 'p'));
+        document.getElementById('tech-tasks-total').textContent = `${techData.tasks.length} of ${techData.taskTotal} tasks today (Asia/Jakarta)`;
+        document.getElementById('tech-tasks-more').classList.toggle('hidden', !techData.taskHasMore);
     }
 
     function renderClosed() {
-        const totals = techData.weeks.map((_, i) => techData.onTime[i] + techData.overtime[i]);
-        document.getElementById('tech-closed-total').textContent = totals.reduce((a, b) => a + b, 0);
+        const totals = techData.closedTotals;
+        document.getElementById('tech-closed-total').textContent = techData.closed;
         mount('tech-chart-closed', {
             chart: { ...baseChart, type: 'bar', height: 170 },
             series: [{ name: 'Closed', data: totals }],
@@ -243,6 +282,83 @@
         });
     }
 
+    function textNode(text, tag = 'span') {
+        const node = document.createElement(tag);
+        node.textContent = text ?? '—';
+        node.className = 'block px-4 py-3 text-xs';
+        return node;
+    }
+
+    const taskMore = document.getElementById('tech-tasks-more');
+    taskMore.addEventListener('click', async () => {
+        const version = generation;
+        taskMore.disabled = true;
+        try {
+            const page = await getJson(`${API}/tasks?${new URLSearchParams({ page: techData.taskPage + 1, per_page: 10 })}`);
+            if (version !== generation) return;
+            techData.tasks.push(...page.data.map(mapTask));
+            techData.taskPage = page.current_page;
+            techData.taskTotal = page.total;
+            techData.taskHasMore = page.current_page < page.last_page;
+            renderTasks();
+        } catch (e) {
+            if (version === generation) showError(e);
+        } finally {
+            if (version === generation) taskMore.disabled = false;
+        }
+    });
+
+    const ticketList = document.getElementById('tech-ticket-list');
+    const listBody = ticketList.querySelector('[data-list-body]');
+    const listTotal = ticketList.querySelector('[data-list-total]');
+    const listMore = ticketList.querySelector('[data-list-more]');
+    let listController, selectedStatus, listPage = 0;
+
+    async function loadTickets(page) {
+        listController?.abort();
+        listController = new AbortController();
+        const signal = listController.signal;
+        listMore.disabled = true;
+        try {
+            const result = await getJson(`${API}/tickets?${new URLSearchParams({ metric: 'status', status: selectedStatus, page, per_page: 20 })}`, signal);
+            if (signal.aborted) return;
+            if (page === 1) listBody.replaceChildren();
+            result.data.forEach(ticket => {
+                const link = document.createElement('a');
+                link.className = 'block hover:bg-[#F6F8F7]';
+                link.href = TICKET_URL.replace('__ID__', encodeURIComponent(ticket.id));
+                link.append(textNode(ticket.ticket_code), textNode([ticket.customer_name, ticket.machine_name].filter(Boolean).join(' · ')));
+                listBody.append(link);
+            });
+            if (!result.total) listBody.append(textNode('No tickets with this status.', 'p'));
+            listPage = result.current_page;
+            listTotal.textContent = `${result.total} tickets`;
+            listMore.textContent = 'Load more';
+            listMore.classList.toggle('hidden', result.current_page >= result.last_page);
+        } catch (e) {
+            if (signal.aborted) return;
+            listTotal.textContent = errorText(e);
+            listMore.textContent = 'Retry';
+            listMore.classList.remove('hidden');
+        } finally {
+            if (!signal.aborted) listMore.disabled = false;
+        }
+    }
+
+    function openTickets(status) {
+        selectedStatus = status.key;
+        listPage = 0;
+        document.getElementById('tech-ticket-list-title').textContent = `My tickets: ${status.label}`;
+        listBody.replaceChildren();
+        listTotal.textContent = 'Loading…';
+        listMore.classList.add('hidden');
+        if (!ticketList.open) ticketList.showModal();
+        return loadTickets(1);
+    }
+    ticketList.querySelector('[data-list-close]').addEventListener('click', () => ticketList.close());
+    ticketList.addEventListener('close', () => listController?.abort());
+    listMore.addEventListener('click', () => loadTickets(listPage + 1));
+
     const errorBox = document.getElementById('tech-error');
     function errorText(e) {
         if (e.status === 401) return 'Session expired. Please log in again.';
@@ -250,19 +366,30 @@
         if (e.status === 422) return 'Invalid request.';
         return 'Failed to load dashboard. Check your connection and retry.';
     }
+    function showError(e) {
+        errorBox.querySelector('[data-error-text]').textContent = errorText(e);
+        errorBox.classList.remove('hidden'); errorBox.classList.add('flex');
+    }
     errorBox.querySelector('[data-error-retry]').addEventListener('click', () => init());
 
     async function init() {
+        const version = ++generation;
+        root.setAttribute('aria-busy', 'true');
+        taskMore.disabled = true;
         errorBox.classList.add('hidden'); errorBox.classList.remove('flex');
         const period = root.ownerDocument.querySelector('#tech-filters [data-filter="period"]')?.value || 'this_month';
         try {
             await loadDashboard(period);
+            if (version !== generation) return;
         } catch (e) {
-            if (e.name === 'AbortError') return;
-            console.error(e); // jangan render dummy sebagai data live
-            errorBox.querySelector('[data-error-text]').textContent = errorText(e);
-            errorBox.classList.remove('hidden'); errorBox.classList.add('flex');
+            if (e.name === 'AbortError' || version !== generation) return;
+            showError(e);
             return;
+        } finally {
+            if (version === generation) {
+                root.setAttribute('aria-busy', 'false');
+                taskMore.disabled = false;
+            }
         }
         renderRating(); renderTickets(); renderSla(); renderTasks();
         renderClosed(); renderTodo(); renderWeekly();
