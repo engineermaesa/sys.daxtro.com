@@ -6,6 +6,7 @@ use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketRecoming;
 use App\Models\Aftersales\TicketSatisfaction;
 use App\Models\User;
+use App\Models\UserRole;
 use App\Services\Aftersales\TicketSla;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
@@ -113,14 +114,18 @@ class RecomingV3Test extends TestCase
         parent::tearDown();
     }
 
-    private function login(int $id): void
+    private function login(int $id, bool $technician = false): void
     {
         $user = Mockery::mock(User::class)->makePartial();
         $user->setRawAttributes(['id' => $id, 'name' => 'User '.$id]);
-        // Intentionally grant old Recoming permission to Technician to prove the endpoint guard changed.
+        // The old Recoming permission alone does not authorize rescheduling.
         $permissions = match ($id) {
             1 => ['aftersales.tickets.manage'], 2 => ['aftersales.tickets.recoming', 'aftersales.documents.fill'], default => ['aftersales.tickets.view-all']
         };
+        if ($technician) {
+            $permissions[] = 'aftersales.tickets.view-own';
+            $user->setRelation('role', new UserRole(['code' => 'technician']));
+        }
         $user->shouldReceive('hasPermission')->andReturnUsing(fn ($p) => in_array($p, $permissions, true));
         $this->actingAs($user);
     }
@@ -170,7 +175,7 @@ class RecomingV3Test extends TestCase
         $this->assertDatabaseCount('ticket_recomings', 0);
     }
 
-    public function test_only_admin_can_create_or_reschedule_even_with_old_technician_permission(): void
+    public function test_creation_requires_management_and_old_recoming_permission_alone_cannot_reschedule(): void
     {
         foreach ([2, 3, 4] as $id) {
             $this->login($id);
@@ -193,6 +198,35 @@ class RecomingV3Test extends TestCase
         $this->assertDatabaseCount('ticket_visits', 1);
         $this->postJson(self::URL.'/visits', ['scheduled_at' => '2026-11-03 10:00:00'])->assertConflict()->assertJsonPath('code', 'phone_call_has_no_visit');
         $this->postJson(self::URL.'/on-site')->assertConflict()->assertJsonPath('code', 'phone_call_has_no_visit');
+    }
+
+    public function test_assigned_technician_can_reschedule_phone_without_ticket_management_permission(): void
+    {
+        $created = $this->postJson(self::URL.'/recoming', $this->payload())->assertCreated();
+        $this->login(2, true);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_call_at' => '2026-11-02T09:30'])->assertOk()
+            ->assertJsonPath('data.data.cycle_id', $created->json('data.data.cycle_id'));
+        $this->assertDatabaseHas('ticket_recomings', ['planned_call_at' => '2026-11-02 09:30:00']);
+        $this->assertDatabaseCount('ticket_visits', 1);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_visit_at' => '2026-11-03T09:30'])->assertUnprocessable();
+        $this->postJson(self::URL.'/recoming', $this->payload())->assertForbidden();
+
+        $this->login(4, true);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_call_at' => '2026-11-03T09:30'])->assertForbidden();
+        $this->assertDatabaseHas('ticket_recomings', ['planned_call_at' => '2026-11-02 09:30:00']);
+    }
+
+    public function test_technician_site_reschedule_updates_linked_visit_and_keeps_day_and_assignment_guards(): void
+    {
+        $this->postJson(self::URL.'/recoming', $this->payload('visit_site'))->assertCreated();
+        $this->login(2, true);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_visit_at' => '2026-11-02T09:30'])->assertOk();
+        $this->assertDatabaseHas('ticket_visits', ['id' => 2, 'scheduled_at' => '2026-11-02 09:30:00']);
+        $this->assertDatabaseHas('ticket_cycles', ['cycle_no' => 2, 'sla_started_at' => '2026-11-02 09:30:00', 'sla_due_at' => '2026-11-04 09:30:00']);
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_visit_at' => '2026-11-03T10:00', 'assigned_technician_id' => 4])->assertUnprocessable();
+        Carbon::setTestNow(Carbon::parse('2026-11-02 00:01:00', 'Asia/Jakarta'));
+        $this->postJson(self::URL.'/recoming/reschedule', ['planned_visit_at' => '2026-11-03T10:00'])->assertUnprocessable();
+        $this->assertDatabaseCount('ticket_cycles', 2);
     }
 
     public function test_reschedule_checks_day_and_progress_on_both_endpoints(): void

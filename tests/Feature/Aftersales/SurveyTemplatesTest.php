@@ -150,6 +150,51 @@ class SurveyTemplatesTest extends TestCase
         $this->actingAs($user);
     }
 
+    private function surveyTechnician(int $id = 1, bool $allowed = true): void
+    {
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->forceFill(['id' => $id, 'name' => 'Survey Technician']);
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $allowed && $code === 'aftersales.survey-link.share');
+        $this->actingAs($user);
+    }
+
+    public function test_own_survey_share_records_link_actor_channel_and_time_without_management_permission(): void
+    {
+        $this->surveyTechnician();
+        $payload = $this->getJson('/api/aftersales/tickets/1/survey-link')->assertOk()->json('data');
+        $this->assertTrue($payload['can_share']);
+        $this->assertNotEmpty($payload['url']);
+        $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy', 'link_id' => $payload['link_id']])
+            ->assertOk()->assertJsonPath('data.shared_via', 'copy');
+        $link = SatisfactionLink::findOrFail($payload['link_id']);
+        $this->assertSame(1, (int) $link->shared_by_user_id);
+        $this->assertNotNull($link->shared_at);
+        $this->assertSame('active', $link->status);
+    }
+
+    public function test_other_technician_and_missing_permission_cannot_read_or_record_shared_status(): void
+    {
+        foreach ([[2, true], [1, false]] as [$id, $allowed]) {
+            $this->surveyTechnician($id, $allowed);
+            $this->getJson('/api/aftersales/tickets/1/survey-link')->assertForbidden();
+            $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy'])->assertForbidden();
+        }
+        $this->assertNull(SatisfactionLink::first()->shared_at);
+    }
+
+    public function test_stale_expired_and_used_links_cannot_be_marked_shared(): void
+    {
+        $this->surveyTechnician();
+        $link = SatisfactionLink::firstOrFail();
+        $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy', 'link_id' => $link->id + 100])->assertConflict();
+        $this->assertNull($link->fresh()->shared_at);
+        $link->update(['expires_at' => now()->subMinute()]);
+        $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy', 'link_id' => $link->id])->assertUnprocessable();
+        $link->update(['status' => 'used', 'expires_at' => now()->addDay()]);
+        $this->postJson('/api/aftersales/tickets/1/survey-link/share', ['via' => 'copy', 'link_id' => $link->id])->assertUnprocessable();
+        $this->assertNull($link->fresh()->shared_at);
+    }
+
     private function draft(): array
     {
         return $this->postJson($this->api.'/draft')->assertOk()->json('data');

@@ -11,6 +11,19 @@ use Tests\TestCase;
 
 class TicketAuthorizationTest extends TestCase
 {
+    public function test_ticket_deep_link_uses_existing_ticket_page_and_passes_initial_ticket_id(): void
+    {
+        $ticket = (new Ticket)->setRawAttributes(['id' => '3', 'assigned_technician_id' => '56']);
+        $user = $this->userWithPermissions(56, ['aftersales.tickets.view-own']);
+        $request = \Illuminate\Http\Request::create('/aftersales/tickets/3?document=agreement');
+        $request->setUserResolver(fn () => $user);
+        $view = (new \App\Http\Controllers\AfterSales\Dats\TicketController)->showPage($request, $ticket);
+
+        $this->assertTrue(view()->exists($view->name()));
+        $this->assertSame('pages.aftersales.tickets.index', $view->name());
+        $this->assertSame(3, $view->getData()['initialTicketId']);
+    }
+
     private function userWithPermissions(int $id, array $permissions): User
     {
         $user = Mockery::mock(User::class)->makePartial();

@@ -7,12 +7,21 @@ use App\Models\Aftersales\SatisfactionLink;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketLog;
 use App\Models\Aftersales\TicketRecoming;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TicketRecomings
 {
+    public static function mayReschedule(User $user, Ticket $ticket): bool
+    {
+        return $user->hasPermission('aftersales.tickets.manage')
+            || ($user->hasPermission('aftersales.tickets.view-own')
+                && $user->role?->code === 'technician'
+                && $ticket->assigned_technician_id === $user->id);
+    }
+
     public static function current(Ticket $ticket): ?TicketRecoming
     {
         return $ticket->relationLoaded('recomings') ? $ticket->recomings->sortByDesc('id')->first() : $ticket->recomings()->latest('id')->first();
@@ -103,7 +112,7 @@ class TicketRecomings
 
     public static function reschedule(Request $request, Ticket $ticket): TicketRecoming
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        abort_unless($request->user() && self::mayReschedule($request->user(), $ticket), 403);
         $current = self::current($ticket);
         abort_if(! $current, 422, 'No Recoming schedule exists.');
         $data = self::scheduleData($request, $current->recoming_type ?? TicketRecoming::TYPE_VISIT_SITE)
@@ -111,6 +120,7 @@ class TicketRecomings
 
         return DB::transaction(function () use ($ticket, $current, $data, $request) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            abort_unless(self::mayReschedule($request->user(), $ticket), 403);
             abort_unless(self::canReschedule($ticket), 422, 'Reschedule is only available before the scheduled day arrives and before Repair.');
             $recoming = $ticket->recomings()->latest('id')->lockForUpdate()->firstOrFail();
             abort_unless($recoming->id === $current->id, 409, 'The Recoming cycle changed. Reload the ticket.');

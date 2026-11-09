@@ -55,6 +55,27 @@ use App\Http\Controllers\Users\PermissionController;
 use App\Http\Controllers\Users\UserRoleController;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/admin')->name('dashboard.aftersales.admin.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'summary'])->name('summary');
+    Route::get('/tickets', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'tickets'])->name('tickets');
+    Route::get('/hygiene', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'hygiene'])->name('hygiene');
+    Route::get('/technicians', [\App\Http\Controllers\Dashboard\AdminDashboardController::class, 'technicians'])->name('technicians');
+});
+
+Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/technician')->name('dashboard.aftersales.technician.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'summary'])->name('summary');
+    Route::get('/tasks', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tasks'])->name('tasks');
+    Route::get('/documents', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'documents'])->name('documents');
+    Route::get('/recomings', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'recomings'])->name('recomings');
+    Route::get('/survey-links', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'surveyLinks'])->name('survey-links');
+    Route::get('/tickets', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tickets'])->name('tickets');
+});
+
+Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/supervisor')->name('dashboard.aftersales.supervisor.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'summary'])->name('summary');
+    Route::get('/tickets', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'tickets'])->name('tickets');
+});
+
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {
     Route::get('/', [SurveyTemplateController::class, 'index'])->name('index');
     Route::get('/question-scores', [SurveyTemplateController::class, 'questionScores'])->name('question-scores');

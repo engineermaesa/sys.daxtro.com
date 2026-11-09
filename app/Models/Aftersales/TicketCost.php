@@ -11,6 +11,7 @@ class TicketCost extends Model
     use HasFactory, SoftDeletes;
 
     public const CATEGORIES = ['labor', 'accommodation', 'transportation', 'other'];
+
     public const CURRENCIES = ['idr', 'usd', 'cny'];
 
     protected $fillable = [
@@ -37,5 +38,10 @@ class TicketCost extends Model
         return $this->currency !== 'idr'
             ? round((float) $this->amount * (float) ($this->exchange_rate ?? 1), 2)
             : (float) $this->amount;
+    }
+
+    public static function amountIdrSql(string $table): string
+    {
+        return "CASE WHEN $table.currency = 'idr' THEN $table.amount WHEN $table.exchange_rate > 0 THEN ROUND($table.amount * $table.exchange_rate, 2) ELSE NULL END";
     }
 }
