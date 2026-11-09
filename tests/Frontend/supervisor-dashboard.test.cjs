@@ -182,7 +182,7 @@ test("date range restores custom URL values and Apply sends both dates with the 
     const f = setupDateRange("period=custom&start_date=2026-10-01&end_date=2026-10-31");
     assert.equal(f.options.mode, "range");
     assert.equal(f.options.inline, true);
-    assert.equal(f.element("[data-date-label]").textContent, "2026-10-01 → 2026-10-31");
+    assert.equal(f.element("[data-date-label]").textContent, "01 Oct 2026 – 31 Oct 2026");
     f.picker.setDate(["2026-11-02", "2026-11-09"]);
     f.options.onChange(f.picker.selectedDates);
     f.element("[data-date-apply]").events.click();
@@ -204,7 +204,7 @@ test("Cancel restores the applied dates and incomplete selections cannot reload 
     assert.equal(f.loads.length, 0);
     f.element("[data-date-cancel]").events.click();
     assert.deepEqual(Array.from(f.picker.selectedDates, date => f.picker.formatDate(date)), ["2026-10-01", "2026-10-31"]);
-    assert.equal(f.element("[data-date-label]").textContent, "2026-10-01 → 2026-10-31");
+    assert.equal(f.element("[data-date-label]").textContent, "01 Oct 2026 – 31 Oct 2026");
     assert.equal(f.loads.length, 0);
 });
 
@@ -213,4 +213,57 @@ test("invalid custom URL dates fall back to the current month without submitting
     assert.equal(f.context.params().get("period"), "this_month");
     assert.equal(f.context.params().has("start_date"), false);
     assert.equal(f.context.params().has("end_date"), false);
+});
+
+test("searchable filters are initialized with the full API list and keep options and selection after reload", () => {
+    const selects = Object.fromEntries(["region", "category"].map(key => [key, {
+        value: "", options: [], replaceChildren(...options) { this.options = options; },
+    }]));
+    const widgets = new Map();
+    function jquery(select) {
+        if (!widgets.has(select)) widgets.set(select, {
+            active: false, events: {}, destroyed: 0,
+            off(event) { delete this.events[event]; return this; },
+            data() { return this.active; },
+            empty() { select.options = []; return this; },
+            select2(options) {
+                if (options === "destroy") { this.active = false; this.destroyed++; return this; }
+                this.active = true; this.config = options;
+                this.rows = Array.from(select.options, option => ({ id: option.value, text: option.text }));
+                return this;
+            },
+            on(event, handler) { this.events[event] = handler; return this; },
+            search(term = "") { return this.rows.filter(row => row.text.toLowerCase().includes(term.toLowerCase())); },
+        });
+        return widgets.get(select);
+    }
+    jquery.fn = { select2() {} };
+    let loads = 0;
+    const context = {
+        window: { jQuery: jquery },
+        root: { querySelector: selector => selects[selector.includes('"region"') ? "region" : "category"] },
+        Option: function (text, value) { this.text = text; this.value = String(value); },
+        spvData: { options: { regions: [{ id: 1, name: "Batam" }, { id: 2, name: "Belitung" }],
+            categories: [{ id: 7, name: "Tube Ice" }, { id: 8, name: "Cube Ice" }] } },
+        load() { loads++; },
+    };
+    vm.createContext(context);
+    vm.runInContext(source.slice(source.indexOf("    function populateOptions()"), source.indexOf("    function render()")), context);
+    context.populateOptions();
+    assert.deepEqual(jquery(selects.region).search().map(row => row.text), ["All regions", "Batam", "Belitung"]);
+    assert.deepEqual(jquery(selects.category).search().map(row => row.text), ["All categories", "Tube Ice", "Cube Ice"]);
+    assert.equal(jquery(selects.region).config.minimumInputLength, 0);
+    assert.equal(jquery(selects.category).config.minimumResultsForSearch, 0);
+    assert.deepEqual(jquery(selects.region).search("bel").map(row => row.text), ["Belitung"]);
+    selects.region.value = "2";
+    jquery(selects.region).events["change.spvDashboard"]();
+    context.populateOptions();
+    assert.equal(selects.region.value, "2");
+    assert.equal(jquery(selects.region).search().length, 3);
+    assert.equal(jquery(selects.region).destroyed, 1);
+    assert.equal(loads, 1);
+    selects.category.value = "missing";
+    context.populateOptions();
+    assert.equal(selects.category.value, "");
+    assert.equal(jquery(selects.category).search()[0].text, "All categories");
 });

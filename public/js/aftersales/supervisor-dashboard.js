@@ -323,7 +323,11 @@
             to = today;
         }
         let applied = [from, to];
-        const updateLabel = () => { host.querySelector("[data-date-label]").textContent = applied.join(" → "); };
+        const displayDate = (value) => {
+            const [y, m, d] = value.split("-").map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        };
+        const updateLabel = () => { host.querySelector("[data-date-label]").textContent = applied.map(displayDate).join(" – "); };
         updateLabel();
         if (typeof flatpickr === "undefined") { toggle.disabled = true; return; }
         const picker = flatpickr(host.querySelector("[data-date-input]"), {
@@ -371,27 +375,34 @@
     function populateOptions() {
         ["region", "category"].forEach((key, i) => {
             const select = root.querySelector(`[data-filter="${key}"]`);
-            const value = select.value;
+            const value = select.value || "";
+            if (window.jQuery?.fn?.select2) {
+                const dropdown = window.jQuery(select);
+                dropdown.off("change.spvDashboard");
+                if (dropdown.data("select2")) dropdown.select2("destroy");
+                dropdown.empty();
+            }
             select.replaceChildren(
                 new Option(i ? "All categories" : "All regions", ""),
                 ...spvData.options[i ? "categories" : "regions"].map(
                     (row) => new Option(row.name, row.id),
                 ),
             );
-            select.value = value;
-            if (window.jQuery?.fn?.select2)
-                window.jQuery(select).trigger("change.select2");
+            select.value = [...select.options].some((option) => option.value === value) ? value : "";
+            bindDimensionFilter(select);
         });
     }
 
     function bindDimensionFilter(select) {
         if (!window.jQuery?.fn?.select2) {
+            select.removeEventListener("change", load);
             select.addEventListener("change", load);
             return;
         }
         window.jQuery(select).select2({
             width: "220px",
             minimumResultsForSearch: 0,
+            minimumInputLength: 0,
             dropdownAutoWidth: true,
             dropdownParent: window.jQuery(root),
             language: {
@@ -598,7 +609,6 @@
             if ([...select.options].some((option) => option.value === value))
                 select.value = value;
         }
-        bindDimensionFilter(select);
     });
     load();
 })();

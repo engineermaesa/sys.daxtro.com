@@ -13,15 +13,15 @@
 <div class="space-y-5 bg-[#F6F8F7] p-4 sm:p-6 rounded-xl mt-4">
 
     <div class="flex flex-wrap items-center justify-end gap-3" id="spv-filters">
-        <div class="relative" data-spv-date-filter>
+        <div class="relative flex items-center gap-2" data-spv-date-filter>
             <input type="hidden" data-filter="period" value="this_month">
             <input type="hidden" data-filter="start_date">
             <input type="hidden" data-filter="end_date">
+            <span class="text-xs text-[#8A948F]">Period</span>
             <button type="button" data-date-toggle aria-expanded="false" aria-controls="spv-date-dropdown"
-                class="flex items-center gap-2 rounded-lg border border-[#D9D9D9] bg-white px-3 py-1.5 text-sm text-[#1E1E1E]">
-                <span class="text-xs text-[#8A948F]">Period</span>
-                <span data-date-label>Select date range</span>
-                <i class="bi bi-chevron-down text-xs" aria-hidden="true"></i>
+                class="flex min-h-10 items-center gap-2 rounded-lg border border-[#D9D9D9] bg-white px-3 py-2 text-sm text-[#1E1E1E] transition-colors hover:border-[#14573F] focus:outline-none focus:ring-2 focus:ring-[#CFE5DC]">
+                <i class="bi bi-calendar3 text-[#14573F]" aria-hidden="true"></i>
+                <span data-date-label class="font-medium tabular-nums">Select date range</span>
             </button>
             <div id="spv-date-dropdown" data-date-dropdown class="hidden absolute left-0 top-full z-50 mt-2 w-[350px] max-w-[calc(100vw-3rem)] rounded-lg bg-white p-4 shadow-xl">
                 <h3 class="mb-2 font-semibold text-[#303030]">Select Date Range</h3>
