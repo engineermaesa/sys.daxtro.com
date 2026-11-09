@@ -174,11 +174,12 @@ class TechnicianDashboard
             });
         } elseif ($metric === 'share_survey') {
             $q->whereIn('progress', ['documentation_published', 'satisfaction_submitted', 'happy_call_completed'])
+                ->whereRaw("NOT (COALESCE(workflow_version, '') = 'v3' AND COALESCE(recoming_type, '') = 'phone_call' AND COALESCE(recoming_cycle_id, 0) = COALESCE(cycle_id, -1))")
                 ->whereExists(function ($link) {
                     $link->selectRaw('1')->from('satisfaction_links')->whereColumn('ticket_id', 'dashboard_ticket.id')->whereNull('deleted_at')->where('is_deleted', 0)
                         ->where('status', 'active')->whereNull('shared_at')->where('expires_at', '>', CarbonImmutable::now('Asia/Jakarta')->toDateTimeString())
                         ->whereRaw("(dashboard_ticket.workflow_version <> 'v3' OR dashboard_ticket.workflow_version IS NULL OR satisfaction_links.cycle_id = dashboard_ticket.cycle_id)")
-                        ->whereRaw('satisfaction_links.id = (SELECT MAX(sl.id) FROM satisfaction_links sl WHERE sl.ticket_id = satisfaction_links.ticket_id AND sl.deleted_at IS NULL AND sl.is_deleted = 0 AND (sl.cycle_id = satisfaction_links.cycle_id OR (sl.cycle_id IS NULL AND satisfaction_links.cycle_id IS NULL)))');
+                        ->whereRaw('satisfaction_links.id = (SELECT MAX(sl.id) FROM satisfaction_links sl WHERE sl.ticket_id = satisfaction_links.ticket_id AND sl.deleted_at IS NULL AND sl.is_deleted = 0)');
                 });
         } elseif ($metric === 'recoming') {
             $now = CarbonImmutable::now('Asia/Jakarta');

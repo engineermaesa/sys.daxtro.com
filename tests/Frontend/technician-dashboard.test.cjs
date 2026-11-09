@@ -29,10 +29,12 @@ class Element {
     cloneNode() { return new Element(); }
     showModal() { this.open = true; }
     close() { this.open = false; this.events.close?.(); }
+    select() { this.selected = true; }
 }
 
 function summary(tasks = []) {
     return { data: {
+        capabilities: { can_share_survey: true },
         rating: { score: 2.3, max: 3 },
         tickets: { total_active: 7, statuses: [
             { key: 'assigned', label: 'Assigned', count: 2 },
@@ -49,8 +51,8 @@ function summary(tasks = []) {
 const task = (id, time, status = 'next') => ({ id, time, ticket_code: `LIVE-${id}`,
     customer_name: `Customer ${id}`, machine_name: 'Machine', machine_category: 'Ice', type: 'visit_site', status });
 
-function setup(responder, queueResponder = () => ({ data: [], total: 0, current_page: 1, last_page: 1 })) {
-    const nodes = new Map(), requests = [], charts = {};
+function setup(responder, queueResponder = () => ({ data: [], total: 0, current_page: 1, last_page: 1 }), clipboardFailure = false) {
+    const nodes = new Map(), requests = [], charts = {}, copied = [];
     const element = id => {
         if (!nodes.has(id)) nodes.set(id, new Element());
         return nodes.get(id);
@@ -67,15 +69,16 @@ function setup(responder, queueResponder = () => ({ data: [], total: 0, current_
     for (const id of ['tech-task-template', 'tech-todo-template'])
         element(id).content = { firstElementChild: new Element() };
     const context = { document, AbortController, URLSearchParams,
+        navigator: { clipboard: { async writeText(value) { if (clipboardFailure) throw new Error('Clipboard denied'); copied.push(value); } } },
         window: { AS: { colors: {}, baseChart: {}, mount: (id, options) => charts[id] = options } },
         fetch: async (url, options) => {
             requests.push({ url, options });
-            const result = await (/\/technician\/(documents|recomings)\?/.test(url) ? queueResponder(url) : responder(url, options));
+            const result = await (/\/technician\/(documents|recomings|survey-links)\?/.test(url) ? queueResponder(url) : responder(url, options));
             return { ok: !result.__status, status: result.__status || 200, json: async () => result };
         },
     };
     vm.runInNewContext(script, context);
-    return { element, legends, requests, charts };
+    return { element, legends, requests, charts, copied };
 }
 
 test('dashboard renders live task rows and status counts rather than the screenshot sample', async () => {
@@ -197,4 +200,68 @@ test('site reschedule errors keep the form open and show backend validation; tod
     assert.match(f.element('tech-reschedule-error').textContent, /can no longer/);
     assert.equal(f.element('tech-reschedule-save').disabled, false);
     assert.deepEqual(JSON.parse(f.requests.find(r => r.options.method === 'POST').options.body), { planned_visit_at: '2026-11-10T09:00', note: null });
+});
+
+test('Share copies the current survey URL, records the exact link and refreshes the pending queue', async () => {
+    let shared = false;
+    const f = setup((url, options) => {
+        if (options.method === 'POST') { shared = true; return { data: { shared_at: '2026-11-09T10:00:00+07:00' } }; }
+        if (url.endsWith('/survey-link')) return { data: { link_id: 21, url: 'https://example.test/survey/current-token', can_share: true } };
+        return summary();
+    }, url => ({ data: url.includes('/survey-links?') && !shared ? [{ id: 31, ticket_code: 'SURVEY-31' }] : [],
+        total: url.includes('/survey-links?') && !shared ? 1 : 0, current_page: 1, last_page: 1 }));
+    await flush();
+    assert.equal(f.element('tech-survey-links-panel').classes.has('hidden'), false);
+    await f.element('tech-survey-links').children[0].children[1].onclick();
+    assert.equal(f.element('tech-survey-share').open, true);
+    assert.equal(f.requests.some(r => r.options.method === 'POST'), false);
+    await f.element('tech-survey-share-copy').events.click();
+    assert.deepEqual(f.copied, ['https://example.test/survey/current-token']);
+    const post = f.requests.find(r => r.options.method === 'POST');
+    assert.equal(post.url, '/api/aftersales/tickets/31/survey-link/share');
+    assert.deepEqual(JSON.parse(post.options.body), { via: 'copy', link_id: 21 });
+    assert.equal(post.options.headers['X-CSRF-TOKEN'], 'csrf-test');
+    assert.match(f.element('tech-survey-share-status').textContent, /Shared status recorded/);
+    assert.equal(f.element('tech-survey-links').children.length, 0);
+    assert.equal(f.element('tech-survey-share-copy').disabled, true);
+    await f.element('tech-survey-share-copy').events.click();
+    assert.equal(f.requests.filter(r => r.options.method === 'POST').length, 1);
+});
+
+test('clipboard failure does not record shared until the user confirms manual sharing', async () => {
+    const f = setup(url => url.endsWith('/survey-link')
+        ? { data: { link_id: 5, url: 'https://example.test/survey/5', can_share: true } } : summary(),
+    url => ({ data: url.includes('/survey-links?') ? [{ id: 7, ticket_code: 'SURVEY-7' }] : [], total: 1, current_page: 1, last_page: 1 }), true);
+    await flush();
+    await f.element('tech-survey-links').children[0].children[1].onclick();
+    await f.element('tech-survey-share-copy').events.click();
+    assert.equal(f.requests.some(r => r.options.method === 'POST'), false);
+    assert.equal(f.element('tech-survey-share-url').selected, true);
+    assert.equal(f.element('tech-survey-share-manual').classes.has('hidden'), false);
+    assert.match(f.element('tech-survey-share-status').textContent, /not been recorded/);
+    await f.element('tech-survey-share-manual').events.click();
+    assert.equal(f.requests.filter(r => r.options.method === 'POST').length, 1);
+    assert.match(f.element('tech-survey-share-status').textContent, /marked as shared/);
+});
+
+test('server share failure preserves the pending entry and allows retry without displaying success', async () => {
+    const f = setup((url, options) => options.method === 'POST'
+        ? { __status: 409, message: 'The survey link changed. Reload the link before sharing.' }
+        : url.endsWith('/survey-link') ? { data: { link_id: 9, url: 'https://example.test/survey/9', can_share: true } } : summary(),
+    url => ({ data: url.includes('/survey-links?') ? [{ id: 8, ticket_code: 'SURVEY-8' }] : [], total: 1, current_page: 1, last_page: 1 }));
+    await flush();
+    await f.element('tech-survey-links').children[0].children[1].onclick();
+    await f.element('tech-survey-share-copy').events.click();
+    assert.match(f.element('tech-survey-share-status').textContent, /link changed/);
+    assert.equal(f.element('tech-survey-links').children.length, 1);
+    assert.equal(f.element('tech-survey-share-copy').disabled, false);
+});
+
+test('technicians without sharing permission do not see or request the share queue', async () => {
+    const data = summary();
+    data.data.capabilities.can_share_survey = false;
+    const f = setup(() => data);
+    await flush();
+    assert.equal(f.element('tech-survey-links-panel').classes.has('hidden'), true);
+    assert.equal(f.requests.some(r => r.url.includes('/survey-links?')), false);
 });

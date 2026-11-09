@@ -22,7 +22,21 @@ class TechnicianDashboardController extends Controller
 
     public function summary(Request $request, TechnicianDashboard $dashboard)
     {
-        return response()->json(['data' => $dashboard->summary((int) $request->user()->id, $this->filters($request))]);
+        $data = $dashboard->summary((int) $request->user()->id, $this->filters($request));
+        $data['capabilities'] = ['can_share_survey' => (bool) $request->user()->hasPermission('aftersales.survey-link.share')];
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function surveyLinks(Request $request, TechnicianDashboard $dashboard)
+    {
+        $filters = $this->filters($request);
+        abort_unless($request->user()->hasPermission('aftersales.survey-link.share'), 403);
+        $rows = $dashboard->drilldown((int) $request->user()->id, ['metric' => 'share_survey'])
+            ->orderBy('id')->paginate($filters['per_page'] ?? 10);
+        $rows->through(fn ($row) => $dashboard->ticketItem($row));
+
+        return response()->json($rows);
     }
 
     public function tasks(Request $request, TechnicianDashboard $dashboard)

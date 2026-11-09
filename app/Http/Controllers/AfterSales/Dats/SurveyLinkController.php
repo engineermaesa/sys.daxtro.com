@@ -31,9 +31,10 @@ class SurveyLinkController extends Controller
     {
         $this->authorizeShare($request, $ticket);
 
-        $validated = $request->validate(['via' => 'required|in:copy,whatsapp']);
+        $validated = $request->validate(['via' => 'required|in:copy,whatsapp', 'link_id' => 'nullable|integer|min:1']);
 
         $link = $this->activeLink($ticket);
+        abort_if(isset($validated['link_id']) && (int) $validated['link_id'] !== $link->id, 409, 'The survey link changed. Reload the link before sharing.');
 
         if ($validated['via'] === 'whatsapp') {
             $phone = $ticket->customer?->phone;
@@ -153,6 +154,7 @@ class SurveyLinkController extends Controller
         $link = $ticket->surveyLink()->first();
 
         abort_if(! $link || $link->display_status !== SatisfactionLink::STATUS_ACTIVE, 422, 'Survey link is not active.');
+        TicketSla::guardSurveyCycle($ticket, $link->cycle_id);
 
         return $link;
     }
@@ -177,6 +179,7 @@ class SurveyLinkController extends Controller
 
         return [
             'ticket_id' => $ticket->id,
+            'link_id' => $link?->id,
             'ticket_code' => $ticket->ticket_code,
             'template_version' => $link?->template?->version,
             'template' => $isActive ? ['version' => $link->template->version, 'title' => $link->template->title, 'scale_labels' => $link->template->content['scale_labels'], 'sections' => $link->template->documentSections()] : null,

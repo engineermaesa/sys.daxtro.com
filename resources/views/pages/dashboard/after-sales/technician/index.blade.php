@@ -91,6 +91,14 @@
         </x-after-sales.ui.panel>
     </div>
 
+    <div id="tech-survey-links-panel" class="hidden">
+        <x-after-sales.ui.panel title="Share Survey Link" subtitle="Active survey links for your tickets that have not been shared.">
+            <p id="tech-survey-links-status" class="text-xs text-[#5F6B65]" role="status"></p>
+            <div id="tech-survey-links" class="divide-y divide-[#EEF1EF]"></div>
+            <button id="tech-survey-links-more" type="button" class="hidden mt-3 rounded-lg border px-3 py-2 text-xs">Load more</button>
+        </x-after-sales.ui.panel>
+    </div>
+
     {{-- Closed per week --}}
     <x-after-sales.ui.panel title="Closed per week" subtitle="Weekly completion trend for your own service tickets.">
         <div id="tech-chart-weekly"></div>
@@ -126,6 +134,19 @@
     </form>
 </dialog>
 
+<dialog id="tech-survey-share" aria-labelledby="tech-survey-share-title" class="w-full max-w-lg rounded-xl p-5 backdrop:bg-black/40">
+    <h2 id="tech-survey-share-title" class="font-semibold">Share Survey Link</h2>
+    <p id="tech-survey-share-ticket" class="mt-2 text-sm"></p>
+    <label for="tech-survey-share-url" class="mt-4 block text-xs">Survey link</label>
+    <input id="tech-survey-share-url" type="url" readonly class="mt-1 w-full rounded-lg border p-2 text-sm">
+    <p id="tech-survey-share-status" class="mt-3 text-xs" role="status"></p>
+    <div class="mt-4 flex flex-wrap justify-end gap-2">
+        <button id="tech-survey-share-close" type="button" class="rounded-lg border px-3 py-2 text-xs">Close</button>
+        <button id="tech-survey-share-manual" type="button" class="hidden rounded-lg border px-3 py-2 text-xs">I have shared this link</button>
+        <button id="tech-survey-share-copy" type="button" class="rounded-lg bg-[#14573F] px-3 py-2 text-xs text-white">Copy link &amp; mark shared</button>
+    </div>
+</dialog>
+
 @push('scripts')
 <script>
 (function () {
@@ -137,7 +158,7 @@
     const TICKET_URL = root.dataset.ticketUrl;
     const techData = {
         rating: { score: null, max: 3 },
-        tickets: [], totalActive: 0,
+        tickets: [], totalActive: 0, canShareSurvey: false,
         sla: { value: null, target: null, months: [], series: [] },
         tasks: [], taskTotal: 0, taskPage: 1, taskHasMore: false,
         weeks: [], closed: 0, closedTotals: [], onTime: [], overtime: [], todo: [],
@@ -196,6 +217,7 @@
         const { data } = await getJson(`${API}?${new URLSearchParams({ period })}`, signal);
         if (signal.aborted) return;
         techData.rating = data.rating;
+        techData.canShareSurvey = data.capabilities?.can_share_survey === true;
         techData.tickets = data.tickets.statuses;
         techData.totalActive = data.tickets.total_active;
         techData.sla = { ...data.sla, months: data.sla.months.map(m => m.label), series: data.sla.months.map(m => m.value) };
@@ -390,7 +412,7 @@
     ticketList.addEventListener('close', () => listController?.abort());
     listMore.addEventListener('click', () => loadTickets(listPage + 1));
 
-    const queues = Object.fromEntries(['documents', 'recomings'].map(key => [key, { page: 0, controller: null }]));
+    const queues = Object.fromEntries(['documents', 'recomings', 'survey-links'].map(key => [key, { page: 0, controller: null }]));
 
     async function loadQueue(key, page = 1) {
         const state = queues[key];
@@ -400,6 +422,10 @@
         const body = document.getElementById(`tech-${key}`);
         const status = document.getElementById(`tech-${key}-status`);
         const more = document.getElementById(`tech-${key}-more`);
+        if (key === 'survey-links') {
+            document.getElementById('tech-survey-links-panel').classList.toggle('hidden', !techData.canShareSurvey);
+            if (!techData.canShareSurvey) { body.replaceChildren(); return; }
+        }
         more.disabled = true;
         if (page === 1) { state.page = 0; body.replaceChildren(); more.classList.add('hidden'); }
         status.textContent = 'Loading…';
@@ -417,6 +443,10 @@
                     details.append(textNode(`${row.document_type === 'agreement' ? 'Service Agreement' : 'Service Form'} · Draft`));
                     action.href = `${TICKET_URL.replace('__ID__', encodeURIComponent(row.id))}?${new URLSearchParams({ document: row.document_type })}`;
                     action.textContent = 'Open document';
+                } else if (key === 'survey-links') {
+                    action.type = 'button';
+                    action.textContent = 'Share';
+                    action.onclick = () => openSurveyShare(row);
                 } else {
                     details.append(textNode(`${row.type === 'phone_call' ? 'Phone call' : 'Site visit'} · ${new Date(row.scheduled_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' })}`));
                     action.type = 'button';
@@ -428,8 +458,10 @@
                 body.append(item);
             });
             state.page = result.current_page;
-            status.textContent = result.total ? `${result.total} ${key === 'documents' ? 'draft documents' : 'upcoming schedules'}`
-                : key === 'documents' ? 'No draft documents to complete.' : 'No Recoming scheduled in the next 7 days.';
+            const labels = { documents: ['draft documents', 'No draft documents to complete.'],
+                recomings: ['upcoming schedules', 'No Recoming scheduled in the next 7 days.'],
+                'survey-links': ['survey links to share', 'No survey links waiting to be shared.'] };
+            status.textContent = result.total ? `${result.total} ${labels[key][0]}` : labels[key][1];
             more.textContent = 'Load more';
             more.classList.toggle('hidden', result.current_page >= result.last_page);
         } catch (e) {
@@ -443,6 +475,84 @@
     }
     Object.keys(queues).forEach(key => document.getElementById(`tech-${key}-more`)
         .addEventListener('click', () => loadQueue(key, queues[key].page + 1)));
+
+    const shareDialog = document.getElementById('tech-survey-share');
+    const shareCopy = document.getElementById('tech-survey-share-copy');
+    const shareManual = document.getElementById('tech-survey-share-manual');
+    const shareClose = document.getElementById('tech-survey-share-close');
+    const shareUrl = document.getElementById('tech-survey-share-url');
+    const shareStatus = document.getElementById('tech-survey-share-status');
+    let shareController, shareRow, shareLink, shareBusy = false;
+
+    async function openSurveyShare(row) {
+        shareController?.abort();
+        shareController = new AbortController();
+        const signal = shareController.signal;
+        shareRow = row;
+        shareLink = null;
+        shareUrl.value = '';
+        shareCopy.disabled = true;
+        shareManual.classList.add('hidden');
+        document.getElementById('tech-survey-share-ticket').textContent = row.ticket_code;
+        shareStatus.textContent = 'Loading survey link…';
+        shareDialog.showModal();
+        try {
+            const result = await getJson(`/api/aftersales/tickets/${encodeURIComponent(row.id)}/survey-link`, signal);
+            if (signal.aborted) return;
+            if (!result.data.can_share || !result.data.url) throw new Error('This survey link is no longer active. Refresh the dashboard.');
+            shareLink = result.data;
+            shareUrl.value = shareLink.url;
+            shareCopy.disabled = false;
+            shareStatus.textContent = 'Copy this link to share it with the customer.';
+        } catch (e) {
+            if (!signal.aborted) shareStatus.textContent = e.status ? errorText(e) : e.message;
+        }
+    }
+    shareClose.addEventListener('click', () => shareDialog.close());
+    shareDialog.addEventListener('close', () => shareController?.abort());
+    shareDialog.addEventListener('cancel', event => { if (shareBusy) event.preventDefault(); });
+
+    async function shareSurvey(manual = false) {
+        if (shareBusy || !shareLink) return;
+        shareBusy = true;
+        shareCopy.disabled = shareManual.disabled = shareClose.disabled = true;
+        let recorded = false;
+        try {
+            if (!manual) {
+                try {
+                    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                    await navigator.clipboard.writeText(shareLink.url);
+                } catch (_) {
+                    shareUrl.select();
+                    shareManual.classList.remove('hidden');
+                    shareStatus.textContent = 'Copy and share the link manually, then click “I have shared this link”. Shared status has not been recorded.';
+                    return;
+                }
+            }
+            const res = await fetch(`/api/aftersales/tickets/${encodeURIComponent(shareRow.id)}/survey-link/share`, {
+                method: 'POST', credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                body: JSON.stringify({ via: 'copy', link_id: shareLink.link_id }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'Failed to record survey sharing.');
+            recorded = true;
+            shareLink = null;
+            shareManual.classList.add('hidden');
+            shareStatus.textContent = manual ? 'Survey link marked as shared.' : 'Survey link copied. Shared status recorded.';
+            await init();
+        } catch (e) {
+            shareStatus.textContent = e.message || 'Failed to record survey sharing. Please retry.';
+        } finally {
+            shareBusy = false;
+            shareCopy.disabled = recorded;
+            shareManual.disabled = false;
+            shareClose.disabled = false;
+        }
+    }
+    shareCopy.addEventListener('click', () => shareSurvey());
+    shareManual.addEventListener('click', () => shareSurvey(true));
 
     const rescheduleDialog = document.getElementById('tech-reschedule');
     const rescheduleSave = document.getElementById('tech-reschedule-save');

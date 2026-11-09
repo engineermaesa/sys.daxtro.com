@@ -133,12 +133,12 @@ class TechnicianDashboardTest extends TestCase
         $t->boolean('is_deleted')->default(false);
     }
 
-    private function login(string $role = 'technician', bool $permission = true): void
+    private function login(string $role = 'technician', bool $permission = true, bool $sharePermission = true): void
     {
         $user = Mockery::mock(User::class)->makePartial();
         $user->setRawAttributes(['id' => 1]);
         $user->setRelation('role', new UserRole(['code' => $role]));
-        $user->shouldReceive('hasPermission')->andReturn($permission);
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $permission && ($code !== 'aftersales.survey-link.share' || $sharePermission));
         $this->actingAs($user);
     }
 
@@ -171,7 +171,7 @@ class TechnicianDashboardTest extends TestCase
     {
         foreach (['sales', 'after_sales', 'supervisor_after_sales', 'head_after_sales'] as $role) {
             $this->login($role);
-            foreach (['', '/tasks', '/tickets?metric=status', '/documents', '/recomings'] as $suffix) {
+            foreach (['', '/tasks', '/tickets?metric=status', '/documents', '/recomings', '/survey-links'] as $suffix) {
                 $this->getJson(self::URL.$suffix)->assertForbidden();
             }
         }
@@ -365,6 +365,39 @@ class TechnicianDashboardTest extends TestCase
         $this->getJson(self::URL.'/documents?per_page=1&page=2')->assertOk()->assertJsonPath('total', 2)
             ->assertJsonPath('data.0.document_type', 'service_form');
         $this->getJson(self::URL.'/documents?technician_id=2')->assertUnprocessable();
+    }
+
+    public function test_survey_queue_requires_permission_and_only_lists_current_active_unshared_own_site_links(): void
+    {
+        $eligible = [];
+        foreach (['valid', 'shared', 'expired', 'used', 'foreign', 'deleted_link', 'deleted_ticket', 'old_cycle', 'phone_call', 'newer_used_link'] as $kind) {
+            $ticket = $this->ticket('documentation_published', ['workflow_version' => 'v3',
+                'assigned_technician_id' => $kind === 'foreign' ? 2 : 1, 'is_deleted' => $kind === 'deleted_ticket']);
+            $cycle = DB::table('ticket_cycles')->insertGetId(['ticket_id' => $ticket, 'cycle_no' => 1]);
+            DB::table('satisfaction_links')->insert(['ticket_id' => $ticket, 'cycle_id' => $cycle,
+                'status' => $kind === 'used' ? 'used' : 'active',
+                'shared_at' => $kind === 'shared' ? '2026-11-05 10:00:00' : null,
+                'expires_at' => $kind === 'expired' ? '2026-11-04 10:00:00' : '2026-11-08 10:00:00',
+                'is_deleted' => $kind === 'deleted_link']);
+            if ($kind === 'old_cycle') {
+                DB::table('ticket_cycles')->insert(['ticket_id' => $ticket, 'cycle_no' => 2]);
+            }
+            if ($kind === 'phone_call') {
+                DB::table('ticket_recomings')->insert(['ticket_id' => $ticket, 'cycle_id' => $cycle, 'recoming_type' => 'phone_call']);
+            }
+            if ($kind === 'newer_used_link') {
+                DB::table('satisfaction_links')->insert(['ticket_id' => $ticket, 'cycle_id' => $cycle, 'status' => 'used', 'expires_at' => '2026-11-08 10:00:00']);
+            }
+            if ($kind === 'valid') {
+                $eligible[] = $ticket;
+            }
+        }
+        $this->getJson(self::URL.'/survey-links')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $eligible[0]);
+        $this->assertSame(1, $this->data()['todo']['items'][0]['count']);
+        $this->getJson(self::URL.'/survey-links?technician_id=2')->assertUnprocessable();
+        $this->login('technician', true, false);
+        $this->getJson(self::URL.'/survey-links')->assertForbidden();
+        $this->assertFalse($this->data()['capabilities']['can_share_survey']);
     }
 
     public function test_upcoming_recomings_are_own_current_cycle_next_seven_days_and_sorted_by_schedule(): void

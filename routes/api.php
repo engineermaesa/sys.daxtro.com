@@ -67,6 +67,7 @@ Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/technici
     Route::get('/tasks', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tasks'])->name('tasks');
     Route::get('/documents', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'documents'])->name('documents');
     Route::get('/recomings', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'recomings'])->name('recomings');
+    Route::get('/survey-links', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'surveyLinks'])->name('survey-links');
     Route::get('/tickets', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tickets'])->name('tickets');
 });
 
