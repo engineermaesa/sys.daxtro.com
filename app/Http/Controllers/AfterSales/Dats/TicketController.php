@@ -112,7 +112,7 @@ class TicketController extends Controller
 
         $this->pageTitle = 'Ticket '.$ticket->ticket_code;
 
-        return $this->render('pages.aftersales.tickets.show', ['ticket' => $ticket]);
+        return $this->render('pages.aftersales.tickets.index', ['initialTicketId' => $ticket->id]);
     }
 
     public function editPage(Request $request, Ticket $ticket)
@@ -328,7 +328,7 @@ class TicketController extends Controller
             'can_edit' => $manage,
             'can_assign' => (bool) $user->hasPermission('aftersales.tickets.assign'),
             'can_schedule' => $manage && TicketRecomings::canScheduleVisit($ticket),
-            'can_reschedule' => $this->canReschedule($ticket) && $manage,
+            'can_reschedule' => $this->canReschedule($ticket) && TicketRecomings::mayReschedule($user, $ticket),
             'can_trigger_recoming' => $open && $manage && $ticket->progress !== TicketLog::STEP_RECOMING,
             'can_unlock_service_form' => $manage && ! empty($form['unlock']),
             'can_fill_service_form' => ! empty($form['fill']),
@@ -1048,7 +1048,7 @@ class TicketController extends Controller
 
     public function reschedule(Request $request, Ticket $ticket)
     {
-        abort_unless($request->user()?->hasPermission('aftersales.tickets.manage'), 403);
+        abort_unless($request->user() && TicketRecomings::mayReschedule($request->user(), $ticket), 403);
         if (TicketDocumentWorkflow::enabled($ticket)) {
             $recoming = TicketRecomings::reschedule($request, $ticket);
 
@@ -1172,8 +1172,9 @@ class TicketController extends Controller
 
     private function moveFollowUpVisit(Request $request, Ticket $ticket, Carbon $date, ?string $note): void
     {
-        DB::transaction(function () use ($ticket, $date, $note) {
+        DB::transaction(function () use ($request, $ticket, $date, $note) {
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            abort_unless(TicketRecomings::mayReschedule($request->user(), $ticket), 403);
             abort_unless($this->canReschedule($ticket), 422, 'Reschedule is only available before the follow-up visit date arrives.');
             $recoming = $ticket->recomings()->latest('id')->lockForUpdate()->firstOrFail();
             $visit = $ticket->visits()->latest('id')->firstOrFail();

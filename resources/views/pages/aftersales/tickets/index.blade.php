@@ -460,6 +460,12 @@
         readTicketUrl();
         loadTickets();
         loadOverallRating();
+        const initialTicketId = @json($initialTicketId ?? null);
+        if (initialTicketId) {
+            $.getJSON('/api/aftersales/tickets/' + initialTicketId)
+                .done(function (res) { openTicketDetails(res.data); })
+                .fail(function () { Swal.fire('Unable to open ticket', 'Reload the page or select the ticket from the list.', 'error'); });
+        }
 
         let searchTimer = null;
         $('#ticket-search').on('input', function () {
@@ -534,7 +540,10 @@
 
         // TICKET DETAILS (frontend only, diisi dari data row API)
         $(document).on('click', '.btn-ticket-details', function () {
-            const t = $(this).data('ticket') || {};
+            openTicketDetails($(this).data('ticket') || {});
+        });
+
+        function openTicketDetails(t) {
             currentTicket = t;
             const slaUnit = t.sla_unit === 'hour' ? 'hour(s)' : 'business day(s)';
             const woUrl = '/aftersales/tickets/' + t.id + '/work-order-pdf';
@@ -567,7 +576,8 @@
             $('#ticketListView').addClass('hidden');
             $('#ticketDetailsView').removeClass('hidden');
             window.scrollTo(0, 0);
-        });
+            $(document).trigger('ticket:open', [t]);
+        }
 
         $(document).on('click', '.btn-ticket-details-back', function () {
             $('#ticketDetailsView').addClass('hidden');

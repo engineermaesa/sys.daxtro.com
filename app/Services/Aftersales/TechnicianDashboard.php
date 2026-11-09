@@ -37,7 +37,7 @@ class TechnicianDashboard
             ->selectRaw("CASE WHEN log.step = 'closed' THEN log.created_at ELSE NULL END as closed_at")
             ->selectRaw("CASE WHEN log.step IN ('on_site', 'repair', 'waiting_sparepart', 'documentation_published', 'satisfaction_submitted', 'happy_call_completed', 'closed', 'recoming') THEN log.step WHEN visit.scheduled_at <= ? AND NOT (tickets.workflow_version = 'v3' AND COALESCE(recoming.recoming_type, '') = 'phone_call') THEN 'on_site' ELSE 'assigned' END as progress", [CarbonImmutable::now('Asia/Jakarta')->endOfDay()->toDateTimeString()])
             ->selectRaw('visit.id as visit_id, visit.cycle_id as visit_cycle_id, visit.scheduled_at, visit.actual_start, visit.actual_end')
-            ->selectRaw('recoming.recoming_type, recoming.cycle_id as recoming_cycle_id, CASE WHEN recoming.recoming_type = \'phone_call\' THEN recoming.planned_call_at ELSE recoming.planned_visit_at END as recoming_at')
+            ->selectRaw('recoming.id as recoming_id, recoming.recoming_type, recoming.cycle_id as recoming_cycle_id, CASE WHEN recoming.recoming_type = \'phone_call\' THEN recoming.planned_call_at ELSE recoming.planned_visit_at END as recoming_at')
             ->selectRaw("CASE WHEN tickets.workflow_version = 'v3' THEN CASE WHEN cycle.sla_stopped_at IS NOT NULL AND cycle.sla_due_at IS NOT NULL AND (cycle.sla_started_at IS NOT NULL OR (cycle.cycle_no = 1 AND cycle.started_at IS NOT NULL)) THEN CASE WHEN cycle.sla_stopped_at <= cycle.sla_due_at THEN 'on_time' ELSE 'overtime' END ELSE NULL END WHEN log.step = 'closed' AND tickets.sla_due_at IS NOT NULL THEN CASE WHEN log.created_at <= tickets.sla_due_at THEN 'on_time' ELSE 'overtime' END ELSE NULL END as sla_result");
 
         return DB::query()->fromSub($q, 'dashboard_ticket');
@@ -48,6 +48,27 @@ class TechnicianDashboard
         [$start, $end] = SupervisorDashboard::window($filters);
 
         return $this->tickets($userId)->whereBetween('closed_at', [$start->toDateTimeString(), $end->toDateTimeString()]);
+    }
+
+    public function documents(int $userId): Builder
+    {
+        $queries = [];
+        foreach (['agreement' => 'ticket_agreements', 'service_form' => 'ticket_service_forms'] as $type => $table) {
+            $queries[] = $this->tickets($userId)->join($table.' as draft', 'draft.ticket_id', '=', 'dashboard_ticket.id')
+                ->whereNull('draft.deleted_at')->where('draft.status', 'draft')->where('progress', '<>', 'closed')
+                ->select('dashboard_ticket.*')->selectRaw('draft.id as document_id, ? as document_type', [$type]);
+        }
+
+        return DB::query()->fromSub($queries[0]->unionAll($queries[1]), 'draft_document');
+    }
+
+    public function recomingItem(object $row): array
+    {
+        $at = CarbonImmutable::parse($row->recoming_at, 'Asia/Jakarta');
+
+        return $this->ticketItem($row) + ['recoming_id' => (int) $row->recoming_id,
+            'type' => $row->recoming_type ?? 'visit_site', 'scheduled_at' => $at->toIso8601String(),
+            'can_reschedule' => $at->greaterThan(CarbonImmutable::now('Asia/Jakarta')->endOfDay())];
     }
 
     public function summary(int $userId, array $filters): array
@@ -161,7 +182,9 @@ class TechnicianDashboard
                 });
         } elseif ($metric === 'recoming') {
             $now = CarbonImmutable::now('Asia/Jakarta');
-            $q->where('progress', 'recoming')->whereBetween('recoming_at', [$now->toDateTimeString(), $now->addDays(7)->endOfDay()->toDateTimeString()]);
+            $q->where('progress', 'recoming')
+                ->whereRaw("(workflow_version <> 'v3' OR workflow_version IS NULL OR recoming_cycle_id = cycle_id)")
+                ->whereBetween('recoming_at', [$now->toDateTimeString(), $now->addDays(7)->endOfDay()->toDateTimeString()]);
         }
         if ($metric === 'closed' && isset($filters['week_start'])) {
             $from = CarbonImmutable::parse($filters['week_start'], 'Asia/Jakarta');

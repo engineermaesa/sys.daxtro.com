@@ -78,6 +78,19 @@
         </x-after-sales.ui.panel>
     </div>
 
+    <div class="grid md:grid-cols-2 gap-4">
+        <x-after-sales.ui.panel title="Documents to Complete" subtitle="Draft documents for your assigned tickets.">
+            <p id="tech-documents-status" class="text-xs text-[#5F6B65]" role="status"></p>
+            <div id="tech-documents" class="divide-y divide-[#EEF1EF]"></div>
+            <button id="tech-documents-more" type="button" class="hidden mt-3 rounded-lg border px-3 py-2 text-xs">Load more</button>
+        </x-after-sales.ui.panel>
+        <x-after-sales.ui.panel title="Upcoming Recoming" subtitle="Your follow-up schedules in the next 7 days (Asia/Jakarta).">
+            <p id="tech-recomings-status" class="text-xs text-[#5F6B65]" role="status"></p>
+            <div id="tech-recomings" class="divide-y divide-[#EEF1EF]"></div>
+            <button id="tech-recomings-more" type="button" class="hidden mt-3 rounded-lg border px-3 py-2 text-xs">Load more</button>
+        </x-after-sales.ui.panel>
+    </div>
+
     {{-- Closed per week --}}
     <x-after-sales.ui.panel title="Closed per week" subtitle="Weekly completion trend for your own service tickets.">
         <div id="tech-chart-weekly"></div>
@@ -93,6 +106,24 @@
     <p data-list-total class="px-4 py-2 text-xs" role="status"></p>
     <div data-list-body class="max-h-[60vh] overflow-y-auto divide-y"></div>
     <div class="p-4"><button type="button" data-list-more class="hidden rounded-lg border px-3 py-2 text-xs">Load more</button></div>
+</dialog>
+
+<dialog id="tech-reschedule" aria-labelledby="tech-reschedule-title" class="w-full max-w-md rounded-xl p-5 backdrop:bg-black/40">
+    <form id="tech-reschedule-form" class="space-y-4">
+        <h2 id="tech-reschedule-title" class="font-semibold">Reschedule Recoming</h2>
+        <p id="tech-reschedule-ticket" class="text-sm"></p>
+        <label class="block text-xs">New schedule (Asia/Jakarta)
+            <input id="tech-reschedule-at" type="datetime-local" required class="mt-1 block w-full rounded-lg border p-2">
+        </label>
+        <label class="block text-xs">Note (optional)
+            <textarea id="tech-reschedule-note" maxlength="1000" class="mt-1 block w-full rounded-lg border p-2"></textarea>
+        </label>
+        <p id="tech-reschedule-error" class="text-xs text-red-700" role="alert"></p>
+        <div class="flex justify-end gap-2">
+            <button id="tech-reschedule-cancel" type="button" class="rounded-lg border px-3 py-2 text-xs">Cancel</button>
+            <button id="tech-reschedule-save" type="submit" class="rounded-lg bg-[#14573F] px-3 py-2 text-xs text-white">Reschedule</button>
+        </div>
+    </form>
 </dialog>
 
 @push('scripts')
@@ -359,6 +390,95 @@
     ticketList.addEventListener('close', () => listController?.abort());
     listMore.addEventListener('click', () => loadTickets(listPage + 1));
 
+    const queues = Object.fromEntries(['documents', 'recomings'].map(key => [key, { page: 0, controller: null }]));
+
+    async function loadQueue(key, page = 1) {
+        const state = queues[key];
+        state.controller?.abort();
+        state.controller = new AbortController();
+        const signal = state.controller.signal;
+        const body = document.getElementById(`tech-${key}`);
+        const status = document.getElementById(`tech-${key}-status`);
+        const more = document.getElementById(`tech-${key}-more`);
+        more.disabled = true;
+        if (page === 1) { state.page = 0; body.replaceChildren(); more.classList.add('hidden'); }
+        status.textContent = 'Loading…';
+        try {
+            const result = await getJson(`${API}/${key}?${new URLSearchParams({ page, per_page: 10 })}`, signal);
+            if (signal.aborted) return;
+            result.data.forEach(row => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between gap-3 py-3';
+                const details = document.createElement('div');
+                details.append(textNode(row.ticket_code), textNode([row.customer_name, row.machine_name].filter(Boolean).join(' · ')));
+                const action = document.createElement(key === 'documents' ? 'a' : 'button');
+                action.className = 'shrink-0 rounded-lg border border-[#14573F] px-3 py-2 text-xs text-[#14573F]';
+                if (key === 'documents') {
+                    details.append(textNode(`${row.document_type === 'agreement' ? 'Service Agreement' : 'Service Form'} · Draft`));
+                    action.href = `${TICKET_URL.replace('__ID__', encodeURIComponent(row.id))}?${new URLSearchParams({ document: row.document_type })}`;
+                    action.textContent = 'Open document';
+                } else {
+                    details.append(textNode(`${row.type === 'phone_call' ? 'Phone call' : 'Site visit'} · ${new Date(row.scheduled_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' })}`));
+                    action.type = 'button';
+                    action.textContent = row.can_reschedule ? 'Reschedule' : 'Scheduled today';
+                    action.disabled = !row.can_reschedule;
+                    action.onclick = () => openReschedule(row);
+                }
+                item.append(details, action);
+                body.append(item);
+            });
+            state.page = result.current_page;
+            status.textContent = result.total ? `${result.total} ${key === 'documents' ? 'draft documents' : 'upcoming schedules'}`
+                : key === 'documents' ? 'No draft documents to complete.' : 'No Recoming scheduled in the next 7 days.';
+            more.textContent = 'Load more';
+            more.classList.toggle('hidden', result.current_page >= result.last_page);
+        } catch (e) {
+            if (signal.aborted) return;
+            status.textContent = errorText(e);
+            more.textContent = 'Retry';
+            more.classList.remove('hidden');
+        } finally {
+            if (!signal.aborted) more.disabled = false;
+        }
+    }
+    Object.keys(queues).forEach(key => document.getElementById(`tech-${key}-more`)
+        .addEventListener('click', () => loadQueue(key, queues[key].page + 1)));
+
+    const rescheduleDialog = document.getElementById('tech-reschedule');
+    const rescheduleSave = document.getElementById('tech-reschedule-save');
+    let rescheduleRow;
+    function openReschedule(row) {
+        rescheduleRow = row;
+        document.getElementById('tech-reschedule-ticket').textContent = row.ticket_code;
+        document.getElementById('tech-reschedule-at').value = row.scheduled_at.slice(0, 16);
+        document.getElementById('tech-reschedule-note').value = '';
+        document.getElementById('tech-reschedule-error').textContent = '';
+        rescheduleDialog.showModal();
+    }
+    document.getElementById('tech-reschedule-cancel').addEventListener('click', () => rescheduleDialog.close());
+    document.getElementById('tech-reschedule-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        if (rescheduleSave.disabled) return;
+        rescheduleSave.disabled = true;
+        const row = rescheduleRow;
+        try {
+            const field = row.type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at';
+            const res = await fetch(`/api/aftersales/tickets/${encodeURIComponent(row.id)}/recoming/reschedule`, {
+                method: 'POST', credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                body: JSON.stringify({ [field]: document.getElementById('tech-reschedule-at').value,
+                    note: document.getElementById('tech-reschedule-note').value.trim() || null }),
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'Failed to reschedule.');
+            rescheduleDialog.close();
+            await init();
+        } catch (e) {
+            document.getElementById('tech-reschedule-error').textContent = e.message || 'Failed to reschedule.';
+        } finally { rescheduleSave.disabled = false; }
+    });
+
     const errorBox = document.getElementById('tech-error');
     function errorText(e) {
         if (e.status === 401) return 'Session expired. Please log in again.';
@@ -393,6 +513,7 @@
         }
         renderRating(); renderTickets(); renderSla(); renderTasks();
         renderClosed(); renderTodo(); renderWeekly();
+        await Promise.all(Object.keys(queues).map(key => loadQueue(key)));
     }
     // Filter Period: panggil ulang endpoint lalu render ulang.
     root.ownerDocument.querySelectorAll('#tech-filters [data-filter]').forEach(sel => sel.addEventListener('change', init));

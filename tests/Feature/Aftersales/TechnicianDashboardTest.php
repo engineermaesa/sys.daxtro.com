@@ -171,7 +171,7 @@ class TechnicianDashboardTest extends TestCase
     {
         foreach (['sales', 'after_sales', 'supervisor_after_sales', 'head_after_sales'] as $role) {
             $this->login($role);
-            foreach (['', '/tasks', '/tickets?metric=status'] as $suffix) {
+            foreach (['', '/tasks', '/tickets?metric=status', '/documents', '/recomings'] as $suffix) {
                 $this->getJson(self::URL.$suffix)->assertForbidden();
             }
         }
@@ -269,8 +269,8 @@ class TechnicianDashboardTest extends TestCase
             DB::table('satisfaction_links')->insert($attrs + ['ticket_id' => $ticket, 'cycle_id' => $ownCycle, 'expires_at' => '2026-11-06 12:00:00']);
         }
         $rec = $this->ticket('recoming', ['workflow_version' => 'v3']);
-        DB::table('ticket_recomings')->insert(['ticket_id' => $rec, 'planned_visit_at' => '2026-11-10 10:00:00']);
-        DB::table('ticket_cycles')->insert(['ticket_id' => $rec, 'cycle_no' => 2, 'documentation_status' => 'awaiting_spv_signature']);
+        $recCycle = DB::table('ticket_cycles')->insertGetId(['ticket_id' => $rec, 'cycle_no' => 2, 'documentation_status' => 'awaiting_spv_signature']);
+        DB::table('ticket_recomings')->insert(['ticket_id' => $rec, 'cycle_id' => $recCycle, 'planned_visit_at' => '2026-11-10 10:00:00']);
         $data = $this->data();
         $this->assertSame([1, 1, 1], array_column($data['todo']['items'], 'count'));
         foreach ($data['todo']['items'] as $item) {
@@ -345,5 +345,50 @@ class TechnicianDashboardTest extends TestCase
         DB::table('ticket_agreements')->update(['status' => 'saved']);
         DB::table('ticket_service_forms')->update(['status' => 'saved']);
         $this->getJson(self::URL.'/tickets?metric=documents')->assertJsonPath('total', 0);
+    }
+
+    public function test_document_queue_lists_only_live_drafts_on_own_open_tickets_with_stable_pagination(): void
+    {
+        $own = $this->ticket('repair', ['workflow_version' => 'v3']);
+        $foreign = $this->ticket('repair', ['assigned_technician_id' => 2]);
+        $closed = $this->ticket('closed');
+        $deleted = $this->ticket('repair', ['is_deleted' => true]);
+        foreach (['ticket_agreements', 'ticket_service_forms'] as $table) {
+            foreach ([$own, $foreign, $closed, $deleted] as $id) {
+                DB::table($table)->insert(['ticket_id' => $id, 'status' => 'draft']);
+            }
+            DB::table($table)->insert(['ticket_id' => $own, 'status' => 'saved']);
+            DB::table($table)->insert(['ticket_id' => $own, 'status' => 'draft', 'deleted_at' => '2026-11-04']);
+        }
+        $this->getJson(self::URL.'/documents?per_page=1')->assertOk()->assertJsonPath('total', 2)
+            ->assertJsonPath('data.0.id', $own)->assertJsonPath('data.0.document_type', 'agreement')->assertJsonPath('data.0.status', 'draft');
+        $this->getJson(self::URL.'/documents?per_page=1&page=2')->assertOk()->assertJsonPath('total', 2)
+            ->assertJsonPath('data.0.document_type', 'service_form');
+        $this->getJson(self::URL.'/documents?technician_id=2')->assertUnprocessable();
+    }
+
+    public function test_upcoming_recomings_are_own_current_cycle_next_seven_days_and_sorted_by_schedule(): void
+    {
+        foreach ([
+            ['2026-11-05 13:00:00', 1, 'visit_site', false],
+            ['2026-11-12 23:59:59', 1, 'phone_call', false],
+            ['2026-11-06 09:00:00', 1, 'visit_site', false],
+            ['2026-11-13 00:00:00', 1, 'visit_site', false],
+            ['2026-11-04 10:00:00', 1, 'visit_site', false],
+            ['2026-11-06 08:00:00', 2, 'visit_site', false],
+            ['2026-11-07 08:00:00', 1, 'visit_site', true],
+        ] as [$at, $owner, $type, $historical]) {
+            $ticket = $this->ticket('recoming', ['assigned_technician_id' => $owner, 'workflow_version' => 'v3']);
+            $cycle = DB::table('ticket_cycles')->insertGetId(['ticket_id' => $ticket, 'cycle_no' => 1]);
+            DB::table('ticket_recomings')->insert(['ticket_id' => $ticket, 'cycle_id' => $cycle, 'recoming_type' => $type,
+                $type === 'phone_call' ? 'planned_call_at' : 'planned_visit_at' => $at]);
+            if ($historical) {
+                DB::table('ticket_cycles')->insert(['ticket_id' => $ticket, 'cycle_no' => 2]);
+            }
+        }
+        $response = $this->getJson(self::URL.'/recomings')->assertOk()->assertJsonPath('total', 3);
+        $this->assertSame(['2026-11-05T13:00:00+07:00', '2026-11-06T09:00:00+07:00', '2026-11-12T23:59:59+07:00'], array_column($response->json('data'), 'scheduled_at'));
+        $response->assertJsonPath('data.0.can_reschedule', false)->assertJsonPath('data.1.can_reschedule', true)->assertJsonPath('data.2.type', 'phone_call');
+        $this->getJson(self::URL.'/recomings?assigned_technician_id=2')->assertUnprocessable();
     }
 }

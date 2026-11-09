@@ -49,7 +49,7 @@ function summary(tasks = []) {
 const task = (id, time, status = 'next') => ({ id, time, ticket_code: `LIVE-${id}`,
     customer_name: `Customer ${id}`, machine_name: 'Machine', machine_category: 'Ice', type: 'visit_site', status });
 
-function setup(responder) {
+function setup(responder, queueResponder = () => ({ data: [], total: 0, current_page: 1, last_page: 1 })) {
     const nodes = new Map(), requests = [], charts = {};
     const element = id => {
         if (!nodes.has(id)) nodes.set(id, new Element());
@@ -58,7 +58,7 @@ function setup(responder) {
     const legends = Array.from({ length: 4 }, () => new Element());
     const document = {
         getElementById: element, createElement: () => new Element(),
-        querySelector: () => ({ value: 'this_month' }), querySelectorAll: () => [],
+        querySelector: selector => selector.includes('csrf-token') ? { content: 'csrf-test' } : { value: 'this_month' }, querySelectorAll: () => [],
     };
     const root = element('tech-dashboard');
     root.dataset = { ticketUrl: '/aftersales/tickets/__ID__' };
@@ -70,8 +70,8 @@ function setup(responder) {
         window: { AS: { colors: {}, baseChart: {}, mount: (id, options) => charts[id] = options } },
         fetch: async (url, options) => {
             requests.push({ url, options });
-            const result = await responder(url);
-            return { ok: true, json: async () => result };
+            const result = await (/\/technician\/(documents|recomings)\?/.test(url) ? queueResponder(url) : responder(url, options));
+            return { ok: !result.__status, status: result.__status || 200, json: async () => result };
         },
     };
     vm.runInNewContext(script, context);
@@ -145,4 +145,56 @@ test('empty results and request failures never display sample tasks or counts', 
     await flush();
     assert.equal(failed.element('tech-tasks').children.length, 0);
     assert.match(failed.element('tech-error').querySelector('[data-error-text]').textContent, /Failed to load dashboard/);
+});
+
+test('draft document links open the exact document and queue pagination remains independent', async () => {
+    const f = setup(() => summary(), url => {
+        if (url.includes('/recomings?')) return { data: [], total: 0, current_page: 1, last_page: 1 };
+        const page = Number(new URL(url, 'http://localhost').searchParams.get('page'));
+        return { data: [{ id: 42, ticket_code: 'DRAFT-42', document_type: page === 1 ? 'agreement' : 'service_form' }],
+            total: 11, current_page: page, last_page: 2 };
+    });
+    await flush();
+    assert.equal(f.element('tech-documents').children[0].children[1].href, '/aftersales/tickets/42?document=agreement');
+    await f.element('tech-documents-more').events.click();
+    assert.equal(f.element('tech-documents').children[1].children[1].href, '/aftersales/tickets/42?document=service_form');
+    assert.equal(f.element('tech-documents-more').classes.has('hidden'), true);
+    assert.equal(f.element('tech-recomings-status').textContent, 'No Recoming scheduled in the next 7 days.');
+});
+
+test('rescheduling a phone call sends only its schedule field and refreshes dashboard after success', async () => {
+    const f = setup(() => summary(), url => ({ data: url.includes('/recomings?') ? [{
+        id: 73, ticket_code: 'REC-73', type: 'phone_call', scheduled_at: '2026-11-10T14:00:00+07:00', can_reschedule: true,
+    }] : [], total: url.includes('/recomings?') ? 1 : 0, current_page: 1, last_page: 1 }));
+    await flush();
+    f.element('tech-recomings').children[0].children[1].onclick();
+    assert.equal(f.element('tech-reschedule').open, true);
+    assert.equal(f.element('tech-reschedule-at').value, '2026-11-10T14:00');
+    f.element('tech-reschedule-at').value = '2026-11-11T09:30';
+    f.element('tech-reschedule-note').value = ' Customer requested ';
+    await f.element('tech-reschedule-form').events.submit({ preventDefault() {} });
+    const post = f.requests.find(r => r.options.method === 'POST');
+    assert.equal(post.url, '/api/aftersales/tickets/73/recoming/reschedule');
+    assert.deepEqual(JSON.parse(post.options.body), { planned_call_at: '2026-11-11T09:30', note: 'Customer requested' });
+    assert.equal(post.options.headers['X-CSRF-TOKEN'], 'csrf-test');
+    assert.equal(f.element('tech-reschedule').open, false);
+    assert.equal(f.requests.filter(r => r.url.includes('/technician?')).length, 2);
+});
+
+test('site reschedule errors keep the form open and show backend validation; today actions are disabled', async () => {
+    const f = setup((url, options) => options.method === 'POST'
+        ? { __status: 422, errors: { planned_visit_at: ['This visit can no longer be rescheduled.'] } } : summary(),
+    url => ({ data: url.includes('/recomings?') ? [
+        { id: 1, type: 'visit_site', ticket_code: 'REC-1', scheduled_at: '2026-11-10T09:00:00+07:00', can_reschedule: true },
+        { id: 2, type: 'visit_site', ticket_code: 'REC-2', scheduled_at: '2026-11-09T09:00:00+07:00', can_reschedule: false },
+    ] : [], total: 2, current_page: 1, last_page: 1 }));
+    await flush();
+    const rows = f.element('tech-recomings').children;
+    assert.equal(rows[1].children[1].disabled, true);
+    rows[0].children[1].onclick();
+    await f.element('tech-reschedule-form').events.submit({ preventDefault() {} });
+    assert.equal(f.element('tech-reschedule').open, true);
+    assert.match(f.element('tech-reschedule-error').textContent, /can no longer/);
+    assert.equal(f.element('tech-reschedule-save').disabled, false);
+    assert.deepEqual(JSON.parse(f.requests.find(r => r.options.method === 'POST').options.body), { planned_visit_at: '2026-11-10T09:00', note: null });
 });

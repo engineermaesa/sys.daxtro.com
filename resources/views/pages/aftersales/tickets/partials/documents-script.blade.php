@@ -11,6 +11,7 @@
 (function () {
     const API = '/api/aftersales';
     const S = { ticketId: null, docs: null, agreement: null, form: null, activeTab: null, openItem: null, ssDoc: null, ssData: null };
+    let requestedDocument = new URLSearchParams(window.location.search).get('document');
 
     // GET /tickets/{id} -> data.capabilities (integrate-contract §3.8) is the source of truth for ticket buttons.
     // cap(): strict, false until the ticket detail is loaded. capAllows(): layered on top of per-document `doc.can`, so it
@@ -477,6 +478,11 @@
             renderVisitHistory(t);
             renderSurveyCard(t);
             renderV3Detail(t);
+            if (requestedDocument === 'agreement' || requestedDocument === 'service_form') {
+                const type = requestedDocument;
+                requestedDocument = null;
+                type === 'agreement' ? openAgreement() : openForm();
+            }
 
             call('GET', '/tickets/exchange-rates')
                 .done(function (r) { if (currentId() === id) renderFinalCost(t, (r && r.data) || {}); })
@@ -735,14 +741,16 @@
         const id = currentId();
         const t = S.ticket || {};
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-        const planned = t.current_recoming && t.current_recoming.planned_visit_at
-            ? new Date(t.current_recoming.planned_visit_at).toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(' ', 'T')
+        const phone = t.current_recoming?.recoming_type === 'phone_call';
+        const field = phone ? 'planned_call_at' : 'planned_visit_at';
+        const planned = t.current_recoming && t.current_recoming[field]
+            ? new Date(t.current_recoming[field]).toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(' ', 'T')
             : today + 'T00:00';
 
         Swal.fire({
-            title: 'Reschedule follow-up visit',
+            title: phone ? 'Reschedule follow-up call' : 'Reschedule follow-up visit',
             html: '<div style="text-align:left;">'
-                + '<label for="swRescheduleDate" class="text-xs font-semibold">New visit date &amp; time</label>'
+                + '<label for="swRescheduleDate" class="text-xs font-semibold">New schedule (Asia/Jakarta)</label>'
                 + '<input id="swRescheduleDate" type="datetime-local" class="swal2-input" style="margin: 6px 0 12px; width: 100%;" min="' + today + 'T00:00" value="' + planned + '">'
                 + '<label for="swRescheduleNote" class="text-xs font-semibold">Note (optional)</label>'
                 + '<textarea id="swRescheduleNote" class="swal2-textarea" maxlength="1000" style="margin: 6px 0 0; width: 100%;" placeholder="Reason for rescheduling"></textarea>'
@@ -754,9 +762,9 @@
             preConfirm: function () {
                 const date = document.getElementById('swRescheduleDate').value;
                 const note = document.getElementById('swRescheduleNote').value.trim();
-                if (!date) { Swal.showValidationMessage('Choose a visit date.'); return false; }
+                if (!date) { Swal.showValidationMessage('Choose a date and time.'); return false; }
                 if (date < today + 'T00:00') { Swal.showValidationMessage('The date cannot be before today.'); return false; }
-                return call('POST', '/tickets/' + id + '/recoming/reschedule', { planned_visit_at: date, note: note || null })
+                return call('POST', '/tickets/' + id + '/recoming/reschedule', { [field]: date, note: note || null })
                     .then(function (res) { return res; }, function (xhr) {
                         Swal.showValidationMessage(errMsg(xhr, 'Failed to reschedule.'));
                         if (xhr.status === 409) loadTicketDetail(); // progress changed: refresh so the button reflects the new state
@@ -924,7 +932,7 @@
 
     $(function () {
         // dijalankan setelah handler halaman mengisi currentTicket
-        $(document).on('click', '.btn-ticket-details', function () {
+        $(document).on('ticket:open', function () {
             S.ticketId = (currentTicket || {}).id;
             $('#tdDocsDynamic').html('<p class="text-[#9CA3AF] text-xs" style="padding: 14px 0;">Loading documents...</p>');
             loadDocs();

@@ -46,4 +46,23 @@ class TechnicianDashboardController extends Controller
 
         return response()->json($rows);
     }
+
+    public function documents(Request $request, TechnicianDashboard $dashboard)
+    {
+        $filters = $this->filters($request);
+        $rows = $dashboard->documents((int) $request->user()->id)->orderBy('id')->orderBy('document_type')->orderBy('document_id')->paginate($filters['per_page'] ?? 10);
+        $rows->through(fn ($row) => $dashboard->ticketItem($row) + ['document_id' => (int) $row->document_id, 'document_type' => $row->document_type, 'status' => 'draft']);
+
+        return response()->json($rows);
+    }
+
+    public function recomings(Request $request, TechnicianDashboard $dashboard)
+    {
+        $filters = $this->filters($request);
+        $rows = $dashboard->drilldown((int) $request->user()->id, ['metric' => 'recoming'])
+            ->orderBy('recoming_at')->orderBy('id')->paginate($filters['per_page'] ?? 10);
+        $rows->through(fn ($row) => $dashboard->recomingItem($row));
+
+        return response()->json($rows);
+    }
 }

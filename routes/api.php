@@ -65,6 +65,8 @@ Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/admin')-
 Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/technician')->name('dashboard.aftersales.technician.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'summary'])->name('summary');
     Route::get('/tasks', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tasks'])->name('tasks');
+    Route::get('/documents', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'documents'])->name('documents');
+    Route::get('/recomings', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'recomings'])->name('recomings');
     Route::get('/tickets', [\App\Http\Controllers\Dashboard\TechnicianDashboardController::class, 'tickets'])->name('tickets');
 });
 
