@@ -58,9 +58,10 @@
     var detailCaps = null;
     function syncFillButton() {
         var canManage = detailCaps ? detailCaps.can_edit === true : (typeof CAN_MANAGE !== 'undefined' && CAN_MANAGE);
-        $('#tdFillOnBehalf').toggleClass('hidden', !(canManage && template));
+        $('#tdFillOnBehalf').toggleClass('hidden', !(canManage && phoneForm && template));
     }
     $(document).on('ticket:detail', function (e, t) {
+        if (!t || t.id !== ticketId) return;
         detailCaps = (t && t.capabilities) || null;
         syncFillButton();
     });
@@ -71,7 +72,7 @@
     var phoneForm = null;
 
     function applyVariantTexts(phone) {
-        $('#tdFillOnBehalf').text(phone ? 'Fill Phone Call Survey' : 'Fill on Behalf');
+        $('#tdFillOnBehalf').text('Fill on Behalf');
         $('#sob-title').text(phone ? 'Fill Phone Call Survey' : 'Fill Survey on Behalf of Customer');
         $('#sob-subtitle').text(phone
             ? 'Record the customer\'s answers given by phone. The ticket becomes Satisfaction Submitted. A reason is required.'
@@ -96,8 +97,10 @@
     }
 
     $(document).on('ticket:survey-link', function (e, id, link) {
+        if (ticketId !== id) detailCaps = null;
         ticketId = id;
         phoneForm = null;
+        template = null;
         if (link && link.variant === 'phone_call') {
             template = null;
             applyVariantTexts(true);
@@ -105,7 +108,6 @@
             loadPhoneForm(id);
             return;
         }
-        template = link && link.template ? link.template : null;
         syncFillButton();
         applyVariantTexts(false);
     });
@@ -152,7 +154,7 @@
     });
 
     $(document).on('click', '#tdFillOnBehalf', function () {
-        if (!template) return;
+        if (!phoneForm || !template) return;
         $('#sob-error').addClass('hidden').text('');
         $('#sob-signer-name, #sob-signer-position, #sob-reason').val('');
         renderQuestions();
@@ -194,9 +196,13 @@
             headers: { Accept: 'application/json' }
         }).done(function () {
             $('#surveyOnBehalfModal').modal('hide');
+            phoneForm = null;
+            template = null;
+            syncFillButton();
             Swal.fire({ title: 'Saved', text: 'The survey was recorded and is waiting for review.', icon: 'success', confirmButtonColor: '#115640' });
             if (typeof loadTickets === 'function') loadTickets();
             if (typeof loadTicketSurveyLink === 'function') loadTicketSurveyLink(ticketId);
+            $(document).trigger('ticket:survey-saved', [ticketId]);
         }).fail(function (xhr) {
             var body = xhr.responseJSON || {};
             var fields = [];

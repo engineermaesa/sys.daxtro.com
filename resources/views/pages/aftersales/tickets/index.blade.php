@@ -113,6 +113,7 @@
 @include('pages.aftersales.tickets.partials.ticket-log-preview-modal')
 
 @include('pages.aftersales.tickets.partials.ticket-delete-modal')
+@include('pages.aftersales.tickets.partials.survey-on-behalf-modal')
 
 @endsection
 
@@ -615,6 +616,7 @@
         // Service Agreement, Service Form, tanda tangan, dan Supervisor Sign: lihat partials/documents-script.blade.php
 
         function loadTicketSurveyLink(ticketId) {
+            $(document).trigger('ticket:survey-link', [ticketId, null]);
             $('#tdSurveyUrl').removeAttr('href').text('Loading survey link...');
             $('#tdSurveyStatus').text('Loading...');
             $('#tdShareLink').text('Share Link').prop('disabled', true).data('url', '');
