@@ -2,6 +2,7 @@
 
 @section('content')
 @php
+    $fromReadyToClose = ! empty($initialTicketId) && request()->query('from') === 'ready-to-close';
     // Technician = may only see own tickets (view-own without manage or view-all; SPV/Head have view-all, integrate-contract §3.6)
     $isTechnician = ! hasPermission(auth()->user(), 'aftersales.tickets.manage')
         && ! hasPermission(auth()->user(), 'aftersales.tickets.view-all')
@@ -121,6 +122,7 @@
 @php($canManageTickets = hasPermission(auth()->user(), 'aftersales.tickets.manage') ? 1 : 0)
 <script>
     let currentTicket = null;
+    const FROM_READY_TO_CLOSE = @json($fromReadyToClose);
 
     // hak akses (kontrak bagian 1): sembunyikan tombol yang tidak boleh, BE tetap menolak dengan 403
     const CAN_MANAGE = "{{ $canManageTickets }}" === "1";
@@ -140,6 +142,7 @@
     // filter disimpan di URL query (FR-E24): ?search=..&priority=high,medium
     function syncTicketUrl() {
         const params = new URLSearchParams();
+        if (FROM_READY_TO_CLOSE) params.set('from', 'ready-to-close');
         if (ticketState.search) params.set('search', ticketState.search);
         if (ticketState.priority.length) params.set('priority', ticketState.priority.join(','));
         if (ticketState.visitDate) params.set('visit_date', ticketState.visitDate);
@@ -581,6 +584,10 @@
         }
 
         $(document).on('click', '.btn-ticket-details-back', function () {
+            if (FROM_READY_TO_CLOSE) {
+                window.location.assign('/aftersales/ready-to-close');
+                return;
+            }
             $('#ticketDetailsView').addClass('hidden');
             $('#ticketListView').removeClass('hidden');
             loadTickets();

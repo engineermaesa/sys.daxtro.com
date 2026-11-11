@@ -2,7 +2,7 @@
 <div id="ticketDetailsView" class="hidden">
     <div class="pt-4">
         <p class="text-[#757575] flex items-center gap-2">
-            <button type="button" class="btn-ticket-details-back cursor-pointer">All Ticket</button>
+            <button type="button" class="btn-ticket-details-back cursor-pointer">{{ $fromReadyToClose ? 'Ready to Close' : 'All Ticket' }}</button>
             <i class="bi bi-chevron-right text-[10px]"></i>
             <span class="text-[#115640] font-semibold underline">Detail</span>
         </p>
