@@ -654,6 +654,10 @@
         if (typeof loadTickets === 'function') loadTickets();
     }
 
+    $(document).on('ticket:survey-saved', function (e, id) {
+        if (S.ticketId === id) loadTicketDetail();
+    });
+
     // §3.44: cycle_id / satisfaction_id opsional, mendeteksi halaman stale (409 ticket_cycle_changed / survey_response_changed)
     function hcContext($btn) {
         const ctx = {};

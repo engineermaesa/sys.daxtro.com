@@ -115,7 +115,7 @@
                 hcDue: done ? fmtDate(hc.done_at) : (hc.due_at ? 'Due ' + fmtDate(hc.due_at) + ' (H+3)' : ''),
             });
             $row.find('[data-ref="hcStatus"]').css('color', done ? '#115640' : (hc.overdue ? '#900B09' : '#3B4FA6'));
-            $row.find('[data-ref="open"]').attr('href', TICKET_PAGE + row.id);
+            $row.find('[data-ref="open"]').attr('href', TICKET_PAGE + row.id + '?from=ready-to-close');
             // AC-CLS-01: Close nonaktif sampai Happy Call selesai
             // §3.46: can_close sudah memperhitungkan pembaca + semua syarat v3; baris legacy tanpa can_close tetap pakai Happy Call
             const canClose = 'can_close' in row ? !!row.can_close : done;
@@ -137,7 +137,7 @@
             const $item = fill(clone('tpl-rtc-alert'), {
                 text: r.ticket_code + ' · ' + ((r.customer || {}).name || '-') + ' · Happy Call was due ' + fmtDate(r.happy_call.due_at),
             });
-            $item.find('[data-ref="link"]').attr('href', TICKET_PAGE + r.id);
+            $item.find('[data-ref="link"]').attr('href', TICKET_PAGE + r.id + '?from=ready-to-close');
             $list.append($item);
         });
     }

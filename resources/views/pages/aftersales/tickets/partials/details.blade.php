@@ -2,7 +2,7 @@
 <div id="ticketDetailsView" class="hidden">
     <div class="pt-4">
         <p class="text-[#757575] flex items-center gap-2">
-            <button type="button" class="btn-ticket-details-back cursor-pointer">All Ticket</button>
+            <button type="button" class="btn-ticket-details-back cursor-pointer">{{ $fromReadyToClose ? 'Ready to Close' : 'All Ticket' }}</button>
             <i class="bi bi-chevron-right text-[10px]"></i>
             <span class="text-[#115640] font-semibold underline">Detail</span>
         </p>
@@ -179,6 +179,7 @@
             <div class="flex flex-col md:flex-row md:items-center md:justify-between rounded-lg bg-[#F7F7F7]" style="margin-top: 16px; padding: 14px 16px; gap: 12px;">
                 <a id="tdSurveyUrl" class="block min-w-0 text-[#4B5563] break-all md:truncate underline" target="_blank" rel="noopener noreferrer"></a>
                 <div class="flex flex-wrap items-center md:shrink-0" style="gap: 8px;">
+                    <button type="button" id="tdFillOnBehalf" class="hidden bg-[#115640] text-white font-semibold rounded-md cursor-pointer" style="padding: 8px 16px;">Fill on Behalf</button>
                     <button type="button" id="tdShareLink" disabled class="bg-[#115640] text-white font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">Share Link</button>
                     <button type="button" id="tdShareWhatsapp" disabled class="bg-white border border-[#115640] text-[#115640] font-semibold rounded-md cursor-pointer disabled:opacity-50" style="padding: 8px 16px;">
                         <i class="bi bi-whatsapp"></i> WhatsApp
