@@ -154,6 +154,7 @@ trait BuildsQuotationSubmissionSchema
             $table->softDeletes();
         });
         (require database_path('migrations/2026_11_20_000400_add_revision_metadata_to_quotation_logs.php'))->up();
+        (require database_path('migrations/2026_11_20_000500_add_quotation_draft_lock_version.php'))->up();
         Schema::create('attachments', function (Blueprint $table) {
             $table->id();
             foreach (['type', 'file_path', 'mime_type'] as $column) {
