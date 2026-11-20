@@ -38,8 +38,7 @@
     }
 
     /* Header & Footer */
-    .header-slice,
-    .footer-slice {
+    .header-slice {
       position: absolute;
       left: 0;
       width: 100%;
@@ -51,11 +50,6 @@
       /* height: 50mm;  */
     }
 
-    .footer-slice {
-      bottom: 0;
-      height: auto;
-      z-index: 0;
-    }
 
     /* Content Container */
     .content {
@@ -429,6 +423,9 @@
 </head>
 
 <body>
+  @php
+    $publisherName = filled($user->company_name ?? null) ? $user->company_name : 'PT Pandu Naradipta Danendra';
+  @endphp
   <div class="page-container">
     <img src="{{ public_path('assets/images/quotation/header-8-slice-KILLYOURSELF.png') }}" class="header-slice" />
 
@@ -469,7 +466,7 @@
             <div class="section-title section-header">Quotation Published By:</div>
             <div class="content-wrapper">
               <div class="company-name">
-                {{ optional($user)->company_name ?? 'PT Pandu Mahardika Perdana' }}
+                {{ $publisherName }}
               </div>
               @if($user && $user->company_name && $user->company_address)
               <div class="address-info">{{ $user->company_address }}</div>
@@ -724,9 +721,6 @@
                 <!-- Left Signature -->
                 <td class="signature-left">
                   <div class="signature-greeting">Created By</div>
-                  {{-- <div class="signature-company">
-                    {{ optional($user)->company_name ?? 'PT Pandu Mahardika Perdana' }}
-                  </div> --}}
                   <div class="signature-company signature-transparent">{{ $quotation->lead->company }}</div>
                   <div class="signature-line"></div>
                   <div class="signature-name">
@@ -756,7 +750,7 @@
 
     </div>
 
-    <img src="{{ public_path('assets/images/quotation/footer-slice.png') }}" class="footer-slice" />
+    @include('pdfs.partials.quotation-footer')
   </div>
 </body>
 

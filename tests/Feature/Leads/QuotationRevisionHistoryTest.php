@@ -418,6 +418,11 @@ class QuotationRevisionHistoryTest extends TestCase
         $this->assertStringNotContainsString('Changed master product', $html);
         $this->assertStringNotContainsString('Machine R2', $html);
         $this->assertStringNotContainsString('Hidden addon', $html);
+        $this->assertStringContainsString('PT Pandu Naradipta Danendra', $html);
+        $this->assertStringContainsString('Your Reliable Business Partner', $html);
+        $this->assertStringContainsString('href="https://daxtro.id/"', $html);
+        $this->assertStringNotContainsString('footer-slice.png', $html);
+        $this->assertStringNotContainsString('PT Pandu Mahardika Perdana', $html);
     }
 
     public function test_download_does_not_fall_back_to_live_contents_when_snapshot_is_missing_or_invalid(): void

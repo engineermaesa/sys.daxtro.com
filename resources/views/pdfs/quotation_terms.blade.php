@@ -23,11 +23,10 @@
     }
 
     .page-container { position: relative; width: 210mm; height: 297mm; }
-    .header-slice, .footer-slice {
+    .header-slice {
       position: absolute; left: 0; width: 100%;
     }
     .header-slice { top: 0; height: auto; }
-    .footer-slice { bottom: 0; height: auto; }
 
     .content {
       position: absolute;
@@ -159,7 +158,7 @@
 
             {{-- Company line --}}
             <p style="margin:0 0 2rem 0; font-size:8pt; color:#000;">
-              PT. Pandu Naradipta Danendra
+              {{ filled($user->company_name ?? null) ? $user->company_name : 'PT Pandu Naradipta Danendra' }}
             </p>
 
             {{-- Sales name --}}
@@ -200,8 +199,7 @@
       </table>
     </div>
 
-    {{-- footer slice --}}
-    <img src="{{ public_path('assets/images/quotation/footer-slice.png') }}" class="footer-slice" />
+    @include('pdfs.partials.quotation-footer')
   </div>
 </body>
 </html>
