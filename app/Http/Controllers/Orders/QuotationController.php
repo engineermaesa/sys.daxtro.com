@@ -13,7 +13,6 @@ use App\Models\Leads\LeadSource;
 use App\Models\Leads\LeadStatus;
 use App\Models\Masters\Branch;
 use App\Models\User;
-use App\Notifications\Orders\QuotationPendingFinanceNotification;
 use App\Services\AutoTrashService;
 use App\Services\Orders\QuotationRevisions;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -333,8 +332,7 @@ class QuotationController extends Controller
 
             // Update quotation status based on approvals
             if ($userRole === 'branch_manager') {
-                // BM approved - set to pending finance approval
-                $quotation->update(['status' => 'pending_finance']);
+                $quotation->update(['status' => 'approved_by_bm']);
             } elseif (in_array($userRole, ['finance', 'finance_director'], true) && $bmApproved) {
                 // Both BM and Finance approved - publish the quotation
                 $quotation->update([
@@ -363,7 +361,7 @@ class QuotationController extends Controller
             $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
             $salesUser->notify(
                 new \App\Notifications\Orders\QuotationReviewedNotification(
-                    $quotation->fresh()->load('lead'), 'approve', $reviewerRole, $request->input('notes')
+                    $quotation->load('lead'), 'approve', $reviewerRole, $request->input('notes')
                 )
             );
         }
@@ -381,23 +379,6 @@ class QuotationController extends Controller
                         )
                     );
             }
-        }
-
-        if ($userRole === 'branch_manager' && $salesUser) {
-            $quotationForFinance = $quotation->fresh()->load('lead');
-
-            // Kirim ke semua finance & finance_director — finance adalah role company-wide,
-            // tidak di-filter per branch karena finance user bisa di-assign ke branch berbeda
-            // dari branch lead/sales (terbukti menyebabkan 0 notifikasi terkirim).
-            User::query()
-                ->whereHas('role', fn($query) => $query->whereIn('code', ['finance', 'finance_director']))
-                ->get()
-                ->each->notify(new QuotationPendingFinanceNotification(
-                    $quotationForFinance,
-                    $salesUser,
-                    $request->user(),
-                    $request->input('notes')
-                ));
         }
 
         return back()->with('status', 'Quotation approved');

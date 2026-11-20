@@ -138,6 +138,7 @@ trait BuildsQuotationSubmissionSchema
             '2026_11_20_000000_add_revision_fields_to_quotations.php',
             '2026_09_03_010500_create_document_counters_table.php',
             '2026_11_20_000200_add_quotation_document_counter.php',
+            '2026_11_20_000300_add_bm_approved_quotation_status.php',
         ] as $file) {
             (require database_path('migrations/'.$file))->up();
         }

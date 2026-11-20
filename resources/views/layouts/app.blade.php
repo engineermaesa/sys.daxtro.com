@@ -706,6 +706,12 @@
             audio.play().catch(function() {});
         }
 
+        function _notifText(value) {
+            var span = document.createElement('span');
+            span.textContent = value == null ? '' : String(value);
+            return span.innerHTML;
+        }
+
         function _notifLoad() {
             fetch('/api/notifications', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function(r) { return r.json(); })
@@ -719,7 +725,7 @@
                     }
                     list.innerHTML = data.map(function(n) {
                         var titles = { lead_created: 'New Leads', lead_activity: 'Update Activity Leads', lead_trashed: 'Lead Trashed', lead_available: 'Available Lead', lead_expiring: 'Warning: Lead Will Be Trashed In 3 Days', quotation_submitted: 'Quoatation Need To Review', quotation_pending_finance: 'Quotation Waiting For Approvals', quotation_reviewed: 'Update Quotation', finance_request_reviewed: 'Finance Request ' + (n.data && n.data.decision === 'approved' ? 'Approved' : 'Rejected'), payment_confirmation_submitted: 'Confirm Payment Need To Review' };
-                        var title = titles[n.data.type] || 'Notification';
+                        var title = n.data.title || titles[n.data.type] || 'Notification';
                         var detail = n.data.lead_name || n.data.request_type || '';
                         var isUnread = !n.read_at;
                         var date = new Date(n.created_at);
@@ -739,8 +745,10 @@
                             + '" class="' + (isUnread ? 'notif-unread' : '') + '">'
                             + '<a href="' + href + '" onclick="window._notifMarkRead(\'' + n.id + '\', this.closest(\'li\'))" '
                             + 'style="display:block; padding:10px 14px; color:inherit; text-decoration:none;">'
-                            + '<div style="font-weight:600;">' + title + '</div>'
+                            + '<div style="font-weight:600;">' + _notifText(title) + '</div>'
                             + '<div style="color:#555;">Lead name: ' + detail + '</div>'
+                            + (n.data.message ? '<div style="color:#555;">' + _notifText(n.data.message) + '</div>' : '')
+                            + (n.data.type === 'quotation_reviewed' && n.data.notes ? '<div style="color:#555;">Notes: ' + _notifText(n.data.notes) + '</div>' : '')
                             + (n.data.sales_name ? '<div style="color:#888;font-size:11px;">By: ' + n.data.sales_name + '</div>' : '')
                             + (n.data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + n.data.branch_manager_name + '</div>' : '')
                             + '<div style="color:#aaa;font-size:11px;margin-top:2px;">' + formatted + '</div>'
@@ -756,8 +764,10 @@
             var li = document.createElement('li');
             li.style.cssText = 'padding:10px 14px;font-size:13px;background:#eff6ff;border-bottom:1px solid #f1f1f1;';
             li.className = 'notif-unread';
-            li.innerHTML = '<div style="font-weight:600;">' + title + '</div>'
+            li.innerHTML = '<div style="font-weight:600;">' + _notifText(title) + '</div>'
                 + '<div style="color:#555;">' + (data.company || data.lead_name || '') + '</div>'
+                + (data.message ? '<div style="color:#555;">' + _notifText(data.message) + '</div>' : '')
+                + (data.type === 'quotation_reviewed' && data.notes ? '<div style="color:#555;">Notes: ' + _notifText(data.notes) + '</div>' : '')
                 + (data.region_name ? '<div style="color:#888;font-size:11px;">Region: ' + data.region_name + '</div>' : '')
                 + (data.sales_name ? '<div style="color:#888;font-size:11px;">Oleh: ' + data.sales_name + '</div>' : '')
                 + (data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + data.branch_manager_name + '</div>' : '')
@@ -901,12 +911,12 @@
                 .listen('.quotation.reviewed', function(data) {
                     _playNotifSound();
                     var label = data.decision === 'approve' ? 'approved' : 'rejected';
-                    var msg = 'Quotation ' + (data.quotation_no || '') + ' ' + label + ' oleh ' + (data.reviewer_role || '');
+                    var msg = data.message || ('Quotation ' + (data.revision_code || data.quotation_no || '') + ' ' + label + ' by ' + (data.reviewer_role || ''));
                     if (typeof notyf !== 'undefined') {
                         data.decision === 'approve' ? notyf.success(msg) : notyf.error(msg);
                     }
                     _notifBadge();
-                    _notifPrepend(data, 'Update Quotation');
+                    _notifPrepend(data, data.title || 'Update Quotation');
                 })
                 .listen('.payment.confirmation.submitted', function(data) {
                     _playNotifSound();

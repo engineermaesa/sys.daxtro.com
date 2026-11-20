@@ -52,6 +52,20 @@
                         </p>
                     </div>
                 </div>
+            @elseif($quotation->status === 'approved_by_bm')
+                @php
+                    $bmApproval = $quotation->currentReviews->where('role', 'BM')->where('decision', 'approve')->first();
+                @endphp
+                <div class="w-full flex items-center p-3 bg-[#CFF7D3] border border-[#02542D] rounded-lg mt-3 text-[#02542D] gap-5">
+                    <x-icon.info/>
+                    <div>
+                        <strong>Approved by BM</strong>
+                        <p>This quotation is ready to share with the customer.</p>
+                        @if ($bmApproval && $bmApproval->notes)
+                            <p><strong>BM Notes:</strong> {{ $bmApproval->notes }}</p>
+                        @endif
+                    </div>
+                </div>
             @elseif(in_array($quotation->status, ['review', 'pending_finance']))
                 @php
                     $roleCode = auth()->user()->role?->code;
@@ -194,6 +208,7 @@
                 {{-- FINANCIAL SUMMARY SECTION --}}
                 @php
                     $statusLabel = [
+                        'approved_by_bm' => 'Approved by BM',
                         'pending_finance' => 'Pending Finance',
                     ][$quotation->status] ?? ucfirst($quotation->status);
                 @endphp

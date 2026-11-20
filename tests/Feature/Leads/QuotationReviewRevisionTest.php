@@ -11,8 +11,11 @@ use App\Models\Orders\QuotationReview;
 use App\Models\Orders\TempQuotation;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Notifications\Orders\QuotationPendingFinanceNotification;
+use App\Notifications\Orders\QuotationReviewedNotification;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
@@ -126,7 +129,7 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertSame(2, $this->quotation->reviewHistory()->count());
         $log = QuotationLog::where('action', 'approve')->sole();
         $this->assertSame('QT_DEAL_001_R1', $log->tempQuotation->revision_code);
-        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
     }
 
     public static function financeRoles(): array
@@ -262,5 +265,121 @@ class QuotationReviewRevisionTest extends TestCase
             $this->assertSame('review', $this->quotation->fresh()->status);
         }
         Notification::assertNothingSent();
+    }
+
+    public function test_bm_approval_waits_for_customer_and_notifies_only_sales(): void
+    {
+        $expiry = $this->quotation->expiry_date->toDateString();
+        $this->review($this->bm, 'approve', 0, 'Approved for customer presentation')->assertRedirect();
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->fresh()->revision_no);
+        $this->assertSame($expiry, $this->quotation->fresh()->expiry_date->toDateString());
+        $this->assertSame(0, DB::table('proformas')->count());
+        $this->assertSame(0, DB::table('user_balance_logs')->count());
+        Notification::assertSentTo($this->sales, QuotationReviewedNotification::class, function ($notification, $channels) {
+            $data = $notification->toDatabase($this->sales);
+            $this->assertSame(['database', 'broadcast'], $channels);
+            $this->assertSame('quotation_reviewed', $data['type']);
+            $this->assertSame('approved_by_bm', $data['quotation_status']);
+            $this->assertSame('BM', $data['reviewer_role']);
+            $this->assertSame('approve', $data['decision']);
+            $this->assertSame(0, $data['revision_no']);
+            $this->assertSame('QT_DEAL_001_R0', $data['revision_code']);
+            $this->assertTrue($data['ready_for_customer']);
+            $this->assertSame('Quotation Approved by BM', $data['title']);
+            $this->assertStringContainsString('ready to share with the customer', $data['message']);
+            $this->assertSame('Approved for customer presentation', $data['notes']);
+            $this->assertSame(route('quotations.show', $this->quotation->id), $data['url']);
+            $this->assertSame($data, $notification->toBroadcast($this->sales));
+
+            return true;
+        });
+        Notification::assertNotSentTo([$this->finance, $this->financeDirector], QuotationPendingFinanceNotification::class);
+        Notification::assertNotSentTo([$this->finance, $this->financeDirector], QuotationReviewedNotification::class);
+        Notification::assertCount(1);
+    }
+
+    public function test_finance_cannot_review_until_the_bm_approved_quotation_is_submitted_to_finance(): void
+    {
+        $this->review($this->bm, 'approve', 0)->assertRedirect();
+        foreach ([$this->finance, $this->financeDirector] as $actor) {
+            $this->review($actor, 'approve', 0)->assertStatus(409);
+            $this->review($actor, 'reject', 0)->assertStatus(409);
+        }
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(1, $this->quotation->currentReviews()->count());
+        $this->assertSame('BM', $this->quotation->currentReviews()->sole()->role);
+    }
+
+    public function test_customer_revision_requires_bm_approval_again_and_preserves_the_original_notification(): void
+    {
+        $this->review($this->bm, 'approve', 0, 'R0 approved')->assertRedirect();
+        $originalNotification = Notification::sent($this->sales, QuotationReviewedNotification::class)->sole();
+        $this->actingAs($this->sales)->getJson(route('leads.my.warm.quotation.create', $this->claim->id))->assertOk()
+            ->assertJsonPath('draft.revision_no', 1);
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $this->claim->id))->assertOk();
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->review($this->bm, 'approve', 1, 'R1 approved')->assertRedirect();
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame([1, 0], $this->quotation->reviewHistory()->pluck('revision_no')->all());
+        $this->assertSame('QT_DEAL_001_R0', $originalNotification->toDatabase($this->sales)['revision_code']);
+        Notification::assertSentTo($this->sales, QuotationReviewedNotification::class,
+            fn ($notification) => $notification->toDatabase($this->sales)['revision_code'] === 'QT_DEAL_001_R1'
+                && $notification->toDatabase($this->sales)['ready_for_customer']);
+        Notification::assertNotSentTo([$this->finance, $this->financeDirector], QuotationPendingFinanceNotification::class);
+    }
+
+    public function test_status_migration_preserves_legacy_finance_queue_and_related_records(): void
+    {
+        $this->quotation->update(['status' => 'pending_finance']);
+        $this->historicApproval(0);
+        $tables = ['quotations', 'quotation_items', 'quotation_payment_terms', 'quotation_reviews',
+            'temp_quotations', 'temp_quotation_items', 'temp_quotation_payment_terms', 'quotation_logs'];
+        $before = [];
+        foreach ($tables as $table) {
+            $before[$table] = DB::table($table)->orderBy('id')->get()->all();
+        }
+        $migration = require database_path('migrations/2026_11_20_000300_add_bm_approved_quotation_status.php');
+
+        $migration->up();
+        $migration->up();
+
+        foreach ($tables as $table) {
+            $this->assertEquals($before[$table], DB::table($table)->orderBy('id')->get()->all(), $table);
+        }
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_status_migration_can_roll_back_without_rewriting_existing_quotations(): void
+    {
+        $migration = require database_path('migrations/2026_11_20_000300_add_bm_approved_quotation_status.php');
+        $migration->down();
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame('Machine', $this->quotation->items->sole()->description);
+        $this->assertSame(1, $this->quotation->revisions()->count());
+        try {
+            DB::table('quotations')->where('id', $this->quotation->id)->update(['status' => 'approved_by_bm']);
+            $this->fail('The legacy status constraint must reject approved_by_bm.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('CHECK constraint failed', $exception->getMessage());
+        }
+        $migration->up();
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+    }
+
+    public function test_status_rollback_refuses_to_discard_bm_approval_including_soft_deleted_quotations(): void
+    {
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        $this->quotation->delete();
+        $migration = require database_path('migrations/2026_11_20_000300_add_bm_approved_quotation_status.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('workflow state');
+        $migration->down();
     }
 }
