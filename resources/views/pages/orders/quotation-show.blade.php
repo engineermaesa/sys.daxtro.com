@@ -607,6 +607,15 @@
             {{-- BUTTONS TO DOWNLOAD / EDIT --}}
             <div class="flex justify-end py-4">
                 <div class="flex items-center gap-3">
+                    @if ($quotation->status === 'approved_by_bm' && in_array(auth()->user()->role?->code, ['sales', 'branch_manager']) && !$quotation->lead->tempQuotation)
+                        <form method="POST" action="{{ route('quotations.submit-to-finance', $quotation->id) }}"
+                            require-confirmation="true" data-confirm-title="Submit quotation to Finance?"
+                            data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">
+                            @csrf
+                            <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
+                            <button type="submit" class="px-5 py-2 bg-[#115640] rounded-lg text-white font-semibold cursor-pointer">Submit to Finance</button>
+                        </form>
+                    @endif
                     <a href="{{ route('quotations.download', $quotation->id) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold flex items-center gap-2">
                         <x-icon.download/>
                         Download Quotation

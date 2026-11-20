@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Orders;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
-use App\Models\Orders\{Quotation, QuotationReview, Proforma, QuotationPaymentTerm, QuotationSignedDocument, QuotationLog};
+use App\Models\Orders\{Quotation, QuotationReview, Proforma, QuotationPaymentTerm, QuotationSignedDocument, QuotationLog, TempQuotation};
 use App\Models\Attachment;
 use App\Models\Leads\LeadActivityList;
 use App\Models\Leads\LeadClaim;
@@ -14,7 +14,9 @@ use App\Models\Leads\LeadStatus;
 use App\Models\Masters\Branch;
 use App\Models\User;
 use App\Services\AutoTrashService;
+use App\Services\MyLeadQueryService;
 use App\Services\Orders\QuotationRevisions;
+use App\Notifications\Orders\QuotationPendingFinanceNotification;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -238,6 +240,62 @@ class QuotationController extends Controller
         ]);
 
         return $this->render('pages.orders.quotation-show', compact('quotation', 'claim', 'rejection'));
+    }
+
+    public function submitToFinance(Request $request, $id)
+    {
+        $user = $request->user();
+        $role = $user->role?->code;
+        abort_unless(in_array($role, ['sales', 'branch_manager'], true), 403);
+        $data = $request->validate(['revision_no' => 'required|integer|min:0']);
+
+        [$quotation, $sales, $bm, $notes] = DB::transaction(function () use ($request, $id, $data, $user, $role) {
+            $quotation = Quotation::with('lead')->whereKey($id)->lockForUpdate()->firstOrFail();
+            if ($role === 'sales') {
+                abort_unless(MyLeadQueryService::baseClaimsQuery($request)
+                    ->where('lead_id', $quotation->lead_id)->exists(), 403);
+            } else {
+                abort_unless($user->branch_id && (int) $user->branch_id === (int) $quotation->lead?->branch_id, 403);
+            }
+            abort_unless($quotation->status === 'approved_by_bm', 409,
+                'Only a quotation approved by BM can be submitted to Finance.');
+            abort_unless($quotation->revision_no === (int) $data['revision_no'], 409,
+                'The quotation revision has changed. Reload it before submitting to Finance.');
+            abort_if(TempQuotation::where('lead_id', $quotation->lead_id)->where('status', 'draft')->exists(),
+                409, 'An open revision exists. Submit or cancel that revision before submitting to Finance.');
+
+            $approval = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')
+                ->orderByDesc('decided_at')->orderByDesc('id')->first();
+            abort_unless($approval, 409, 'BM approval is required for the current revision.');
+            app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+            $snapshot = $quotation->revisions()->where('revision_no', $quotation->revision_no)
+                ->where('revision_code', $quotation->revision_code)->where('status', 'submitted')->first();
+            abort_unless($snapshot, 409, 'The current revision snapshot is unavailable. Reload the quotation.');
+            $sales = $quotation->createdBy()->withTrashed()->first();
+            $bm = $approval->reviewer()->withTrashed()->first();
+            abort_unless($sales && $bm, 409, 'The quotation creator or BM reviewer is unavailable.');
+
+            $quotation->update(['status' => 'pending_finance']);
+            QuotationLog::create([
+                'quotation_id' => $quotation->id, 'temp_quotation_id' => $snapshot->id,
+                'action' => 'submit_to_finance', 'user_id' => $user->id,
+                'logged_at' => Carbon::now('Asia/Jakarta'),
+            ]);
+
+            return [$quotation, $sales, $bm, $approval->notes];
+        }, 3);
+
+        User::whereHas('role', fn ($query) => $query->whereIn('code', ['finance', 'finance_director']))
+            ->get()->each->notify(new QuotationPendingFinanceNotification($quotation, $sales, $bm, $notes));
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return $this->setJsonResponse('Quotation submitted to Finance successfully', [
+                'status' => $quotation->status, 'revision_no' => $quotation->revision_no,
+                'revision_code' => $quotation->revision_code,
+            ]);
+        }
+
+        return back()->with('status', 'Quotation submitted to Finance successfully');
     }
 
     public function approve(Request $request, $id)

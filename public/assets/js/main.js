@@ -225,8 +225,8 @@ $(document).on('submit', 'form[require-confirmation]:not(#form)', function(e) {
   const form = this;
 
   Swal.fire({
-    title: 'Are you sure?',
-    text: 'This action will be submitted.',
+    title: form.dataset.confirmTitle || 'Are you sure?',
+    text: form.dataset.confirmText || 'This action will be submitted.',
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Yes, continue!',

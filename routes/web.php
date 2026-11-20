@@ -271,6 +271,7 @@ Route::get('/debug/expense-realizations', function () {
 
         Route::post('/{id}/approve', 'QuotationController@approve')->name('approve');
         Route::post('/{id}/reject', 'QuotationController@reject')->name('reject');
+        Route::post('/{id}/submit-to-finance', 'QuotationController@submitToFinance')->name('submit-to-finance');
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
     });
 

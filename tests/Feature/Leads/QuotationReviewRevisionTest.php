@@ -109,6 +109,18 @@ class QuotationReviewRevisionTest extends TestCase
         ]);
     }
 
+    private function fakeProformaFiles(): void
+    {
+        Storage::fake('public');
+        File::partialMock()->shouldReceive('exists')->with(storage_path('app/public/proformas'))->andReturnTrue();
+        $view = \Mockery::mock(\Illuminate\Contracts\View\View::class);
+        $view->shouldReceive('render')->andReturn('<p>Proforma</p>');
+        View::partialMock()->shouldReceive('make')->with('pdfs.proforma', \Mockery::type('array'), [])->andReturn($view);
+        Pdf::shouldReceive('loadHTML')->andReturnSelf();
+        Pdf::shouldReceive('setPaper')->with('A4', 'portrait')->andReturnSelf();
+        Pdf::shouldReceive('output')->andReturn('%PDF-1.4 test');
+    }
+
     public function test_bm_reject_then_revision_and_approval_preserve_both_decisions_with_their_revision(): void
     {
         $this->review($this->bm, 'reject', 0, 'Change specifications')->assertRedirect();
@@ -163,14 +175,7 @@ class QuotationReviewRevisionTest extends TestCase
         $this->historicApproval(1);
         $this->quotation->update(['status' => 'pending_finance']);
         $actor = $role === 'finance' ? $this->finance : $this->financeDirector;
-        Storage::fake('public');
-        File::partialMock()->shouldReceive('exists')->with(storage_path('app/public/proformas'))->andReturnTrue();
-        $view = \Mockery::mock(\Illuminate\Contracts\View\View::class);
-        $view->shouldReceive('render')->andReturn('<p>Proforma</p>');
-        View::partialMock()->shouldReceive('make')->with('pdfs.proforma', \Mockery::type('array'), [])->andReturn($view);
-        Pdf::shouldReceive('loadHTML')->andReturnSelf();
-        Pdf::shouldReceive('setPaper')->with('A4', 'portrait')->andReturnSelf();
-        Pdf::shouldReceive('output')->andReturn('%PDF-1.4 test');
+        $this->fakeProformaFiles();
 
         $this->review($actor, 'approve', 1, 'Finance approved R1')->assertRedirect();
 
@@ -381,5 +386,218 @@ class QuotationReviewRevisionTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('workflow state');
         $migration->down();
+    }
+
+    private function approveForCustomer(): void
+    {
+        $this->review($this->bm, 'approve', $this->quotation->fresh()->revision_no, 'BM approval notes')->assertRedirect();
+        Notification::fake();
+    }
+
+    private function submitFinance(User $actor, array $data = ['revision_no' => 0])
+    {
+        return $this->actingAs($actor)->postJson(route('quotations.submit-to-finance', $this->quotation->id), $data);
+    }
+
+    public static function submitterRoles(): array
+    {
+        return [['sales'], ['branch_manager']];
+    }
+
+    #[DataProvider('submitterRoles')]
+    public function test_sales_and_bm_can_submit_the_approved_current_revision_to_finance(string $role): void
+    {
+        $this->approveForCustomer();
+        $before = $this->quotation->fresh()->only([
+            'quotation_no', 'revision_no', 'revision_code', 'grand_total', 'booking_fee', 'expiry_date', 'created_by',
+        ]);
+        $actor = $role === 'sales' ? $this->sales : $this->bm;
+
+        $this->submitFinance($actor)->assertOk()->assertJsonPath('data.status', 'pending_finance')
+            ->assertJsonPath('data.revision_code', 'QT_DEAL_001_R0');
+
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        $this->assertEquals($before, $this->quotation->fresh()->only(array_keys($before)));
+        $this->assertSame(1, $this->quotation->revisions()->count());
+        $this->assertSame(1, $this->quotation->currentReviews()->count());
+        $log = QuotationLog::where('action', 'submit_to_finance')->sole();
+        $this->assertSame($actor->id, $log->user_id);
+        $this->assertSame('QT_DEAL_001_R0', $log->tempQuotation->revision_code);
+        $this->assertSame(0, DB::table('proformas')->count());
+        $this->assertSame(0, DB::table('user_balance_logs')->count());
+        Notification::assertSentTo([$this->finance, $this->financeDirector], QuotationPendingFinanceNotification::class,
+            function ($notification) {
+                $this->assertSame($this->bm->id, $notification->branchManager->id);
+                $this->assertSame($this->sales->id, $notification->sales->id);
+                $this->assertSame('BM approval notes', $notification->notes);
+                $this->assertSame('pending_finance', $notification->quotation->status);
+                $this->assertSame('QT_DEAL_001_R0', $notification->quotation->revision_code);
+
+                return true;
+            });
+        Notification::assertCount(2);
+    }
+
+    public function test_submit_to_finance_requires_sales_or_bm_role(): void
+    {
+        $this->approveForCustomer();
+        foreach ([$this->finance, $this->financeDirector, $this->user('super_admin'), $this->user('sales_director')] as $actor) {
+            $this->submitFinance($actor)->assertForbidden();
+        }
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_only_bm_approved_status_can_be_submitted_to_finance(): void
+    {
+        foreach (['draft', 'review', 'pending_finance', 'published', 'rejected', 'expired'] as $status) {
+            $this->quotation->update(['status' => $status]);
+            $this->submitFinance($this->sales)->assertStatus(409);
+            $this->assertSame($status, $this->quotation->fresh()->status);
+        }
+        $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_submit_requires_an_explicit_valid_revision_number(): void
+    {
+        $this->approveForCustomer();
+        foreach ([[], ['revision_no' => -1], ['revision_no' => 'invalid']] as $payload) {
+            $this->submitFinance($this->sales, $payload)->assertUnprocessable();
+        }
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_stale_submit_is_rejected_and_the_current_revision_can_be_submitted(): void
+    {
+        $this->approveForCustomer();
+        $this->actingAs($this->sales)->getJson(route('leads.my.warm.quotation.create', $this->claim->id))->assertOk();
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $this->claim->id))->assertOk();
+        $this->approveForCustomer();
+
+        $this->submitFinance($this->sales, ['revision_no' => 0])->assertStatus(409);
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+        $this->submitFinance($this->sales, ['revision_no' => 1])->assertOk();
+
+        $this->assertSame('QT_DEAL_001_R1', QuotationLog::where('action', 'submit_to_finance')->sole()->tempQuotation->revision_code);
+        $this->assertSame(2, $this->quotation->revisions()->count());
+    }
+
+    public function test_open_revision_blocks_finance_submit_including_unlinked_legacy_drafts(): void
+    {
+        $this->approveForCustomer();
+        $draftId = $this->actingAs($this->sales)
+            ->getJson(route('leads.my.warm.quotation.create', $this->claim->id))->assertOk()->json('draft.id');
+        $this->submitFinance($this->sales)->assertStatus(409)
+            ->assertJsonPath('message', 'An open revision exists. Submit or cancel that revision before submitting to Finance.');
+        TempQuotation::findOrFail($draftId)->delete();
+        $legacyDraft = TempQuotation::factory()->create([
+            'lead_id' => $this->claim->lead_id, 'created_by' => $this->sales->id, 'status' => 'draft',
+        ]);
+        $this->submitFinance($this->bm)->assertStatus(409);
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
+        Notification::assertNothingSent();
+        $legacyDraft->delete();
+
+        $this->submitFinance($this->sales)->assertOk();
+    }
+
+    public function test_repeat_finance_submit_does_not_duplicate_logs_or_notifications(): void
+    {
+        $this->approveForCustomer();
+        $this->submitFinance($this->sales)->assertOk();
+        $this->submitFinance($this->bm)->assertStatus(409);
+
+        $this->assertSame(1, QuotationLog::where('action', 'submit_to_finance')->count());
+        Notification::assertCount(2);
+    }
+
+    public function test_submit_checks_sales_assignment_and_bm_branch(): void
+    {
+        $this->approveForCustomer();
+        $otherSales = User::factory()->create(['role_id' => $this->sales->role_id, 'branch_id' => 1]);
+        $otherBm = User::factory()->create(['role_id' => $this->bm->role_id, 'branch_id' => 2]);
+        $this->submitFinance($otherSales)->assertForbidden();
+        $this->submitFinance($otherBm)->assertForbidden();
+        $this->claim->update(['released_at' => Carbon::now('Asia/Jakarta')]);
+        $this->submitFinance($this->sales)->assertForbidden();
+        $this->claim->update(['released_at' => null, 'trash_note' => 'Trashed']);
+        $this->submitFinance($this->sales)->assertForbidden();
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_submit_requires_bm_approval_for_the_current_revision(): void
+    {
+        $this->edit();
+        $this->historicApproval(0);
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        Notification::fake();
+
+        $this->submitFinance($this->sales, ['revision_no' => 1])->assertStatus(409)
+            ->assertJsonPath('message', 'BM approval is required for the current revision.');
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_submit_requires_a_snapshot_for_the_current_approved_revision(): void
+    {
+        $this->edit();
+        $this->approveForCustomer();
+        $this->quotation->revisions()->where('revision_no', 1)->delete();
+
+        $this->submitFinance($this->sales, ['revision_no' => 1])->assertStatus(409)
+            ->assertJsonPath('message', 'The current revision snapshot is unavailable. Reload the quotation.');
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_submit_rolls_back_status_if_audit_log_insertion_fails(): void
+    {
+        $this->approveForCustomer();
+        DB::unprepared("CREATE TRIGGER fail_finance_submit BEFORE INSERT ON quotation_logs WHEN NEW.action = 'submit_to_finance' BEGIN SELECT RAISE(ABORT, 'forced submit failure'); END");
+
+        $this->submitFinance($this->sales)->assertStatus(500);
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
+        $this->assertSame(1, $this->quotation->currentReviews()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_regular_submit_form_redirects_back_instead_of_displaying_json(): void
+    {
+        $this->approveForCustomer();
+        $this->actingAs($this->sales)->from(route('leads.my'))->post(
+            route('quotations.submit-to-finance', $this->quotation->id), ['revision_no' => 0]
+        )->assertRedirect(route('leads.my'))->assertSessionHas('status', 'Quotation submitted to Finance successfully');
+
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+    }
+
+    public function test_full_bm_customer_finance_flow_publishes_only_after_explicit_submit_and_finance_approval(): void
+    {
+        $this->approveForCustomer();
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, DB::table('proformas')->count());
+        $this->submitFinance($this->sales)->assertOk();
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        $this->assertSame(0, DB::table('proformas')->count());
+        $this->fakeProformaFiles();
+
+        $this->review($this->financeDirector, 'approve', 0, 'Finance approved after customer acceptance')->assertRedirect();
+
+        $this->assertSame('published', $this->quotation->fresh()->status);
+        $this->assertSame(1, DB::table('proformas')->count());
+        $this->assertSame(2, $this->quotation->currentReviews()->count());
+        $this->assertSame(1, QuotationLog::where('action', 'submit_to_finance')->count());
+        $this->assertSame(0, $this->quotation->currentReviews()->where('role', 'FIN')->sole()->revision_no);
     }
 }

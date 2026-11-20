@@ -978,6 +978,14 @@ class WarmLeadController extends Controller
                     View Quotation</a>';
             }
         } elseif ($quotation) {
+            if ($quotation->status === 'approved_by_bm'
+                && in_array(auth()->user()->role?->code, ['sales', 'branch_manager'], true)) {
+                $html .= '<form method="POST" action="' . e(route('quotations.submit-to-finance', $quotation->id))
+                    . '" require-confirmation="true" data-confirm-title="Submit quotation to Finance?"'
+                    . ' data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">'
+                    . csrf_field() . '<input type="hidden" name="revision_no" value="' . (int) $quotation->revision_no . '">'
+                    . '<button type="submit" class="dropdown-item cursor-pointer">Submit to Finance</button></form>';
+            }
             if (in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
                 && in_array(auth()->user()->role?->code, ['sales', 'branch_manager'], true)) {
                 $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
