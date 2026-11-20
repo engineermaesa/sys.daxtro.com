@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leads;
 use App\Http\Controllers\Controller;
 use App\Services\AutoTrashService;
 use App\Services\MyLeadQueryService;
+use App\Services\Orders\QuotationNumberGenerator;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog, LeadSegment};
 use App\Models\Orders\{Quotation, QuotationItems, QuotationPaymentTerm, PaymentConfirmation, QuotationLog, TempQuotation, TempQuotationItem, TempQuotationPaymentTerm};
@@ -556,20 +557,8 @@ class WarmLeadController extends Controller
 
                 $quotation = $existingQuotation;
             } else {
-                // Generate quotation number
-                $lastQuotation = Quotation::whereNotNull('quotation_no')
-                    ->where('quotation_no', 'like', 'QT_DEAL_%')
-                    ->orderByDesc('id')
-                    ->first();
-
-                $nextNumber = $lastQuotation && preg_match('/QT_DEAL_(\d+)/', $lastQuotation->quotation_no, $m)
-                    ? ((int) $m[1]) + 1
-                    : 1;
-
-                $quotationNo = 'QT_DEAL_' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-
                 $quotation = Quotation::create([
-                    'quotation_no' => $quotationNo,
+                    'quotation_no' => app(QuotationNumberGenerator::class)->next(),
                     'lead_id' => $claim->lead_id,
                     'status' => 'review',
                     'subtotal' => $subtotal,
@@ -847,7 +836,7 @@ class WarmLeadController extends Controller
                 $quotation = $existingQuotation;
             } else {
                 $quotation = Quotation::create([
-                    'quotation_no' => $this->generateNextQuotationNo(),
+                    'quotation_no' => app(QuotationNumberGenerator::class)->next(),
                     'lead_id' => $claim->lead_id,
                     'status' => 'review',
                     'subtotal' => $draft->subtotal,
@@ -929,24 +918,6 @@ class WarmLeadController extends Controller
             DB::rollBack();
             return $this->setJsonResponse('Failed to submit quotation', [], 500, $e);
         }
-    }
-
-    /**
-     * Generate the next sequential QT_DEAL_### quotation number.
-     * Extracted from the original inline logic in storeQuotation().
-     */
-    private function generateNextQuotationNo(): string
-    {
-        $lastQuotation = Quotation::whereNotNull('quotation_no')
-            ->where('quotation_no', 'like', 'QT_DEAL_%')
-            ->orderByDesc('id')
-            ->first();
-
-        $nextNumber = $lastQuotation && preg_match('/QT_DEAL_(\d+)/', $lastQuotation->quotation_no, $m)
-            ? ((int) $m[1]) + 1
-            : 1;
-
-        return 'QT_DEAL_' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
     protected function warmMeetingStatus($quotation, $draft = null)
