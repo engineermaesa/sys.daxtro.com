@@ -19,6 +19,8 @@ use HasFactory, SoftDeletes;
 protected $fillable = [
     'lead_id',
     'quotation_no',
+    'revision_no',
+    'revision_code',
     'status',
     'subtotal',
     'tax_pct',
@@ -34,6 +36,7 @@ protected $dates = ['expiry_date'];
 
 protected $casts = [
     'expiry_date' => 'date',
+    'revision_no' => 'integer',
 ];
 
 
@@ -60,6 +63,11 @@ public function createdBy()
 public function reviews()
 {
     return $this->hasMany(QuotationReview::class, 'quotation_id');
+}
+
+public function revisions()
+{
+    return $this->hasMany(TempQuotation::class, 'quotation_id')->orderByDesc('revision_no');
 }
 
     public function items()

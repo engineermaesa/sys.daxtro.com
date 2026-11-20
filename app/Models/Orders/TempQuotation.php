@@ -12,6 +12,9 @@ class TempQuotation extends Model
 
     protected $fillable = [
         'lead_id',
+        'quotation_id',
+        'revision_no',
+        'revision_code',
         'status',
         'subtotal',
         'tax_pct',
@@ -21,6 +24,15 @@ class TempQuotation extends Model
         'booking_fee',
         'created_by',
     ];
+
+    protected $casts = [
+        'revision_no' => 'integer',
+    ];
+
+    public function quotation()
+    {
+        return $this->belongsTo(Quotation::class, 'quotation_id');
+    }
 
     public function lead()
     {

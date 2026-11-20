@@ -12,6 +12,7 @@ class QuotationReview extends Model
 
     protected $fillable = [
         'quotation_id',
+        'revision_no',
         'reviewer_id',
         'role',
         'decision',
@@ -21,6 +22,10 @@ class QuotationReview extends Model
     ];
 
     protected $dates = ['decided_at'];
+
+    protected $casts = [
+        'revision_no' => 'integer',
+    ];
 
     public function quotation()
     {
