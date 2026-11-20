@@ -15,6 +15,7 @@ use App\Models\Masters\Branch;
 use App\Models\User;
 use App\Notifications\Orders\QuotationPendingFinanceNotification;
 use App\Services\AutoTrashService;
+use App\Services\Orders\QuotationRevisions;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -92,6 +93,8 @@ class QuotationController extends Controller
 
         // 2. Load the quotation with its relations
         $quotation = Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
         // Get the user who created the quotation or current user
         $user = $quotation->createdBy ?? auth()->user();
@@ -177,6 +180,8 @@ class QuotationController extends Controller
         $quotation = Quotation::with(['lead', 'items', 'paymentTerms'])
             ->findOrFail($id);
 
+        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+
         $html = view('pdfs.quotation', compact('quotation'))->render();
         $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
 
@@ -207,6 +212,8 @@ class QuotationController extends Controller
             'paymentLogs.invoice',
         ])
             ->findOrFail($id);
+
+        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
         $rejection = $quotation->reviews()
             ->where('decision', 'reject')

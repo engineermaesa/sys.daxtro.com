@@ -278,6 +278,8 @@ Route::get('/debug/expense-realizations', function () {
     Route::get('quotations/{id}/preview', function ($id) {
         $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
 
+        app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+
         $user = $quotation->createdBy ?? auth()->user();
 
         // Attempt to load current claim (used by the PDF body view)
@@ -296,6 +298,8 @@ Route::get('/debug/expense-realizations', function () {
 
     Route::get('quotations/{id}/view', function ($id) {
         $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
         $user = $quotation->createdBy ?? auth()->user();
 

@@ -193,6 +193,10 @@ class WarmLeadController extends Controller
         $quotation = $claim->lead->quotation;
         $userRole = $request->user()->role?->code;
 
+        if ($quotation) {
+            app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+        }
+
         // Draft flow applies when the lead has never had an official quotation
         // yet, OR its official quotation was rejected (needs a redraft before
         // resubmission). Every other official-quotation status keeps the
