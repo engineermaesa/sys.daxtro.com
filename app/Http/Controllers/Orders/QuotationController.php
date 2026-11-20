@@ -104,16 +104,7 @@ class QuotationController extends Controller
 
     public function showRevision(Request $request, $id, $revisionNo)
     {
-        $this->authorizeRevisionAccess($request);
-        $quotation = Quotation::with('lead')->findOrFail($id);
-        $revision = $this->submittedRevision($quotation, (int) $revisionNo);
-        if ($revision->revision_no === $quotation->revision_no) {
-            return redirect()->route('quotations.show', $quotation->id);
-        }
-        $reviews = $quotation->reviewHistory()->where('revision_no', $revision->revision_no)
-            ->with(['reviewer' => fn ($query) => $query->withTrashed()])->get();
-
-        return $this->render('pages.orders.quotation-revision', compact('quotation', 'revision', 'reviews'));
+        return $this->show($request, $id, (int) $revisionNo);
     }
 
     private function authorizeRevisionAccess(Request $request): void
@@ -253,18 +244,21 @@ class QuotationController extends Controller
         return $pdf->download($fileName);
     }
     
-    public function show(Request $request, $id)
+    public function show(Request $request, $id, $revisionNo = null)
     {
-        $allowed = ['branch_manager', 'sales', 'finance', 'finance_director', 'super_admin'];
-        if (!in_array($request->user()->role?->code, $allowed)) {
-            abort(403);
+        $this->authorizeRevisionAccess($request);
+        $quotation = Quotation::with('lead')->findOrFail($id);
+        $revision = $this->submittedRevision($quotation, $revisionNo ?? $quotation->revision_no);
+        if ($revision->revision_no !== $quotation->revision_no) {
+            $reviews = $quotation->reviewHistory()->where('revision_no', $revision->revision_no)
+                ->with(['reviewer' => fn ($query) => $query->withTrashed()])->get();
+
+            return $this->render('pages.orders.quotation-revision', compact('quotation', 'revision', 'reviews'));
         }
 
-        $quotation = Quotation::with([
-            'lead',
-            'items',
-            'paymentTerms',
-            'currentReviews',
+        $quotation->load([
+            'lead.tempQuotation',
+            'currentReviews.reviewer',
             'proformas.invoice',
             'proformas.paymentConfirmation.attachment',
             'proformas.paymentConfirmation.financeRequest',
@@ -273,10 +267,14 @@ class QuotationController extends Controller
             'paymentLogs.user',
             'paymentLogs.proforma',
             'paymentLogs.invoice',
-        ])
-            ->findOrFail($id);
-
-        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+        ]);
+        // Keep a revision-specific URL tied to its immutable contents, even if another revision is submitted later.
+        $quotation->forceFill($revision->only([
+            'revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total',
+            'total_discount', 'grand_total', 'booking_fee',
+        ]));
+        $quotation->setRelation('items', $revision->items);
+        $quotation->setRelation('paymentTerms', $revision->paymentTerms);
 
         $rejection = $quotation->currentReviews()
             ->where('decision', 'reject')
@@ -284,24 +282,42 @@ class QuotationController extends Controller
             ->first();
 
         $claimQuery = LeadClaim::where('lead_id', $quotation->lead_id)
-            ->whereNull('released_at');
+            ->whereNull('released_at')->whereNull('trash_note');
 
         if ($request->user()->role?->code === 'sales') {
             $claimQuery->where('sales_id', $request->user()->id);
         }
 
-        $claim = $claimQuery->first();
+        $claim = $claimQuery->latest('claimed_at')->latest('id')->first();
+        $actions = $this->revisionDetailActions($request, $quotation, $claim);
 
-        \Log::info('Quotation Show Debug', [
-            'quotation_id' => $id,
-            'user_role' => $request->user()->role?->code,
-            'user_id' => $request->user()->id,
-            'quotation_status' => $quotation->status,
-            'has_claim' => $claim !== null,
-            'claim_id' => $claim?->id,
-        ]);
+        return $this->render('pages.orders.quotation-show', array_merge(compact('quotation', 'revision', 'claim', 'rejection'), $actions));
+    }
 
-        return $this->render('pages.orders.quotation-show', compact('quotation', 'claim', 'rejection'));
+    private function revisionDetailActions(Request $request, Quotation $quotation, ?LeadClaim $claim): array
+    {
+        $role = $request->user()->role?->code;
+        $bmInBranch = $role === 'branch_manager' && $request->user()->branch_id
+            && (int) $request->user()->branch_id === (int) $quotation->lead?->branch_id;
+        $assignedSales = $role === 'sales' && $claim !== null;
+        $canManage = $claim && ($assignedSales || $bmInBranch);
+        $openRevision = $quotation->lead->tempQuotation;
+        $bmReview = $quotation->currentReviews->firstWhere('role', 'BM');
+        $financeReview = $quotation->currentReviews->firstWhere('role', 'FIN');
+        $hasPayment = $quotation->proformas->contains(fn ($proforma) => $proforma->paymentConfirmation !== null);
+
+        return [
+            'openRevision' => $openRevision,
+            'canRevise' => $canManage && in_array($quotation->status, ['rejected', 'approved_by_bm'], true),
+            'canEdit' => $canManage && !$openRevision && (in_array($quotation->status, ['draft', 'review', 'pending_finance'], true)
+                || ($bmInBranch && $quotation->status === 'published' && !$hasPayment)),
+            'canCancelRevision' => $assignedSales && $openRevision !== null,
+            'canSubmitToFinance' => ($assignedSales || $bmInBranch) && !$openRevision
+                && $quotation->status === 'approved_by_bm' && $bmReview?->decision === 'approve',
+            'canReview' => ($bmInBranch && $quotation->status === 'review' && !$bmReview)
+                || (in_array($role, ['finance', 'finance_director'], true) && $quotation->status === 'pending_finance'
+                    && $bmReview?->decision === 'approve' && !$financeReview),
+        ];
     }
 
     public function cancelDraft(Request $request, $draftId)

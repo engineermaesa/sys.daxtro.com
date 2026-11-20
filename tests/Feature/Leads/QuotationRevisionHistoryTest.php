@@ -35,6 +35,20 @@ class QuotationRevisionHistoryTest extends TestCase
         ]]);
         DB::setDefaultConnection('quotation_history_test');
         $this->buildQuotationSubmissionSchema();
+        foreach (['quotation_signed_documents', 'payment_logs'] as $tableName) {
+            Schema::create($tableName, function (Blueprint $table) {
+                $table->id(); $table->unsignedBigInteger('quotation_id'); $table->softDeletes();
+            });
+        }
+        Schema::create('orders', function (Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('lead_id'); $table->softDeletes();
+        });
+        Schema::create('invoices', function (Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('proforma_id'); $table->softDeletes();
+        });
+        Schema::create('finance_requests', function (Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('reference_id'); $table->string('request_type'); $table->softDeletes();
+        });
         Schema::create('user_permissions', function (Blueprint $table) {
             $table->id(); $table->string('code'); $table->softDeletes();
         });
@@ -183,7 +197,7 @@ class QuotationRevisionHistoryTest extends TestCase
             ->assertSee('R0 BM rejected')->assertDontSee('Machine R2')->assertDontSee('Terms R2')
             ->assertDontSee('R2 BM approved')->assertDontSee('Submit to Finance')->assertDontSee('Revise Quotation');
         $this->get(route('quotations.revisions.show', [$this->quotation->id, 2]))
-            ->assertRedirect(route('quotations.show', $this->quotation->id));
+            ->assertOk()->assertViewIs('pages.orders.quotation-show')->assertSee('Viewing revision R2 (current)');
         $this->assertSame($before, $this->quotation->fresh()->getRawOriginal());
     }
 
@@ -204,6 +218,129 @@ class QuotationRevisionHistoryTest extends TestCase
         $this->get(route('quotations.revisions.index', 999))->assertNotFound();
         $this->quotation->delete();
         $this->get(route('quotations.revisions.index', $this->quotation->id))->assertNotFound();
+    }
+
+    public function test_revision_url_stays_read_only_when_a_new_current_revision_is_submitted(): void
+    {
+        $url = route('quotations.revisions.show', [$this->quotation->id, 2]);
+        $this->get($url)->assertOk()->assertSee('Viewing revision R2 (current)')->assertViewHas('canSubmitToFinance', true);
+        $this->quotation->update(['revision_no' => 3, 'revision_code' => 'QT_DEAL_900_R3', 'status' => 'review']);
+        $this->quotation->items()->firstOrFail()->update(['description' => 'Machine R3']);
+        app(QuotationRevisions::class)->snapshotCurrentRevision($this->quotation, $this->sales->id);
+        $this->get($url)->assertOk()->assertViewIs('pages.orders.quotation-revision')
+            ->assertSee('Viewing revision R2 (read-only)')->assertSee('Machine R2')->assertDontSee('Machine R3')
+            ->assertSee('Back to revision history')->assertSee('Open current revision (R3)')->assertDontSee('Submit to Finance');
+        $this->get(route('quotations.show', $this->quotation->id))->assertOk()
+            ->assertSee('Viewing revision R3 (current)')->assertSee('Machine R3');
+        $this->actingAs($this->bm)->postJson(route('quotations.approve', $this->quotation->id), [
+            'revision_no' => 2, 'notes' => 'Decision from the old detail page',
+        ])->assertStatus(409);
+        $this->assertSame(3, $this->quotation->fresh()->revision_no);
+    }
+
+    public function test_historical_details_have_no_business_actions_for_any_allowed_role(): void
+    {
+        $before = $this->quotation->fresh()->getRawOriginal();
+        foreach ([$this->sales, $this->bm, $this->finance, $this->user('finance_director'), $this->user('super_admin')] as $actor) {
+            $this->actingAs($actor)->get(route('quotations.revisions.show', [$this->quotation->id, 1]))->assertOk()
+                ->assertSee('Viewing revision R1 (read-only)')->assertSee('Machine R1')->assertSee('Terms R1')
+                ->assertSee('R1 BM approved')->assertSee('R1 Finance rejected')->assertDontSee('R2 BM approved')
+                ->assertDontSee('id="approve"', false)->assertDontSee('id="reject"', false)
+                ->assertDontSee('Submit to Finance')->assertDontSee('Revise Quotation')->assertDontSee('Edit Quotation')
+                ->assertDontSee('Cancel Revision')->assertDontSee('type="file"', false)
+                ->assertDontSee(route('quotations.signed-documents.upload', $this->quotation->id), false)
+                ->assertSee(route('quotations.revisions.index', $this->quotation->id), false)
+                ->assertSee(route('quotations.revisions.download', [$this->quotation->id, 1]), false);
+        }
+        $this->assertSame($before, $this->quotation->fresh()->getRawOriginal());
+        Notification::assertNothingSent();
+    }
+
+    public function test_current_actions_follow_roles_and_approval_stages(): void
+    {
+        $actors = ['sales' => $this->sales, 'branch_manager' => $this->bm, 'finance' => $this->finance,
+            'finance_director' => $this->user('finance_director'), 'super_admin' => $this->user('super_admin')];
+        foreach (['review', 'approved_by_bm', 'pending_finance', 'rejected', 'published'] as $stage) {
+            $this->quotation->currentReviews()->forceDelete();
+            $this->quotation->update(['status' => $stage]);
+            if (in_array($stage, ['approved_by_bm', 'pending_finance', 'published'], true)) {
+                $this->review(2, 'BM', 'approve', 'BM notes for current revision');
+            }
+            foreach ($actors as $role => $actor) {
+                $isManager = in_array($role, ['sales', 'branch_manager'], true);
+                $canReview = ($stage === 'review' && $role === 'branch_manager')
+                    || ($stage === 'pending_finance' && in_array($role, ['finance', 'finance_director'], true));
+                $canEdit = ($isManager && in_array($stage, ['review', 'pending_finance'], true))
+                    || ($role === 'branch_manager' && $stage === 'published');
+                $response = $this->actingAs($actor)->get(route('quotations.revisions.show', [$this->quotation->id, 2]))
+                    ->assertOk()->assertViewIs('pages.orders.quotation-show')
+                    ->assertViewHas('canReview', $canReview)->assertViewHas('canEdit', $canEdit)
+                    ->assertViewHas('canRevise', $isManager && in_array($stage, ['approved_by_bm', 'rejected'], true))
+                    ->assertViewHas('canSubmitToFinance', $isManager && $stage === 'approved_by_bm')
+                    ->assertSee('Viewing revision R2 (current)')->assertSee('Back to revision history');
+                if ($canReview) {
+                    $response->assertSee('id="approve"', false)->assertSee('id="reject"', false)
+                        ->assertSee('name="revision_no" value="2"', false);
+                } else {
+                    $response->assertDontSee('id="approve"', false)->assertDontSee('id="reject"', false);
+                }
+                if ($stage === 'pending_finance') {
+                    $response->assertSee('BM notes for current revision')->assertDontSee('R1 BM approved');
+                }
+            }
+        }
+    }
+
+    public function test_current_actions_require_current_review_and_correct_branch_or_active_assignment(): void
+    {
+        $url = route('quotations.revisions.show', [$this->quotation->id, 2]);
+        $this->quotation->currentReviews()->forceDelete();
+        $this->get($url)->assertOk()->assertViewHas('canSubmitToFinance', false);
+        $this->quotation->update(['status' => 'pending_finance']);
+        $this->actingAs($this->finance)->get($url)->assertOk()->assertViewHas('canReview', false);
+        $this->review(2, 'BM', 'approve', 'Valid BM approval');
+        $this->get($url)->assertOk()->assertViewHas('canReview', true);
+        $this->review(2, 'FIN', 'approve', 'Already reviewed');
+        $this->get($url)->assertOk()->assertViewHas('canReview', false);
+
+        $this->quotation->update(['status' => 'review']);
+        $this->actingAs($this->bm)->get($url)->assertOk()->assertViewHas('canReview', false);
+        $this->quotation->currentReviews()->forceDelete();
+        $this->bm->update(['branch_id' => 2]);
+        $this->actingAs($this->bm)->get($url)->assertOk()->assertViewHas('canReview', false)->assertViewHas('canEdit', false);
+        $this->actingAs($this->user('sales'))->get($url)->assertOk()->assertViewHas('canEdit', false);
+        $this->claim->update(['trash_note' => 'Trashed']);
+        $this->actingAs($this->sales)->get($url)->assertOk()->assertViewHas('canEdit', false)
+            ->assertDontSee('type="file"', false);
+        $this->claim->update(['trash_note' => null, 'released_at' => Carbon::now('Asia/Jakarta')]);
+        $this->get($url)->assertOk()->assertViewHas('canEdit', false);
+    }
+
+    public function test_open_revision_displays_continue_and_cancel_actions_only_for_authorized_roles(): void
+    {
+        $draft = app(QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $url = route('quotations.revisions.show', [$this->quotation->id, 2]);
+        $this->get($url)->assertOk()->assertViewHas('canSubmitToFinance', false)
+            ->assertSee('Continue Revision (R3)')->assertSee('Cancel Revision')->assertSee('data-confirm-title="Cancel Revision?"', false);
+        $this->actingAs($this->bm)->get($url)->assertOk()->assertSee('Continue Revision (R3)')
+            ->assertViewHas('canSubmitToFinance', false)->assertViewHas('canCancelRevision', false);
+        $this->actingAs($this->finance)->get($url)->assertOk()->assertViewHas('canRevise', false)->assertViewHas('canCancelRevision', false);
+        $this->actingAs($this->sales)->postJson(route('quotations.drafts.cancel', $draft->id))->assertOk();
+        $this->get($url)->assertOk()->assertViewHas('canSubmitToFinance', true)->assertSee('Revise Quotation');
+    }
+
+    public function test_published_bm_edit_is_disabled_after_any_payment_confirmation(): void
+    {
+        $this->quotation->update(['status' => 'published']);
+        $url = route('quotations.revisions.show', [$this->quotation->id, 2]);
+        $this->actingAs($this->bm)->get($url)->assertOk()->assertViewHas('canEdit', true);
+        $proforma = \App\Models\Orders\Proforma::create([
+            'quotation_id' => $this->quotation->id, 'term_no' => 1, 'proforma_no' => 'PF_DETAIL',
+            'proforma_type' => 'down_payment', 'amount' => 3330000, 'status' => 'pending',
+        ]);
+        $this->get($url)->assertOk()->assertViewHas('canEdit', true);
+        \App\Models\Orders\PaymentConfirmation::create(['proforma_id' => $proforma->id, 'amount' => 100000]);
+        $this->get($url)->assertOk()->assertViewHas('canEdit', false)->assertDontSee('Edit Quotation');
     }
 
     public function test_pdf_action_receives_selected_snapshot_and_preserves_official_data(): void

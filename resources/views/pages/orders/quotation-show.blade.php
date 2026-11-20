@@ -29,11 +29,22 @@
                     <a href="{{ route('quotations.index') }}" class="text-[#757575] hover:no-underline">Quotation Approvals</a>
                     <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 @endif
-                <a href="{{ route('quotations.show', $quotation->id) }}" class="text-[#083224] underline">
-                    View Quotation
-                </a>
+                <span class="text-[#083224]">View Quotation (R{{ $revision->revision_no }})</span>
                 <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
-                <a href="{{ route('quotations.revisions.index', $quotation->id) }}" class="text-[#115640] underline">Revision History</a>
+                <a href="{{ route('quotations.revisions.index', $quotation->id) }}" class="text-[#115640] underline">Back to revision history</a>
+            </div>
+
+            <div class="bg-white border border-[#D9D9D9] rounded-lg p-3 mt-4">
+                <div class="flex items-center flex-wrap gap-3">
+                    <h2 class="font-semibold text-lg text-[#115640]">{{ $revision->revision_code }}</h2>
+                    <span class="bg-[#CFF7D3] text-[#02542D] rounded px-2 py-1">Current</span>
+                </div>
+                <p class="mt-2">Viewing revision R{{ $revision->revision_no }} (current)</p>
+                <p class="text-[#757575]">Created by {{ $revision->createdBy?->name ?? 'Unknown creator' }}
+                    @if ($revision->created_at)
+                        &middot; {{ $revision->created_at->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                    @endif
+                </p>
             </div>
 
             @if ($quotation->status === 'rejected' && isset($rejection))
@@ -101,6 +112,9 @@
                                 @endif
                             </strong>
                         </p>
+                        @if ($quotation->status === 'pending_finance' && filled($bmReview?->notes))
+                            <p class="whitespace-pre-line"><strong>BM Notes:</strong> {{ $bmReview->notes }}</p>
+                        @endif
 
                         @if ($bmInBranch && !$bmReview && $quotation->status === 'review')
                             You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons at the bottom of the page.
@@ -613,12 +627,8 @@
                 <div class="flex items-center gap-3">
                     @php
                         $userRole = auth()->user()->role?->code;
-                        $canManage = $claim && !$claim->released_at && !$claim->trash_note
-                            && in_array($userRole, ['sales', 'branch_manager'])
-                            && ($userRole !== 'branch_manager' || (int) auth()->user()->branch_id === (int) $quotation->lead->branch_id);
-                        $openRevision = $quotation->lead->tempQuotation;
                     @endphp
-                    @if ($quotation->status === 'approved_by_bm' && $canManage && !$openRevision)
+                    @if ($canSubmitToFinance)
                         <form method="POST" action="{{ route('quotations.submit-to-finance', $quotation->id) }}"
                             require-confirmation="true" data-confirm-title="Submit quotation to Finance?"
                             data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">
@@ -627,22 +637,21 @@
                             <button type="submit" class="px-5 py-2 bg-[#115640] rounded-lg text-white font-semibold cursor-pointer">Submit to Finance</button>
                         </form>
                     @endif
-                    <a href="{{ route('quotations.download', $quotation->id) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold flex items-center gap-2">
+                    <a href="{{ route('quotations.revisions.download', [$quotation->id, $revision->revision_no]) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold flex items-center gap-2">
                         <x-icon.download/>
                         Download Quotation
                     </a>
-                    @php
-                        $hasPayment = $quotation->proformas->contains(function ($p) {
-                            return $p->paymentConfirmation !== null;
-                        });
-                        $canRevise = $canManage && in_array($quotation->status, ['rejected', 'approved_by_bm']);
-                        $canEdit = $canManage && (in_array($quotation->status, ['draft', 'review', 'pending_finance'])
-                            || ($userRole === 'branch_manager' && $quotation->status === 'published' && !$hasPayment));
-                    @endphp
-                    @if ($canRevise || ($canEdit && !$openRevision))
+                    @if ($canRevise || $canEdit)
                         <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold">
                             {{ $canRevise ? ($openRevision ? 'Continue Revision (R'.$openRevision->revision_no.')' : 'Revise Quotation') : 'Edit Quotation' }}
                         </a>
+                    @endif
+                    @if ($canCancelRevision)
+                        <form method="POST" action="{{ route('quotations.drafts.cancel', $openRevision->id) }}" require-confirmation="true"
+                            data-confirm-title="Cancel Revision?" data-confirm-text="Discard saved changes for this revision and keep the current submitted quotation?">
+                            @csrf
+                            <button type="submit" class="px-5 py-2 border border-[#900B09] rounded-lg text-[#900B09] font-semibold cursor-pointer">Cancel Revision</button>
+                        </form>
                     @endif
                 </div>
             </div>
@@ -650,19 +659,6 @@
             {{-- APPROVAL SECTION BY FINANCE AND BRANCH MANAGER --}}
             @php
                 $userRole = auth()->user()->role?->code;
-                $bmReview = $quotation->currentReviews->where('role', 'BM')->first();
-                $financeReview = $quotation->currentReviews->where('role', 'FIN')->first();
-
-                $canReview = false;
-                        
-                if ($quotation->status === 'review') {
-                    // BM can review if they haven't reviewed yet
-                    $canReview = ($userRole === 'branch_manager' && auth()->user()->branch_id
-                        && (int) auth()->user()->branch_id === (int) $quotation->lead?->branch_id && !$bmReview);
-                } elseif ($quotation->status === 'pending_finance') {
-                    // Finance can review if BM approved and finance hasn't reviewed yet
-                    $canReview = (in_array($userRole, ['finance', 'finance_director']) && $bmReview && $bmReview->decision === 'approve' && !$financeReview);
-                }
             @endphp
 
             @if($canReview)

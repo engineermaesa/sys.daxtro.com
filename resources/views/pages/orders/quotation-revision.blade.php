@@ -5,6 +5,8 @@
         <h1 class="text-lg lg:text-2xl font-semibold text-[#115640]">{{ $revision->revision_code }}</h1>
         <a href="{{ route('quotations.revisions.index', $quotation->id) }}" class="inline-block mt-2 text-[#115640] underline">Back to revision history</a>
         <div class="mt-4 p-3 border border-[#BF6A02] bg-[#FFFBEB] rounded-lg">Viewing revision R{{ $revision->revision_no }} (read-only)</div>
+        <p class="mt-2 text-[#757575]">This revision is read-only. Open the current revision to view the actions available to your role.</p>
+        <a href="{{ route('quotations.revisions.show', [$quotation->id, $quotation->revision_no]) }}" class="inline-block mt-2 text-[#115640] underline">Open current revision (R{{ $quotation->revision_no }})</a>
         <div class="bg-white border border-[#D9D9D9] rounded-lg mt-4 p-4">
             <p><strong>Customer:</strong> {{ $quotation->lead?->name ?? '-' }}</p>
             <p><strong>Created:</strong> {{ $revision->created_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }} WIB</p>
