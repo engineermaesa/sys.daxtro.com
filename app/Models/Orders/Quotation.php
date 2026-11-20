@@ -34,6 +34,21 @@ protected $fillable = [
 
 protected $dates = ['expiry_date'];
 
+public function getStatusLabelAttribute(): string
+{
+    return match ($this->status) {
+        'draft' => 'Not Submitted',
+        'review' => 'Pending BM Approval',
+        'approved_by_bm' => 'Approved by BM',
+        'pending_finance' => 'Pending Finance Approval',
+        'published' => 'Quotation Published',
+        'rejected' => 'Rejected',
+        'expired' => 'Quotation Expired',
+        'cancelled' => 'Revision Cancelled',
+        default => ucfirst(str_replace('_', ' ', $this->status ?? '')),
+    };
+}
+
 protected $casts = [
     'expiry_date' => 'date',
     'revision_no' => 'integer',

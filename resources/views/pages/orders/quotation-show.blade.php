@@ -60,7 +60,10 @@
                     <x-icon.info/>
                     <div>
                         <strong>Approved by BM</strong>
-                        <p>This quotation is ready to share with the customer.</p>
+                        <p>This quotation is ready to share with the customer. Once the customer agrees, use Submit to Finance.</p>
+                        @if ($quotation->lead->tempQuotation)
+                            <p>A revision is in progress. Submit it for review or cancel it before submitting to Finance.</p>
+                        @endif
                         @if ($bmApproval && $bmApproval->notes)
                             <p><strong>BM Notes:</strong> {{ $bmApproval->notes }}</p>
                         @endif
@@ -77,11 +80,11 @@
                 <div class="w-full flex items-center p-3 bg-[#FFFBEB] border border-[#BF6A02] rounded-lg mt-3 text-[#522504] gap-5">
                     <x-icon.info/>
                     <div>
-                        <strong>Quotation Under Review.</strong>
+                        <strong>{{ $quotation->status_label }}</strong>
                         <p>
                             Branch Manager: 
                             <strong>
-                                {{ $bmReview ? ucfirst                  ($bmReview->decision) : 'Pending' }}
+                                {{ $bmReview ? ($bmReview->decision === 'approve' ? 'Approved' : 'Rejected') : 'Pending' }}
                                 @if ($quotation->status === 'review')
                                     (Waiting for approval)
                                 @endif
@@ -90,7 +93,7 @@
                         <p>
                             Finance: 
                             <strong>
-                                {{ $financeReview ? ucfirst($financeReview->decision) : 'Pending' }}
+                                {{ $financeReview ? ($financeReview->decision === 'approve' ? 'Approved' : 'Rejected') : ($quotation->status === 'review' ? 'Not Submitted' : 'Pending') }}
                                 @if ($quotation->status === 'pending_finance')
                                     (Waiting for approval)
                                 @endif
@@ -209,10 +212,7 @@
                 
                 {{-- FINANCIAL SUMMARY SECTION --}}
                 @php
-                    $statusLabel = [
-                        'approved_by_bm' => 'Approved by BM',
-                        'pending_finance' => 'Pending Finance',
-                    ][$quotation->status] ?? ucfirst($quotation->status);
+                    $statusLabel = $quotation->status_label;
                 @endphp
                 <div class="bg-white border border-[#D9D9D9] rounded-lg">
                     <h1 class="uppercase text-[#1E1E1E] font-semibold p-2 lg:p-3 border-b border-b-[#D9D9D9]">Financial Summary</h1>
@@ -609,7 +609,14 @@
             {{-- BUTTONS TO DOWNLOAD / EDIT --}}
             <div class="flex justify-end py-4">
                 <div class="flex items-center gap-3">
-                    @if ($quotation->status === 'approved_by_bm' && in_array(auth()->user()->role?->code, ['sales', 'branch_manager']) && !$quotation->lead->tempQuotation)
+                    @php
+                        $userRole = auth()->user()->role?->code;
+                        $canManage = $claim && !$claim->released_at && !$claim->trash_note
+                            && in_array($userRole, ['sales', 'branch_manager'])
+                            && ($userRole !== 'branch_manager' || (int) auth()->user()->branch_id === (int) $quotation->lead->branch_id);
+                        $openRevision = $quotation->lead->tempQuotation;
+                    @endphp
+                    @if ($quotation->status === 'approved_by_bm' && $canManage && !$openRevision)
                         <form method="POST" action="{{ route('quotations.submit-to-finance', $quotation->id) }}"
                             require-confirmation="true" data-confirm-title="Submit quotation to Finance?"
                             data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">
@@ -623,33 +630,18 @@
                         Download Quotation
                     </a>
                     @php
-                        $userRole = auth()->user()->role?->code;
-                        $bmApproved = $quotation->currentReviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
-                        $financeApproved = $quotation->currentReviews->where('role', 'FIN')->where('decision', 'approve')->isNotEmpty();
-                        $allApproved = $bmApproved && $financeApproved;
                         $hasPayment = $quotation->proformas->contains(function ($p) {
                             return $p->paymentConfirmation !== null;
                         });
-
-                        // detect explicit rejections
-                        $rejectedByBM = $quotation->currentReviews->where('role', 'BM')->where('decision', 'reject')->isNotEmpty();
-                        $rejectedByFinance = $quotation->currentReviews->where('role', 'FIN')->where('decision', 'reject')->isNotEmpty();
-
-                        // Explicit editability rules - allow both sales and BM to edit before finance approval
-                        $canEdit = false;
-                        
-                        if (in_array($userRole, ['sales', 'branch_manager']) && isset($claim)) {
-                            // Sales OR BM can edit if quotation is not yet fully approved by finance
-                            $editableStatuses = ['draft', 'review', 'pending_finance'];
-                            $canEdit = in_array($quotation->status, $editableStatuses);
-                        } elseif ($userRole === 'branch_manager' && $quotation->status === 'published' && !$hasPayment) {
-                            // BM can edit published quotations if no payments exist
-                            $canEdit = true;
-                        }
+                        $canRevise = $canManage && in_array($quotation->status, ['rejected', 'approved_by_bm']);
+                        $canEdit = $canManage && (in_array($quotation->status, ['draft', 'review', 'pending_finance'])
+                            || ($userRole === 'branch_manager' && $quotation->status === 'published' && !$hasPayment));
                     @endphp
-                    {{-- "Edit Quotation" link hidden: editing now flows through the
-                    draft (temp_quotations) system on the Warm Lead page instead
-                    of jumping straight back into this route from here. --}}
+                    @if ($canRevise || ($canEdit && !$openRevision))
+                        <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold">
+                            {{ $canRevise ? ($openRevision ? 'Continue Revision (R'.$openRevision->revision_no.')' : 'Revise Quotation') : 'Edit Quotation' }}
+                        </a>
+                    @endif
                 </div>
             </div>
 

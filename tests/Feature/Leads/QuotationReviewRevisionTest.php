@@ -5,6 +5,7 @@ namespace Tests\Feature\Leads;
 use App\Models\Leads\Lead;
 use App\Models\Leads\LeadClaim;
 use App\Models\Leads\LeadStatus;
+use App\Models\Orders\Proforma;
 use App\Models\Orders\Quotation;
 use App\Models\Orders\QuotationLog;
 use App\Models\Orders\QuotationReview;
@@ -883,6 +884,78 @@ class QuotationReviewRevisionTest extends TestCase
         }
         $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
         Notification::assertNothingSent();
+    }
+
+    public function test_my_leads_keeps_official_status_while_a_revision_is_open(): void
+    {
+        $controller = app(\App\Http\Controllers\Leads\WarmLeadController::class);
+        $status = new \ReflectionMethod($controller, 'warmMeetingStatus');
+        // A historical approval must not make a new BM review look like Finance review.
+        $this->historicApproval(0);
+        $this->quotation->update(['revision_no' => 1]);
+        $this->assertStringContainsString('Pending BM Approval', $status->invoke($controller, $this->quotation));
+        $this->quotation->update(['status' => 'pending_finance']);
+        $this->assertStringContainsString('Pending Finance Approval', $status->invoke($controller, $this->quotation));
+
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        $draft = app(\App\Services\Orders\QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $html = $status->invoke($controller, $this->quotation, $draft);
+        $this->assertStringContainsString('Approved by BM', $html);
+        $this->assertStringContainsString('Revision in Progress (R2)', $html);
+        $this->assertStringNotContainsString('>Draft<', $html);
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+    }
+
+    public function test_my_leads_menu_blocks_finance_submission_until_revision_is_cancelled(): void
+    {
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        $controller = app(\App\Http\Controllers\Leads\WarmLeadController::class);
+        $actions = new \ReflectionMethod($controller, 'warmActions');
+        $menu = fn () => $actions->invoke($controller, $this->claim->fresh(['lead.quotation', 'lead.tempQuotation']));
+        $this->assertStringContainsString('Submit to Finance</button>', $menu());
+        $this->assertStringContainsString('Revise Quotation</a>', $menu());
+
+        $draft = app(\App\Services\Orders\QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $html = $menu();
+        $this->assertStringNotContainsString('Submit to Finance</button>', $html);
+        $this->assertStringNotContainsString('Revise Quotation</a>', $html);
+        foreach (['Continue Revision (R1)', 'Cancel Revision', 'View Quotation', 'Download Quotation', 'Quotation Log'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+        $this->actingAs($this->sales)->postJson(route('quotations.drafts.cancel', $draft->id))->assertOk();
+        $this->assertStringContainsString('Submit to Finance</button>', $menu());
+        $this->assertStringNotContainsString('Continue Revision', $menu());
+    }
+
+    public function test_my_leads_edit_actions_follow_existing_roles_stages_and_payment_lock(): void
+    {
+        $controller = app(\App\Http\Controllers\Leads\WarmLeadController::class);
+        $actions = new \ReflectionMethod($controller, 'warmActions');
+        $menu = fn () => $actions->invoke($controller, $this->claim->fresh(['lead.quotation', 'lead.tempQuotation']));
+        foreach ([$this->sales, $this->bm] as $actor) {
+            $this->actingAs($actor);
+            foreach (['review', 'pending_finance'] as $stage) {
+                $this->quotation->update(['status' => $stage]);
+                $this->assertStringContainsString('Edit Quotation</a>', $menu());
+                $this->assertStringNotContainsString('Submit to Finance</button>', $menu());
+            }
+        }
+        foreach ([$this->finance, $this->financeDirector] as $actor) {
+            $this->actingAs($actor);
+            $this->assertStringNotContainsString('Edit Quotation</a>', $menu());
+            $this->assertStringNotContainsString('Revise Quotation</a>', $menu());
+        }
+        $this->quotation->update(['status' => 'published']);
+        $this->actingAs($this->sales);
+        $this->assertStringNotContainsString('Edit Quotation</a>', $menu());
+        $this->actingAs($this->bm);
+        $this->assertStringContainsString('Edit Quotation</a>', $menu());
+        $proforma = Proforma::create([
+            'quotation_id' => $this->quotation->id, 'term_no' => 1, 'proforma_no' => 'PF_UI',
+            'proforma_type' => 'down_payment', 'amount' => 1110000, 'status' => 'pending',
+        ]);
+        \App\Models\Orders\PaymentConfirmation::create(['proforma_id' => $proforma->id, 'amount' => 1110000]);
+        $this->assertStringNotContainsString('Edit Quotation</a>', $menu());
     }
 
     public function test_both_review_actions_require_the_current_revision_snapshot(): void

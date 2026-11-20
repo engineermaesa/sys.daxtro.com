@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+    @php
+        $isDraftMode = $isDraftMode ?? false;
+        $draft = $draft ?? null;
+        $targetRevision = $isDraftMode ? ($draft?->revision_no ?? 0) : (($quotation?->revision_no ?? 0) + 1);
+        $formTitle = $isDraftMode
+            ? ($quotation ? 'Revise to R'.$targetRevision : 'Create Quotation (R0)')
+            : ($isEditable ? 'Edit Quotation (R'.$targetRevision.')' : 'View Quotation (R'.$quotation->revision_no.')');
+    @endphp
     <section class="min-h-screen text-xs lg:text-sm">
         {{-- MAIN ROW --}}
         <div class="pt-4">
@@ -18,7 +26,7 @@
                 @endif
                 <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="text-[#083224] underline">
-                    {{ ($isDraftMode ?? false) && $quotation ? 'Revise to R'.($draft->revision_no ?? ($quotation->revision_no + 1)) : 'Generate Quotation' }}
+                    {{ $formTitle }}
                 </a>
             </div>
             <form method="POST" action="{{ route('leads.my.warm.quotation.store', $claim->id) }}" id="form"
@@ -32,7 +40,7 @@
                 @endif
                 {{-- QUOTATIONS ITEMS --}}
                 <div class="bg-white rounded-lg mt-4">
-                    <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Quotations Items</h1>
+                    <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Quotation Items</h1>
                     @php
                         $disabled = $isEditable ? '' : 'disabled';
                         $defaultSegment = strtolower($defaultSegment ?? '');
@@ -47,12 +55,16 @@
                     @if ($isDraftMode)
                         <div class="alert alert-info">
                             {{ $quotation ? 'You are preparing revision R'.$draft->revision_no.'.' : 'You are preparing quotation R0.' }}
-                            Save your changes, then click <strong>Submit for Review</strong> to request BM approval.
+                            You can save your changes and continue later. Click <strong>Submit for Review</strong> to request BM approval.
+                        </div>
+                    @elseif ($isEditable)
+                        <div class="alert alert-info">
+                            Saving these changes creates revision R{{ $targetRevision }} and submits it for BM approval.
                         </div>
                     @endif
                     @if (!$isEditable && $quotation)
                         <div class="alert alert-warning">
-                            This quotation is already <strong>{{ ucfirst($quotation->status) }}</strong> and cannot be
+                            This quotation has status <strong>{{ $quotation->status_label }}</strong> and cannot be
                             edited.
                         </div>
                     @endif
@@ -554,14 +566,14 @@
                     @if ($quotation)
                         <a href="{{ route('quotations.download', $quotation->id) }}" class="cursor-pointer px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold flex items-center gap-1">
                             <x-icon.download/>
-                            Download Quotation
+                            Download Current Quotation
                         </a>
                     @endif
                     @if ($isEditable)
                         @if ($isDraftMode)
                             <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Changes</button>
                         @else
-                            <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save</button>
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save and Submit for Review</button>
                         @endif
                         @if ($isDraftMode)
                             <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Submit for Review</button>

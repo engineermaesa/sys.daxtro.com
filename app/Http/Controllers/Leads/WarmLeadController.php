@@ -890,56 +890,42 @@ class WarmLeadController extends Controller
 
     protected function warmMeetingStatus($quotation, $draft = null)
     {
-        if ($draft) {
-            return '<span class="status-grey">Draft</span>';
-        }
-
         if (! $quotation) {
-            return '<span class="status-grey">No Quotation</span>';
+            return '<span class="status-grey">' . ($draft ? 'Not Submitted (R0)' : 'No Quotation') . '</span>';
         }
 
         $status = $quotation->status;
-        if ($status === 'draft') {
-            return '<span class="status-grey">Draft</span>';
-        }
-
-        if (in_array($status, ['review', 'pending_finance'])) {
-            $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->currentReviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
-
-            if (! $bmApproved) {
-                return '<span class="status-waiting">Pending BM Approval</span>';
-            }
-
-            if ($bmApproved && ! $financeApproved) {
-                return '<span class="status-waiting">Pending Finance Approval</span>';
-            }
-
-            return '<span class="status-waiting">Pending Approval</span>';
-        }
-
-        if ($status === 'published') {
-            return '<span class="status-finish">Quotation Published</span>';
-        }
-
-        if ($status === 'approved_by_bm') {
-            return '<span class="status-waiting">Approved by BM</span>';
-        }
-
+        $label = $quotation->status_label;
         if ($status === 'rejected') {
             $review = $quotation->currentReviews()->where('decision', 'reject')->latest('decided_at')->first();
             $role = $review?->role;
 
             if ($role) {
-                $by = strtolower($role) === 'bm' ? 'BM' : (strtolower($role) === 'finance' ? 'Finance' : ucfirst($role));
+                $by = match (strtoupper($role)) {
+                    'BM' => 'BM',
+                    'FIN', 'FINANCE' => 'Finance',
+                    default => ucfirst(strtolower($role)),
+                };
             } else {
                 $by = 'BM/Finance';
             }
 
-            return '<span class="status-expired">Rejected by ' . e($by) . '</span>';
+            $label = 'Rejected by ' . $by;
         }
 
-        return '<span class="bg-light text-dark">' . ucfirst($status) . '</span>';
+        $class = match ($status) {
+            'review', 'approved_by_bm', 'pending_finance' => 'status-waiting',
+            'published' => 'status-finish',
+            'rejected', 'expired', 'cancelled' => 'status-expired',
+            default => 'status-grey',
+        };
+        $html = '<span class="' . $class . '">' . e($label) . '</span>';
+        if ($draft) {
+            $revision = (int) ($draft->revision_no ?? ($quotation->revision_no + 1));
+            $html .= ' <span class="status-grey">Revision in Progress (R' . $revision . ')</span>';
+        }
+
+        return $html;
     }
 
     protected function warmActions($row)
@@ -951,6 +937,8 @@ class WarmLeadController extends Controller
         $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
         $trashUrl   = route('leads.my.warm.trash', $row->id);
+        $role = auth()->user()->role?->code;
+        $canManage = in_array($role, ['sales', 'branch_manager'], true);
 
         $btnId = 'warmActionsDropdown' . $row->id;
 
@@ -970,11 +958,11 @@ class WarmLeadController extends Controller
         ' . view('components.icon.log')->render() . ' 
         View / Add Activity</button>';
 
-        if ($draft) {
+        if ($draft && $canManage) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
                 . '
                 ' . view('components.icon.generate-quotation')->render() . '
-                ' . ($quotation ? 'Continue Revision' : 'Continue Quotation') . '</a>';
+                ' . ($quotation ? 'Continue Revision (R' . (int) $draft->revision_no . ')' : 'Continue Quotation (R0)') . '</a>';
             if (auth()->user()->role?->code === 'sales') {
                 $cancelLabel = $quotation ? 'Cancel Revision' : 'Discard Draft';
                 $cancelText = $quotation
@@ -985,17 +973,8 @@ class WarmLeadController extends Controller
                     . csrf_field() . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]!">'
                     . e($cancelLabel) . '</button></form>';
             }
-            if ($quotation) {
-                // Rejected quotation being redrafted — keep a read-only link
-                // to the rejected record for context (rejection reason).
-                $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
-                    . '
-                    ' . view('components.icon.view-quotation')->render() . '
-                    View Quotation</a>';
-            }
-        } elseif ($quotation) {
-            if ($quotation->status === 'approved_by_bm'
-                && in_array(auth()->user()->role?->code, ['sales', 'branch_manager'], true)) {
+        } elseif ($quotation && ! $draft) {
+            if ($quotation->status === 'approved_by_bm' && $canManage) {
                 $html .= '<form method="POST" action="' . e(route('quotations.submit-to-finance', $quotation->id))
                     . '" require-confirmation="true" data-confirm-title="Submit quotation to Finance?"'
                     . ' data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">'
@@ -1003,10 +982,19 @@ class WarmLeadController extends Controller
                     . '<button type="submit" class="dropdown-item cursor-pointer">Submit to Finance</button></form>';
             }
             if (in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
-                && in_array(auth()->user()->role?->code, ['sales', 'branch_manager'], true)) {
+                && $canManage) {
                 $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
                     . view('components.icon.generate-quotation')->render() . ' Revise Quotation</a>';
+            } elseif ($canManage && $this->canEditQuotationDirectly($quotation, $role)) {
+                $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
+                    . view('components.icon.generate-quotation')->render() . ' Edit Quotation</a>';
             }
+        } elseif (! $quotation && ! $draft && $canManage) {
+            $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
+                . view('components.icon.generate-quotation')->render() . ' Create Quotation (R0)</a>';
+        }
+
+        if ($quotation) {
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '
                 ' . view('components.icon.view-quotation')->render() . '
@@ -1014,16 +1002,11 @@ class WarmLeadController extends Controller
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($downloadUrl) . '">'
                 . '
                 ' . view('components.icon.download')->render() . '
-                Download</a>';
+                Download Quotation</a>';
             $logUrl = route('quotations.logs', $quotation->id);
             $html .= '  <button type="button" class="dropdown-item btn-quotation-log cursor-pointer flex! items-center! gap-2!" data-url="' . e($logUrl) . '">
             ' . view('components.icon.quotation-log')->render() . '
             Quotation Log</button>';
-        } else {
-            $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
-                . '
-                ' . view('components.icon.generate-quotation')->render() . '
-                Generate Quotation</a>';
         }
 
         if (! $quotation || $quotation->status !== 'published') {
