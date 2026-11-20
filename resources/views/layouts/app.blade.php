@@ -748,7 +748,8 @@
                             + '<div style="font-weight:600;">' + _notifText(title) + '</div>'
                             + '<div style="color:#555;">Lead name: ' + detail + '</div>'
                             + (n.data.message ? '<div style="color:#555;">' + _notifText(n.data.message) + '</div>' : '')
-                            + (n.data.type === 'quotation_reviewed' && n.data.notes ? '<div style="color:#555;">Notes: ' + _notifText(n.data.notes) + '</div>' : '')
+                            + ((n.data.type === 'quotation_reviewed' || n.data.type === 'quotation_pending_finance') && n.data.notes ? '<div style="color:#555;">' + (n.data.type === 'quotation_pending_finance' ? 'BM Notes: ' : 'Notes: ') + _notifText(n.data.notes) + '</div>' : '')
+                            + (n.data.submitted_by_name ? '<div style="color:#888;font-size:11px;">Submitted by: ' + _notifText(n.data.submitted_by_name) + '</div>' : '')
                             + (n.data.sales_name ? '<div style="color:#888;font-size:11px;">By: ' + n.data.sales_name + '</div>' : '')
                             + (n.data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + n.data.branch_manager_name + '</div>' : '')
                             + '<div style="color:#aaa;font-size:11px;margin-top:2px;">' + formatted + '</div>'
@@ -767,7 +768,8 @@
             li.innerHTML = '<div style="font-weight:600;">' + _notifText(title) + '</div>'
                 + '<div style="color:#555;">' + (data.company || data.lead_name || '') + '</div>'
                 + (data.message ? '<div style="color:#555;">' + _notifText(data.message) + '</div>' : '')
-                + (data.type === 'quotation_reviewed' && data.notes ? '<div style="color:#555;">Notes: ' + _notifText(data.notes) + '</div>' : '')
+                + ((data.type === 'quotation_reviewed' || data.type === 'quotation_pending_finance') && data.notes ? '<div style="color:#555;">' + (data.type === 'quotation_pending_finance' ? 'BM Notes: ' : 'Notes: ') + _notifText(data.notes) + '</div>' : '')
+                + (data.submitted_by_name ? '<div style="color:#888;font-size:11px;">Submitted by: ' + _notifText(data.submitted_by_name) + '</div>' : '')
                 + (data.region_name ? '<div style="color:#888;font-size:11px;">Region: ' + data.region_name + '</div>' : '')
                 + (data.sales_name ? '<div style="color:#888;font-size:11px;">Oleh: ' + data.sales_name + '</div>' : '')
                 + (data.branch_manager_name ? '<div style="color:#888;font-size:11px;">Approved by: ' + data.branch_manager_name + '</div>' : '')
@@ -903,10 +905,10 @@
                 })
                 .listen('.quotation.pending-finance', function(data) {
                     _playNotifSound();
-                    var msg = 'Quotation ' + (data.quotation_no || '') + ' telah diapprove BM dan menunggu approval Finance';
+                    var msg = data.message || ('Quotation ' + (data.revision_code || data.quotation_no || '') + ' was submitted to Finance and is awaiting approval.');
                     if (typeof notyf !== 'undefined') notyf.success(msg);
                     _notifBadge();
-                    _notifPrepend(data, 'Quotation Waiting For Approval From Finance');
+                    _notifPrepend(data, data.title || 'Quotation Pending Finance Approval');
                 })
                 .listen('.quotation.reviewed', function(data) {
                     _playNotifSound();

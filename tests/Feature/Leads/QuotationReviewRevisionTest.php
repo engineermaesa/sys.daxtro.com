@@ -16,11 +16,15 @@ use App\Notifications\Orders\QuotationReviewedNotification;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\BuildsQuotationSubmissionSchema;
 use Tests\TestCase;
@@ -426,12 +430,28 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertSame(0, DB::table('proformas')->count());
         $this->assertSame(0, DB::table('user_balance_logs')->count());
         Notification::assertSentTo([$this->finance, $this->financeDirector], QuotationPendingFinanceNotification::class,
-            function ($notification) {
+            function ($notification, $channels) use ($actor) {
                 $this->assertSame($this->bm->id, $notification->branchManager->id);
                 $this->assertSame($this->sales->id, $notification->sales->id);
                 $this->assertSame('BM approval notes', $notification->notes);
                 $this->assertSame('pending_finance', $notification->quotation->status);
                 $this->assertSame('QT_DEAL_001_R0', $notification->quotation->revision_code);
+                $payload = $notification->toDatabase($this->finance);
+                $this->assertSame(['database', 'broadcast'], $channels);
+                $this->assertSame(0, $payload['revision_no']);
+                $this->assertSame('QT_DEAL_001_R0', $payload['revision_code']);
+                $this->assertSame('pending_finance', $payload['quotation_status']);
+                $this->assertSame('Quotation Pending Finance Approval', $payload['title']);
+                $this->assertStringContainsString('after customer acceptance', $payload['message']);
+                $this->assertSame($actor->id, $payload['submitted_by']);
+                $this->assertSame($actor->name, $payload['submitted_by_name']);
+                $this->assertSame('BM approval notes', $payload['notes']);
+                $approval = $this->quotation->currentReviews()->where('role', 'BM')->sole();
+                $this->assertSame($approval->id, $payload['bm_approval_id']);
+                $this->assertSame($approval->decided_at->toIso8601String(), $payload['bm_approved_at']);
+                $this->assertSame(route('quotations.show', $this->quotation->id), $payload['url']);
+                $this->assertSame($payload, $notification->toBroadcast($this->financeDirector));
+                $this->assertSame('quotation.pending-finance', $notification->broadcastAs());
 
                 return true;
             });
@@ -599,5 +619,124 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertSame(2, $this->quotation->currentReviews()->count());
         $this->assertSame(1, QuotationLog::where('action', 'submit_to_finance')->count());
         $this->assertSame(0, $this->quotation->currentReviews()->where('role', 'FIN')->sole()->revision_no);
+    }
+
+    public function test_finance_notification_uses_current_bm_notes_and_reviewer_instead_of_request_values(): void
+    {
+        $this->review($this->bm, 'approve', 0, 'Old R0 notes')->assertRedirect();
+        $oldApproval = $this->quotation->currentReviews()->sole();
+        $this->actingAs($this->sales)->getJson(route('leads.my.warm.quotation.create', $this->claim->id))->assertOk();
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $this->claim->id))->assertOk();
+        $newBm = User::factory()->create(['role_id' => $this->bm->role_id, 'branch_id' => 1]);
+        $this->review($newBm, 'approve', 1, 'R1 approved: 40% deposit, 60% delivery')->assertRedirect();
+        $currentApproval = $this->quotation->currentReviews()->sole();
+        Notification::fake();
+
+        $this->submitFinance($this->bm, [
+            'revision_no' => 1, 'notes' => 'Forged client notes', 'bm_approval_id' => $oldApproval->id,
+        ])->assertOk();
+
+        $notification = Notification::sent($this->finance, QuotationPendingFinanceNotification::class)->sole();
+        $payload = $notification->toDatabase($this->finance);
+        $this->assertSame('QT_DEAL_001_R1', $payload['revision_code']);
+        $this->assertSame('R1 approved: 40% deposit, 60% delivery', $payload['notes']);
+        $this->assertSame($newBm->name, $payload['branch_manager_name']);
+        $this->assertSame($currentApproval->id, $payload['bm_approval_id']);
+        $this->assertSame($this->bm->id, $payload['submitted_by']);
+        $this->assertSame($this->bm->name, $payload['submitted_by_name']);
+        $this->assertSame($payload, $notification->toBroadcast($this->financeDirector));
+    }
+
+    public function test_finance_notifications_wait_for_the_enclosing_transaction_to_commit(): void
+    {
+        $this->approveForCustomer();
+        DB::beginTransaction();
+        try {
+            $this->submitFinance($this->sales)->assertOk();
+            Notification::assertNothingSent();
+            DB::commit();
+        } finally {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+        }
+
+        Notification::assertSentTo([$this->finance, $this->financeDirector], QuotationPendingFinanceNotification::class);
+        Notification::assertCount(2);
+    }
+
+    public function test_outer_transaction_rollback_discards_finance_notifications(): void
+    {
+        $this->approveForCustomer();
+        DB::beginTransaction();
+        try {
+            $this->submitFinance($this->sales)->assertOk();
+            Notification::assertNothingSent();
+        } finally {
+            DB::rollBack();
+        }
+
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_active_finance_recipients_are_not_restricted_to_the_lead_branch(): void
+    {
+        $this->approveForCustomer();
+        $this->finance->delete();
+        $this->financeDirector->update(['branch_id' => 2]);
+        $otherFinance = User::factory()->create(['role_id' => $this->finance->role_id, 'branch_id' => 3]);
+
+        $this->submitFinance($this->sales)->assertOk();
+
+        Notification::assertSentTo([$this->financeDirector, $otherFinance], QuotationPendingFinanceNotification::class);
+        Notification::assertNotSentTo([$this->finance, $this->sales, $this->bm], QuotationPendingFinanceNotification::class);
+        Notification::assertCount(2);
+    }
+
+    public function test_finance_notification_payload_stays_fixed_when_its_models_change(): void
+    {
+        $this->approveForCustomer();
+        $this->submitFinance($this->sales)->assertOk();
+        $notification = Notification::sent($this->finance, QuotationPendingFinanceNotification::class)->sole();
+        $before = $notification->toDatabase($this->finance);
+
+        $notification->quotation->forceFill(['revision_no' => 99, 'revision_code' => 'QT_DEAL_001_R99', 'status' => 'review']);
+        $notification->sales->name = 'Changed sales name';
+        $notification->branchManager->name = 'Changed BM name';
+        $notification->submittedBy->name = 'Changed submitter name';
+        $notification->bmApproval->notes = 'Changed approval notes';
+
+        $this->assertSame($before, $notification->toDatabase($this->finance));
+        $this->assertSame($before, $notification->toBroadcast($this->financeDirector));
+        $restored = unserialize(serialize($notification));
+        $this->assertSame($before, $restored->toBroadcast($this->financeDirector));
+        $this->assertSame('QT_DEAL_001_R0', $before['revision_code']);
+        $this->assertSame('BM approval notes', $before['notes']);
+    }
+
+    public function test_database_channel_persists_the_same_finance_payload_as_broadcast(): void
+    {
+        Schema::create('notifications', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('type');
+            $table->morphs('notifiable');
+            $table->text('data');
+            $table->timestamp('read_at')->nullable();
+            $table->timestamps();
+        });
+        $this->approveForCustomer();
+        $this->submitFinance($this->sales)->assertOk();
+        $notification = Notification::sent($this->finance, QuotationPendingFinanceNotification::class)->sole();
+        $notification->id = (string) Str::uuid();
+
+        (new DatabaseChannel)->send($this->finance, $notification);
+
+        $stored = $this->finance->notifications()->sole();
+        $this->assertSame(QuotationPendingFinanceNotification::class, $stored->type);
+        $this->assertSame($notification->toBroadcast($this->finance), $stored->data);
+        $this->assertSame('BM approval notes', $stored->data['notes']);
+        $this->assertSame('QT_DEAL_001_R0', $stored->data['revision_code']);
     }
 }

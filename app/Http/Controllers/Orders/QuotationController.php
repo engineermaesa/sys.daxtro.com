@@ -249,7 +249,7 @@ class QuotationController extends Controller
         abort_unless(in_array($role, ['sales', 'branch_manager'], true), 403);
         $data = $request->validate(['revision_no' => 'required|integer|min:0']);
 
-        [$quotation, $sales, $bm, $notes] = DB::transaction(function () use ($request, $id, $data, $user, $role) {
+        [$quotation, $sales, $bm, $approval] = DB::transaction(function () use ($request, $id, $data, $user, $role) {
             $quotation = Quotation::with('lead')->whereKey($id)->lockForUpdate()->firstOrFail();
             if ($role === 'sales') {
                 abort_unless(MyLeadQueryService::baseClaimsQuery($request)
@@ -282,11 +282,14 @@ class QuotationController extends Controller
                 'logged_at' => Carbon::now('Asia/Jakarta'),
             ]);
 
-            return [$quotation, $sales, $bm, $approval->notes];
+            return [$quotation, $sales, $bm, $approval];
         }, 3);
 
-        User::whereHas('role', fn ($query) => $query->whereIn('code', ['finance', 'finance_director']))
-            ->get()->each->notify(new QuotationPendingFinanceNotification($quotation, $sales, $bm, $notes));
+        $notification = new QuotationPendingFinanceNotification($quotation, $sales, $bm, $approval->notes, $user, $approval);
+        DB::afterCommit(function () use ($notification) {
+            User::whereHas('role', fn ($query) => $query->whereIn('code', ['finance', 'finance_director']))
+                ->get()->each->notify($notification);
+        });
 
         if ($request->expectsJson() || $request->ajax()) {
             return $this->setJsonResponse('Quotation submitted to Finance successfully', [
