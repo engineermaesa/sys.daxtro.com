@@ -835,8 +835,11 @@ class WarmLeadController extends Controller
 
                 $quotation = $existingQuotation;
             } else {
+                $quotationNo = app(QuotationNumberGenerator::class)->next();
                 $quotation = Quotation::create([
-                    'quotation_no' => app(QuotationNumberGenerator::class)->next(),
+                    'quotation_no' => $quotationNo,
+                    'revision_no' => 0,
+                    'revision_code' => $quotationNo.'_R0',
                     'lead_id' => $claim->lead_id,
                     'status' => 'review',
                     'subtotal' => $draft->subtotal,
@@ -879,7 +882,16 @@ class WarmLeadController extends Controller
                 ]);
             }
 
-            $draft->update(['status' => 'submitted']);
+            $snapshotData = ['status' => 'submitted'];
+            if (! $existingQuotation) {
+                
+                $snapshotData += [
+                    'quotation_id' => $quotation->id,
+                    'revision_no' => 0,
+                    'revision_code' => $quotation->revision_code,
+                ];
+            }
+            $draft->update($snapshotData);
 
             $log = QuotationLog::where('temp_quotation_id', $draft->id)
                 ->where('action', 'draft_created')
