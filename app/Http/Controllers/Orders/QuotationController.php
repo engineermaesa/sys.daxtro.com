@@ -798,14 +798,19 @@ class QuotationController extends Controller
         ]);
     }
 
-    public function logs($id)
+    public function logs(Request $request, $id)
     {
-        $quotation = Quotation::with(['logs.user'])->findOrFail($id);
+        $this->authorizeRevisionAccess($request);
+        $quotation = Quotation::findOrFail($id);
 
-        $logs = $quotation->logs->map(function ($log) {
+        $logs = $quotation->logs()->with(['user', 'tempQuotation'])->orderByDesc('id')->get()->map(function ($log) {
             return [
-                'logged_at' => $log->logged_at ? $log->logged_at->format('d M Y H:i') : '-',
+                'logged_at' => $log->logged_at ? $log->logged_at->timezone('Asia/Jakarta')->format('d M Y H:i') : '-',
                 'action'    => $log->action,
+                'action_label' => $log->action_label,
+                
+                'revision_no' => $log->revision_no ?? $log->tempQuotation?->revision_no,
+                'revision_code' => $log->revision_code ?? $log->tempQuotation?->revision_code,
                 'user'      => $log->user->name ?? '-',
             ];
         });

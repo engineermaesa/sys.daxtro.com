@@ -476,6 +476,7 @@ class WarmLeadController extends Controller
 
             app(QuotationRevisions::class)->ensureInitialSnapshot($existingQuotation);
             $revisionNo = $existingQuotation->revision_no + 1;
+            $revisionAction = $existingQuotation->status === 'published' ? 'bm_published_revision' : 'revision_in_place';
             $existingQuotation->items()->delete();
             $existingQuotation->paymentTerms()->delete();
 
@@ -530,7 +531,7 @@ class WarmLeadController extends Controller
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
                 'temp_quotation_id' => $snapshot->id,
-                'action'       => 'update',
+                'action'       => $revisionAction,
                 'user_id'      => $request->user()->id,
                 'logged_at'    => Carbon::now('Asia/Jakarta'),
             ]);
@@ -854,18 +855,17 @@ class WarmLeadController extends Controller
             if ($log) {
                 $log->update([
                     'quotation_id' => $quotation->id,
-                    'action' => 'submitted',
-                    'logged_at' => now(),
-                ]);
-            } else {
-                QuotationLog::create([
-                    'quotation_id' => $quotation->id,
-                    'temp_quotation_id' => $draft->id,
-                    'action' => 'submitted',
-                    'user_id' => $request->user()->id,
-                    'logged_at' => now(),
+                    'revision_no' => $draft->revision_no,
+                    'revision_code' => $draft->revision_code,
                 ]);
             }
+            QuotationLog::create([
+                'quotation_id' => $quotation->id,
+                'temp_quotation_id' => $draft->id,
+                'action' => 'submitted',
+                'user_id' => $request->user()->id,
+                'logged_at' => Carbon::now('Asia/Jakarta'),
+            ]);
 
             DB::commit();
 

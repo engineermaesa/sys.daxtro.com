@@ -124,7 +124,7 @@ class QuotationDirectEditTest extends TestCase
                 $this->assertTrue($review->fresh()->trashed());
                 $this->assertSame($oldRevision, $review->fresh()->revision_no);
                 $this->assertSame('Previous approval', $review->fresh()->notes);
-                $log = QuotationLog::where('action', 'update')->latest('id')->firstOrFail();
+                $log = QuotationLog::where('action', 'revision_in_place')->latest('id')->firstOrFail();
                 $this->assertSame($snapshot->id, $log->temp_quotation_id);
                 $this->assertSame($actor->id, $log->user_id);
                 $this->assertSame(1, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
@@ -152,6 +152,10 @@ class QuotationDirectEditTest extends TestCase
         $this->assertSame($this->bm->id, $this->quotation->revisions()->where('revision_no', 1)->sole()->created_by);
         $this->assertEquals($before, DB::table('proformas')->where('id', $proforma->id)->first());
         $this->assertSame(1, Proforma::count());
+        $log = QuotationLog::where('action', 'bm_published_revision')->sole();
+        $this->assertSame('QT_DEAL_001_R1', $log->revision_code);
+        $this->assertSame(1, $log->revision_no);
+        $this->assertSame($this->bm->id, $log->user_id);
     }
 
     public function test_published_edits_are_denied_for_sales_and_for_bm_after_payment_confirmation(): void
@@ -212,7 +216,7 @@ class QuotationDirectEditTest extends TestCase
         $this->assertFalse($review->fresh()->trashed());
         $this->assertSame(1, $this->quotation->revisions()->count());
         $this->assertSame(1, DB::table('temp_quotation_items')->count());
-        $this->assertSame(0, QuotationLog::where('action', 'update')->count());
+        $this->assertSame(0, QuotationLog::whereIn('action', ['revision_in_place', 'bm_published_revision'])->count());
         Notification::assertNothingSent();
     }
 

@@ -434,4 +434,78 @@ class QuotationRevisionHistoryTest extends TestCase
         $snapshot->delete();
         $this->get(route('quotations.download', $this->quotation->id))->assertNotFound();
     }
+
+    public function test_logs_keep_revision_identity_and_include_cancelled_drafts_and_deleted_actors(): void
+    {
+        $snapshot = $this->quotation->revisions()->where('revision_no', 0)->firstOrFail();
+        $log = \App\Models\Orders\QuotationLog::create([
+            'quotation_id' => $this->quotation->id, 'temp_quotation_id' => $snapshot->id,
+            'action' => 'submitted', 'user_id' => $this->bm->id,
+            'logged_at' => Carbon::parse('2026-11-20 09:30', 'Asia/Jakarta'),
+        ]);
+        $snapshot->update(['revision_code' => 'CHANGED_SNAPSHOT_METADATA']);
+        $draft = app(QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $this->postJson(route('quotations.drafts.cancel', $draft->id))->assertOk();
+        $this->bm->delete();
+        $rows = $this->getJson(route('quotations.logs', $this->quotation->id))->assertOk()->json();
+        $cancelled = collect($rows)->firstWhere('action', 'draft_cancelled');
+        $this->assertSame('QT_DEAL_900_R3', $cancelled['revision_code']);
+        $this->assertSame(3, $cancelled['revision_no']);
+        $submitted = collect($rows)->firstWhere('action', 'submitted');
+        $this->assertSame('QT_DEAL_900_R0', $submitted['revision_code']);
+        $this->assertSame('Branch Manager', $submitted['user']);
+        $this->assertSame('Submitted for BM Review', $submitted['action_label']);
+        $this->assertSame('20 Nov 2026 09:30', $submitted['logged_at']);
+        $this->assertSame('QT_DEAL_900_R0', $log->fresh()->revision_code);
+    }
+
+    public function test_legacy_logs_use_linked_snapshot_and_never_guess_current_revision(): void
+    {
+        $snapshot = $this->quotation->revisions()->where('revision_no', 0)->firstOrFail();
+        foreach ([$snapshot->id, null] as $snapshotId) {
+            DB::table('quotation_logs')->insert([
+                'quotation_id' => $this->quotation->id, 'temp_quotation_id' => $snapshotId,
+                'action' => 'update', 'user_id' => $this->sales->id, 'logged_at' => '2026-11-20 10:00:00',
+            ]);
+        }
+        $rows = $this->getJson(route('quotations.logs', $this->quotation->id))->assertOk()->json();
+        $this->assertNull($rows[0]['revision_code']);
+        $this->assertNull($rows[0]['revision_no']);
+        $this->assertSame('QT_DEAL_900_R0', $rows[1]['revision_code']);
+        $this->assertSame(0, $rows[1]['revision_no']);
+        $this->assertSame('Quotation Updated', $rows[1]['action_label']);
+    }
+
+    public function test_log_endpoint_is_scoped_to_the_quotation_and_existing_view_roles(): void
+    {
+        $other = Quotation::create(['lead_id' => $this->quotation->lead_id, 'quotation_no' => 'QT_DEAL_901', 'status' => 'review', 'created_by' => $this->sales->id]);
+        \App\Models\Orders\QuotationLog::create([
+            'quotation_id' => $other->id, 'action' => 'other_quotation_event',
+            'user_id' => $this->sales->id, 'logged_at' => Carbon::now('Asia/Jakarta'),
+        ]);
+        foreach ([$this->sales, $this->bm, $this->finance, $this->user('finance_director'), $this->user('super_admin')] as $actor) {
+            $this->actingAs($actor)->getJson(route('quotations.logs', $this->quotation->id))->assertOk()->assertExactJson([]);
+        }
+        $this->actingAs($this->user('purchasing'))->getJson(route('quotations.logs', $this->quotation->id))->assertForbidden();
+        $this->actingAs($this->sales)->getJson(route('quotations.logs', 999))->assertNotFound();
+    }
+
+    public function test_log_metadata_migration_is_repeatable_and_preserves_legacy_rows(): void
+    {
+        $snapshot = $this->quotation->revisions()->where('revision_no', 0)->firstOrFail();
+        $log = \App\Models\Orders\QuotationLog::create([
+            'quotation_id' => $this->quotation->id, 'temp_quotation_id' => $snapshot->id,
+            'action' => 'submitted', 'user_id' => $this->sales->id, 'logged_at' => Carbon::now('Asia/Jakarta'),
+        ]);
+        $migration = require database_path('migrations/2026_11_20_000400_add_revision_metadata_to_quotation_logs.php');
+        $migration->up();
+        $this->assertSame('QT_DEAL_900_R0', $log->fresh()->revision_code);
+        $migration->down();
+        $migration->down();
+        $migration->up();
+        $migration->up();
+        $this->assertSame(1, \App\Models\Orders\QuotationLog::count());
+        $this->getJson(route('quotations.logs', $this->quotation->id))->assertOk()
+            ->assertJsonPath('0.revision_code', 'QT_DEAL_900_R0')->assertJsonPath('0.action', 'submitted');
+    }
 }

@@ -115,6 +115,25 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         return $draft;
     }
 
+    public function test_submit_retains_start_event_and_records_actual_submitter_separately(): void
+    {
+        $claim = $this->makeLeadWithClaim();
+        $draft = $this->makeDraftFor($claim);
+        $started = QuotationLog::firstOrFail();
+        $startedAt = $started->getRawOriginal('logged_at');
+        $role = UserRole::create(['name' => 'BM', 'code' => 'branch_manager']);
+        $bm = User::factory()->create(['role_id' => $role->id, 'branch_id' => 1]);
+        $this->actingAs($bm)->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertOk();
+        $this->assertSame('draft_created', $started->fresh()->action);
+        $this->assertSame($this->sales->id, $started->fresh()->user_id);
+        $this->assertSame($startedAt, $started->fresh()->getRawOriginal('logged_at'));
+        $submitted = QuotationLog::where('action', 'submitted')->sole();
+        $this->assertSame($bm->id, $submitted->user_id);
+        $this->assertSame($draft->id, $submitted->temp_quotation_id);
+        $this->assertSame('QT_DEAL_001_R0', $submitted->revision_code);
+        $this->assertSame($submitted->revision_code, $started->fresh()->revision_code);
+    }
+
     public function test_final_submit_creates_new_quotation_for_lead_with_no_prior_quotation(): void
     {
         $claim = $this->makeLeadWithClaim();
@@ -147,8 +166,9 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
             'subtotal', 'tax_pct', 'tax_total', 'total_discount', 'grand_total', 'booking_fee',
         ]));
 
-        $this->assertDatabaseCount('quotation_logs', 1);
-        $log = QuotationLog::first();
+        $this->assertDatabaseCount('quotation_logs', 2);
+        $this->assertSame('draft_created', QuotationLog::first()->action);
+        $log = QuotationLog::where('action', 'submitted')->sole();
         $this->assertEquals($quotation->id, $log->quotation_id);
         $this->assertSame($draft->id, $log->temp_quotation_id);
         $this->assertEquals('submitted', $log->action);
@@ -210,7 +230,7 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         $draft = $this->makeDraftFor($claim);
 
         // Fail after the draft has been promoted, so header/items/terms/counter must all roll back.
-        DB::unprepared("CREATE TRIGGER fail_submit_log BEFORE UPDATE OF action ON quotation_logs BEGIN SELECT RAISE(ABORT, 'forced submit failure'); END");
+        DB::unprepared("CREATE TRIGGER fail_submit_log BEFORE INSERT ON quotation_logs WHEN NEW.action = 'submitted' BEGIN SELECT RAISE(ABORT, 'forced submit failure'); END");
 
         $response = $this->actingAs($this->sales)
             ->postJson(route('leads.my.warm.quotation.final-submit', $claim->id));
@@ -425,7 +445,7 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         $review = QuotationReview::create(['quotation_id' => $quotation->id, 'role' => 'BM', 'decision' => 'approve']);
         $draftId = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft.id');
         $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $this->revisionPayload())->assertOk();
-        DB::unprepared("CREATE TRIGGER fail_revision_log BEFORE UPDATE OF action ON quotation_logs BEGIN SELECT RAISE(ABORT, 'forced revision failure'); END");
+        DB::unprepared("CREATE TRIGGER fail_revision_log BEFORE INSERT ON quotation_logs WHEN NEW.action = 'submitted' BEGIN SELECT RAISE(ABORT, 'forced revision failure'); END");
         Notification::fake();
 
         $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertStatus(500);
