@@ -24,6 +24,9 @@
             <form method="POST" action="{{ route('leads.my.warm.quotation.store', $claim->id) }}" id="form"
             require-confirmation="true">
                 @csrf
+                @if (($isDraftMode ?? false) && $draft)
+                    <input type="hidden" name="draft_id" value="{{ $draft->id }}">
+                @endif
                 @if (!($isDraftMode ?? false) && $quotation)
                     <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
                 @endif
@@ -540,6 +543,11 @@
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-5 pb-5">
+                    @if ($isEditable && $isDraftMode && $draft && auth()->user()->role?->code === 'sales')
+                        <button type="submit" form="cancel-quotation-draft" class="cursor-pointer px-5 py-2 bg-white border border-[#900B09] rounded-lg text-[#900B09] font-semibold">
+                            {{ $quotation ? 'Cancel Revision' : 'Discard Draft' }}
+                        </button>
+                    @endif
                     @if (!$quotation && !$draft)
                     <a href="{{ route('leads.my') }}" class="cursor-pointer px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Cancel</a>
                     @endif
@@ -561,6 +569,13 @@
                     @endif
                 </div>
             </form>
+            @if ($isEditable && $isDraftMode && $draft && auth()->user()->role?->code === 'sales')
+                <form id="cancel-quotation-draft" method="POST" action="{{ route('quotations.drafts.cancel', $draft->id) }}"
+                    require-confirmation="true" data-confirm-title="{{ $quotation ? 'Cancel Revision?' : 'Discard Draft?' }}"
+                    data-confirm-text="{{ $quotation ? 'Discard saved changes for this revision and keep the current submitted quotation?' : 'Discard this quotation draft and its saved changes?' }}">
+                    @csrf
+                </form>
+            @endif
         </div>
     </section>
 @endsection
@@ -1026,11 +1041,12 @@
                             processData: false,
                             contentType: false,
                             dataType: 'json',
-                        }).done(function () {
+                        }).then(function () {
                             return $.ajax({
                                 url: finalSubmitUrl,
                                 method: 'POST',
                                 dataType: 'json',
+                                data: { draft_id: $form.find('input[name=draft_id]').val() },
                                 headers: { 'X-CSRF-TOKEN': $form.find('input[name=_token]').val() },
                             });
                         }).done(function (response) {

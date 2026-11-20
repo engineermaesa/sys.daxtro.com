@@ -31,7 +31,7 @@ class QuotationLog extends Model
 
     public function tempQuotation()
     {
-        return $this->belongsTo(TempQuotation::class, 'temp_quotation_id');
+        return $this->belongsTo(TempQuotation::class, 'temp_quotation_id')->withTrashed();
     }
 
     public function user()

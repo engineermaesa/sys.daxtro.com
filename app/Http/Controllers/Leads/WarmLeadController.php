@@ -580,6 +580,7 @@ class WarmLeadController extends Controller
             abort_unless(in_array($userRole, ['sales', 'branch_manager']), 403);
 
             $rules = [
+                'draft_id'         => 'nullable|integer|min:1',
                 'product_id.*'      => 'nullable',
                 'description.*'     => 'required|string',
                 'qty.*'             => 'required|numeric|min:1',
@@ -684,6 +685,8 @@ class WarmLeadController extends Controller
             $draft = TempQuotation::where('lead_id', $claim->lead_id)
                 ->where('status', 'draft')->lockForUpdate()->first();
             abort_unless($draft, 409, 'No open revision is available. Reload the quotation.');
+            abort_if($request->filled('draft_id') && (int) $request->input('draft_id') !== $draft->id,
+                409, 'This draft is no longer active. Reload the quotation.');
             if ($current) {
                 app(QuotationRevisions::class)->validateRevisionDraft($current, $draft);
             }
@@ -745,6 +748,7 @@ class WarmLeadController extends Controller
 
     public function finalSubmitQuotation(Request $request, $claimId)
     {
+        $request->validate(['draft_id' => 'nullable|integer|min:1']);
         try {
             $claim = LeadClaim::with('lead.quotation')->findOrFail($claimId);
             $userRole = $request->user()->role?->code;
@@ -760,6 +764,8 @@ class WarmLeadController extends Controller
                 ->where('status', 'draft')
                 ->lockForUpdate()->first();
             abort_unless($draft, 409, 'No open revision is available. Reload the quotation.');
+            abort_if($request->filled('draft_id') && (int) $request->input('draft_id') !== $draft->id,
+                409, 'This draft is no longer active. Reload the quotation.');
 
             $draft->load('items', 'paymentTerms');
 
@@ -969,6 +975,16 @@ class WarmLeadController extends Controller
                 . '
                 ' . view('components.icon.generate-quotation')->render() . '
                 ' . ($quotation ? 'Continue Revision' : 'Continue Quotation') . '</a>';
+            if (auth()->user()->role?->code === 'sales') {
+                $cancelLabel = $quotation ? 'Cancel Revision' : 'Discard Draft';
+                $cancelText = $quotation
+                    ? 'Discard saved changes for this revision and keep the current submitted quotation?'
+                    : 'Discard this quotation draft and its saved changes?';
+                $html .= '<form method="POST" action="' . e(route('quotations.drafts.cancel', $draft->id))
+                    . '" require-confirmation="true" data-confirm-title="' . e($cancelLabel) . '?" data-confirm-text="' . e($cancelText) . '">'
+                    . csrf_field() . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]!">'
+                    . e($cancelLabel) . '</button></form>';
+            }
             if ($quotation) {
                 // Rejected quotation being redrafted — keep a read-only link
                 // to the rejected record for context (rejection reason).

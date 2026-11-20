@@ -262,6 +262,8 @@ Route::get('/debug/expense-realizations', function () {
         'namespace' => 'App\\Http\\Controllers\\Orders',
     ], function () {
         Route::get('/', 'QuotationController@index')->name('index');
+        Route::post('/drafts/{draftId}/cancel', 'QuotationController@cancelDraft')
+            ->whereNumber('draftId')->name('drafts.cancel');
 
         Route::get('/{id}/download', 'QuotationController@download')->name('download');
         Route::get('/{id}/logs', 'QuotationController@logs')->name('logs');

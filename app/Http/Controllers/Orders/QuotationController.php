@@ -242,6 +242,44 @@ class QuotationController extends Controller
         return $this->render('pages.orders.quotation-show', compact('quotation', 'claim', 'rejection'));
     }
 
+    public function cancelDraft(Request $request, $draftId)
+    {
+        abort_unless($request->user()->role?->code === 'sales', 403);
+        $target = TempQuotation::withTrashed()->findOrFail($draftId);
+
+        $isRevision = DB::transaction(function () use ($request, $target) {
+            
+            $parentQuery = Quotation::where('lead_id', $target->lead_id);
+            if ($target->quotation_id !== null) {
+                $parentQuery->withTrashed()->whereKey($target->quotation_id);
+            } else {
+                $parentQuery->orderByDesc('id');
+            }
+            $quotation = $parentQuery->lockForUpdate()->first();
+            abort_unless(MyLeadQueryService::baseClaimsQuery($request)->where('lead_id', $target->lead_id)
+                ->lockForUpdate()->first(), 403);
+            $draft = TempQuotation::withTrashed()->whereKey($target->id)->lockForUpdate()->firstOrFail();
+            abort_unless($draft->lead_id === $target->lead_id && ! $draft->trashed() && $draft->status === 'draft',
+                409, 'Only an active, unsubmitted draft can be cancelled. Reload the quotation.');
+
+            $draft->delete();
+            QuotationLog::create([
+                'quotation_id' => $quotation?->id, 'temp_quotation_id' => $draft->id,
+                'action' => 'draft_cancelled', 'user_id' => $request->user()->id,
+                'logged_at' => Carbon::now('Asia/Jakarta'),
+            ]);
+
+            return $quotation !== null || $draft->quotation_id !== null;
+        }, 3);
+
+        $message = $isRevision ? 'Revision cancelled successfully' : 'Draft discarded successfully';
+        if ($request->expectsJson() || $request->ajax()) {
+            return $this->setJsonResponse($message, ['redirect_url' => route('leads.my')]);
+        }
+
+        return redirect()->route('leads.my')->with('status', $message);
+    }
+
     public function submitToFinance(Request $request, $id)
     {
         $user = $request->user();
