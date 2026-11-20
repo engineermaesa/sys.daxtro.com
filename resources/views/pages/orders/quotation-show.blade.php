@@ -55,8 +55,8 @@
             @elseif(in_array($quotation->status, ['review', 'pending_finance']))
                 @php
                     $roleCode = auth()->user()->role?->code;
-                    $bmReview = $quotation->reviews->where('role', 'BM')->sortByDesc('decided_at')->first();
-                    $financeReview = $quotation->reviews->where('role', 'finance')->sortByDesc('decided_at')->first();
+                    $bmReview = $quotation->currentReviews->where('role', 'BM')->sortByDesc('decided_at')->first();
+                    $financeReview = $quotation->currentReviews->where('role', 'FIN')->sortByDesc('decided_at')->first();
                 @endphp
                 <div class="w-full flex items-center p-3 bg-[#FFFBEB] border border-[#BF6A02] rounded-lg mt-3 text-[#522504] gap-5">
                     <x-icon.info/>
@@ -92,9 +92,9 @@
                         @endif
                     </div>
                 </div>
-            @elseif($quotation && $quotation->status === 'published' && $quotation->reviews->count())
+            @elseif($quotation && $quotation->status === 'published' && $quotation->currentReviews->count())
                 @php
-                    $approval = $quotation->reviews
+                    $approval = $quotation->currentReviews
                         ->where('decision', 'approve')
                         ->sortByDesc('decided_at')
                         ->first();
@@ -598,16 +598,16 @@
                     </a>
                     @php
                         $userRole = auth()->user()->role?->code;
-                        $bmApproved = $quotation->reviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
-                        $financeApproved = $quotation->reviews->where('role', 'finance')->where('decision', 'approve')->isNotEmpty();
+                        $bmApproved = $quotation->currentReviews->where('role', 'BM')->where('decision', 'approve')->isNotEmpty();
+                        $financeApproved = $quotation->currentReviews->where('role', 'FIN')->where('decision', 'approve')->isNotEmpty();
                         $allApproved = $bmApproved && $financeApproved;
                         $hasPayment = $quotation->proformas->contains(function ($p) {
                             return $p->paymentConfirmation !== null;
                         });
 
                         // detect explicit rejections
-                        $rejectedByBM = $quotation->reviews->where('role', 'BM')->where('decision', 'reject')->isNotEmpty();
-                        $rejectedByFinance = $quotation->reviews->where('role', 'FIN')->where('decision', 'reject')->isNotEmpty();
+                        $rejectedByBM = $quotation->currentReviews->where('role', 'BM')->where('decision', 'reject')->isNotEmpty();
+                        $rejectedByFinance = $quotation->currentReviews->where('role', 'FIN')->where('decision', 'reject')->isNotEmpty();
 
                         // Explicit editability rules - allow both sales and BM to edit before finance approval
                         $canEdit = false;
@@ -630,8 +630,8 @@
             {{-- APPROVAL SECTION BY FINANCE AND BRANCH MANAGER --}}
             @php
                 $userRole = auth()->user()->role?->code;
-                $bmReview = $quotation->reviews->where('role', 'BM')->first();
-                $financeReview = $quotation->reviews->where('role', 'finance')->first();
+                $bmReview = $quotation->currentReviews->where('role', 'BM')->first();
+                $financeReview = $quotation->currentReviews->where('role', 'FIN')->first();
 
                 $canReview = false;
                         
@@ -640,7 +640,7 @@
                     $canReview = ($userRole === 'branch_manager' && !$bmReview);
                 } elseif ($quotation->status === 'pending_finance') {
                     // Finance can review if BM approved and finance hasn't reviewed yet
-                    $canReview = ($userRole === 'finance' && $bmReview && $bmReview->decision === 'approve' && !$financeReview);
+                    $canReview = (in_array($userRole, ['finance', 'finance_director']) && $bmReview && $bmReview->decision === 'approve' && !$financeReview);
                 }
             @endphp
 
@@ -655,20 +655,22 @@
                             <form method="POST" id="reject"
                                 action="{{ route('quotations.reject', $quotation->id) }}" require-confirmation="true">
                                 @csrf
+                                <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
                                 <input type="hidden" name="notes" class="hidden_notes">
                                 <div class="flex justify-end mt-3">
                                     <button class="cursor-pointer bg-[#900B09] text-white px-3 py-2 rounded-lg">
-                                        Reject{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
+                                        Reject{{ in_array($userRole, ['finance', 'finance_director']) ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
                                     </button>
                                 </div>
                             </form>
                             <form method="POST" id="approve"
                                 action="{{ route('quotations.approve', $quotation->id) }}" require-confirmation="true">
                                 @csrf
+                                <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
                                 <input type="hidden" name="notes" class="hidden_notes">
                                 <div class="flex justify-end mt-3">
                                     <button class="cursor-pointer bg-[#115640] text-white px-3 py-2 rounded-lg">
-                                        Approve{{ $userRole === 'finance' ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
+                                        Approve{{ in_array($userRole, ['finance', 'finance_director']) ? ' (Finance)' : ($userRole === 'branch_manager' ? ' (BM)' : '') }}
                                     </button>
                                 </div>
                             </form>

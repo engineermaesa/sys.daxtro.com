@@ -192,7 +192,7 @@ class QuotationController extends Controller
     
     public function show(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'sales', 'finance', 'super_admin'];
+        $allowed = ['branch_manager', 'sales', 'finance', 'finance_director', 'super_admin'];
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
         }
@@ -201,7 +201,7 @@ class QuotationController extends Controller
             'lead',
             'items',
             'paymentTerms',
-            'reviews',
+            'currentReviews',
             'proformas.invoice',
             'proformas.paymentConfirmation.attachment',
             'proformas.paymentConfirmation.financeRequest',
@@ -215,7 +215,7 @@ class QuotationController extends Controller
 
         app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
-        $rejection = $quotation->reviews()
+        $rejection = $quotation->currentReviews()
             ->where('decision', 'reject')
             ->latest('decided_at')
             ->first();
@@ -243,8 +243,11 @@ class QuotationController extends Controller
 
     public function approve(Request $request, $id)
     {
+        $request->validate(['notes' => 'required|string', 'revision_no' => 'nullable|integer|min:0']);
+        $userRole = $request->user()->role?->code;
+        abort_unless(in_array($userRole, ['branch_manager', 'finance', 'finance_director'], true), 403);
         $baseIncentive = env('INCENTIVE_AMOUNT_RATE', 100000);
-        $quotation = Quotation::with('paymentTerms', 'lead', 'items', 'reviews')->findOrFail($id);
+        $quotation = Quotation::with('paymentTerms', 'lead', 'items', 'currentReviews')->findOrFail($id);
 
         $incentive = 0;
 
@@ -253,7 +256,7 @@ class QuotationController extends Controller
                 abort(400, 'Invalid discount percentage on item ID: ' . $item->id);
             }
 
-            if ($item->discount_pct == null) {
+            if ($item->discount_pct === null) {
                 abort(400, 'Discount percentage cannot be null on item ID: ' . $item->id);
             }
 
@@ -280,32 +283,17 @@ class QuotationController extends Controller
 
         $totalIncentive = $baseIncentive + $incentive;
 
-        $request->validate([
-            'notes' => 'required|string',
-        ]);
-
-        $userRole = $request->user()->role?->code;
-        $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-        $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
-
-        // Validation rules
-        if ($userRole === 'finance' && !$bmApproved) {
-            abort(403, 'Branch Manager approval is required before Finance approval.');
-        }
-
-        if ($userRole === 'branch_manager' && $bmApproved) {
-            abort(403, 'Branch Manager has already approved this quotation.');
-        }
-
-        if ($userRole === 'finance' && $financeApproved) {
-            abort(403, 'Finance has already approved this quotation.');
-        }
-
-        DB::transaction(function () use ($quotation, $request, $totalIncentive, $userRole) {            
+        DB::transaction(function () use (&$quotation, $request, $totalIncentive, $userRole) {
+            $quotation = $this->lockQuotationForReview($quotation, $request);
+            $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            if (in_array($userRole, ['finance', 'finance_director'], true) && ! $bmApproved) {
+                abort(403, 'Branch Manager approval is required for this revision before Finance approval.');
+            }
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
                 'finance' => 'FIN',
+                'finance_director' => 'FIN',
             ];
             
             $role = $roleMapping[$userRole] ?? $userRole;
@@ -313,11 +301,12 @@ class QuotationController extends Controller
             // Prepare review data
             $reviewData = [
                 'quotation_id'      => $quotation->id,
+                'revision_no'       => $quotation->revision_no,
                 'reviewer_id'       => $request->user()->id,
                 'role'              => $role,
                 'decision'          => 'approve',
                 'notes'             => $request->input('notes'),
-                'decided_at'        => now(),
+                'decided_at'        => Carbon::now('Asia/Jakarta'),
             ];
 
             // Only add incentive_nominal if it's not null (for Finance approvals)
@@ -331,24 +320,26 @@ class QuotationController extends Controller
 
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
+                'temp_quotation_id' => $quotation->revisions()->withTrashed()
+                    ->where('revision_no', $quotation->revision_no)->where('status', 'submitted')->value('id'),
                 'action'       => 'approve',
                 'user_id'      => $request->user()->id,
-                'logged_at'    => now(),
+                'logged_at'    => Carbon::now('Asia/Jakarta'),
             ]);
 
             // Check approval status after this approval
-            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
+            $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->currentReviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
 
             // Update quotation status based on approvals
             if ($userRole === 'branch_manager') {
                 // BM approved - set to pending finance approval
                 $quotation->update(['status' => 'pending_finance']);
-            } elseif ($userRole === 'finance' && $bmApproved) {
+            } elseif (in_array($userRole, ['finance', 'finance_director'], true) && $bmApproved) {
                 // Both BM and Finance approved - publish the quotation
                 $quotation->update([
                     'status' => 'published',
-                    'expiry_date' => now()->addDays(30),
+                    'expiry_date' => Carbon::now('Asia/Jakarta')->addDays(30),
                 ]);
 
                 // Only create proformas when both approvals are complete
@@ -361,7 +352,7 @@ class QuotationController extends Controller
                     'quotation_id'  => $quotation->id,
                     'description'   => 'Incentive for quotation ' . $quotation->quotation_no,
                     'status'        => 'pending',
-                    'created_at'    => now(),
+                    'created_at'    => Carbon::now('Asia/Jakarta'),
                 ]);
             }
         });
@@ -489,14 +480,17 @@ class QuotationController extends Controller
     }
     public function reject(Request $request, $id)
     {
+        $request->validate(['notes' => 'required|string', 'revision_no' => 'nullable|integer|min:0']);
         $quotation = Quotation::findOrFail($id);
         $userRole = $request->user()->role?->code;
 
-        DB::transaction(function () use ($quotation, $request, $userRole) {
+        DB::transaction(function () use (&$quotation, $request, $userRole) {
+            $quotation = $this->lockQuotationForReview($quotation, $request);
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
                 'finance' => 'FIN',
+                'finance_director' => 'FIN',
             ];
 
             $role = $roleMapping[$userRole] ?? $userRole;
@@ -505,19 +499,22 @@ class QuotationController extends Controller
 
             QuotationReview::create([
                 'quotation_id' => $quotation->id,
+                'revision_no' => $quotation->revision_no,
                 'reviewer_id'  => $request->user()->id,
                 'role'        => $role,
                 'decision'    => 'reject',
                 'notes'       => $request->input('notes'),
                 'incentive_nominal' => 0, // Add this to prevent NULL issues
-                'decided_at'  => now(),
+                'decided_at'  => Carbon::now('Asia/Jakarta'),
             ]);
 
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
+                'temp_quotation_id' => $quotation->revisions()->withTrashed()
+                    ->where('revision_no', $quotation->revision_no)->where('status', 'submitted')->value('id'),
                 'action'       => 'reject',
                 'user_id'      => $request->user()->id,
-                'logged_at'    => now(),
+                'logged_at'    => Carbon::now('Asia/Jakarta'),
             ]);
         });
 
@@ -548,6 +545,25 @@ class QuotationController extends Controller
         }
 
         return back()->with('status', 'Quotation rejected');
+    }
+
+    private function lockQuotationForReview(Quotation $quotation, Request $request): Quotation
+    {
+        $role = $request->user()->role?->code;
+        abort_unless(in_array($role, ['branch_manager', 'finance', 'finance_director'], true), 403);
+        $current = Quotation::with(['lead', 'items', 'paymentTerms'])
+            ->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
+        $expected = $request->filled('revision_no') ? (int) $request->input('revision_no') : $quotation->revision_no;
+        abort_unless($current->revision_no === $expected, 409,
+            'The quotation revision has changed. Reload it before reviewing.');
+        abort_unless($current->status === ($role === 'branch_manager' ? 'review' : 'pending_finance'),
+            409, 'This revision is no longer awaiting your review.');
+        $reviewRole = $role === 'branch_manager' ? 'BM' : 'FIN';
+        abort_if($current->currentReviews()->where('role', $reviewRole)->exists(), 409,
+            'This revision has already been reviewed.');
+        app(QuotationRevisions::class)->ensureInitialSnapshot($current);
+
+        return $current;
     }
 
     public function uploadSignedDocument(Request $request, $id)

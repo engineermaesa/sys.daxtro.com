@@ -65,6 +65,21 @@ public function reviews()
     return $this->hasMany(QuotationReview::class, 'quotation_id');
 }
 
+public function currentReviews()
+{
+    return $this->reviews()->whereExists(function ($query) {
+        $query->selectRaw('1')->from('quotations')
+            ->whereColumn('quotations.id', 'quotation_reviews.quotation_id')
+            ->whereColumn('quotations.revision_no', 'quotation_reviews.revision_no');
+    });
+}
+
+public function reviewHistory()
+{
+    return $this->reviews()->withTrashed()->orderByDesc('revision_no')
+        ->orderByDesc('decided_at')->orderByDesc('id');
+}
+
 public function revisions()
 {
     return $this->hasMany(TempQuotation::class, 'quotation_id')->orderByDesc('revision_no');

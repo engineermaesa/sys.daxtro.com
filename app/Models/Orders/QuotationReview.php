@@ -25,6 +25,7 @@ class QuotationReview extends Model
 
     protected $casts = [
         'revision_no' => 'integer',
+        'decided_at' => 'datetime',
     ];
 
     public function quotation()

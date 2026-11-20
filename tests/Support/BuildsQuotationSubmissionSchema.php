@@ -79,7 +79,7 @@ trait BuildsQuotationSubmissionSchema
             $table->integer('term_no')->nullable();
             $table->string('proforma_type')->nullable();
             $table->string('proforma_no')->nullable();
-            $table->double('amount');
+            $table->double('amount')->nullable();
             $table->string('status')->default('confirmed');
             $table->unsignedBigInteger('issued_by')->nullable();
             $table->timestamp('issued_at')->nullable();
@@ -126,6 +126,7 @@ trait BuildsQuotationSubmissionSchema
             $table->unsignedBigInteger('reviewer_id')->nullable();
             $table->text('notes')->nullable();
             $table->timestamp('decided_at')->nullable();
+            $table->double('incentive_nominal')->default(0);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -150,6 +151,25 @@ trait BuildsQuotationSubmissionSchema
             $table->timestamp('logged_at');
             $table->timestamps();
             $table->softDeletes();
+        });
+        Schema::create('attachments', function (Blueprint $table) {
+            $table->id();
+            foreach (['type', 'file_path', 'mime_type'] as $column) {
+                $table->string($column);
+            }
+            $table->unsignedBigInteger('size');
+            $table->foreignId('uploaded_by')->constrained('users');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+        Schema::create('user_balance_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users');
+            $table->foreignId('quotation_id')->constrained('quotations');
+            $table->double('amount');
+            $table->string('description')->nullable();
+            $table->string('status');
+            $table->timestamp('created_at')->nullable();
         });
     }
 }

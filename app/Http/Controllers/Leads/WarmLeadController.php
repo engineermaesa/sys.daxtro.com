@@ -207,8 +207,8 @@ class WarmLeadController extends Controller
         if (! $needsDraftFlow) {
             $isEditable = true;
 
-            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->reviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
+            $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->currentReviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
             $allApproved = $bmApproved && $financeApproved; // Both must approve
 
             $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
@@ -230,12 +230,12 @@ class WarmLeadController extends Controller
                 $isEditable = true;
             }
 
-            $rejection = $quotation->reviews()
+            $rejection = $quotation->currentReviews()
                 ->where('decision', 'reject')
                 ->latest('decided_at')
                 ->first();
 
-            $approval = $quotation->reviews()
+            $approval = $quotation->currentReviews()
                 ->where('decision', 'approve')
                 ->latest('decided_at')
                 ->first();
@@ -309,7 +309,7 @@ class WarmLeadController extends Controller
 
         $isEditable = in_array($userRole, ['sales', 'branch_manager']);
 
-        $rejection = $quotation ? $quotation->reviews()
+        $rejection = $quotation ? $quotation->currentReviews()
             ->where('decision', 'reject')
             ->latest('decided_at')
             ->first() : null;
@@ -480,7 +480,6 @@ class WarmLeadController extends Controller
             $existingQuotation->paymentTerms()->delete();
 
             // Archive the decisions against the previous revision before restarting review.
-            $existingQuotation->reviews()->update(['revision_no' => $existingQuotation->revision_no]);
             $existingQuotation->reviews()->delete();
 
             $existingQuotation->update([
@@ -769,7 +768,6 @@ class WarmLeadController extends Controller
                 app(QuotationRevisions::class)->ensureInitialSnapshot($existingQuotation);
                 $existingQuotation->items()->delete();
                 $existingQuotation->paymentTerms()->delete();
-                $existingQuotation->reviews()->update(['revision_no' => $existingQuotation->revision_no]);
                 $existingQuotation->reviews()->delete();
 
                 $revisionNo = $existingQuotation->revision_no + 1;
@@ -900,8 +898,8 @@ class WarmLeadController extends Controller
         }
 
         if (in_array($status, ['review', 'pending_finance'])) {
-            $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
+            $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
+            $financeApproved = $quotation->currentReviews()->where('role', 'FIN')->where('decision', 'approve')->exists();
 
             if (! $bmApproved) {
                 return '<span class="status-waiting">Pending BM Approval</span>';
@@ -923,7 +921,7 @@ class WarmLeadController extends Controller
         }
 
         if ($status === 'rejected') {
-            $review = $quotation->reviews()->where('decision', 'reject')->latest('decided_at')->first();
+            $review = $quotation->currentReviews()->where('decision', 'reject')->latest('decided_at')->first();
             $role = $review?->role;
 
             if ($role) {
