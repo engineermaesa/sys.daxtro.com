@@ -73,6 +73,28 @@ trait BuildsQuotationSubmissionSchema
             $table->timestamps();
             $table->softDeletes();
         });
+        Schema::create('proformas', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('quotation_id')->constrained('quotations');
+            $table->integer('term_no')->nullable();
+            $table->string('proforma_type')->nullable();
+            $table->string('proforma_no')->nullable();
+            $table->double('amount');
+            $table->string('status')->default('confirmed');
+            $table->unsignedBigInteger('issued_by')->nullable();
+            $table->timestamp('issued_at')->nullable();
+            $table->unsignedBigInteger('attachment_id')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+        Schema::create('payment_confirmations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('proforma_id')->constrained('proformas');
+            $table->double('amount');
+            $table->timestamp('confirmed_at')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
         Schema::create('quotation_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('quotation_id')->constrained('quotations');

@@ -24,6 +24,9 @@
             <form method="POST" action="{{ route('leads.my.warm.quotation.store', $claim->id) }}" id="form"
             require-confirmation="true">
                 @csrf
+                @if (!($isDraftMode ?? false) && $quotation)
+                    <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
+                @endif
                 {{-- QUOTATIONS ITEMS --}}
                 <div class="bg-white rounded-lg mt-4">
                     <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Quotations Items</h1>

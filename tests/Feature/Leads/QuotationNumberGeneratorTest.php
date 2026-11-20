@@ -166,19 +166,9 @@ class QuotationNumberGeneratorTest extends TestCase
             $this->createSchema();
             $this->migration()->up();
             $first->start();
-            $firstOutput = '';
-            $this->assertTrue($first->waitUntil(function ($type, $output) use (&$firstOutput) {
-                $firstOutput .= $output;
-
-                return str_contains($firstOutput, 'reserved:QT_DEAL_001');
-            }));
+            $this->waitForWorkerOutput($first, 'reserved:QT_DEAL_001');
             $second->start();
-            $secondOutput = '';
-            $this->assertTrue($second->waitUntil(function ($type, $output) use (&$secondOutput) {
-                $secondOutput .= $output;
-
-                return str_contains($secondOutput, 'ready');
-            }));
+            $this->waitForWorkerOutput($second, 'ready');
             // Keep the first transaction open while the second attempts allocation.
             usleep(100000);
             $this->assertTrue($second->isRunning());
@@ -201,5 +191,25 @@ class QuotationNumberGeneratorTest extends TestCase
             DB::purge('quotation_number_test');
             unlink($databasePath);
         }
+    }
+
+    private function waitForWorkerOutput(Process $process, string $expected): void
+    {
+        $deadline = microtime(true) + 10;
+        do {
+            // start() may already have buffered the signal before a waitUntil callback is installed.
+            if (str_contains($process->getOutput(), $expected)) {
+                $this->assertStringContainsString($expected, $process->getOutput());
+
+                return;
+            }
+            if (! $process->isRunning()) {
+                break;
+            }
+            $process->checkTimeout();
+            usleep(10000);
+        } while (microtime(true) < $deadline);
+
+        $this->fail('Worker did not emit '.$expected.': '.$process->getOutput().' '.$process->getErrorOutput());
     }
 }

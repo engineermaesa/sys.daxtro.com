@@ -9,6 +9,25 @@ use Carbon\Carbon;
 
 class QuotationRevisions
 {
+    public function snapshotCurrentRevision(Quotation $quotation, int $createdBy): TempQuotation
+    {
+        return $quotation->getConnection()->transaction(function () use ($quotation, $createdBy) {
+            $current = $quotation->newQuery()->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->revision_code === $current->quotation_no.'_R'.$current->revision_no, 409,
+                'The quotation revision has changed. Reload the quotation.');
+            abort_if($current->revisions()->withTrashed()->where('revision_no', $current->revision_no)
+                ->where('status', 'submitted')->exists(), 409, 'This revision already has a snapshot.');
+
+            $snapshot = $current->revisions()->create(array_merge($current->only([
+                'lead_id', 'revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total',
+                'total_discount', 'grand_total', 'booking_fee',
+            ]), ['status' => 'submitted', 'created_by' => $createdBy]));
+            $this->copyContents($current, $snapshot);
+
+            return $snapshot;
+        }, 3);
+    }
+
     public function startRevision(Quotation $quotation, int $createdBy): TempQuotation
     {
         return $quotation->getConnection()->transaction(function () use ($quotation, $createdBy) {

@@ -360,35 +360,11 @@ class WarmLeadController extends Controller
 
         try {
             $userRole   = $request->user()->role?->code;
-            $canEdit    = true;
-            if ($quotation) {
-                $bmApproved = $quotation->reviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-                $financeApproved = $quotation->reviews()->where('role', 'finance')->where('decision', 'approve')->exists();
-                $allApproved = $bmApproved && $financeApproved; // Both must approve
-
-                $hasPayment = PaymentConfirmation::whereHas('proforma', function ($q) use ($quotation) {
-                    $q->where('quotation_id', $quotation->id);
-                })->exists();
-
-                if ($quotation->status === 'published') {
-                    $canEdit = in_array($userRole, ['branch_manager']) && !$hasPayment;
-                } else {
-                    $editableStatuses = ['draft', 'review', 'pending_finance'];
-                    $canEdit = in_array($userRole, ['sales', 'branch_manager']) && in_array($quotation->status, $editableStatuses);
-                }
-            } else {
-                $canEdit = in_array($userRole, ['sales', 'branch_manager']);
-            }
-
-            // Allow sales to save edits when quotation was rejected
-            if ($quotation && $quotation->status === 'rejected' && $userRole === 'sales') {
-                $canEdit = true;
-            }
-
-            abort_unless($canEdit, 403);
+            abort_unless($this->canEditQuotationDirectly($quotation, $userRole), 403);
 
             // 1. Define rules
             $rules = [
+                'revision_no'       => 'nullable|integer|min:0',
                 'product_id.*'      => 'nullable',
                 'description.*'     => 'required|string',
                 'qty.*'             => 'required|numeric|min:1',
@@ -442,8 +418,6 @@ class WarmLeadController extends Controller
                 return $this->setJsonResponse('Total Term of Payment must be exactly 100%', [], 422);
             }
 
-            DB::beginTransaction();
-
             $items = [];
             $subtotal = 0;
             $totalDiscount = 0;
@@ -486,50 +460,43 @@ class WarmLeadController extends Controller
                 return $this->setJsonResponse('Booking fee cannot be greater than Grand Total.', [], 422);
             }
 
-            // Check for existing quotation for this lead
+            DB::beginTransaction();
+
             $existingQuotation = Quotation::where('lead_id', $claim->lead_id)
-                ->orderByDesc('id')
+                ->orderByDesc('id')->lockForUpdate()
                 ->first();
+            abort_unless($existingQuotation
+                && $existingQuotation->id === $quotation->id
+                && $existingQuotation->revision_no === (int) $request->input('revision_no', $quotation->revision_no)
+                && $existingQuotation->status === $quotation->status,
+                409, 'The quotation has changed. Reload it before saving your edits.');
+            abort_unless($this->canEditQuotationDirectly($existingQuotation, $userRole), 403);
+            abort_if(TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->exists(),
+                409, 'An open revision exists. Continue that revision before editing the quotation.');
 
-            $hadApproval = $existingQuotation
-                ? $existingQuotation->reviews()->where('decision', 'approve')->exists()
-                : false;
+            app(QuotationRevisions::class)->ensureInitialSnapshot($existingQuotation);
+            $revisionNo = $existingQuotation->revision_no + 1;
+            $existingQuotation->items()->delete();
+            $existingQuotation->paymentTerms()->delete();
 
-                if ($existingQuotation) {
-                // Clean up previous data
-                $existingQuotation->items()->delete();
-                $existingQuotation->paymentTerms()->delete();
+            // Archive the decisions against the previous revision before restarting review.
+            $existingQuotation->reviews()->update(['revision_no' => $existingQuotation->revision_no]);
+            $existingQuotation->reviews()->delete();
 
-                // Clear previous reviews (approve/reject) so new review cycle can start
-                $existingQuotation->reviews()->delete();
+            $existingQuotation->update([
+                'revision_no' => $revisionNo,
+                'revision_code' => $existingQuotation->quotation_no.'_R'.$revisionNo,
+                'status' => 'review',
+                'subtotal' => $subtotal,
+                'tax_pct' => $request->tax_pct,
+                'tax_total' => $taxTotal,
+                'total_discount' => $totalDiscount,
+                'grand_total' => $grandTotal,
+                'booking_fee' => $bookingFee,
+                'expiry_date' => Carbon::now('Asia/Jakarta')->addDays(15),
+            ]);
 
-                $existingQuotation->update([
-                    'status'      => 'review',
-                    'subtotal'    => $subtotal,
-                    'tax_pct'     => $request->tax_pct,
-                    'tax_total'   => $taxTotal,
-                    'total_discount' => $totalDiscount,
-                    'grand_total' => $grandTotal,
-                    'booking_fee' => $bookingFee,
-                    'expiry_date' => now()->addDays(15),
-                ]);
-
-                $quotation = $existingQuotation;
-            } else {
-                $quotation = Quotation::create([
-                    'quotation_no' => app(QuotationNumberGenerator::class)->next(),
-                    'lead_id' => $claim->lead_id,
-                    'status' => 'review',
-                    'subtotal' => $subtotal,
-                    'tax_pct' => $request->tax_pct,
-                    'tax_total' => $taxTotal,
-                    'total_discount' => $totalDiscount,
-                    'grand_total' => $grandTotal,
-                    'booking_fee' => $bookingFee,
-                    'created_by' => $request->user()->id,
-                    'expiry_date' => now()->addDays(15),
-                ]);
-            }
+            $quotation = $existingQuotation;
 
             $savedItems = [];
             foreach ($items as $index => $itemData) {
@@ -560,12 +527,13 @@ class WarmLeadController extends Controller
                 }
             }
 
-            $action = $existingQuotation ? 'update' : 'generate';
+            $snapshot = app(QuotationRevisions::class)->snapshotCurrentRevision($quotation, $request->user()->id);
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
-                'action'       => $action,
+                'temp_quotation_id' => $snapshot->id,
+                'action'       => 'update',
                 'user_id'      => $request->user()->id,
-                'logged_at'    => now(),
+                'logged_at'    => Carbon::now('Asia/Jakarta'),
             ]);
 
             DB::commit();
@@ -583,8 +551,22 @@ class WarmLeadController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof HttpExceptionInterface) {
+                return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
+            }
             return $this->setJsonResponse('Failed to save quotation', [], 500, $e);
         }
+    }
+
+    private function canEditQuotationDirectly(Quotation $quotation, ?string $role): bool
+    {
+        if ($quotation->status === 'published') {
+            return $role === 'branch_manager' && ! PaymentConfirmation::whereHas('proforma',
+                fn ($query) => $query->where('quotation_id', $quotation->id))->exists();
+        }
+
+        return in_array($role, ['sales', 'branch_manager'], true)
+            && in_array($quotation->status, ['draft', 'review', 'pending_finance'], true);
     }
 
     /**
