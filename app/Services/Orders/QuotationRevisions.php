@@ -11,8 +11,10 @@ class QuotationRevisions
 {
     public function snapshotCurrentRevision(Quotation $quotation, int $createdBy): TempQuotation
     {
-        return $quotation->getConnection()->transaction(function () use ($quotation, $createdBy) {
+        return QuotationConcurrency::transaction(function () use ($quotation, $createdBy) {
+            QuotationConcurrency::lockLead($quotation->lead_id, $quotation->getConnection());
             $current = $quotation->newQuery()->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->revision_no === $quotation->revision_no, 409, QuotationConcurrency::MESSAGE);
             abort_unless($current->revision_code === $current->quotation_no.'_R'.$current->revision_no, 409,
                 'The quotation revision has changed. Reload the quotation.');
             abort_if($current->revisions()->withTrashed()->where('revision_no', $current->revision_no)
@@ -25,13 +27,15 @@ class QuotationRevisions
             $this->copyContents($current, $snapshot);
 
             return $snapshot;
-        }, 3);
+        }, 1, $quotation->getConnection());
     }
 
     public function startRevision(Quotation $quotation, int $createdBy): TempQuotation
     {
-        return $quotation->getConnection()->transaction(function () use ($quotation, $createdBy) {
+        return QuotationConcurrency::transaction(function () use ($quotation, $createdBy) {
+            QuotationConcurrency::lockLead($quotation->lead_id, $quotation->getConnection());
             $current = $quotation->newQuery()->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->revision_no === $quotation->revision_no, 409, QuotationConcurrency::MESSAGE);
             abort_unless(in_array($current->status, ['rejected', 'approved_by_bm'], true), 409,
                 'This quotation is no longer available for revision. Reload the quotation.');
             $this->ensureInitialSnapshot($current);
@@ -61,7 +65,7 @@ class QuotationRevisions
             ]);
 
             return $draft->load('items', 'paymentTerms');
-        }, 3);
+        }, 1, $quotation->getConnection());
     }
 
     public function validateRevisionDraft(Quotation $quotation, TempQuotation $draft): void
@@ -77,7 +81,8 @@ class QuotationRevisions
 
     public function ensureInitialSnapshot(Quotation $quotation): ?TempQuotation
     {
-        $snapshot = $quotation->getConnection()->transaction(function () use ($quotation) {
+        $snapshot = QuotationConcurrency::transaction(function () use ($quotation) {
+            QuotationConcurrency::lockLead($quotation->lead_id, $quotation->getConnection());
             $current = $quotation->newQuery()->whereKey($quotation->getKey())->lockForUpdate()->firstOrFail();
 
             if ((int) $current->revision_no !== 0 || blank($current->quotation_no)) {
@@ -116,7 +121,7 @@ class QuotationRevisions
             $this->copyContents($current, $snapshot);
 
             return $snapshot;
-        }, 3);
+        }, 1, $quotation->getConnection());
 
         if ($snapshot) {
             $quotation->setAttribute('revision_code', $snapshot->revision_code);

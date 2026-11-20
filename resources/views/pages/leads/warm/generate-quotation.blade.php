@@ -34,6 +34,7 @@
                 @csrf
                 @if (($isDraftMode ?? false) && $draft)
                     <input type="hidden" name="draft_id" value="{{ $draft->id }}">
+                    <input type="hidden" name="draft_version" value="{{ $draft->lock_version ?? 0 }}">
                 @endif
                 @if (!($isDraftMode ?? false) && $quotation)
                     <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
@@ -586,6 +587,7 @@
                     require-confirmation="true" data-confirm-title="{{ $quotation ? 'Cancel Revision?' : 'Discard Draft?' }}"
                     data-confirm-text="{{ $quotation ? 'Discard saved changes for this revision and keep the current submitted quotation?' : 'Discard this quotation draft and its saved changes?' }}">
                     @csrf
+                    <input type="hidden" name="draft_version" value="{{ $draft->lock_version ?? 0 }}">
                 </form>
             @endif
         </div>
@@ -1053,12 +1055,15 @@
                             processData: false,
                             contentType: false,
                             dataType: 'json',
-                        }).then(function () {
+                        }).then(function (saved) {
+                            const version = saved.data.draft_version;
+                            $form.find('input[name=draft_version]').val(version);
+                            $('#cancel-quotation-draft input[name=draft_version]').val(version);
                             return $.ajax({
                                 url: finalSubmitUrl,
                                 method: 'POST',
                                 dataType: 'json',
-                                data: { draft_id: $form.find('input[name=draft_id]').val() },
+                                data: { draft_id: $form.find('input[name=draft_id]').val(), draft_version: version },
                                 headers: { 'X-CSRF-TOKEN': $form.find('input[name=_token]').val() },
                             });
                         }).done(function (response) {

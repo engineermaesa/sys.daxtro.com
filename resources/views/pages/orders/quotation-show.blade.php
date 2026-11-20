@@ -650,6 +650,7 @@
                         <form method="POST" action="{{ route('quotations.drafts.cancel', $openRevision->id) }}" require-confirmation="true"
                             data-confirm-title="Cancel Revision?" data-confirm-text="Discard saved changes for this revision and keep the current submitted quotation?">
                             @csrf
+                            <input type="hidden" name="draft_version" value="{{ $openRevision->lock_version ?? 0 }}">
                             <button type="submit" class="px-5 py-2 border border-[#900B09] rounded-lg text-[#900B09] font-semibold cursor-pointer">Cancel Revision</button>
                         </form>
                     @endif

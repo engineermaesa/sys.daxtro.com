@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\AutoTrashService;
 use App\Services\MyLeadQueryService;
 use App\Services\Orders\QuotationRevisions;
+use App\Services\Orders\QuotationConcurrency;
 use App\Notifications\Orders\QuotationPendingFinanceNotification;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
@@ -317,9 +318,11 @@ class QuotationController extends Controller
     public function cancelDraft(Request $request, $draftId)
     {
         abort_unless($request->user()->role?->code === 'sales', 403);
+        $request->validate(['draft_version' => 'nullable|integer|min:0']);
         $target = TempQuotation::withTrashed()->findOrFail($draftId);
 
-        $isRevision = DB::transaction(function () use ($request, $target) {
+        $isRevision = QuotationConcurrency::transaction(function () use ($request, $target) {
+            QuotationConcurrency::lockLead($target->lead_id);
             
             $parentQuery = Quotation::where('lead_id', $target->lead_id);
             if ($target->quotation_id !== null) {
@@ -333,6 +336,7 @@ class QuotationController extends Controller
             $draft = TempQuotation::withTrashed()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             abort_unless($draft->lead_id === $target->lead_id && ! $draft->trashed() && $draft->status === 'draft',
                 409, 'Only an active, unsubmitted draft can be cancelled. Reload the quotation.');
+            QuotationConcurrency::checkDraft($draft, $target, $request);
 
             $draft->delete();
             QuotationLog::create([
@@ -342,7 +346,7 @@ class QuotationController extends Controller
             ]);
 
             return $quotation !== null || $draft->quotation_id !== null;
-        }, 3);
+        });
 
         $message = $isRevision ? 'Revision cancelled successfully' : 'Draft discarded successfully';
         if ($request->expectsJson() || $request->ajax()) {
@@ -359,7 +363,9 @@ class QuotationController extends Controller
         abort_unless(in_array($role, ['sales', 'branch_manager'], true), 403);
         $data = $request->validate(['revision_no' => 'required|integer|min:0']);
 
-        [$quotation, $sales, $bm, $approval] = DB::transaction(function () use ($request, $id, $data, $user, $role) {
+        $target = Quotation::findOrFail($id);
+        [$quotation, $sales, $bm, $approval] = QuotationConcurrency::transaction(function () use ($request, $id, $data, $user, $role, $target) {
+            QuotationConcurrency::lockLead($target->lead_id);
             $quotation = Quotation::with('lead')->whereKey($id)->lockForUpdate()->firstOrFail();
             if ($role === 'sales') {
                 abort_unless(MyLeadQueryService::baseClaimsQuery($request)
@@ -393,10 +399,10 @@ class QuotationController extends Controller
             ]);
 
             return [$quotation, $sales, $bm, $approval];
-        }, 3);
+        });
 
         $notification = new QuotationPendingFinanceNotification($quotation, $sales, $bm, $approval->notes, $user, $approval);
-        DB::afterCommit(function () use ($notification) {
+        QuotationConcurrency::afterCommit(function () use ($notification) {
             User::whereHas('role', fn ($query) => $query->whereIn('code', ['finance', 'finance_director']))
                 ->get()->each->notify($notification);
         });
@@ -417,7 +423,8 @@ class QuotationController extends Controller
         $userRole = $request->user()->role?->code;
         $quotation = Quotation::findOrFail($id);
 
-        DB::transaction(function () use (&$quotation, $request, $userRole) {
+        $generatedFiles = [];
+        QuotationConcurrency::transaction(function () use (&$quotation, $request, $userRole, &$generatedFiles) {
             $quotation = $this->lockQuotationForReview($quotation, $request);
             $totalIncentive = $this->calculateQuotationIncentive($quotation);
             $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
@@ -474,7 +481,7 @@ class QuotationController extends Controller
                 ]);
 
                 // Only create proformas when both approvals are complete
-                $this->createProformas($quotation, $request->user());
+                $this->createProformas($quotation, $request->user(), $generatedFiles);
 
                 // Create incentive log
                 \App\Models\UserBalanceLog::create([
@@ -486,39 +493,42 @@ class QuotationController extends Controller
                     'created_at'    => Carbon::now('Asia/Jakarta'),
                 ]);
             }
+        }, 1, null, function () use (&$generatedFiles) {
+            if ($generatedFiles) Storage::disk('public')->delete($generatedFiles);
         });
 
         // Notify sales about the approval decision
-        $salesUser = \App\Models\User::find($quotation->created_by);
-        if ($salesUser) {
-            $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
-            $salesUser->notify(
-                new \App\Notifications\Orders\QuotationReviewedNotification(
-                    $quotation->load('lead'), 'approve', $reviewerRole, $request->input('notes')
-                )
-            );
-        }
-
-        // Jika Finance yang approve, notify juga semua BM di branch agar tahu keputusan akhir
-        if (in_array($userRole, ['finance', 'finance_director'])) {
-            $branchId = $quotation->lead?->branch_id;
-            if ($branchId) {
-                User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
-                    ->where('branch_id', $branchId)
-                    ->get()
-                    ->each->notify(
-                        new \App\Notifications\Orders\QuotationReviewedNotification(
-                            $quotation->fresh()->load('lead'), 'approve', 'FIN', $request->input('notes')
-                        )
-                    );
+        QuotationConcurrency::afterCommit(function () use ($quotation, $userRole, $request) {
+            $salesUser = \App\Models\User::find($quotation->created_by);
+            if ($salesUser) {
+                $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
+                $salesUser->notify(
+                    new \App\Notifications\Orders\QuotationReviewedNotification(
+                        $quotation->load('lead'), 'approve', $reviewerRole, $request->input('notes')
+                    )
+                );
             }
-        }
 
+            // Jika Finance yang approve, notify juga semua BM di branch agar tahu keputusan akhir
+            if (in_array($userRole, ['finance', 'finance_director'])) {
+                $branchId = $quotation->lead?->branch_id;
+                if ($branchId) {
+                    User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                        ->where('branch_id', $branchId)
+                        ->get()
+                        ->each->notify(
+                            new \App\Notifications\Orders\QuotationReviewedNotification(
+                                $quotation->load('lead'), 'approve', 'FIN', $request->input('notes')
+                            )
+                        );
+                }
+            }
+        });
         return back()->with('status', 'Quotation approved');
     }
 
     // Extract proforma creation to separate method for cleaner code
-    private function createProformas($quotation, $user)
+    private function createProformas($quotation, $user, array &$generatedFiles)
     {
         // Create booking fee proforma if exists
         if ($quotation->booking_fee) {
@@ -535,7 +545,7 @@ class QuotationController extends Controller
                 'issued_by'   => $user->id,
             ])->save();
 
-            $this->generateProformaPDF($proforma, $quotation, $user);
+            $this->generateProformaPDF($proforma, $quotation, $user, $generatedFiles);
         }
 
         // Create payment term proformas
@@ -564,11 +574,11 @@ class QuotationController extends Controller
                 'issued_at'   => now(),
             ])->save();
 
-            $this->generateProformaPDF($proforma, $quotation, $user);
+            $this->generateProformaPDF($proforma, $quotation, $user, $generatedFiles);
         }
     }
 
-    private function generateProformaPDF($proforma, $quotation, $user)
+    private function generateProformaPDF($proforma, $quotation, $user, array &$generatedFiles)
     {
         $storagePath = storage_path('app/public/proformas');
         if (!File::exists($storagePath)) {
@@ -577,14 +587,15 @@ class QuotationController extends Controller
 
         $html = view('pdfs.proforma', compact('proforma', 'quotation'))->render();
         $pdf  = Pdf::loadHTML($html)->setPaper('A4', 'portrait');
-        $fileName = $proforma->proforma_no.'.pdf';
+        $fileName = $proforma->proforma_no.'_'.\Illuminate\Support\Str::uuid().'.pdf';
 
         $filePath = 'proformas/'.$fileName;
-        Storage::disk('public')->put($filePath, $pdf->output());
+        $generatedFiles[] = $filePath;
+        abort_unless(Storage::disk('public')->put($filePath, $pdf->output()), 500, 'Failed to store the proforma PDF.');
 
         $attachment = Attachment::create([
             'type'        => 'proforma_pdf',
-            'file_path'   => 'proformas/'.$fileName,
+            'file_path'   => $filePath,
             'mime_type'   => 'application/pdf',
             'size'        => Storage::disk('public')->size($filePath),
             'uploaded_by' => $user->id,
@@ -598,7 +609,7 @@ class QuotationController extends Controller
         $quotation = Quotation::findOrFail($id);
         $userRole = $request->user()->role?->code;
 
-        DB::transaction(function () use (&$quotation, $request, $userRole) {
+        QuotationConcurrency::transaction(function () use (&$quotation, $request, $userRole) {
             $quotation = $this->lockQuotationForReview($quotation, $request);
             // Map user role to review role
             $roleMapping = [
@@ -633,31 +644,32 @@ class QuotationController extends Controller
         });
 
         // Notify sales about the rejection decision
-        $salesUser = \App\Models\User::find($quotation->created_by);
-        if ($salesUser) {
-            $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
-            $salesUser->notify(
-                new \App\Notifications\Orders\QuotationReviewedNotification(
-                    $quotation->fresh()->load('lead'), 'reject', $reviewerRole, $request->input('notes')
-                )
-            );
-        }
-
-        // Jika Finance yang reject, notify juga semua BM di branch agar tahu keputusan akhir
-        if (in_array($userRole, ['finance', 'finance_director'])) {
-            $branchId = $quotation->lead?->branch_id;
-            if ($branchId) {
-                User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
-                    ->where('branch_id', $branchId)
-                    ->get()
-                    ->each->notify(
-                        new \App\Notifications\Orders\QuotationReviewedNotification(
-                            $quotation->fresh()->load('lead'), 'reject', 'FIN', $request->input('notes')
-                        )
-                    );
+        QuotationConcurrency::afterCommit(function () use ($quotation, $userRole, $request) {
+            $salesUser = \App\Models\User::find($quotation->created_by);
+            if ($salesUser) {
+                $reviewerRole = $userRole === 'branch_manager' ? 'BM' : 'FIN';
+                $salesUser->notify(
+                    new \App\Notifications\Orders\QuotationReviewedNotification(
+                        $quotation->load('lead'), 'reject', $reviewerRole, $request->input('notes')
+                    )
+                );
             }
-        }
 
+            // Jika Finance yang reject, notify juga semua BM di branch agar tahu keputusan akhir
+            if (in_array($userRole, ['finance', 'finance_director'])) {
+                $branchId = $quotation->lead?->branch_id;
+                if ($branchId) {
+                    User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                        ->where('branch_id', $branchId)
+                        ->get()
+                        ->each->notify(
+                            new \App\Notifications\Orders\QuotationReviewedNotification(
+                                $quotation->load('lead'), 'reject', 'FIN', $request->input('notes')
+                            )
+                        );
+                }
+            }
+        });
         return back()->with('status', 'Quotation rejected');
     }
 
@@ -678,6 +690,7 @@ class QuotationController extends Controller
     {
         $role = $request->user()->role?->code;
         abort_unless(in_array($role, ['branch_manager', 'finance', 'finance_director'], true), 403);
+        QuotationConcurrency::lockLead($quotation->lead_id);
         $current = Quotation::with(['lead', 'items', 'paymentTerms'])
             ->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
         if ($role === 'branch_manager') {

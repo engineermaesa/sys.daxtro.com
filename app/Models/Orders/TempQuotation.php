@@ -15,6 +15,7 @@ class TempQuotation extends Model
         'quotation_id',
         'revision_no',
         'revision_code',
+        'lock_version',
         'status',
         'subtotal',
         'tax_pct',
@@ -27,6 +28,7 @@ class TempQuotation extends Model
 
     protected $casts = [
         'revision_no' => 'integer',
+        'lock_version' => 'integer',
     ];
 
     public function quotation()

@@ -958,6 +958,60 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertStringNotContainsString('Edit Quotation</a>', $menu());
     }
 
+    public function test_review_notifications_wait_for_outer_commit_and_are_discarded_on_rollback(): void
+    {
+        DB::beginTransaction();
+        $this->review($this->bm, 'approve', 0)->assertRedirect();
+        Notification::assertNothingSent();
+        DB::rollBack();
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->currentReviews()->count());
+        Notification::assertNothingSent();
+
+        DB::beginTransaction();
+        $this->review($this->bm, 'approve', 0)->assertRedirect();
+        Notification::assertNothingSent();
+        DB::commit();
+        Notification::assertSentTo($this->sales, QuotationReviewedNotification::class);
+    }
+
+    public function test_notification_delivery_failure_does_not_fail_a_committed_approval(): void
+    {
+        Notification::shouldReceive('send')->once()->andThrow(new \RuntimeException('Notification provider unavailable'));
+        $this->review($this->bm, 'approve', 0)->assertRedirect();
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        $this->assertSame(1, $this->quotation->currentReviews()->count());
+        $this->assertSame(1, QuotationLog::where('action', 'approve')->count());
+    }
+
+    public function test_finance_failure_restores_existing_proforma_and_removes_only_new_files(): void
+    {
+        $this->review($this->bm, 'approve', 0)->assertRedirect();
+        $this->actingAs($this->sales)->postJson(route('quotations.submit-to-finance', $this->quotation->id), ['revision_no' => 0])->assertOk();
+        $this->fakeProformaFiles();
+        Storage::disk('public')->put('proformas/existing.pdf', 'Existing published document');
+        $attachment = \App\Models\Attachment::create([
+            'type' => 'proforma_pdf', 'file_path' => 'proformas/existing.pdf', 'mime_type' => 'application/pdf',
+            'size' => 27, 'uploaded_by' => $this->finance->id,
+        ]);
+        $proforma = Proforma::create([
+            'quotation_id' => $this->quotation->id, 'term_no' => 1, 'proforma_no' => 'PF_EXISTING',
+            'proforma_type' => 'down_payment', 'amount' => 500000, 'status' => 'confirmed',
+            'attachment_id' => $attachment->id,
+        ]);
+        $before = $proforma->fresh()->getRawOriginal();
+        DB::unprepared("CREATE TRIGGER fail_finance_balance BEFORE INSERT ON user_balance_logs BEGIN SELECT RAISE(ABORT, 'forced finance failure'); END");
+        Notification::fake();
+        $this->review($this->finance, 'approve', 0)->assertStatus(500);
+        $this->assertSame($before, $proforma->fresh()->getRawOriginal());
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->currentReviews()->where('role', 'FIN')->count());
+        $this->assertSame(1, \App\Models\Attachment::count());
+        $this->assertSame(['proformas/existing.pdf'], Storage::disk('public')->allFiles('proformas'));
+        $this->assertSame('Existing published document', Storage::disk('public')->get('proformas/existing.pdf'));
+        Notification::assertNothingSent();
+    }
+
     public function test_both_review_actions_require_the_current_revision_snapshot(): void
     {
         $this->edit();

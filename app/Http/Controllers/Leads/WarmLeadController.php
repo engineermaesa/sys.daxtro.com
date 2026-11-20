@@ -7,6 +7,7 @@ use App\Services\AutoTrashService;
 use App\Services\MyLeadQueryService;
 use App\Services\Orders\QuotationNumberGenerator;
 use App\Services\Orders\QuotationRevisions;
+use App\Services\Orders\QuotationConcurrency;
 use Carbon\Carbon;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Http\Request;
@@ -278,7 +279,13 @@ class WarmLeadController extends Controller
             $draft = app(QuotationRevisions::class)->startRevision($quotation, $request->user()->id);
             $quotation->refresh();
         } elseif (! $draft) {
-            $draft = DB::transaction(function () use ($claim, $request) {
+            $draft = QuotationConcurrency::transaction(function () use ($claim, $request) {
+                QuotationConcurrency::lockLead($claim->lead_id);
+                abort_if(Quotation::where('lead_id', $claim->lead_id)->exists(), 409, QuotationConcurrency::MESSAGE);
+                $existingDraft = TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->lockForUpdate()->first();
+                if ($existingDraft) {
+                    return $existingDraft;
+                }
                 $seed = [
                     'subtotal' => 0,
                     'tax_pct' => 11,
@@ -349,10 +356,14 @@ class WarmLeadController extends Controller
 
     public function storeQuotation(Request $request, $claimId)
     {
+        $transactionLevel = DB::transactionLevel();
         $claim = LeadClaim::with('lead.quotation')->findOrFail($claimId);
         $quotation = $claim->lead->quotation;
+        $hasOpenDraft = TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->exists();
+        abort_if($request->filled('revision_no') && !$request->filled('draft_id') && $hasOpenDraft,
+            409, 'An open revision exists. Continue that revision before editing the quotation.');
         $needsDraftFlow = ! $quotation || in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
-            || TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->exists();
+            || $hasOpenDraft || $request->filled('draft_id');
 
         if ($needsDraftFlow) {
             return $this->storeQuotationDraft($request, $claim);
@@ -461,6 +472,7 @@ class WarmLeadController extends Controller
             }
 
             DB::beginTransaction();
+            QuotationConcurrency::lockLead($claim->lead_id);
 
             $existingQuotation = Quotation::where('lead_id', $claim->lead_id)
                 ->orderByDesc('id')->lockForUpdate()
@@ -540,17 +552,21 @@ class WarmLeadController extends Controller
 
             // Notify all BMs in this branch that a quotation is waiting for review
             $sales = $request->user();
-            \App\Models\User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
-                ->where('branch_id', $quotation->lead->branch_id)
-                ->each(fn($bm) => $bm->notify(
-                    new \App\Notifications\Orders\QuotationSubmittedNotification($quotation->load('lead'), $sales)
-                ));
-
+            QuotationConcurrency::afterCommit(function () use ($quotation, $sales) {
+                \App\Models\User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                    ->where('branch_id', $quotation->lead->branch_id)
+                    ->each(fn($bm) => $bm->notify(
+                        new \App\Notifications\Orders\QuotationSubmittedNotification($quotation->load('lead'), $sales)
+                    ));
+            });
             return $this->setJsonResponse('Quotation saved successfully', [
                 'redirect_url' => route('leads.my')
             ]);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            DB::rollBack($transactionLevel);
+            if (QuotationConcurrency::isConflict($e)) {
+                return $this->setJsonResponse(QuotationConcurrency::MESSAGE, [], 409);
+            }
             if ($e instanceof HttpExceptionInterface) {
                 return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
             }
@@ -576,12 +592,14 @@ class WarmLeadController extends Controller
      */
     protected function storeQuotationDraft(Request $request, LeadClaim $claim)
     {
+        $transactionLevel = DB::transactionLevel();
         try {
             $userRole = $request->user()->role?->code;
             abort_unless(in_array($userRole, ['sales', 'branch_manager']), 403);
 
             $rules = [
                 'draft_id'         => 'nullable|integer|min:1',
+                'draft_version'    => 'nullable|integer|min:0',
                 'product_id.*'      => 'nullable',
                 'description.*'     => 'required|string',
                 'qty.*'             => 'required|numeric|min:1',
@@ -633,7 +651,9 @@ class WarmLeadController extends Controller
                 return $this->setJsonResponse('Total Term of Payment must be exactly 100%', [], 422);
             }
 
+            $observedDraft = TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->first();
             DB::beginTransaction();
+            QuotationConcurrency::lockLead($claim->lead_id);
 
             $items = [];
             $subtotal = 0;
@@ -688,6 +708,7 @@ class WarmLeadController extends Controller
             abort_unless($draft, 409, 'No open revision is available. Reload the quotation.');
             abort_if($request->filled('draft_id') && (int) $request->input('draft_id') !== $draft->id,
                 409, 'This draft is no longer active. Reload the quotation.');
+            QuotationConcurrency::checkDraft($draft, $observedDraft, $request);
             if ($current) {
                 app(QuotationRevisions::class)->validateRevisionDraft($current, $draft);
             }
@@ -697,6 +718,7 @@ class WarmLeadController extends Controller
 
             $draft->update([
                 'subtotal' => $subtotal,
+                'lock_version' => ($draft->lock_version ?? 0) + 1,
                 'tax_pct' => $request->tax_pct,
                 'tax_total' => $taxTotal,
                 'total_discount' => $totalDiscount,
@@ -736,10 +758,14 @@ class WarmLeadController extends Controller
             DB::commit();
 
             return $this->setJsonResponse('Changes saved', [
+                'draft_version' => $draft->lock_version,
                 'redirect_url' => route('leads.my.warm.quotation.create', $claim->id)
             ]);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            DB::rollBack($transactionLevel);
+            if (QuotationConcurrency::isConflict($e)) {
+                return $this->setJsonResponse(QuotationConcurrency::MESSAGE, [], 409);
+            }
             if ($e instanceof HttpExceptionInterface) {
                 return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
             }
@@ -749,13 +775,16 @@ class WarmLeadController extends Controller
 
     public function finalSubmitQuotation(Request $request, $claimId)
     {
-        $request->validate(['draft_id' => 'nullable|integer|min:1']);
+        $transactionLevel = DB::transactionLevel();
+        $request->validate(['draft_id' => 'nullable|integer|min:1', 'draft_version' => 'nullable|integer|min:0']);
         try {
             $claim = LeadClaim::with('lead.quotation')->findOrFail($claimId);
             $userRole = $request->user()->role?->code;
             abort_unless(in_array($userRole, ['sales', 'branch_manager']), 403);
 
+            $observedDraft = TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->first();
             DB::beginTransaction();
+            QuotationConcurrency::lockLead($claim->lead_id);
 
             $existingQuotation = Quotation::where('lead_id', $claim->lead_id)->lockForUpdate()->first();
             abort_if($existingQuotation && ! in_array($existingQuotation->status, ['rejected', 'approved_by_bm'], true),
@@ -769,6 +798,7 @@ class WarmLeadController extends Controller
                 409, 'This draft is no longer active. Reload the quotation.');
 
             $draft->load('items', 'paymentTerms');
+            QuotationConcurrency::checkDraft($draft, $observedDraft, $request);
 
             if ($existingQuotation) {
                 app(QuotationRevisions::class)->validateRevisionDraft($existingQuotation, $draft);
@@ -807,7 +837,7 @@ class WarmLeadController extends Controller
                     'grand_total' => $draft->grand_total,
                     'booking_fee' => $draft->booking_fee,
                     'created_by' => $request->user()->id,
-                    'expiry_date' => now()->addDays(15),
+                    'expiry_date' => Carbon::now('Asia/Jakarta')->addDays(15),
                 ]);
             }
 
@@ -842,6 +872,7 @@ class WarmLeadController extends Controller
 
             $draft->update([
                 'status' => 'submitted',
+                'lock_version' => ($draft->lock_version ?? 0) + 1,
                 'quotation_id' => $quotation->id,
                 'revision_no' => $quotation->revision_no,
                 'revision_code' => $quotation->revision_code,
@@ -870,17 +901,21 @@ class WarmLeadController extends Controller
             DB::commit();
 
             $sales = $request->user();
-            User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
-                ->where('branch_id', $quotation->lead->branch_id)
-                ->each(fn($bm) => $bm->notify(
-                    new \App\Notifications\Orders\QuotationSubmittedNotification($quotation->load('lead'), $sales)
-                ));
-
+            QuotationConcurrency::afterCommit(function () use ($quotation, $sales) {
+                User::whereHas('role', fn($q) => $q->where('code', 'branch_manager'))
+                    ->where('branch_id', $quotation->lead->branch_id)
+                    ->each(fn($bm) => $bm->notify(
+                        new \App\Notifications\Orders\QuotationSubmittedNotification($quotation->load('lead'), $sales)
+                    ));
+            });
             return $this->setJsonResponse('Quotation submitted successfully', [
                 'redirect_url' => route('leads.my')
             ]);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            DB::rollBack($transactionLevel);
+            if (QuotationConcurrency::isConflict($e)) {
+                return $this->setJsonResponse(QuotationConcurrency::MESSAGE, [], 409);
+            }
             if ($e instanceof HttpExceptionInterface) {
                 return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
             }
@@ -970,7 +1005,8 @@ class WarmLeadController extends Controller
                     : 'Discard this quotation draft and its saved changes?';
                 $html .= '<form method="POST" action="' . e(route('quotations.drafts.cancel', $draft->id))
                     . '" require-confirmation="true" data-confirm-title="' . e($cancelLabel) . '?" data-confirm-text="' . e($cancelText) . '">'
-                    . csrf_field() . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]!">'
+                    . csrf_field() . '<input type="hidden" name="draft_version" value="' . (int) ($draft->lock_version ?? 0) . '">'
+                    . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]!">'
                     . e($cancelLabel) . '</button></form>';
             }
         } elseif ($quotation && ! $draft) {
