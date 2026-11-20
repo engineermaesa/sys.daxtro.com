@@ -128,22 +128,18 @@ class QuotationController extends Controller
         abort_if(! in_array($request->user()->role?->code, $allowed), 403);
 
         // 2. Load the quotation with its relations
-        $quotation = Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
-
-        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
-
-        if ($revisionNo !== null) {
-            $revision = $this->submittedRevision($quotation, (int) $revisionNo);
-            // Build an in-memory document from the selected snapshot; never save it to the official header.
-            $quotation->forceFill($revision->only([
-                'revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total',
-                'total_discount', 'grand_total', 'booking_fee',
-            ]));
-            $quotation->setRelation('items', $revision->items);
-            $quotation->setRelation('paymentTerms', $revision->paymentTerms);
-            $quotation->setRelation('createdBy', $revision->createdBy);
-            $quotation->quotation_no = $revision->revision_code;
-        }
+        $quotation = Quotation::with('lead')->findOrFail($id);
+        $revision = $this->submittedRevision($quotation, $revisionNo === null ? $quotation->revision_no : (int) $revisionNo);
+        abort_unless($revision->revision_code === $quotation->quotation_no.'_R'.$revision->revision_no, 409,
+            'The revision snapshot has an invalid revision code. Reload the quotation.');
+        // Build an in-memory document from the selected snapshot; never save it to the official header.
+        $quotation->forceFill($revision->only([
+            'revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total',
+            'total_discount', 'grand_total', 'booking_fee',
+        ]));
+        $quotation->setRelation('items', $revision->items->load('product'));
+        $quotation->setRelation('paymentTerms', $revision->paymentTerms);
+        $quotation->setRelation('createdBy', $revision->createdBy);
 
         // Get the user who created the quotation or current user
         $user = $quotation->createdBy ?? auth()->user();
@@ -154,13 +150,13 @@ class QuotationController extends Controller
 
         // 4.1 Load the active LeadClaim to get Sales info
         $claim = LeadClaim::where('lead_id', $quotation->lead_id)
-                    ->whereNull('released_at')
+                    ->whereNull('released_at')->whereNull('trash_note')
                     ->with('sales.role')
-                    ->latest('claimed_at')
+                    ->latest('claimed_at')->latest('id')
                     ->first();
 
         // 4. Render page-2 (body) - ADD $user and $claim variables
-        $documentSuffix = isset($revision) ? '_R'.$revision->revision_no.'_'.\Illuminate\Support\Str::uuid() : '';
+        $documentSuffix = '_R'.$revision->revision_no.'_'.\Illuminate\Support\Str::uuid();
         $bodyPath = "{$tempDir}/body_{$quotation->id}{$documentSuffix}.pdf";
         Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
             ->setPaper('A4','portrait')
@@ -198,10 +194,8 @@ class QuotationController extends Controller
         // $merger->addPDF($componentsPath,  'all');
 
         // 8. Save merged file
-        $fileName  = isset($revision) ? $revision->revision_code.'.pdf' : ($quotation->quotation_no
-                        ? "{$quotation->quotation_no}.pdf"
-                        : "quotation_{$quotation->id}.pdf");
-        $finalPath = isset($revision) ? "{$tempDir}/{$documentSuffix}.pdf" : "{$tempDir}/{$fileName}";
+        $fileName = $revision->revision_code.'.pdf';
+        $finalPath = "{$tempDir}/{$documentSuffix}.pdf";
 
         $merger->merge();
         $merger->save($finalPath);

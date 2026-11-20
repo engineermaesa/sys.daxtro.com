@@ -443,7 +443,7 @@
             <div class="section-title">Customer ID: {{ $quotation->lead->id }}</div>
           </td>
           <td class="quotation-cell">
-            <div class="section-title">Quotation No: {{ $quotation->quotation_no }}</div>
+            <div class="section-title">Quotation No: {{ $quotation->revision_code ?? $quotation->quotation_no }}</div>
           </td>
           <td class="sales-cell">
             <div class="section-title text-uppercase">
@@ -529,7 +529,7 @@
               @foreach($pdfItems as $i => $item)
               <tr>
                 <td class="text-center">{{ $i + 1 }}</td>
-                <td>{{ $item['product']->name ?? $item['description'] }}</td>
+                <td>{{ filled($item['description']) ? $item['description'] : ($item['product']->name ?? '-') }}</td>
                 <td>{{ $item['product']->sku ?? '—' }}</td>
                 <td class="text-right">Rp {{ number_format($item['unit_price'], 0, ',', '.') }}</td>
                 <td class="text-center">{{ $item['qty'] }}</td>

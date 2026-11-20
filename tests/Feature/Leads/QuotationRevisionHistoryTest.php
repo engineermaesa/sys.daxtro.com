@@ -12,6 +12,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\{DB, File, Notification, Schema};
 use Tests\Support\BuildsQuotationSubmissionSchema;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
 
 class QuotationRevisionHistoryTest extends TestCase
@@ -343,23 +344,37 @@ class QuotationRevisionHistoryTest extends TestCase
         $this->get($url)->assertOk()->assertViewHas('canEdit', false)->assertDontSee('Edit Quotation');
     }
 
-    public function test_pdf_action_receives_selected_snapshot_and_preserves_official_data(): void
+    public static function pdfRevisions(): array
     {
+        return ['R0' => [0], 'R1' => [1], 'R2' => [2], 'current download' => [null]];
+    }
+
+    #[DataProvider('pdfRevisions')]
+    public function test_pdf_action_receives_selected_snapshot_and_preserves_official_data(?int $number): void
+    {
+        $selected = $number ?? 2;
+        // Live header edits and an unsubmitted revision must never leak into a PDF.
+        $this->quotation->items()->firstOrFail()->update(['description' => 'Unversioned live edit']);
+        $this->quotation->paymentTerms()->firstOrFail()->update(['description' => 'Unversioned terms']);
+        $this->quotation->update(['grand_total' => 9999999]);
+        $draft = app(QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $draft->items()->firstOrFail()->update(['description' => 'Unsubmitted machine']);
         $before = $this->quotation->fresh()->getRawOriginal();
         $capturedPath = null;
         File::partialMock()->shouldReceive('ensureDirectoryExists')->once();
         File::shouldReceive('exists')->twice()->andReturnTrue();
-        Pdf::shouldReceive('loadView')->once()->with('pdfs.quotation_body', \Mockery::on(function ($data) {
+        Pdf::shouldReceive('loadView')->once()->with('pdfs.quotation_body', \Mockery::on(function ($data) use ($selected) {
             $quotation = $data['quotation'];
-            return $quotation->quotation_no === 'QT_DEAL_900_R0'
-                && $quotation->items->sole()->description === 'Machine R0'
-                && $quotation->paymentTerms->sole()->description === 'Terms R0'
-                && (float) $quotation->grand_total === 1110000.0;
+            return $quotation->quotation_no === 'QT_DEAL_900'
+                && $quotation->revision_code === 'QT_DEAL_900_R'.$selected
+                && $quotation->items->sole()->description === 'Machine R'.$selected
+                && $quotation->paymentTerms->sole()->description === 'Terms R'.$selected
+                && (float) $quotation->grand_total === (float) (($selected + 1) * 1110000);
         }))->andReturnSelf();
         Pdf::shouldReceive('setPaper')->with('A4', 'portrait')->once()->andReturnSelf();
-        Pdf::shouldReceive('save')->once()->with(\Mockery::on(function ($path) use (&$capturedPath) {
+        Pdf::shouldReceive('save')->once()->with(\Mockery::on(function ($path) use (&$capturedPath, $selected) {
             $capturedPath = $path;
-            return str_contains($path, '_R0_');
+            return str_contains($path, '_R'.$selected.'_');
         }));
         $merger = \Mockery::mock();
         PDFMerger::shouldReceive('init')->once()->andReturn($merger);
@@ -371,10 +386,47 @@ class QuotationRevisionHistoryTest extends TestCase
             file_put_contents($path, '%PDF-1.4 test');
             return true;
         }));
-        $response = $this->get(route('quotations.revisions.download', [$this->quotation->id, 0]))
-            ->assertOk()->assertDownload('QT_DEAL_900_R0.pdf');
+        $url = $number === null ? route('quotations.download', $this->quotation->id)
+            : route('quotations.revisions.download', [$this->quotation->id, $number]);
+        $response = $this->get($url)->assertOk()->assertDownload('QT_DEAL_900_R'.$selected.'.pdf');
         unlink($response->baseResponse->getFile()->getPathname());
         $this->assertSame($before, $this->quotation->fresh()->getRawOriginal());
-        $this->assertSame('Machine R2', $this->quotation->fresh()->items->sole()->description);
+        $this->assertSame('Unversioned live edit', $this->quotation->fresh()->items->sole()->description);
+    }
+
+    public function test_pdf_header_items_merged_amounts_and_payment_terms_render_from_snapshot(): void
+    {
+        $snapshot = $this->quotation->revisions()->where('revision_no', 1)->firstOrFail()->load('items', 'paymentTerms');
+        $item = $snapshot->items->sole();
+        $item->setRelation('product', new \App\Models\Masters\Product(['name' => 'Changed master product', 'sku' => 'SKU-1']));
+        $snapshot->items()->create([
+            'description' => 'Hidden addon', 'qty' => 1, 'unit_price' => 50000, 'line_total' => 50000,
+            'is_visible_pdf' => false, 'merge_into_item_id' => $item->id,
+        ]);
+        $snapshot->load('items');
+        foreach ($snapshot->items as $snapshotItem) {
+            $snapshotItem->setRelation('product', $snapshotItem->id === $item->id ? $item->product : null);
+        }
+        $document = clone $this->quotation;
+        $document->forceFill($snapshot->only(['revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total', 'grand_total', 'booking_fee']));
+        $document->setRelation('items', $snapshot->items)->setRelation('paymentTerms', $snapshot->paymentTerms);
+        $html = view('pdfs.quotation_body', ['quotation' => $document, 'user' => $this->sales, 'claim' => $this->claim])->render();
+        $this->assertStringContainsString('Quotation No: QT_DEAL_900_R1', $html);
+        $this->assertStringContainsString('Machine R1', $html);
+        $this->assertStringContainsString('Terms R1', $html);
+        $this->assertStringContainsString('2.050.000', $html);
+        $this->assertStringNotContainsString('Changed master product', $html);
+        $this->assertStringNotContainsString('Machine R2', $html);
+        $this->assertStringNotContainsString('Hidden addon', $html);
+    }
+
+    public function test_download_does_not_fall_back_to_live_contents_when_snapshot_is_missing_or_invalid(): void
+    {
+        Pdf::shouldReceive('loadView')->never();
+        $snapshot = $this->quotation->revisions()->where('revision_no', 2)->firstOrFail();
+        $snapshot->update(['revision_code' => 'WRONG_REVISION']);
+        $this->get(route('quotations.download', $this->quotation->id))->assertStatus(409);
+        $snapshot->delete();
+        $this->get(route('quotations.download', $this->quotation->id))->assertNotFound();
     }
 }
