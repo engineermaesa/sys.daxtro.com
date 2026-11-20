@@ -18,7 +18,7 @@
                 @endif
                 <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="text-[#083224] underline">
-                    {{ 'Generate Quotation' }}
+                    {{ ($isDraftMode ?? false) && $quotation ? 'Revise to R'.($draft->revision_no ?? ($quotation->revision_no + 1)) : 'Generate Quotation' }}
                 </a>
             </div>
             <form method="POST" action="{{ route('leads.my.warm.quotation.store', $claim->id) }}" id="form"
@@ -40,8 +40,8 @@
 
                     @if ($isDraftMode)
                         <div class="alert alert-info">
-                            This is a <strong>draft</strong>. It has not been submitted for BM approval yet — you can
-                            keep saving changes freely. Click <strong>Final Submit</strong> when you're ready.
+                            {{ $quotation ? 'You are preparing revision R'.$draft->revision_no.'.' : 'You are preparing quotation R0.' }}
+                            Save your changes, then click <strong>Submit for Review</strong> to request BM approval.
                         </div>
                     @endif
                     @if (!$isEditable && $quotation)
@@ -56,7 +56,7 @@
                             {{ $rejection->decided_at ? \Carbon\Carbon::parse($rejection->decided_at)->format('d M Y') : '' }}
                             <strong>Notes:</strong> {{ $rejection->notes }}
                             @if ($isDraftMode)
-                                <br><strong>You're now revising a new draft based on this quotation.</strong>
+                                <br><strong>You are preparing a new revision based on the current quotation.</strong>
                             @endif
                         </div>
                     @elseif($quotation && isset($approval))
@@ -548,12 +548,12 @@
                     @endif
                     @if ($isEditable)
                         @if ($isDraftMode)
-                            <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Draft</button>
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Changes</button>
                         @else
                             <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save</button>
                         @endif
                         @if ($isDraftMode)
-                            <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Final Submit</button>
+                            <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Submit for Review</button>
                         @endif
                     @endif
                 </div>
@@ -996,8 +996,8 @@
                     const finalSubmitUrl = $btn.data('url');
 
                     Swal.fire({
-                        title: 'Final Submit this quotation?',
-                        text: "Once submitted, this quotation cannot be edited anymore and will be sent for BM approval. This action cannot be undone.",
+                        title: 'Submit this revision for review?',
+                        text: 'This revision will be saved as a snapshot and sent for BM approval.',
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonText: 'Yes, final submit',
@@ -1044,7 +1044,7 @@
                                 errorMessage = xhr.responseJSON.message;
                             }
                             notif(errorMessage, 'error');
-                            $btn.prop('disabled', false).text('Final Submit');
+                            $btn.prop('disabled', false).text('Submit for Review');
                             loadingComplete();
                         });
                     });

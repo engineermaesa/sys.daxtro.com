@@ -7,6 +7,7 @@ use App\Models\Leads\LeadClaim;
 use App\Models\Leads\LeadStatus;
 use App\Models\Orders\Quotation;
 use App\Models\Orders\QuotationLog;
+use App\Models\Orders\QuotationReview;
 use App\Models\Orders\TempQuotation;
 use App\Models\Orders\TempQuotationItem;
 use App\Models\Orders\TempQuotationPaymentTerm;
@@ -172,11 +173,13 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         $response->assertOk();
 
         $this->assertDatabaseCount('quotations', 1);
-        $this->assertDatabaseCount('temp_quotations', 1);
+        $this->assertDatabaseCount('temp_quotations', 2);
         $this->assertSame(0, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
         $rejected->refresh();
         $this->assertEquals('QT_DEAL_042', $rejected->quotation_no);
         $this->assertEquals('review', $rejected->status);
+        $this->assertSame(1, $rejected->revision_no);
+        $this->assertSame('QT_DEAL_042_R1', $rejected->revision_code);
         $this->assertEquals(1, $rejected->items()->count());
 
         $draft->refresh();
@@ -194,7 +197,7 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
 
         $second = $this->actingAs($this->sales)
             ->postJson(route('leads.my.warm.quotation.final-submit', $claim->id));
-        $second->assertStatus(500);
+        $second->assertStatus(409);
 
         $this->assertDatabaseCount('quotations', 1);
         $this->assertDatabaseCount('temp_quotations', 1);
@@ -323,5 +326,172 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         $this->assertSame($draft->id, $log->temp_quotation_id);
         $this->assertSame(Quotation::firstOrFail()->id, $log->quotation_id);
         $this->assertSame('QT_DEAL_001_R0', $log->tempQuotation->revision_code);
+    }
+
+    private function currentQuotation(string $status): array
+    {
+        $claim = $this->makeLeadWithClaim();
+        $r0 = $this->makeDraftFor($claim);
+        $this->actingAs($this->sales)
+            ->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertOk();
+        $quotation = Quotation::where('lead_id', $claim->lead_id)->firstOrFail();
+        $quotation->update(['status' => $status]);
+
+        return [$claim, $quotation, $r0];
+    }
+
+    private function revisionPayload(): array
+    {
+        return [
+            'product_id' => [null, null], 'description' => ['Revised machine', 'Included service'],
+            'qty' => [2, 1], 'unit_price' => [500000, 100000], 'discount_pct' => [0, 0],
+            'tax_pct' => 11, 'payment_type' => 'down_payment',
+            'term_percentage' => [40, 60], 'term_description' => ['Deposit', 'Delivery'],
+            'is_visible_pdf' => [1, 0], 'merge_into_item_id' => [null, 0],
+        ];
+    }
+
+    public function test_rejected_and_bm_approved_forms_prefill_current_contents_and_resume_saved_edits(): void
+    {
+        foreach (['rejected', 'approved_by_bm'] as $status) {
+            [$claim, $quotation, $r0] = $this->currentQuotation($status);
+            $before = $quotation->getRawOriginal();
+            $url = route('leads.my.warm.quotation.create', $claim->id);
+            $response = $this->getJson($url)->assertOk()
+                ->assertJsonPath('isDraftMode', true)->assertJsonPath('isEditable', true)
+                ->assertJsonPath('draft.revision_no', 1)
+                ->assertJsonPath('draft.revision_code', $quotation->quotation_no.'_R1')
+                ->assertJsonPath('draft.items.0.description', 'Item A')
+                ->assertJsonPath('draft.payment_terms.0.description', 'Full Payment');
+            $draft = TempQuotation::findOrFail($response->json('draft.id'));
+            $this->assertSame($quotation->id, $draft->quotation_id);
+            $this->assertEquals($before, $quotation->fresh()->getRawOriginal());
+            $this->assertSame('submitted', $r0->fresh()->status);
+            $draft->items()->firstOrFail()->update(['description' => 'Saved negotiation edit']);
+
+            $this->getJson($url)->assertOk()->assertJsonPath('draft.id', $draft->id)
+                ->assertJsonPath('draft.items.0.description', 'Saved negotiation edit');
+            $this->assertSame(1, TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->count());
+        }
+    }
+
+    public function test_revision_submit_advances_r0_to_r1_then_r2_and_preserves_snapshots_and_review_history(): void
+    {
+        foreach (['rejected', 'approved_by_bm'] as $status) {
+            [$claim, $quotation, $r0] = $this->currentQuotation($status);
+            $review = QuotationReview::create([
+                'quotation_id' => $quotation->id, 'revision_no' => 0,
+                'reviewer_id' => $this->sales->id, 'role' => $status === 'rejected' ? 'FIN' : 'BM',
+                'decision' => $status === 'rejected' ? 'reject' : 'approve', 'notes' => 'Original decision',
+            ]);
+            $counter = DB::table('document_counters')->where('type', 'quotation')->value('last_number');
+            $draftId = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft.id');
+            $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $this->revisionPayload())->assertOk();
+            $this->assertSame('Item A', $quotation->items->sole()->description);
+            $this->assertSame($status, $quotation->fresh()->status);
+            $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertOk();
+
+            $quotation->refresh();
+            $this->assertSame('review', $quotation->status);
+            $this->assertSame(1, $quotation->revision_no);
+            $this->assertSame($quotation->quotation_no.'_R1', $quotation->revision_code);
+            $r1 = $quotation->revisions()->where('status', 'submitted')->where('revision_no', 1)->sole();
+            $this->assertSame($draftId, $r1->id);
+            $this->assertSame('Revised machine', $r1->items->first()->description);
+            $this->assertCount(2, $r1->paymentTerms);
+            $official = $quotation->items()->orderBy('id')->get();
+            $this->assertFalse($official[1]->is_visible_pdf);
+            $this->assertSame($official[0]->id, $official[1]->merge_into_item_id);
+            $this->assertSame('Item A', $r0->items->sole()->description);
+            $this->assertSame('Original decision', $review->fresh()->notes);
+            $this->assertTrue($review->fresh()->trashed());
+            $this->assertSame(0, $review->fresh()->revision_no);
+            $this->assertSame(0, $quotation->reviews()->count());
+            $this->assertSame($counter, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
+
+            $quotation->update(['status' => 'rejected']);
+            $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()
+                ->assertJsonPath('draft.revision_no', 2)
+                ->assertJsonPath('draft.items.0.description', 'Revised machine');
+            $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertOk();
+            $this->assertSame(2, $quotation->fresh()->revision_no);
+            $this->assertSame([2, 1, 0], $quotation->revisions()->where('status', 'submitted')->pluck('revision_no')->all());
+        }
+    }
+
+    public function test_revision_submission_rolls_back_current_contents_snapshot_and_review_on_failure(): void
+    {
+        [$claim, $quotation] = $this->currentQuotation('approved_by_bm');
+        $review = QuotationReview::create(['quotation_id' => $quotation->id, 'role' => 'BM', 'decision' => 'approve']);
+        $draftId = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft.id');
+        $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $this->revisionPayload())->assertOk();
+        DB::unprepared("CREATE TRIGGER fail_revision_log BEFORE UPDATE OF action ON quotation_logs BEGIN SELECT RAISE(ABORT, 'forced revision failure'); END");
+        Notification::fake();
+
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertStatus(500);
+
+        $this->assertSame('approved_by_bm', $quotation->fresh()->status);
+        $this->assertSame(0, $quotation->fresh()->revision_no);
+        $this->assertSame('Item A', $quotation->items->sole()->description);
+        $this->assertSame('draft', TempQuotation::findOrFail($draftId)->status);
+        $this->assertSame(1, $quotation->revisions()->where('status', 'submitted')->count());
+        $this->assertFalse($review->fresh()->trashed());
+        Notification::assertNothingSent();
+    }
+
+    public function test_stale_revision_target_is_rejected_on_both_save_and_submit(): void
+    {
+        [$claim, $quotation] = $this->currentQuotation('approved_by_bm');
+        $draftId = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft.id');
+        TempQuotation::findOrFail($draftId)->update(['revision_no' => 99, 'revision_code' => $quotation->quotation_no.'_R99']);
+
+        $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $this->revisionPayload())->assertStatus(409);
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertStatus(409);
+
+        $this->assertSame(0, $quotation->fresh()->revision_no);
+        $this->assertSame('Item A', TempQuotation::findOrFail($draftId)->items->sole()->description);
+    }
+
+    public function test_status_change_while_revision_is_open_blocks_both_save_and_submit(): void
+    {
+        foreach (['review', 'pending_finance', 'published'] as $status) {
+            [$claim, $quotation] = $this->currentQuotation('approved_by_bm');
+            $draftId = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft.id');
+            $quotation->update(['status' => $status]);
+
+            $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $this->revisionPayload())->assertStatus(409);
+            $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertStatus(409);
+            $this->assertSame($status, $quotation->fresh()->status);
+            $this->assertSame('draft', TempQuotation::findOrFail($draftId)->status);
+        }
+    }
+
+    public function test_finance_cannot_open_a_revision_form_or_create_a_revision_draft(): void
+    {
+        [$claim, $quotation] = $this->currentQuotation('approved_by_bm');
+        $role = UserRole::create(['name' => 'Finance', 'code' => 'finance']);
+        $finance = User::factory()->create(['role_id' => $role->id]);
+
+        $this->actingAs($finance)->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertForbidden();
+
+        $this->assertSame(0, TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->count());
+        $this->assertSame('approved_by_bm', $quotation->fresh()->status);
+    }
+
+    public function test_revision_submission_notifies_the_bm_with_the_new_revision(): void
+    {
+        [$claim, $quotation] = $this->currentQuotation('approved_by_bm');
+        $role = UserRole::create(['name' => 'Branch Manager', 'code' => 'branch_manager']);
+        $bm = User::factory()->create(['role_id' => $role->id, 'branch_id' => 1]);
+        $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk();
+
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id))->assertOk();
+
+        Notification::assertSentTo($bm, QuotationSubmittedNotification::class, function ($notification) use ($quotation) {
+            return $notification->quotation->id === $quotation->id
+                && $notification->quotation->revision_no === 1
+                && $notification->quotation->revision_code === $quotation->quotation_no.'_R1'
+                && $notification->quotation->status === 'review';
+        });
     }
 }

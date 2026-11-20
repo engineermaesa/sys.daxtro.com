@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Services\AutoTrashService;
 use App\Services\MyLeadQueryService;
 use App\Services\Orders\QuotationNumberGenerator;
+use App\Services\Orders\QuotationRevisions;
+use Carbon\Carbon;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Illuminate\Http\Request;
 use App\Models\Leads\{LeadClaim, LeadStatus, LeadStatusLog, LeadSegment};
 use App\Models\Orders\{Quotation, QuotationItems, QuotationPaymentTerm, PaymentConfirmation, QuotationLog, TempQuotation, TempQuotationItem, TempQuotationPaymentTerm};
@@ -194,15 +197,12 @@ class WarmLeadController extends Controller
         $quotation = $claim->lead->quotation;
         $userRole = $request->user()->role?->code;
 
-        if ($quotation) {
-            app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+        $needsDraftFlow = ! $quotation || in_array($quotation->status, ['rejected', 'approved_by_bm'], true);
+        if ($needsDraftFlow) {
+            abort_unless(in_array($userRole, ['sales', 'branch_manager'], true), 403);
+        } elseif ($quotation) {
+            app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
         }
-
-        // Draft flow applies when the lead has never had an official quotation
-        // yet, OR its official quotation was rejected (needs a redraft before
-        // resubmission). Every other official-quotation status keeps the
-        // pre-existing behavior below untouched.
-        $needsDraftFlow = ! $quotation || $quotation->status === 'rejected';
 
         if (! $needsDraftFlow) {
             $isEditable = true;
@@ -273,18 +273,13 @@ class WarmLeadController extends Controller
             ]);
         }
 
-        // ---- Draft flow: no official quotation yet, or the official quotation was rejected ----
         $draft = $claim->lead->tempQuotation;
-        if (! $draft) {
-            $draft = DB::transaction(function () use ($claim, $quotation, $request) {
-                $seed = $quotation ? [
-                    'subtotal' => $quotation->subtotal,
-                    'tax_pct' => $quotation->tax_pct,
-                    'tax_total' => $quotation->tax_total,
-                    'total_discount' => $quotation->total_discount,
-                    'grand_total' => $quotation->grand_total,
-                    'booking_fee' => $quotation->booking_fee,
-                ] : [
+        if ($quotation) {
+            $draft = app(QuotationRevisions::class)->startRevision($quotation, $request->user()->id);
+            $quotation->refresh();
+        } elseif (! $draft) {
+            $draft = DB::transaction(function () use ($claim, $request) {
+                $seed = [
                     'subtotal' => 0,
                     'tax_pct' => 11,
                     'tax_total' => 0,
@@ -299,47 +294,12 @@ class WarmLeadController extends Controller
                     'created_by' => $request->user()->id,
                 ]));
 
-                // If the lead had a rejected quotation, seed the draft with its
-                // current items/payment terms as the starting point for revision.
-                if ($quotation) {
-                    $quotation->load('items', 'paymentTerms');
-
-                    $savedTempItems = [];
-                    foreach ($quotation->items as $item) {
-                        $savedTempItems[$item->id] = TempQuotationItem::create([
-                            'temp_quotation_id' => $newDraft->id,
-                            'product_id' => $item->product_id,
-                            'qty' => $item->qty,
-                            'description' => $item->description,
-                            'unit_price' => $item->unit_price,
-                            'discount_pct' => $item->discount_pct,
-                            'line_total' => $item->line_total,
-                            'is_visible_pdf' => $item->is_visible_pdf,
-                        ]);
-                    }
-                    foreach ($quotation->items as $item) {
-                        if ($item->merge_into_item_id && isset($savedTempItems[$item->merge_into_item_id], $savedTempItems[$item->id])) {
-                            $savedTempItems[$item->id]->update([
-                                'merge_into_item_id' => $savedTempItems[$item->merge_into_item_id]->id,
-                            ]);
-                        }
-                    }
-                    foreach ($quotation->paymentTerms as $term) {
-                        TempQuotationPaymentTerm::create([
-                            'temp_quotation_id' => $newDraft->id,
-                            'term_no' => $term->term_no,
-                            'percentage' => $term->percentage,
-                            'description' => $term->description,
-                        ]);
-                    }
-                }
-
                 QuotationLog::create([
                     'temp_quotation_id' => $newDraft->id,
                     'quotation_id' => null,
                     'action' => 'draft_created',
                     'user_id' => $request->user()->id,
-                    'logged_at' => now(),
+                    'logged_at' => Carbon::now('Asia/Jakarta'),
                 ]);
 
                 return $newDraft;
@@ -349,8 +309,6 @@ class WarmLeadController extends Controller
 
         $isEditable = in_array($userRole, ['sales', 'branch_manager']);
 
-        // The (rejected) official quotation, if any, is still passed through
-        // for context banners (rejection reason) — form prefill uses $draft.
         $rejection = $quotation ? $quotation->reviews()
             ->where('decision', 'reject')
             ->latest('decided_at')
@@ -391,9 +349,10 @@ class WarmLeadController extends Controller
 
     public function storeQuotation(Request $request, $claimId)
     {
-        $claim = LeadClaim::with('lead.quotation.proformas.paymentConfirmation')->findOrFail($claimId);
+        $claim = LeadClaim::with('lead.quotation')->findOrFail($claimId);
         $quotation = $claim->lead->quotation;
-        $needsDraftFlow = ! $quotation || $quotation->status === 'rejected';
+        $needsDraftFlow = ! $quotation || in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
+            || TempQuotation::where('lead_id', $claim->lead_id)->where('status', 'draft')->exists();
 
         if ($needsDraftFlow) {
             return $this->storeQuotationDraft($request, $claim);
@@ -736,9 +695,17 @@ class WarmLeadController extends Controller
                 return $this->setJsonResponse('Booking fee cannot be greater than Grand Total.', [], 422);
             }
 
+            $current = Quotation::where('lead_id', $claim->lead_id)->lockForUpdate()->first();
+            if ($current) {
+                abort_unless(in_array($current->status, ['rejected', 'approved_by_bm'], true), 409,
+                    'This quotation is no longer available for revision. Reload the quotation.');
+            }
             $draft = TempQuotation::where('lead_id', $claim->lead_id)
-                ->where('status', 'draft')
-                ->firstOrFail();
+                ->where('status', 'draft')->lockForUpdate()->first();
+            abort_unless($draft, 409, 'No open revision is available. Reload the quotation.');
+            if ($current) {
+                app(QuotationRevisions::class)->validateRevisionDraft($current, $draft);
+            }
 
             $draft->items()->delete();
             $draft->paymentTerms()->delete();
@@ -783,11 +750,14 @@ class WarmLeadController extends Controller
             // the eventual submitted update exist (see finalSubmitQuotation).
             DB::commit();
 
-            return $this->setJsonResponse('Draft tersimpan', [
+            return $this->setJsonResponse('Changes saved', [
                 'redirect_url' => route('leads.my.warm.quotation.create', $claim->id)
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof HttpExceptionInterface) {
+                return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
+            }
             return $this->setJsonResponse('Failed to save quotation', [], 500, $e);
         }
     }
@@ -799,30 +769,31 @@ class WarmLeadController extends Controller
             $userRole = $request->user()->role?->code;
             abort_unless(in_array($userRole, ['sales', 'branch_manager']), 403);
 
-            $existingQuotation = $claim->lead->quotation;
-
-            // Final submit is only valid when there's no official quotation at
-            // all, or the official quotation was rejected (the only two states
-            // that can have an active draft, per the guiding rule above).
-            abort_if($existingQuotation && $existingQuotation->status !== 'rejected', 409, 'This lead already has an active official quotation.');
-
             DB::beginTransaction();
+
+            $existingQuotation = Quotation::where('lead_id', $claim->lead_id)->lockForUpdate()->first();
+            abort_if($existingQuotation && ! in_array($existingQuotation->status, ['rejected', 'approved_by_bm'], true),
+                409, 'This lead already has an active official quotation.');
 
             $draft = TempQuotation::where('lead_id', $claim->lead_id)
                 ->where('status', 'draft')
-                ->lockForUpdate()
-                ->firstOrFail();
+                ->lockForUpdate()->first();
+            abort_unless($draft, 409, 'No open revision is available. Reload the quotation.');
 
             $draft->load('items', 'paymentTerms');
 
             if ($existingQuotation) {
-                // Redraft of a rejected quotation: update the same official
-                // record in place, keep the same quotation_no.
+                app(QuotationRevisions::class)->validateRevisionDraft($existingQuotation, $draft);
+                app(QuotationRevisions::class)->ensureInitialSnapshot($existingQuotation);
                 $existingQuotation->items()->delete();
                 $existingQuotation->paymentTerms()->delete();
+                $existingQuotation->reviews()->update(['revision_no' => $existingQuotation->revision_no]);
                 $existingQuotation->reviews()->delete();
 
+                $revisionNo = $existingQuotation->revision_no + 1;
                 $existingQuotation->update([
+                    'revision_no' => $revisionNo,
+                    'revision_code' => $existingQuotation->quotation_no.'_R'.$revisionNo,
                     'status' => 'review',
                     'subtotal' => $draft->subtotal,
                     'tax_pct' => $draft->tax_pct,
@@ -830,7 +801,7 @@ class WarmLeadController extends Controller
                     'total_discount' => $draft->total_discount,
                     'grand_total' => $draft->grand_total,
                     'booking_fee' => $draft->booking_fee,
-                    'expiry_date' => now()->addDays(15),
+                    'expiry_date' => Carbon::now('Asia/Jakarta')->addDays(15),
                 ]);
 
                 $quotation = $existingQuotation;
@@ -882,16 +853,12 @@ class WarmLeadController extends Controller
                 ]);
             }
 
-            $snapshotData = ['status' => 'submitted'];
-            if (! $existingQuotation) {
-                
-                $snapshotData += [
-                    'quotation_id' => $quotation->id,
-                    'revision_no' => 0,
-                    'revision_code' => $quotation->revision_code,
-                ];
-            }
-            $draft->update($snapshotData);
+            $draft->update([
+                'status' => 'submitted',
+                'quotation_id' => $quotation->id,
+                'revision_no' => $quotation->revision_no,
+                'revision_code' => $quotation->revision_code,
+            ]);
 
             $log = QuotationLog::where('temp_quotation_id', $draft->id)
                 ->where('action', 'draft_created')
@@ -928,6 +895,9 @@ class WarmLeadController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof HttpExceptionInterface) {
+                return $this->setJsonResponse($e->getMessage(), [], $e->getStatusCode());
+            }
             return $this->setJsonResponse('Failed to submit quotation', [], 500, $e);
         }
     }
@@ -964,6 +934,10 @@ class WarmLeadController extends Controller
 
         if ($status === 'published') {
             return '<span class="status-finish">Quotation Published</span>';
+        }
+
+        if ($status === 'approved_by_bm') {
+            return '<span class="status-waiting">Approved by BM</span>';
         }
 
         if ($status === 'rejected') {
@@ -1014,7 +988,7 @@ class WarmLeadController extends Controller
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
                 . '
                 ' . view('components.icon.generate-quotation')->render() . '
-                Edit Draft</a>';
+                ' . ($quotation ? 'Continue Revision' : 'Continue Quotation') . '</a>';
             if ($quotation) {
                 // Rejected quotation being redrafted — keep a read-only link
                 // to the rejected record for context (rejection reason).
@@ -1024,6 +998,11 @@ class WarmLeadController extends Controller
                     View Quotation</a>';
             }
         } elseif ($quotation) {
+            if (in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
+                && in_array(auth()->user()->role?->code, ['sales', 'branch_manager'], true)) {
+                $html .= '<a class="dropdown-item flex! items-center! gap-2!" href="' . e($createUrl) . '">'
+                    . view('components.icon.generate-quotation')->render() . ' Revise Quotation</a>';
+            }
             $html .= '  <a class="dropdown-item flex! items-center! gap-2!" href="' . e($quoteUrl) . '">'
                 . '
                 ' . view('components.icon.view-quotation')->render() . '

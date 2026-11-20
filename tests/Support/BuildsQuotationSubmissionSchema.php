@@ -33,12 +33,20 @@ trait BuildsQuotationSubmissionSchema
                 $table->string('name');
             });
         }
-        Schema::create('ref_products', fn (Blueprint $table) => $table->id());
+        Schema::create('ref_products', function (Blueprint $table) {
+            $table->id();
+            $table->softDeletes();
+        });
+        Schema::create('lead_segments', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+        });
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
             $table->foreignId('source_id')->constrained('lead_sources');
             $table->foreignId('status_id')->constrained('lead_statuses');
             $table->unsignedBigInteger('branch_id')->default(1);
+            $table->unsignedBigInteger('segment_id')->nullable();
             $table->string('name');
             $table->timestamps();
         });
@@ -93,6 +101,9 @@ trait BuildsQuotationSubmissionSchema
             $table->foreignId('quotation_id')->constrained('quotations');
             $table->string('role')->nullable();
             $table->string('decision')->nullable();
+            $table->unsignedBigInteger('reviewer_id')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamp('decided_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
