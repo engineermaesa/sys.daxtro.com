@@ -69,6 +69,8 @@
             @elseif(in_array($quotation->status, ['review', 'pending_finance']))
                 @php
                     $roleCode = auth()->user()->role?->code;
+                    $bmInBranch = $roleCode === 'branch_manager' && auth()->user()->branch_id
+                        && (int) auth()->user()->branch_id === (int) $quotation->lead?->branch_id;
                     $bmReview = $quotation->currentReviews->where('role', 'BM')->sortByDesc('decided_at')->first();
                     $financeReview = $quotation->currentReviews->where('role', 'FIN')->sortByDesc('decided_at')->first();
                 @endphp
@@ -95,9 +97,9 @@
                             </strong>
                         </p>
 
-                        @if ($roleCode === 'branch_manager' && !$bmReview && $quotation->status === 'review')
+                        @if ($bmInBranch && !$bmReview && $quotation->status === 'review')
                             You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons at the bottom of the page.
-                        @elseif ($roleCode === 'finance' && $bmReview && $bmReview->decision === 'approve' && !$financeReview && $quotation->status === 'pending_finance')
+                        @elseif (in_array($roleCode, ['finance', 'finance_director']) && $bmReview && $bmReview->decision === 'approve' && !$financeReview && $quotation->status === 'pending_finance')
                             You can <strong>approve</strong> or <strong>reject</strong> this quotation using the buttons at the bottom of the page.
                         @elseif ($quotation->status === 'review')
                             Please wait for Branch Manager approval.
@@ -661,7 +663,8 @@
                         
                 if ($quotation->status === 'review') {
                     // BM can review if they haven't reviewed yet
-                    $canReview = ($userRole === 'branch_manager' && !$bmReview);
+                    $canReview = ($userRole === 'branch_manager' && auth()->user()->branch_id
+                        && (int) auth()->user()->branch_id === (int) $quotation->lead?->branch_id && !$bmReview);
                 } elseif ($quotation->status === 'pending_finance') {
                     // Finance can review if BM approved and finance hasn't reviewed yet
                     $canReview = (in_array($userRole, ['finance', 'finance_director']) && $bmReview && $bmReview->decision === 'approve' && !$financeReview);
@@ -672,7 +675,7 @@
                 <div class="bg-white border border-[#D9D9D9] rounded-lg my-4">
                     <h1 class="uppercase text-[#1E1E1E] font-semibold p-3 border-b border-b-[#D9D9D9]">Approval Section</h1>
                     <div class="grid grid-cols-1 p-3">
-                        <textarea id="main_notes" name="notes" class="w-full! px-3! py-2! rounded-lg! border! border-[#D9D9D9]! focus:outline-none!" rows="10" placeholder="Enter notes..." required></textarea>
+                        <textarea id="main_notes" name="notes" class="w-full! px-3! py-2! rounded-lg! border! border-[#D9D9D9]! focus:outline-none!" rows="10" placeholder="Enter review notes (required)..." required></textarea>
 
                         {{-- APPROVING FORM --}}
                         <div class="px-3 py-1 flex items-center justify-end gap-3">
@@ -934,12 +937,16 @@
                     });
                 });
 
-                const forms = document.querySelectorAll('form[require-confirmation="true"]');
+                const forms = document.querySelectorAll('form#approve, form#reject');
                 forms.forEach(form => {
                     form.addEventListener('submit', function(e) {
-                        if (mainNotes.value.trim() === '') {
+                        hiddenNotes.forEach(input => {
+                            input.value = mainNotes.value;
+                        });
+                        if (mainNotes.value.replace(/[\s\u200B\uFEFF]/g, '') === '') {
                             e.preventDefault();
-                            alert('Notes wajib diisi!');
+                            e.stopPropagation();
+                            alert('Review notes are required.');
                             mainNotes.focus();
                         }
                     });

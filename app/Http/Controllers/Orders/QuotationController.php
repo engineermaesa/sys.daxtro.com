@@ -89,7 +89,7 @@ class QuotationController extends Controller
     public function download(Request $request, $id)
     {
         // 1. Authorize
-        $allowed = ['branch_manager','super_admin','sales', 'finance'];
+        $allowed = ['branch_manager','super_admin','sales', 'finance', 'finance_director'];
         abort_if(! in_array($request->user()->role?->code, $allowed), 403);
 
         // 2. Load the quotation with its relations
@@ -172,7 +172,7 @@ class QuotationController extends Controller
 
     public function downloadOld(Request $request, $id)
     {
-        $allowed = ['branch_manager', 'super_admin', 'sales', 'finance'];
+        $allowed = ['branch_manager', 'super_admin', 'sales', 'finance', 'finance_director'];
 
         if (!in_array($request->user()->role?->code, $allowed)) {
             abort(403);
@@ -303,52 +303,14 @@ class QuotationController extends Controller
 
     public function approve(Request $request, $id)
     {
-        $request->validate(['notes' => 'required|string', 'revision_no' => 'nullable|integer|min:0']);
+        $this->validateReviewRequest($request);
         $userRole = $request->user()->role?->code;
-        abort_unless(in_array($userRole, ['branch_manager', 'finance', 'finance_director'], true), 403);
-        $baseIncentive = env('INCENTIVE_AMOUNT_RATE', 100000);
-        $quotation = Quotation::with('paymentTerms', 'lead', 'items', 'currentReviews')->findOrFail($id);
+        $quotation = Quotation::findOrFail($id);
 
-        $incentive = 0;
-
-        foreach ($quotation->items as $item) {
-            if ($item->discount_pct > 100 || $item->discount_pct < 0) {
-                abort(400, 'Invalid discount percentage on item ID: ' . $item->id);
-            }
-
-            if ($item->discount_pct === null) {
-                abort(400, 'Discount percentage cannot be null on item ID: ' . $item->id);
-            }
-
-            $itemPrice = $item->price;
-            $itemQty = $item->qty;
-            $itemDiscount = $item->discount_pct;
-
-            $basePricePerUnit = $item->base_price ?? $item->product->base_price ?? $itemPrice;
-
-            if ($itemDiscount < 5) {
-                if ($itemPrice > $basePricePerUnit) {
-                    $markupAmount = ($itemPrice - $basePricePerUnit) * $itemQty;
-                    $incentive += 0.3 * $markupAmount;
-                }
-
-                if ($itemDiscount < 1) {
-                    $markupAmount = ($itemPrice * $itemDiscount / 100) * $itemQty;
-                    $incentive += 0.5 * $markupAmount;
-                }
-                $incentive += 0.01 * $itemPrice * $itemQty;
-            }
-            
-        }
-
-        $totalIncentive = $baseIncentive + $incentive;
-
-        DB::transaction(function () use (&$quotation, $request, $totalIncentive, $userRole) {
+        DB::transaction(function () use (&$quotation, $request, $userRole) {
             $quotation = $this->lockQuotationForReview($quotation, $request);
+            $totalIncentive = $this->calculateQuotationIncentive($quotation);
             $bmApproved = $quotation->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists();
-            if (in_array($userRole, ['finance', 'finance_director'], true) && ! $bmApproved) {
-                abort(403, 'Branch Manager approval is required for this revision before Finance approval.');
-            }
             // Map user role to review role
             $roleMapping = [
                 'branch_manager' => 'BM',
@@ -380,8 +342,8 @@ class QuotationController extends Controller
 
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
-                'temp_quotation_id' => $quotation->revisions()->withTrashed()
-                    ->where('revision_no', $quotation->revision_no)->where('status', 'submitted')->value('id'),
+                'temp_quotation_id' => $quotation->revisions()->where('revision_no', $quotation->revision_no)
+                    ->where('revision_code', $quotation->revision_code)->where('status', 'submitted')->value('id'),
                 'action'       => 'approve',
                 'user_id'      => $request->user()->id,
                 'logged_at'    => Carbon::now('Asia/Jakarta'),
@@ -522,7 +484,7 @@ class QuotationController extends Controller
     }
     public function reject(Request $request, $id)
     {
-        $request->validate(['notes' => 'required|string', 'revision_no' => 'nullable|integer|min:0']);
+        $this->validateReviewRequest($request);
         $quotation = Quotation::findOrFail($id);
         $userRole = $request->user()->role?->code;
 
@@ -552,8 +514,8 @@ class QuotationController extends Controller
 
             QuotationLog::create([
                 'quotation_id' => $quotation->id,
-                'temp_quotation_id' => $quotation->revisions()->withTrashed()
-                    ->where('revision_no', $quotation->revision_no)->where('status', 'submitted')->value('id'),
+                'temp_quotation_id' => $quotation->revisions()->where('revision_no', $quotation->revision_no)
+                    ->where('revision_code', $quotation->revision_code)->where('status', 'submitted')->value('id'),
                 'action'       => 'reject',
                 'user_id'      => $request->user()->id,
                 'logged_at'    => Carbon::now('Asia/Jakarta'),
@@ -589,13 +551,30 @@ class QuotationController extends Controller
         return back()->with('status', 'Quotation rejected');
     }
 
+    private function validateReviewRequest(Request $request): void
+    {
+        abort_unless(in_array($request->user()->role?->code, ['branch_manager', 'finance', 'finance_director'], true), 403);
+        $request->validate([
+            'revision_no' => 'required|integer|min:0',
+            'notes' => ['bail', 'required', 'string', function ($attribute, $value, $fail) {
+                if (! preg_match('/[^\s\p{Z}\x{200B}\x{FEFF}]/u', $value)) {
+                    $fail('Notes must contain a reason and cannot be blank.');
+                }
+            }],
+        ]);
+    }
+
     private function lockQuotationForReview(Quotation $quotation, Request $request): Quotation
     {
         $role = $request->user()->role?->code;
         abort_unless(in_array($role, ['branch_manager', 'finance', 'finance_director'], true), 403);
         $current = Quotation::with(['lead', 'items', 'paymentTerms'])
             ->whereKey($quotation->id)->lockForUpdate()->firstOrFail();
-        $expected = $request->filled('revision_no') ? (int) $request->input('revision_no') : $quotation->revision_no;
+        if ($role === 'branch_manager') {
+            abort_unless($request->user()->branch_id
+                && (int) $request->user()->branch_id === (int) $current->lead?->branch_id, 403);
+        }
+        $expected = (int) $request->input('revision_no');
         abort_unless($current->revision_no === $expected, 409,
             'The quotation revision has changed. Reload it before reviewing.');
         abort_unless($current->status === ($role === 'branch_manager' ? 'review' : 'pending_finance'),
@@ -603,9 +582,47 @@ class QuotationController extends Controller
         $reviewRole = $role === 'branch_manager' ? 'BM' : 'FIN';
         abort_if($current->currentReviews()->where('role', $reviewRole)->exists(), 409,
             'This revision has already been reviewed.');
+        if ($reviewRole === 'FIN') {
+            abort_unless($current->currentReviews()->where('role', 'BM')->where('decision', 'approve')->exists(),
+                403, 'Branch Manager approval is required for this revision before Finance review.');
+        }
         app(QuotationRevisions::class)->ensureInitialSnapshot($current);
+        abort_unless($current->revisions()->where('revision_no', $current->revision_no)
+            ->where('revision_code', $current->revision_code)->where('status', 'submitted')->exists(),
+            409, 'The current revision snapshot is unavailable. Reload the quotation.');
 
         return $current;
+    }
+
+    private function calculateQuotationIncentive(Quotation $quotation)
+    {
+        $baseIncentive = env('INCENTIVE_AMOUNT_RATE', 100000);
+        $incentive = 0;
+        foreach ($quotation->items as $item) {
+            if ($item->discount_pct > 100 || $item->discount_pct < 0) {
+                abort(400, 'Invalid discount percentage on item ID: ' . $item->id);
+            }
+            if ($item->discount_pct === null) {
+                abort(400, 'Discount percentage cannot be null on item ID: ' . $item->id);
+            }
+            $itemPrice = $item->price;
+            $itemQty = $item->qty;
+            $itemDiscount = $item->discount_pct;
+            $basePricePerUnit = $item->base_price ?? $item->product->base_price ?? $itemPrice;
+            if ($itemDiscount < 5) {
+                if ($itemPrice > $basePricePerUnit) {
+                    $markupAmount = ($itemPrice - $basePricePerUnit) * $itemQty;
+                    $incentive += 0.3 * $markupAmount;
+                }
+                if ($itemDiscount < 1) {
+                    $markupAmount = ($itemPrice * $itemDiscount / 100) * $itemQty;
+                    $incentive += 0.5 * $markupAmount;
+                }
+                $incentive += 0.01 * $itemPrice * $itemQty;
+            }
+        }
+
+        return $baseIncentive + $incentive;
     }
 
     public function uploadSignedDocument(Request $request, $id)

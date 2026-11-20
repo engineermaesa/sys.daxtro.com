@@ -160,6 +160,7 @@ class QuotationReviewRevisionTest extends TestCase
         $this->quotation->update(['status' => 'pending_finance']);
         $this->historicApproval(1);
         $actor = $role === 'finance' ? $this->finance : $this->financeDirector;
+        $actor->update(['branch_id' => 2]);
 
         $this->review($actor, 'reject', 1, 'Reconsider payment terms')->assertRedirect();
 
@@ -179,6 +180,7 @@ class QuotationReviewRevisionTest extends TestCase
         $this->historicApproval(1);
         $this->quotation->update(['status' => 'pending_finance']);
         $actor = $role === 'finance' ? $this->finance : $this->financeDirector;
+        $actor->update(['branch_id' => 2]);
         $this->fakeProformaFiles();
 
         $this->review($actor, 'approve', 1, 'Finance approved R1')->assertRedirect();
@@ -738,5 +740,162 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertSame($notification->toBroadcast($this->finance), $stored->data);
         $this->assertSame('BM approval notes', $stored->data['notes']);
         $this->assertSame('QT_DEAL_001_R0', $stored->data['revision_code']);
+    }
+
+    public function test_unapproved_roles_cannot_approve_or_reject_even_with_missing_payload(): void
+    {
+        $actors = [$this->sales, $this->user('super_admin'), $this->user('sales_director'),
+            $this->user('accountant'), $this->user('purchasing')];
+        foreach ($actors as $actor) {
+            foreach (['approve', 'reject'] as $decision) {
+                $this->review($actor, $decision, 0)->assertForbidden();
+                $this->actingAs($actor)->postJson(route('quotations.'.$decision, $this->quotation->id), [])->assertForbidden();
+            }
+        }
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->reviewHistory()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_each_reviewer_role_is_restricted_to_its_own_approval_stage(): void
+    {
+        foreach ([$this->bm, $this->finance, $this->financeDirector] as $actor) {
+            $allowedStatus = $actor->is($this->bm) ? 'review' : 'pending_finance';
+            foreach (['draft', 'review', 'approved_by_bm', 'pending_finance', 'published', 'rejected', 'expired'] as $status) {
+                if ($status === $allowedStatus) {
+                    continue;
+                }
+                $this->quotation->update(['status' => $status]);
+                foreach (['approve', 'reject'] as $decision) {
+                    $this->review($actor, $decision, 0)->assertStatus(409);
+                    $this->assertSame($status, $this->quotation->fresh()->status);
+                }
+            }
+        }
+        $this->assertSame(0, $this->quotation->reviewHistory()->count());
+        $this->assertSame(0, QuotationLog::whereIn('action', ['approve', 'reject'])->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_approve_and_reject_require_non_blank_text_notes_for_all_reviewer_roles(): void
+    {
+        $payloads = [
+            ['revision_no' => 0],
+            ['revision_no' => 0, 'notes' => null],
+            ['revision_no' => 0, 'notes' => ''],
+            ['revision_no' => 0, 'notes' => " \t\r\n "],
+            ['revision_no' => 0, 'notes' => "\u{00A0}\u{200B}\u{FEFF}"],
+            ['revision_no' => 0, 'notes' => ['not text']],
+            ['revision_no' => 0, 'notes' => 123],
+        ];
+        foreach ([$this->bm, $this->finance, $this->financeDirector] as $actor) {
+            $status = $actor->is($this->bm) ? 'review' : 'pending_finance';
+            $this->quotation->update(['status' => $status]);
+            if ($status === 'pending_finance' && ! $this->quotation->currentReviews()->where('role', 'BM')->exists()) {
+                $this->historicApproval(0);
+            }
+            $reviewCount = $this->quotation->reviewHistory()->count();
+            foreach (['approve', 'reject'] as $decision) {
+                foreach ($payloads as $payload) {
+                    $this->actingAs($actor)->postJson(route('quotations.'.$decision, $this->quotation->id), $payload)
+                        ->assertUnprocessable()->assertJsonValidationErrors('notes');
+                }
+            }
+            $this->assertSame($reviewCount, $this->quotation->reviewHistory()->count());
+            $this->assertSame($status, $this->quotation->fresh()->status);
+        }
+        $this->assertSame(0, QuotationLog::whereIn('action', ['approve', 'reject'])->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_approve_and_reject_require_an_explicit_integer_revision_number(): void
+    {
+        foreach (['approve', 'reject'] as $decision) {
+            foreach ([[], ['revision_no' => null], ['revision_no' => -1], ['revision_no' => 0.5], ['revision_no' => 'invalid']] as $payload) {
+                $this->actingAs($this->bm)->postJson(route('quotations.'.$decision, $this->quotation->id),
+                    array_merge($payload, ['notes' => 'Valid review notes']))
+                    ->assertUnprocessable()->assertJsonValidationErrors('revision_no');
+            }
+        }
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->reviewHistory()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_bm_branch_authorization_runs_before_item_validation(): void
+    {
+        $otherBm = User::factory()->create(['role_id' => $this->bm->role_id, 'branch_id' => 2]);
+        $unassignedBm = User::factory()->create(['role_id' => $this->bm->role_id, 'branch_id' => 1]);
+        $unassignedBm->branch_id = null;
+        $this->quotation->items()->firstOrFail()->update(['discount_pct' => 150]);
+        foreach ([$otherBm, $unassignedBm] as $actor) {
+            foreach (['approve', 'reject'] as $decision) {
+                $this->review($actor, $decision, 0)->assertForbidden();
+            }
+        }
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->reviewHistory()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_finance_decisions_require_bm_approval_for_the_same_revision(): void
+    {
+        $this->edit();
+        $oldApproval = $this->historicApproval(0);
+        $this->quotation->update(['status' => 'pending_finance']);
+        Notification::fake();
+        foreach ([$this->finance, $this->financeDirector] as $actor) {
+            foreach (['approve', 'reject'] as $decision) {
+                $this->review($actor, $decision, 1)->assertForbidden();
+            }
+        }
+        $this->assertSame('pending_finance', $this->quotation->fresh()->status);
+        $this->assertSame(0, $oldApproval->fresh()->revision_no);
+        $this->assertSame(1, $this->quotation->reviewHistory()->count());
+        Notification::assertNothingSent();
+    }
+
+    public function test_duplicate_role_decisions_are_blocked_even_if_status_was_reset(): void
+    {
+        foreach ([$this->bm, $this->finance, $this->financeDirector] as $actor) {
+            $role = $actor->is($this->bm) ? 'BM' : 'FIN';
+            $this->quotation->update(['status' => $role === 'BM' ? 'review' : 'pending_finance']);
+            if (! $this->quotation->currentReviews()->where('role', $role)->exists()) {
+                $this->historicApproval(0, $role);
+            }
+            $count = $this->quotation->reviewHistory()->count();
+            foreach (['approve', 'reject'] as $decision) {
+                $this->review($actor, $decision, 0)->assertStatus(409);
+            }
+            $this->assertSame($count, $this->quotation->reviewHistory()->count());
+        }
+        Notification::assertNothingSent();
+    }
+
+    public function test_review_stage_is_checked_before_item_validation(): void
+    {
+        $this->quotation->update(['status' => 'approved_by_bm']);
+        $this->quotation->items()->firstOrFail()->update(['discount_pct' => 150]);
+        foreach ([$this->bm, $this->finance, $this->financeDirector] as $actor) {
+            foreach (['approve', 'reject'] as $decision) {
+                $this->review($actor, $decision, 0)->assertStatus(409);
+            }
+        }
+        $this->assertSame('approved_by_bm', $this->quotation->fresh()->status);
+        Notification::assertNothingSent();
+    }
+
+    public function test_both_review_actions_require_the_current_revision_snapshot(): void
+    {
+        $this->edit();
+        $this->quotation->revisions()->where('revision_no', 1)->delete();
+        Notification::fake();
+        foreach (['approve', 'reject'] as $decision) {
+            $this->review($this->bm, $decision, 1)->assertStatus(409)
+                ->assertJsonPath('message', 'The current revision snapshot is unavailable. Reload the quotation.');
+        }
+        $this->assertSame('review', $this->quotation->fresh()->status);
+        $this->assertSame(0, $this->quotation->reviewHistory()->count());
+        Notification::assertNothingSent();
     }
 }
