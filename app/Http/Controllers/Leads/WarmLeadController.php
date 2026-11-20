@@ -934,7 +934,7 @@ class WarmLeadController extends Controller
         $draft     = $row->lead->tempQuotation;
         $viewUrl   = route('leads.my.warm.manage', $row->lead->id);
         $createUrl = route('leads.my.warm.quotation.create', $row->id);
-        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $quoteUrl  = $quotation ? route('quotations.revisions.index', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
         $trashUrl   = route('leads.my.warm.trash', $row->id);
         $role = auth()->user()->role?->code;

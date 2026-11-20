@@ -86,7 +86,51 @@ class QuotationController extends Controller
         ]);
            
     }
-    public function download(Request $request, $id)
+    public function revisionHistory(Request $request, $id)
+    {
+        $this->authorizeRevisionAccess($request);
+        $quotation = Quotation::with(['lead', 'createdBy' => fn ($query) => $query->withTrashed()])->findOrFail($id);
+        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+        $quotation->refresh();
+        $revisions = $quotation->revisions()->where('status', 'submitted')
+            ->with(['createdBy' => fn ($query) => $query->withTrashed()])->orderByDesc('id')->get();
+        $reviewsByRevision = $quotation->reviewHistory()
+            ->with(['reviewer' => fn ($query) => $query->withTrashed()])->get()->groupBy('revision_no');
+        $claim = LeadClaim::where('lead_id', $quotation->lead_id)->whereNull('released_at')->whereNull('trash_note')
+            ->with('sales')->latest('claimed_at')->latest('id')->first();
+
+        return $this->render('pages.orders.quotation-revisions', compact('quotation', 'revisions', 'reviewsByRevision', 'claim'));
+    }
+
+    public function showRevision(Request $request, $id, $revisionNo)
+    {
+        $this->authorizeRevisionAccess($request);
+        $quotation = Quotation::with('lead')->findOrFail($id);
+        $revision = $this->submittedRevision($quotation, (int) $revisionNo);
+        if ($revision->revision_no === $quotation->revision_no) {
+            return redirect()->route('quotations.show', $quotation->id);
+        }
+        $reviews = $quotation->reviewHistory()->where('revision_no', $revision->revision_no)
+            ->with(['reviewer' => fn ($query) => $query->withTrashed()])->get();
+
+        return $this->render('pages.orders.quotation-revision', compact('quotation', 'revision', 'reviews'));
+    }
+
+    private function authorizeRevisionAccess(Request $request): void
+    {
+        abort_unless(in_array($request->user()->role?->code,
+            ['sales', 'branch_manager', 'finance', 'finance_director', 'super_admin'], true), 403);
+    }
+
+    private function submittedRevision(Quotation $quotation, int $revisionNo): TempQuotation
+    {
+        app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+
+        return $quotation->revisions()->where('status', 'submitted')->where('revision_no', $revisionNo)
+            ->with(['items', 'paymentTerms', 'createdBy' => fn ($query) => $query->withTrashed()])->firstOrFail();
+    }
+
+    public function download(Request $request, $id, $revisionNo = null)
     {
         // 1. Authorize
         $allowed = ['branch_manager','super_admin','sales', 'finance', 'finance_director'];
@@ -96,6 +140,19 @@ class QuotationController extends Controller
         $quotation = Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
 
         app(QuotationRevisions::class)->ensureInitialSnapshot($quotation);
+
+        if ($revisionNo !== null) {
+            $revision = $this->submittedRevision($quotation, (int) $revisionNo);
+            // Build an in-memory document from the selected snapshot; never save it to the official header.
+            $quotation->forceFill($revision->only([
+                'revision_no', 'revision_code', 'subtotal', 'tax_pct', 'tax_total',
+                'total_discount', 'grand_total', 'booking_fee',
+            ]));
+            $quotation->setRelation('items', $revision->items);
+            $quotation->setRelation('paymentTerms', $revision->paymentTerms);
+            $quotation->setRelation('createdBy', $revision->createdBy);
+            $quotation->quotation_no = $revision->revision_code;
+        }
 
         // Get the user who created the quotation or current user
         $user = $quotation->createdBy ?? auth()->user();
@@ -112,7 +169,8 @@ class QuotationController extends Controller
                     ->first();
 
         // 4. Render page-2 (body) - ADD $user and $claim variables
-        $bodyPath = "{$tempDir}/body_{$quotation->id}.pdf";
+        $documentSuffix = isset($revision) ? '_R'.$revision->revision_no.'_'.\Illuminate\Support\Str::uuid() : '';
+        $bodyPath = "{$tempDir}/body_{$quotation->id}{$documentSuffix}.pdf";
         Pdf::loadView('pdfs.quotation_body', compact('quotation', 'user', 'claim'))
             ->setPaper('A4','portrait')
             ->save($bodyPath);
@@ -149,10 +207,10 @@ class QuotationController extends Controller
         // $merger->addPDF($componentsPath,  'all');
 
         // 8. Save merged file
-        $fileName  = $quotation->quotation_no
+        $fileName  = isset($revision) ? $revision->revision_code.'.pdf' : ($quotation->quotation_no
                         ? "{$quotation->quotation_no}.pdf"
-                        : "quotation_{$quotation->id}.pdf";
-        $finalPath = "{$tempDir}/{$fileName}";
+                        : "quotation_{$quotation->id}.pdf");
+        $finalPath = isset($revision) ? "{$tempDir}/{$documentSuffix}.pdf" : "{$tempDir}/{$fileName}";
 
         $merger->merge();
         $merger->save($finalPath);
@@ -161,12 +219,16 @@ class QuotationController extends Controller
             throw new \RuntimeException("Merged PDF not found at {$finalPath}");
         }
 
+        if (isset($revision)) {
+            File::delete($bodyPath);
+        }
+
         // 9. Clean up temp PDFs
         // File::delete([$bodyPath, $termsPath]);
 
         // 10. Return download (auto-deletes the merged file)
         return response()
-            ->download($finalPath)
+            ->download($finalPath, $fileName)
             ->deleteFileAfterSend(true);
     }
 

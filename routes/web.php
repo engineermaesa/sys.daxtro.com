@@ -266,6 +266,11 @@ Route::get('/debug/expense-realizations', function () {
             ->whereNumber('draftId')->name('drafts.cancel');
 
         Route::get('/{id}/download', 'QuotationController@download')->name('download');
+        Route::get('/{id}/revisions', 'QuotationController@revisionHistory')->whereNumber('id')->name('revisions.index');
+        Route::get('/{id}/revisions/{revisionNo}', 'QuotationController@showRevision')
+            ->whereNumber(['id', 'revisionNo'])->name('revisions.show');
+        Route::get('/{id}/revisions/{revisionNo}/pdf', 'QuotationController@download')
+            ->whereNumber(['id', 'revisionNo'])->name('revisions.download');
         Route::get('/{id}/logs', 'QuotationController@logs')->name('logs');
         Route::get('/{id}/signed-documents', 'QuotationController@signedDocuments')->name('signed-documents');
 

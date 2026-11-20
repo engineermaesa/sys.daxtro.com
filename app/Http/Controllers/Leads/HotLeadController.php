@@ -151,7 +151,7 @@ class HotLeadController extends Controller
     {
         $quotation = $row->lead->quotation;
         $viewUrl   = route('leads.my.hot.manage', $row->lead->id);
-        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $quoteUrl  = $quotation ? route('quotations.revisions.index', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
 
         $btnId = 'hotActionsDropdown' . $row->id;

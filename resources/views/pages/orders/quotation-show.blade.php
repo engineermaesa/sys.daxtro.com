@@ -32,6 +32,8 @@
                 <a href="{{ route('quotations.show', $quotation->id) }}" class="text-[#083224] underline">
                     View Quotation
                 </a>
+                <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
+                <a href="{{ route('quotations.revisions.index', $quotation->id) }}" class="text-[#115640] underline">Revision History</a>
             </div>
 
             @if ($quotation->status === 'rejected' && isset($rejection))

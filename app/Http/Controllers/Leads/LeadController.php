@@ -1495,7 +1495,7 @@ class LeadController extends Controller
 
             // ================= ACTIONS =================
             $editUrl   = route('leads.manage.form', $lead->id);
-            $quoteUrl  = $quote ? route('quotations.show', $quote->id) : null;
+            $quoteUrl  = $quote ? route('quotations.revisions.index', $quote->id) : null;
             $activityUrl = route('leads.activity.logs', $lead->id);
 
             $html  = '<div class="dropdown">';
@@ -2534,7 +2534,7 @@ class LeadController extends Controller
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
 
                 if ($lead->quotation) {
-                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $quoteUrl = route('quotations.revisions.index', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
 
                     $logUrl = route('quotations.logs', $lead->quotation->id);
@@ -2603,7 +2603,7 @@ class LeadController extends Controller
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
 
                 if ($lead->quotation) {
-                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $quoteUrl = route('quotations.revisions.index', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
 
                     $logUrl = route('quotations.logs', $lead->quotation->id);
@@ -2667,7 +2667,7 @@ class LeadController extends Controller
                 $html .= '    <button type="button" class="dropdown-item btn-activity-log" data-url="' . e($activityUrl) . '"><i class="bi bi-list-check mr-2"></i> Activity Log</button>';
 
                 if ($lead->quotation) {
-                    $quoteUrl = route('quotations.show', $lead->quotation->id);
+                    $quoteUrl = route('quotations.revisions.index', $lead->quotation->id);
                     $html .= '  <a class="dropdown-item" href="' . e($quoteUrl) . '"><i class="bi bi-file-earmark-text mr-2"></i> View Quotation</a>';
 
                     $logUrl = route('quotations.logs', $lead->quotation->id);
@@ -2967,7 +2967,7 @@ class LeadController extends Controller
         $quotation = $row->lead->quotation;
         $viewUrl   = route('leads.my.warm.manage', $row->lead->id);
         $createUrl = route('leads.my.warm.quotation.create', $row->id);
-        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $quoteUrl  = $quotation ? route('quotations.revisions.index', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
         $trashUrl   = route('leads.my.warm.trash', $row->id);
 
@@ -3024,7 +3024,7 @@ class LeadController extends Controller
     {
         $quotation = $row->lead->quotation;
         $viewUrl   = route('leads.my.hot.manage', $row->lead->id);
-        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $quoteUrl  = $quotation ? route('quotations.revisions.index', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
 
         $btnId = 'hotActionsDropdown' . $row->id;
@@ -3071,7 +3071,7 @@ class LeadController extends Controller
     {
         $quotation = $row->lead->quotation;
         $viewUrl   = route('leads.my.deal.manage', $row->lead->id);
-        $quoteUrl  = $quotation ? route('quotations.show', $quotation->id) : null;
+        $quoteUrl  = $quotation ? route('quotations.revisions.index', $quotation->id) : null;
         $downloadUrl = $quotation ? route('quotations.download', $quotation->id) : null;
 
         $btnId = 'dealActionsDropdown' . $row->id;
