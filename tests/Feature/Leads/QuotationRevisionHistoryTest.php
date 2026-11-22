@@ -15,6 +15,7 @@ use Tests\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationRevisionHistoryTest extends TestCase
 {
     use BuildsQuotationSubmissionSchema;
@@ -507,5 +508,176 @@ class QuotationRevisionHistoryTest extends TestCase
         $this->assertSame(1, \App\Models\Orders\QuotationLog::count());
         $this->getJson(route('quotations.logs', $this->quotation->id))->assertOk()
             ->assertJsonPath('0.revision_code', 'QT_DEAL_900_R0')->assertJsonPath('0.action', 'submitted');
+    }
+
+    private function fakeWorkflowProformaRendering(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        File::partialMock()->shouldReceive('exists')->with(storage_path('app/public/proformas'))->andReturnTrue();
+        $view = \Mockery::mock(\Illuminate\Contracts\View\View::class);
+        $view->shouldReceive('render')->andReturn('<p>Proforma</p>');
+        $factory = app('view');
+        $views = \Mockery::mock($factory);
+        $views->shouldReceive('make')->withAnyArgs()
+            ->andReturnUsing(fn (...$arguments) => $factory->make(...$arguments))->byDefault();
+        $views->shouldReceive('make')->with('pdfs.proforma', \Mockery::type('array'), [])->andReturn($view);
+        \Illuminate\Support\Facades\View::swap($views);
+        Pdf::shouldReceive('loadHTML')->andReturnSelf();
+        Pdf::shouldReceive('setPaper')->with('A4', 'portrait')->andReturnSelf();
+        Pdf::shouldReceive('output')->andReturn('%PDF-1.4 test');
+    }
+
+    public function test_customer_revisions_and_cancellation_preserve_history_through_finance_publication(): void
+    {
+        $lead = Lead::create([
+            'source_id' => $this->quotation->lead->source_id, 'status_id' => LeadStatus::WARM,
+            'name' => 'Workflow Customer',
+        ]);
+        $claim = LeadClaim::factory()->create(['lead_id' => $lead->id, 'sales_id' => $this->sales->id]);
+        $payload = fn (array $draft, string $description, int $price) => [
+            'draft_id' => $draft['id'], 'draft_version' => $draft['lock_version'] ?? 0,
+            'product_id' => [null, null], 'description' => [$description, 'Bundled addon'],
+            'qty' => [1, 1], 'unit_price' => [$price, 50000], 'discount_pct' => [0, 0],
+            'is_visible_pdf' => [1, 0], 'merge_into_item_id' => [null, 0], 'tax_pct' => 11,
+            'payment_type' => 'down_payment', 'term_percentage' => [40, 60], 'term_description' => ['Deposit', 'Delivery'],
+        ];
+        $r0Contents = null;
+        $cancelledId = null;
+        $quotation = null;
+        foreach (range(0, 2) as $number) {
+            $this->actingAs($this->sales);
+            $draft = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft');
+            if ($number === 2) {
+                $version = $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $payload($draft, 'Discarded machine', 9000000))
+                    ->assertOk()->json('data.draft_version');
+                $this->postJson(route('quotations.submit-to-finance', $quotation->id), ['revision_no' => 1])->assertStatus(409);
+                $this->postJson(route('quotations.drafts.cancel', $draft['id']), ['draft_version' => $version])->assertOk();
+                $cancelledId = $draft['id'];
+                $this->assertTrue(TempQuotation::withTrashed()->findOrFail($cancelledId)->trashed());
+                $this->assertSame(1, $quotation->fresh()->revision_no);
+                $this->assertSame('approved_by_bm', $quotation->fresh()->status);
+                $this->postJson(route('leads.my.warm.quotation.store', $claim->id), $payload($draft, 'Stale discarded form', 1))->assertStatus(409);
+                $draft = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft');
+                $this->assertNotSame($cancelledId, $draft['id']);
+                $this->assertSame('Workflow machine R1', $draft['items'][0]['description']);
+            }
+            $version = $this->postJson(route('leads.my.warm.quotation.store', $claim->id),
+                $payload($draft, 'Workflow machine R'.$number, ($number + 1) * 1000000))->assertOk()->json('data.draft_version');
+            $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id), [
+                'draft_id' => $draft['id'], 'draft_version' => $version,
+            ])->assertOk();
+            $quotation = Quotation::where('lead_id', $lead->id)->firstOrFail();
+            $this->assertSame($number, $quotation->revision_no);
+            $this->assertSame('review', $quotation->status);
+            $snapshot = $quotation->revisions()->where('revision_no', $number)->sole();
+            $this->assertSame('Workflow machine R'.$number, $snapshot->items->first()->description);
+            $this->assertSame($snapshot->items->first()->id, $snapshot->items->last()->merge_into_item_id);
+            $this->assertSame(['Deposit', 'Delivery'], $snapshot->paymentTerms->pluck('description')->all());
+            if ($number === 0) {
+                $r0Contents = [$snapshot->getRawOriginal(), $snapshot->items->map->getRawOriginal()->all(), $snapshot->paymentTerms->map->getRawOriginal()->all()];
+            }
+            $this->actingAs($this->bm)->postJson(route('quotations.approve', $quotation->id), [
+                'revision_no' => $number, 'notes' => 'BM approved workflow R'.$number,
+            ])->assertRedirect();
+            Notification::assertNotSentTo($this->finance, \App\Notifications\Orders\QuotationPendingFinanceNotification::class);
+        }
+        $director = $this->user('finance_director', 'Workflow Finance Director');
+        $this->actingAs($this->sales)->postJson(route('quotations.submit-to-finance', $quotation->id), ['revision_no' => 2])->assertOk();
+        Notification::assertSentTo([$this->finance, $director], \App\Notifications\Orders\QuotationPendingFinanceNotification::class);
+        $this->actingAs($director)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 1, 'notes' => 'Stale decision'])->assertStatus(409);
+        $this->fakeWorkflowProformaRendering();
+        $this->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 2, 'notes' => 'Finance approved workflow R2'])->assertRedirect();
+        $this->assertSame('published', $quotation->fresh()->status);
+        $this->assertSame(2, $quotation->fresh()->revision_no);
+        $this->assertSame(2, $quotation->proformas()->count());
+        $this->assertSame(4, $quotation->reviewHistory()->count());
+        $this->assertSame(3, $quotation->logs()->where('action', 'submitted')->count());
+        $this->assertSame($cancelledId, $quotation->logs()->where('action', 'draft_cancelled')->sole()->temp_quotation_id);
+        $this->assertNotSame($cancelledId, $quotation->revisions()->where('revision_no', 2)->sole()->id);
+        $r0 = $quotation->revisions()->where('revision_no', 0)->sole()->load('items', 'paymentTerms');
+        $this->assertSame($r0Contents, [$r0->getRawOriginal(), $r0->items->map->getRawOriginal()->all(), $r0->paymentTerms->map->getRawOriginal()->all()]);
+        $this->actingAs($this->sales)->get(route('quotations.revisions.index', $quotation->id))->assertOk()
+            ->assertSeeInOrder(['data-revision="2"', 'data-revision="1"', 'data-revision="0"'], false)
+            ->assertSee('BM approved workflow R0')->assertSee('Finance approved workflow R2');
+        $this->get(route('quotations.revisions.show', [$quotation->id, 0]))->assertOk()
+            ->assertSee('Workflow machine R0')->assertDontSee('Discarded machine')->assertDontSee('Workflow machine R2')
+            ->assertSee('Viewing revision R0 (read-only)')->assertDontSee('id="approve"', false);
+        $this->assertSame(1, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
+    }
+
+    public static function legacyFinanceReviewers(): array
+    {
+        return [['finance'], ['finance_director']];
+    }
+
+    #[DataProvider('legacyFinanceReviewers')]
+    public function test_legacy_finance_queue_can_publish_after_lazy_history_initialization(string $role): void
+    {
+        $quotation = Quotation::create([
+            'lead_id' => $this->quotation->lead_id, 'quotation_no' => 'QT_DEAL_901', 'status' => 'pending_finance',
+            'created_by' => $this->sales->id, 'subtotal' => 1000000, 'tax_pct' => 11, 'tax_total' => 110000, 'grand_total' => 1110000,
+        ]);
+        $quotation->items()->create(['description' => 'Legacy workflow machine', 'qty' => 1, 'unit_price' => 1000000,
+            'discount_pct' => 0, 'line_total' => 1000000, 'is_visible_pdf' => true]);
+        $quotation->paymentTerms()->create(['term_no' => 1, 'percentage' => 100, 'description' => 'Legacy terms']);
+        QuotationReview::create(['quotation_id' => $quotation->id, 'reviewer_id' => $this->bm->id,
+            'role' => 'BM', 'decision' => 'approve', 'notes' => 'Legacy BM approval', 'decided_at' => Carbon::now('Asia/Jakarta')]);
+        $updatedAt = $quotation->fresh()->getRawOriginal('updated_at');
+        $this->get(route('quotations.revisions.index', $quotation->id))->assertOk()->assertSee('QT_DEAL_901_R0')->assertSee('Legacy BM approval');
+        $snapshot = $quotation->revisions()->sole();
+        $this->assertSame($updatedAt, $quotation->fresh()->getRawOriginal('updated_at'));
+        $this->fakeWorkflowProformaRendering();
+        $actor = $role === 'finance' ? $this->finance : $this->user($role);
+        $this->actingAs($actor)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 0, 'notes' => 'Legacy Finance approval'])->assertRedirect();
+        $this->assertSame('published', $quotation->fresh()->status);
+        $this->assertSame($snapshot->id, $quotation->revisions()->sole()->id);
+        $this->assertSame('Legacy workflow machine', $snapshot->fresh()->items->sole()->description);
+        $this->assertSame(0, $quotation->logs()->where('action', 'submit_to_finance')->count());
+        $this->assertSame($snapshot->id, $quotation->logs()->where('action', 'approve')->sole()->temp_quotation_id);
+        $this->assertSame(0, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
+    }
+
+    public function test_guest_requests_cannot_read_or_mutate_revision_workflow(): void
+    {
+        $before = $this->quotation->fresh()->getRawOriginal();
+        $draft = app(QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
+        $logs = $this->quotation->logs()->count();
+        auth()->logout();
+        foreach (['quotations.show' => [$this->quotation->id], 'quotations.revisions.index' => [$this->quotation->id],
+            'quotations.revisions.show' => [$this->quotation->id, 0], 'quotations.revisions.download' => [$this->quotation->id, 0],
+            'quotations.download' => [$this->quotation->id], 'quotations.logs' => [$this->quotation->id],
+            'leads.my.warm.quotation.create' => [$this->claim->id]] as $name => $parameters) {
+            $this->getJson(route($name, $parameters))->assertUnauthorized();
+        }
+        foreach (['quotations.approve' => [$this->quotation->id], 'quotations.reject' => [$this->quotation->id],
+            'quotations.submit-to-finance' => [$this->quotation->id], 'quotations.drafts.cancel' => [$draft->id],
+            'leads.my.warm.quotation.store' => [$this->claim->id], 'leads.my.warm.quotation.final-submit' => [$this->claim->id]] as $name => $parameters) {
+            $this->postJson(route($name, $parameters), ['revision_no' => 2, 'draft_id' => $draft->id, 'draft_version' => 0, 'notes' => 'Guest request'])->assertUnauthorized();
+        }
+        $this->assertSame($before, $this->quotation->fresh()->getRawOriginal());
+        $this->assertFalse($draft->fresh()->trashed());
+        $this->assertSame($logs, $this->quotation->logs()->count());
+    }
+
+    public static function pdfPublisherNames(): array
+    {
+        return [[null, 'PT Pandu Naradipta Danendra'], ['', 'PT Pandu Naradipta Danendra'],
+            ['   ', 'PT Pandu Naradipta Danendra'], ['PT Custom Publisher', 'PT Custom Publisher']];
+    }
+
+    #[DataProvider('pdfPublisherNames')]
+    public function test_pdf_identity_handles_blank_and_custom_profiles_without_updating_the_user(?string $companyName, string $expected): void
+    {
+        $rawUser = $this->sales->fresh()->getRawOriginal();
+        $publisher = clone $this->sales;
+        $publisher->setAttribute('company_name', $companyName);
+        foreach (['pdfs.quotation_body', 'pdfs.quotation_terms'] as $template) {
+            $html = view($template, ['quotation' => $this->quotation, 'claim' => $this->claim, 'user' => $publisher])->render();
+            $this->assertStringContainsString($expected, $html);
+            $this->assertStringContainsString('Your Reliable Business Partner', $html);
+            $this->assertStringContainsString('href="https://daxtro.id/"', $html);
+            $this->assertStringNotContainsString('footer-slice.png', $html);
+        }
+        $this->assertSame($rawUser, $this->sales->fresh()->getRawOriginal());
     }
 }

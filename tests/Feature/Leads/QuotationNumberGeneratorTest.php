@@ -15,6 +15,7 @@ use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationNumberGeneratorTest extends TestCase
 {
     private string $originalConnection;

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class LegacyQuotationRevisionTest extends TestCase
 {
     private string $originalConnection;

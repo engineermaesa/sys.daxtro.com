@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationRevisionSchemaTest extends TestCase
 {
     private Migration $migration;

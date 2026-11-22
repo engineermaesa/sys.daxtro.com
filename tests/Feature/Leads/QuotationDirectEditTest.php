@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Notification;
 use Tests\Support\BuildsQuotationSubmissionSchema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationDirectEditTest extends TestCase
 {
     use BuildsQuotationSubmissionSchema;

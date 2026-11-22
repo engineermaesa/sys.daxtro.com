@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\BuildsQuotationSubmissionSchema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationDraftCancellationTest extends TestCase
 {
     use BuildsQuotationSubmissionSchema;

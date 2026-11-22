@@ -28,7 +28,7 @@ $held = false;
 if (($argv[6] ?? '') === 'hold') {
     DB::listen(function ($event) use (&$held, $action) {
         if (!$held && (preg_match('/^update "(?:temp_quotations|quotations)"/i', $event->sql)
-            || ($action === 'create' && str_starts_with($event->sql, 'insert into "temp_quotations"')))) {
+            || (in_array($action, ['create', 'revise'], true) && str_starts_with($event->sql, 'insert into "temp_quotations"')))) {
             $held = true;
             echo "locked\n";
             fflush(STDOUT);
@@ -39,9 +39,10 @@ if (($argv[6] ?? '') === 'hold') {
 echo "ready\n";
 fflush(STDOUT);
 try {
-    $controller = app(in_array($action, ['create', 'save', 'submit'], true) ? WarmLeadController::class : QuotationController::class);
+    $controller = app(in_array($action, ['create', 'revise', 'save', 'submit'], true) ? WarmLeadController::class : QuotationController::class);
     $response = match ($action) {
-        'create' => $controller->createQuotation($request, $id),
+        'create', 'revise' => $controller->createQuotation($request, $id),
+        'finance' => $controller->submitToFinance($request, $id),
         'save' => $controller->storeQuotation($request, $id),
         'submit' => $controller->finalSubmitQuotation($request, $id),
         'cancel' => $controller->cancelDraft($request, $id),

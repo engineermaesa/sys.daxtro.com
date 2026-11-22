@@ -13,6 +13,7 @@ use Symfony\Component\Process\{InputStream, Process};
 use Tests\Support\BuildsQuotationSubmissionSchema;
 use Tests\TestCase;
 
+#[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationConcurrencyTest extends TestCase
 {
     use BuildsQuotationSubmissionSchema;
@@ -169,7 +170,7 @@ class QuotationConcurrencyTest extends TestCase
 
     public static function concurrentActions(): array
     {
-        return [['save', 'save'], ['save', 'submit'], ['save', 'cancel'], ['submit', 'submit'], ['cancel', 'submit'], ['approve', 'reject'], ['create', 'create']];
+        return [['save', 'save'], ['save', 'submit'], ['save', 'cancel'], ['submit', 'submit'], ['cancel', 'submit'], ['approve', 'reject'], ['create', 'create'], ['finance', 'revise'], ['revise', 'finance']];
     }
 
     #[DataProvider('concurrentActions')]
@@ -177,12 +178,15 @@ class QuotationConcurrencyTest extends TestCase
     {
         $quotation = null;
         if ($firstAction === 'create') $this->draft->delete();
-        if ($firstAction === 'approve') {
+        if (in_array($firstAction, ['approve', 'finance', 'revise'], true)) {
             $this->postJson(route('leads.my.warm.quotation.final-submit', $this->claim->id))->assertOk();
             $quotation = Quotation::sole();
+            if ($firstAction !== 'approve') {
+                $this->actingAs($this->bm)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 0, 'notes' => 'Ready for customer'])->assertRedirect();
+            }
         }
         $parameters = function (string $action) use ($quotation): array {
-            $id = in_array($action, ['approve', 'reject'], true) ? $quotation->id : ($action === 'cancel' ? $this->draft->id : $this->claim->id);
+            $id = in_array($action, ['approve', 'reject', 'finance'], true) ? $quotation->id : ($action === 'cancel' ? $this->draft->id : $this->claim->id);
             $payload = $action === 'save' ? $this->payload() : ['draft_id' => $this->draft->id, 'draft_version' => 0, 'revision_no' => 0, 'notes' => 'Concurrent review'];
             return [PHP_BINARY, base_path('tests/Support/quotation-mutation-worker.php'), $this->databasePath,
                 (string) (in_array($action, ['approve', 'reject'], true) ? $this->bm->id : $this->sales->id),
@@ -210,6 +214,14 @@ class QuotationConcurrencyTest extends TestCase
                 $this->assertSame(1, TempQuotation::where('status', 'draft')->count());
                 $this->assertSame(0, Quotation::count());
                 $this->assertSame(1, QuotationLog::where('action', 'draft_created')->count());
+            } elseif ($firstAction === 'finance') {
+                $this->assertSame('pending_finance', $quotation->fresh()->status);
+                $this->assertSame(0, TempQuotation::where('status', 'draft')->count());
+                $this->assertSame(1, QuotationLog::where('action', 'submit_to_finance')->count());
+            } elseif ($firstAction === 'revise') {
+                $this->assertSame('approved_by_bm', $quotation->fresh()->status);
+                $this->assertSame(1, TempQuotation::where('status', 'draft')->count());
+                $this->assertSame(0, QuotationLog::where('action', 'submit_to_finance')->count());
             } elseif ($firstAction === 'save') {
                 $this->assertSame(1, $this->draft->fresh()->lock_version);
                 $this->assertSame('Saved machine', $this->draft->fresh()->items->sole()->description);
