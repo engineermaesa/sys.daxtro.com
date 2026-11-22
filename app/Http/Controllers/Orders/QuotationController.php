@@ -578,7 +578,7 @@ class QuotationController extends Controller
         }
     }
 
-    private function generateProformaPDF($proforma, $quotation, $user, array &$generatedFiles)
+    private function generateProformaPDF($proforma, $quotation, $user, array &$generatedFiles = [])
     {
         $storagePath = storage_path('app/public/proformas');
         if (!File::exists($storagePath)) {

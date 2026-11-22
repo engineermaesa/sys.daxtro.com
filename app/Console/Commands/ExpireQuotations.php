@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use App\Models\Orders\Quotation;
 use App\Models\UserBalanceLog;
 use App\Models\Leads\{LeadStatus, LeadStatusLog};
+use App\Services\Orders\QuotationConcurrency;
+use Carbon\Carbon;
 
 class ExpireQuotations extends Command
 {
@@ -16,7 +18,7 @@ class ExpireQuotations extends Command
     public function handle()
     {
         $quotations = Quotation::whereNotNull('expiry_date')
-            ->where('expiry_date', '<=', now())
+            ->where('expiry_date', '<=', Carbon::now('Asia/Jakarta'))
             ->where('status', '!=', 'expired')
             ->get();
 
@@ -24,37 +26,37 @@ class ExpireQuotations extends Command
         $countQuotations = 0;
         $countLeads = 0;
 
-        foreach ($quotations as $quotation) {
-            // Update user balance logs
-            $updatedLogs = UserBalanceLog::where('quotation_id', $quotation->id)
-                ->where('status', 'pending')
-                ->update(['status' => 'expired']);
-            $countLogs += $updatedLogs;
+        foreach ($quotations as $candidate) {
+            [$logs, $expired, $moved] = QuotationConcurrency::transaction(function () use ($candidate) {
+                QuotationConcurrency::lockLead($candidate->lead_id);
+                $quotation = Quotation::with('lead')->whereKey($candidate->id)
+                    ->whereNotNull('expiry_date')
+                    ->where('expiry_date', '<=', Carbon::now('Asia/Jakarta'))
+                    ->where('status', '!=', 'expired')->lockForUpdate()->first();
+                if (!$quotation) return [0, 0, 0];
 
-            $previousStatus = $quotation->status;
-
-            // Update quotation status
-            $quotation->update(['status' => 'expired']);
-            $countQuotations++;
-
-            if ($previousStatus !== 'published' && $quotation->lead) {
-                $lead = $quotation->lead;
-
-                if ($lead->status_id == LeadStatus::WARM) {
-                    $firstClaim = $lead->claims()->orderBy('claimed_at')->first();
-                    if (! $lead->first_sales_id && $firstClaim) {
-                        $lead->first_sales_id = $firstClaim->sales_id;
+                $updatedLogs = UserBalanceLog::where('quotation_id', $quotation->id)
+                    ->where('status', 'pending')->update(['status' => 'expired']);
+                $previousStatus = $quotation->status;
+                $quotation->update(['status' => 'expired']);
+                $movedLead = 0;
+                if ($previousStatus !== 'published' && $quotation->lead) {
+                    $lead = $quotation->lead;
+                    if ($lead->status_id == LeadStatus::WARM) {
+                        $firstClaim = $lead->claims()->orderBy('claimed_at')->first();
+                        if (!$lead->first_sales_id && $firstClaim) {
+                            $lead->first_sales_id = $firstClaim->sales_id;
+                        }
+                        $lead->update(['status_id' => LeadStatus::TRASH_WARM]);
+                        LeadStatusLog::create(['lead_id' => $lead->id, 'status_id' => LeadStatus::TRASH_WARM]);
+                        $movedLead = 1;
                     }
-                    $lead->update(['status_id' => LeadStatus::TRASH_WARM]);
-
-                    LeadStatusLog::create([
-                        'lead_id'   => $lead->id,
-                        'status_id' => LeadStatus::TRASH_WARM,
-                    ]);
-
-                    $countLeads++;
                 }
-            }
+                return [$updatedLogs, 1, $movedLead];
+            });
+            $countLogs += $logs;
+            $countQuotations += $expired;
+            $countLeads += $moved;
         }
 
         $this->info("Expired {$countLogs} user balance logs");
