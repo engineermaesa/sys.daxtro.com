@@ -113,6 +113,7 @@ class QuotationDraftCancellationTest extends TestCase
         ];
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_discarding_r0_soft_deletes_only_the_draft_and_retains_contents_for_audit(): void
     {
         $items = $this->draft->items()->orderBy('id')->get()->map->getRawOriginal()->all();
@@ -145,6 +146,7 @@ class QuotationDraftCancellationTest extends TestCase
     }
 
     #[DataProvider('revisionStatuses')]
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_cancel_revision_preserves_official_quotation_snapshot_reviews_and_proforma(string $status): void
     {
         [$quotation, $draft] = $this->revision($status);

@@ -351,6 +351,7 @@ class QuotationRevisionHistoryTest extends TestCase
     }
 
     #[DataProvider('pdfRevisions')]
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_pdf_action_receives_selected_snapshot_and_preserves_official_data(?int $number): void
     {
         $selected = $number ?? 2;
@@ -395,6 +396,7 @@ class QuotationRevisionHistoryTest extends TestCase
         $this->assertSame('Unversioned live edit', $this->quotation->fresh()->items->sole()->description);
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_pdf_header_items_merged_amounts_and_payment_terms_render_from_snapshot(): void
     {
         $snapshot = $this->quotation->revisions()->where('revision_no', 1)->firstOrFail()->load('items', 'paymentTerms');
@@ -527,6 +529,7 @@ class QuotationRevisionHistoryTest extends TestCase
         Pdf::shouldReceive('output')->andReturn('%PDF-1.4 test');
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_customer_revisions_and_cancellation_preserve_history_through_finance_publication(): void
     {
         $lead = Lead::create([
@@ -603,6 +606,72 @@ class QuotationRevisionHistoryTest extends TestCase
             ->assertSee('Workflow machine R0')->assertDontSee('Discarded machine')->assertDontSee('Workflow machine R2')
             ->assertSee('Viewing revision R0 (read-only)')->assertDontSee('id="approve"', false);
         $this->assertSame(1, DB::table('document_counters')->where('type', 'quotation')->value('last_number'));
+    }
+
+    public static function uatRejectors(): array
+    {
+        return ['UAT 03 BM' => ['branch_manager'], 'UAT 04 Finance' => ['finance'], 'UAT 04 Finance Director' => ['finance_director']];
+    }
+
+    #[DataProvider('uatRejectors')]
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
+    public function test_uat_rejection_restarts_bm_review_and_keeps_rejection_notes_in_history(string $rejectRole): void
+    {
+        $lead = Lead::create(['source_id' => $this->quotation->lead->source_id, 'status_id' => LeadStatus::WARM, 'name' => 'UAT rejection customer']);
+        $claim = LeadClaim::factory()->create(['lead_id' => $lead->id, 'sales_id' => $this->sales->id]);
+        $draft = \App\Models\Orders\TempQuotation::factory()->create([
+            'lead_id' => $lead->id, 'created_by' => $this->sales->id,
+            'subtotal' => 1000000, 'tax_pct' => 11, 'tax_total' => 110000, 'grand_total' => 1110000,
+        ]);
+        $draft->items()->create(['description' => 'Original UAT machine', 'qty' => 1, 'unit_price' => 1000000, 'discount_pct' => 0, 'line_total' => 1000000, 'is_visible_pdf' => true]);
+        $draft->paymentTerms()->create(['term_no' => 1, 'percentage' => 100, 'description' => 'Original UAT terms']);
+        $this->actingAs($this->sales)->postJson(route('leads.my.warm.quotation.final-submit', $claim->id), ['draft_id' => $draft->id, 'draft_version' => 0])->assertOk();
+        $quotation = Quotation::where('lead_id', $lead->id)->firstOrFail();
+        $originalNumber = $quotation->quotation_no;
+        $snapshot = $quotation->revisions()->sole();
+        $originalSnapshot = $snapshot->getRawOriginal();
+        $rejector = match ($rejectRole) {
+            'branch_manager' => $this->bm,
+            'finance' => $this->finance,
+            'finance_director' => $this->user('finance_director'),
+        };
+        if ($rejectRole !== 'branch_manager') {
+            $this->actingAs($this->bm)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 0, 'notes' => 'BM approved before Finance review'])->assertRedirect();
+            $this->actingAs($this->sales)->postJson(route('quotations.submit-to-finance', $quotation->id), ['revision_no' => 0])->assertOk();
+        }
+        $rejectionNotes = 'UAT '.$rejectRole.' requests revised payment terms';
+        $this->actingAs($rejector)->postJson(route('quotations.reject', $quotation->id), ['revision_no' => 0, 'notes' => $rejectionNotes])->assertRedirect();
+        $this->assertSame('rejected', $quotation->fresh()->status);
+        $this->actingAs($this->sales)->get(route('quotations.revisions.index', $quotation->id))->assertOk()->assertSee($rejectionNotes);
+        $newDraft = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk()->json('draft');
+        $this->assertSame('Original UAT machine', $newDraft['items'][0]['description']);
+        $version = $this->postJson(route('leads.my.warm.quotation.store', $claim->id), [
+            'draft_id' => $newDraft['id'], 'draft_version' => $newDraft['lock_version'] ?? 0,
+            'product_id' => [null], 'description' => ['Corrected UAT machine'], 'qty' => [1],
+            'unit_price' => [2000000], 'discount_pct' => [0], 'tax_pct' => 11, 'payment_type' => 'down_payment',
+            'term_percentage' => [50, 50], 'term_description' => ['Revised deposit', 'Revised delivery'],
+        ])->assertOk()->json('data.draft_version');
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id), ['draft_id' => $newDraft['id'], 'draft_version' => $version])->assertOk();
+        $this->assertSame('review', $quotation->fresh()->status);
+        $this->assertSame(1, $quotation->fresh()->revision_no);
+        $this->assertSame($originalNumber, $quotation->fresh()->quotation_no);
+        $this->assertSame(0, $quotation->currentReviews()->count());
+        $this->assertSame($originalSnapshot, $snapshot->fresh()->getRawOriginal());
+        $this->assertTrue($quotation->reviewHistory()->where('decision', 'reject')->sole()->trashed());
+        $this->actingAs($this->finance)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 1, 'notes' => 'Premature Finance approval'])->assertStatus(409);
+        Notification::fake();
+        $this->actingAs($this->bm)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 1, 'notes' => 'BM reapproved corrected UAT revision'])->assertRedirect();
+        Notification::assertNotSentTo($this->finance, \App\Notifications\Orders\QuotationPendingFinanceNotification::class);
+        $this->actingAs($this->sales)->postJson(route('quotations.submit-to-finance', $quotation->id), ['revision_no' => 1])->assertOk();
+        $this->fakeWorkflowProformaRendering();
+        $this->actingAs($rejectRole === 'branch_manager' ? $this->finance : $rejector)->postJson(route('quotations.approve', $quotation->id), ['revision_no' => 1, 'notes' => 'Finance approved corrected UAT revision'])->assertRedirect();
+        $this->assertSame('published', $quotation->fresh()->status);
+        $this->assertSame(2, $quotation->revisions()->count());
+        $this->actingAs($this->sales)->get(route('quotations.revisions.index', $quotation->id))->assertOk()
+            ->assertSee($rejectionNotes)->assertSee('BM reapproved corrected UAT revision')->assertSee('Finance approved corrected UAT revision');
+        $this->get(route('quotations.revisions.show', [$quotation->id, 0]))->assertOk()
+            ->assertSee($rejectionNotes)->assertSee('Original UAT machine')->assertDontSee('Corrected UAT machine')
+            ->assertSee('Viewing revision R0 (read-only)');
     }
 
     public static function legacyFinanceReviewers(): array

@@ -14,6 +14,7 @@ use Tests\TestCase;
 #[\PHPUnit\Framework\Attributes\Group('quotation-revision')]
 class QuotationPdfRenderTest extends TestCase
 {
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_real_pdf_contains_a_valid_page_and_clickable_company_website(): void
     {
         // All document data stays in memory; font generation uses an isolated temporary directory.
@@ -61,6 +62,14 @@ class QuotationPdfRenderTest extends TestCase
             $this->assertSame(1, $pdf->getCanvas()->get_page_count());
             $this->assertStringContainsString('/URI', $output);
             $this->assertStringContainsString('https://daxtro.id/', $output);
+            $artifactDirectory = getenv('QUOTATION_UAT_ARTIFACT_DIR');
+            if ($artifactDirectory) {
+                $resolved = realpath($artifactDirectory);
+                $this->assertNotFalse($resolved);
+                $this->assertSame(realpath(sys_get_temp_dir()), dirname($resolved));
+                $this->assertStringStartsWith('quotation-uat-local-', basename($resolved));
+                $this->assertNotFalse(file_put_contents($resolved.'/quotation-r1-sample.pdf', $output));
+            }
         } finally {
             $filesystem->deleteDirectory($fontDirectory);
         }

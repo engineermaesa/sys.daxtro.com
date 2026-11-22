@@ -606,6 +606,7 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertSame('pending_finance', $this->quotation->fresh()->status);
     }
 
+    #[\PHPUnit\Framework\Attributes\Group('quotation-uat')]
     public function test_full_bm_customer_finance_flow_publishes_only_after_explicit_submit_and_finance_approval(): void
     {
         $this->approveForCustomer();
