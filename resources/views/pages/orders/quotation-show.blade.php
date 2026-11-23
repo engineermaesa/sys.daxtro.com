@@ -628,13 +628,15 @@
                     @php
                         $userRole = auth()->user()->role?->code;
                     @endphp
-                    @if ($canSubmitToFinance)
+                    @if ($canSubmitToFinance && $userRole === 'sales')
                         <form method="POST" action="{{ route('quotations.submit-to-finance', $quotation->id) }}"
                             require-confirmation="true" data-confirm-title="Submit quotation to Finance?"
                             data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">
                             @csrf
                             <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
-                            <button type="submit" class="px-5 py-2 bg-[#115640] rounded-lg text-white font-semibold cursor-pointer">Submit to Finance</button>
+                            <button type="submit" class="px-5 py-2 bg-[#115640] rounded-lg text-white font-semibold cursor-pointer flex items-center gap-2">
+                                <x-icon.export/> Submit to Finance
+                            </button>
                         </form>
                     @endif
                     <a href="{{ route('quotations.revisions.download', [$quotation->id, $revision->revision_no]) }}" class="px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#115640] font-semibold flex items-center gap-2">
@@ -651,7 +653,9 @@
                             data-confirm-title="Cancel Revision?" data-confirm-text="Discard saved changes for this revision and keep the current submitted quotation?">
                             @csrf
                             <input type="hidden" name="draft_version" value="{{ $openRevision->lock_version ?? 0 }}">
-                            <button type="submit" class="px-5 py-2 border border-[#900B09] rounded-lg text-[#900B09] font-semibold cursor-pointer">Cancel Revision</button>
+                            <button type="submit" class="px-5 py-2 border border-[#900B09] rounded-lg text-[#900B09] font-semibold cursor-pointer flex items-center gap-2">
+                                <x-icon.trash/> Cancel Revision
+                            </button>
                         </form>
                     @endif
                 </div>

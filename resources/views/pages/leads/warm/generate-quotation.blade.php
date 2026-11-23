@@ -557,7 +557,8 @@
                 </div>
                 <div class="flex justify-end gap-3 mt-5 pb-5">
                     @if ($isEditable && $isDraftMode && $draft && auth()->user()->role?->code === 'sales')
-                        <button type="submit" form="cancel-quotation-draft" class="cursor-pointer px-5 py-2 bg-white border border-[#900B09] rounded-lg text-[#900B09] font-semibold">
+                        <button type="submit" form="cancel-quotation-draft" class="cursor-pointer px-5 py-2 bg-white border border-[#900B09] rounded-lg text-[#900B09] font-semibold flex items-center gap-2">
+                            <x-icon.trash/>
                             {{ $quotation ? 'Cancel Revision' : 'Discard Draft' }}
                         </button>
                     @endif

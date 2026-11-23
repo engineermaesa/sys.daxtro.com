@@ -917,6 +917,11 @@ class QuotationReviewRevisionTest extends TestCase
         $this->assertStringContainsString('Submit to Finance</button>', $menu());
         $this->assertStringContainsString('Revise Quotation</a>', $menu());
 
+        $this->actingAs($this->bm);
+        $this->assertStringNotContainsString('Submit to Finance</button>', $menu());
+        $this->assertStringContainsString('Revise Quotation</a>', $menu());
+        $this->actingAs($this->sales);
+
         $draft = app(\App\Services\Orders\QuotationRevisions::class)->startRevision($this->quotation, $this->sales->id);
         $html = $menu();
         $this->assertStringNotContainsString('Submit to Finance</button>', $html);

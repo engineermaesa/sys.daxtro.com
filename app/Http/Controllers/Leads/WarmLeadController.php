@@ -1006,16 +1006,18 @@ class WarmLeadController extends Controller
                 $html .= '<form method="POST" action="' . e(route('quotations.drafts.cancel', $draft->id))
                     . '" require-confirmation="true" data-confirm-title="' . e($cancelLabel) . '?" data-confirm-text="' . e($cancelText) . '">'
                     . csrf_field() . '<input type="hidden" name="draft_version" value="' . (int) ($draft->lock_version ?? 0) . '">'
-                    . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]!">'
-                    . e($cancelLabel) . '</button></form>';
+                    . '<button type="submit" class="dropdown-item cursor-pointer text-[#900B09]! flex! items-center! gap-2!">'
+                    . view('components.icon.trash')->render() . ' ' . e($cancelLabel) . '</button></form>';
             }
         } elseif ($quotation && ! $draft) {
-            if ($quotation->status === 'approved_by_bm' && $canManage) {
+            // Only Sales sees this action; keep the existing BM endpoint capability intact.
+            if ($quotation->status === 'approved_by_bm' && $role === 'sales') {
                 $html .= '<form method="POST" action="' . e(route('quotations.submit-to-finance', $quotation->id))
                     . '" require-confirmation="true" data-confirm-title="Submit quotation to Finance?"'
                     . ' data-confirm-text="Confirm the customer has accepted this revision before submitting to Finance.">'
                     . csrf_field() . '<input type="hidden" name="revision_no" value="' . (int) $quotation->revision_no . '">'
-                    . '<button type="submit" class="dropdown-item cursor-pointer">Submit to Finance</button></form>';
+                    . '<button type="submit" class="dropdown-item cursor-pointer flex! items-center! gap-2!">'
+                    . view('components.icon.export')->render() . ' Submit to Finance</button></form>';
             }
             if (in_array($quotation->status, ['rejected', 'approved_by_bm'], true)
                 && $canManage) {

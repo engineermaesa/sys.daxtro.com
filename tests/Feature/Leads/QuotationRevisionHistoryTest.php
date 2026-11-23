@@ -280,6 +280,11 @@ class QuotationRevisionHistoryTest extends TestCase
                     ->assertViewHas('canRevise', $isManager && in_array($stage, ['approved_by_bm', 'rejected'], true))
                     ->assertViewHas('canSubmitToFinance', $isManager && $stage === 'approved_by_bm')
                     ->assertSee('Viewing revision R2 (current)')->assertSee('Back to revision history');
+                if ($stage === 'approved_by_bm' && $role === 'sales') {
+                    $response->assertSee('Submit to Finance');
+                } else {
+                    $response->assertDontSee('action="'.route('quotations.submit-to-finance', $this->quotation->id).'"', false);
+                }
                 if ($canReview) {
                     $response->assertSee('id="approve"', false)->assertSee('id="reject"', false)
                         ->assertSee('name="revision_no" value="2"', false);
