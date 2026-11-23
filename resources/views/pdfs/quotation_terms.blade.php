@@ -31,7 +31,7 @@
     .content {
       position: absolute;
       top: 35mm;    /* below header */
-      bottom: 25mm; /* above footer */
+      bottom: 24mm; /* above footer */
       left: 15mm; right: 15mm;
       line-height: 1.2;
     }

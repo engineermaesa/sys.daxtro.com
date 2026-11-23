@@ -62,6 +62,9 @@ class QuotationPdfRenderTest extends TestCase
             $this->assertSame(1, $pdf->getCanvas()->get_page_count());
             $this->assertStringContainsString('/URI', $output);
             $this->assertStringContainsString('https://daxtro.id/', $output);
+            $this->assertStringContainsString('https://www.instagram.com/daxtro.id/', $output);
+            $this->assertStringContainsString('https://www.tiktok.com/@daxtro.id', $output);
+            $this->assertStringContainsString('https://www.youtube.com/@DAXTROIceMachine', $output);
             $artifactDirectory = getenv('QUOTATION_UAT_ARTIFACT_DIR');
             if ($artifactDirectory) {
                 $resolved = realpath($artifactDirectory);

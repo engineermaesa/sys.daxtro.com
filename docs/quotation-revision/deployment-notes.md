@@ -4,6 +4,8 @@ Catatan ini disusun setelah UAT otomatis lokal pada 22 November 2026. Tidak ada 
 
 Hasil dan batas pengujian tersedia di [laporan UAT](uat-local-2026-11-22.md). Pengujian MySQL, browser dan transport notifikasi sebenarnya belum dilakukan; temuan INC-01 dan PDF-01 masih terbuka.
 
+Jika Artisan tidak tersedia, gunakan [panduan import SQL melalui phpMyAdmin](sql-import.md). Script pengganti keenam migration sudah diuji terpisah pada fixture MySQL lokal; rehearsal terhadap clone data aplikasi dan pengujian alur bisnis pada MySQL tetap diperlukan.
+
 ## Persiapan salinan lokal
 
 1. Gunakan clone database yang disposable dan storage lokal terpisah. Pastikan host, nama database, environment, cache konfigurasi dan seluruh transport menunjuk lingkungan lokal sebelum menjalankan Artisan.

@@ -55,7 +55,7 @@
     .content {
       position: absolute;
       top: 18mm;
-      bottom: 22mm;
+      bottom: 24mm;
       left: 12mm;
       right: 12mm;
       border: 1px solid #000;
