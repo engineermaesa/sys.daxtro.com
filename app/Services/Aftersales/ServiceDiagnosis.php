@@ -29,7 +29,7 @@ class ServiceDiagnosis
 
     public function authorizeEdit(Ticket $ticket, TicketServiceForm $form, User $user): void
     {
-        abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can edit diagnosis.');
+        abort_unless(TicketDocuments::canFill($user, $ticket), 403, 'Only the assigned technician or supervisor can edit diagnosis.');
         abort_if($form->isLocked(), 422, 'The Service Form is saved and locked.');
         abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'Diagnosis cannot be edited in this ticket status.');
         if (TicketDocumentWorkflow::enabled($ticket) && TicketDocumentWorkflow::status($ticket) === 'documentation_published') {

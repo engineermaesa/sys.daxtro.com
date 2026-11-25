@@ -889,7 +889,7 @@
             const note = saved ? 'Saved ' + fmtDateTime(doc.saved_at) : ((doc.completeness && doc.completeness.summary) || 'Ready to save');
 
             let buttons = '<button type="button" class="doc-open bg-white border border-[#D9D9D9] rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">'
-                + (can.fill && !doc.locked ? 'Fill' : 'View') + '</button>';
+                + (can.fill && !doc.locked && (type !== 'service_form' || capAllows('can_fill_service_form')) ? 'Fill' : 'View') + '</button>';
 
             if (can.review_supervisor === true || (can.review_supervisor === undefined && can.sign_supervisor && capAllows(SIGN_CAP[type]))) {
                 buttons += '<button type="button" class="doc-sign-supervisor bg-[#E7F3EE] text-[#115640] font-semibold rounded-md cursor-pointer" data-doc="' + type + '" style="padding: 8px 14px;">Review &amp; Sign</button>';
@@ -1788,7 +1788,7 @@
             $('#ssTechMeta').text((techSig.signer_name || '-') + ' · ' + fmtDateTime(techSig.signed_at));
         }
         $('#ssCompleteness').text(canSign ? 'Ready for your signature. You can sign this document without waiting for Technician submission.'
-            : (canReview && !sig ? (can.fill ? 'You and the assigned Technician can fill this document. ' : 'The assigned Technician can fill this document. ') + 'Complete the required fields and Technician/Customer signatures before signing. ' + ((d.completeness || {}).summary || '')
+            : (canReview && !sig ? 'You and the assigned Technician can fill this document. Complete the required fields and Technician/Customer signatures before signing. ' + ((d.completeness || {}).summary || '')
                 : (d.locked ? 'Document is locked for editing.' : ((d.completeness || {}).summary || 'All requirements are complete.'))));
 
         $('#ssFillDocument').toggleClass('hidden', !can.fill || !!d.locked).data('doc', S.ssDoc);

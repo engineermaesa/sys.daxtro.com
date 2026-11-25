@@ -88,7 +88,7 @@ class ServiceFormController extends Controller
     public function saveDraft(Request $request, Ticket $ticket)
     {
         $user = $request->user();
-        abort_unless(TicketDocuments::isTechnician($user, $ticket), 403, 'Only the assigned technician can fill the Service Form.');
+        abort_unless(TicketDocuments::canFill($user, $ticket), 403, 'Only the assigned technician or supervisor can fill the Service Form.');
         $revision = ServiceFormRevisions::validate($request, $ticket);
 
         $validated = $this->validateForm($request);
@@ -158,7 +158,7 @@ class ServiceFormController extends Controller
     public function photoLink(Request $request, Ticket $ticket)
     {
         $user = $request->user();
-        abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
+        abort_unless(TicketDocuments::canFill($user, $ticket), 403);
 
         $validated = $request->validate([
             'item_number' => 'required|integer|min:1',
