@@ -36,6 +36,7 @@
                     <tr class="border-b border-b-[#D9D9D9]">
                         <th class="p-3 text-left uppercase text-xs font-bold">Ticket ID</th>
                         <th class="p-3 text-left uppercase text-xs font-bold">Customer</th>
+                        <th class="p-3 text-left uppercase text-xs font-bold">Technician</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Score</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Happy Call</th>
                         <th class="p-3 text-center uppercase text-xs font-bold">Action</th>
@@ -59,6 +60,7 @@
     <tr class="border-t border-t-[#D9D9D9]">
         <td class="p-3 text-left font-semibold text-[#115640]" data-label="Ticket ID" data-primary data-ref="code"></td>
         <td class="p-3 text-left text-black" data-label="Customer" data-ref="customer"></td>
+        <td class="p-3 text-left text-black" data-label="Technician" data-ref="technician"></td>
         <td class="p-3 text-center text-black" data-label="Score" data-ref="score"></td>
         <td class="p-3 text-center" data-label="Happy Call">
             <span class="font-semibold" data-ref="hcStatus"></span>
@@ -97,7 +99,7 @@
         return v ? new Date(v).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) : '-';
     }
     function showMessage(text, color) {
-        $('#rtc-body').empty().append($('<tr>').append($('<td colspan="5" class="text-center p-4">').css('color', color || '#757575').text(text)));
+        $('#rtc-body').empty().append($('<tr>').append($('<td colspan="6" class="text-center p-4">').css('color', color || '#757575').text(text)));
     }
 
     function renderRows(rows) {
@@ -110,6 +112,7 @@
             const $row = fill(clone('tpl-rtc-row'), {
                 code: row.ticket_code,
                 customer: (row.customer || {}).name || '-',
+                technician: (row.technician || {}).name || '-',
                 score: row.average_score === null || row.average_score === undefined ? '-' : Number(row.average_score).toFixed(1) + ' / 3',
                 hcStatus: done ? 'Done' : ({ waiting_survey: 'Waiting survey', needs_review: 'Needs review', overdue: 'Overdue' }[hc.status] || 'Not done'),
                 hcDue: done ? fmtDate(hc.done_at) : (hc.due_at ? 'Due ' + fmtDate(hc.due_at) + ' (H+3)' : ''),

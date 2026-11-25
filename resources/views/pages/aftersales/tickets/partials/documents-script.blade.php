@@ -330,7 +330,7 @@
             const meta = s ? '<p class="text-xs border-t border-[#EDEDED]" style="padding: 8px 14px;">' + esc(dash(s.signer_name)) + ' &middot; ' + esc(fmtDateTime(s.signed_at)) + '</p>' : '';
 
             return '<div class="sig-card bg-white rounded-lg border border-[#D9D9D9]" data-doc="' + type + '" data-role="' + role + '" style="overflow: hidden;">'
-                + '<p class="uppercase font-semibold border-b border-[#EDEDED]" style="font-size: 11px; padding: 12px 14px; background: #FAFAFA;">' + esc(r[1]) + '</p>'
+                + '<p class="uppercase font-semibold border-b border-[#EDEDED]" style="font-size: 11px; padding: 12px 14px; background: #FAFAFA;">' + esc(r[1]) + ' <span style="color:#EC221F;">*</span>' + '</p>'
                 + '<div style="padding: 0 14px 12px;">' + body + '</div>' + meta + '</div>';
         }).join('');
 
@@ -1058,7 +1058,7 @@
             return '<div class="sa-section border-b border-[#EDEDED] last:border-b-0">'
                 + '<div class="flex items-center justify-between" style="padding: 14px 16px; background: #FAFAFA;">'
                 + '<label class="flex items-center cursor-pointer" style="gap: 12px;"><input type="checkbox" class="sa-section-check" ' + (readOnly ? 'disabled' : '') + ' style="width: 18px; height: 18px;">'
-                + '<span class="font-bold">' + esc(sec.code) + '. ' + esc(sec.title) + '</span></label>'
+                + '<span class="font-bold">' + esc(sec.code) + '. ' + esc(sec.title) + ' <span class="text-[#EC221F]">*</span></span></label>'
                 + '<button type="button" class="sa-toggle flex items-center cursor-pointer" style="gap: 10px;" aria-expanded="true">'
                 + '<span class="sa-count text-[#9CA3AF] text-xs"></span><i class="bi bi-chevron-up text-[#9CA3AF] text-xs"></i></button></div>'
                 + '<div class="sa-body" style="padding: 8px 16px 12px 36px;">' + clauses + '</div></div>';
@@ -1158,10 +1158,68 @@
         });
     }
 
+    // AS-FRM-01: tandai bagian wajib yang masih kosong (urut sesuai halaman) lalu scroll ke yang pertama
+    function clearAgreementErrors() {
+        $('#ticketAgreementView .sa-err').remove();
+        $('#ticketAgreementView .sa-invalid').removeClass('sa-invalid').css({ 'border-color': '', 'background-color': '' });
+    }
+
+    function flagAgreement($el, message) {
+        $el.addClass('sa-invalid').css({ 'border-color': '#EC221F', 'background-color': '#FBEAEA' });
+        $el.after('<p class="sa-err text-xs" style="color:#EC221F; margin: 6px 4px 0;">' + esc(message) + '</p>');
+    }
+
+    function markAgreementErrors() {
+        clearAgreementErrors();
+        const d = S.agreement || {};
+        const targets = [];
+
+        if (!($('#saCustomerName').val() || '').trim()) {
+            targets.push({ $el: $('#saNameCard'), msg: 'Customer representative name is required.' });
+        }
+
+        $('#ticketAgreementView .sa-section').each(function () {
+            const $s = $(this);
+            const left = $s.find('.sa-clause').not(':checked').length;
+            if (left > 0) {
+                setSectionOpen($s, true);
+                targets.push({ $el: $s.find('.sa-body'), msg: left + ' clause(s) in this section are not checked.' });
+            }
+        });
+
+        const missing = ((d.completeness || {}).missing || []).join(' | ').toLowerCase();
+        $('#saSignatures .sig-card').each(function () {
+            const role = $(this).data('role');
+            if (missing.indexOf(role + ' signature is missing') >= 0) {
+                targets.push({ $el: $(this), msg: 'Signature is required.' });
+            }
+        });
+
+        targets.forEach(function (t) { flagAgreement(t.$el, t.msg); });
+        if (targets.length) targets[0].$el[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return targets.length;
+    }
+
+    $(document).on('input change', '#saCustomerName', function () {
+        $('#saNameCard').removeClass('sa-invalid').css({ 'border-color': '', 'background-color': '' }).next('.sa-err').remove();
+        $('#saNameCard > .sa-err').remove();
+    });
+    $(document).on('change', '#ticketAgreementView .sa-clause, #ticketAgreementView .sa-section-check, #saCheckAll', function () {
+        $('#ticketAgreementView .sa-section').each(function () {
+            const $body = $(this).find('.sa-body');
+            if (!$(this).find('.sa-clause').not(':checked').length && $body.hasClass('sa-invalid')) {
+                $body.removeClass('sa-invalid').css({ 'border-color': '', 'background-color': '' }).next('.sa-err').remove();
+            }
+        });
+    });
+
     $(document).on('click', '#saSaveDraft', function () {
         const $b = $(this).prop('disabled', true);
         saveAgreementDraft()
-            .done(function () { toast('Draft saved'); })
+            .done(function () {
+                toast('Draft saved');
+                markAgreementErrors();
+            })
             .fail(function (xhr) { fail(xhr, 'Failed to save draft.'); })
             .always(function () { $b.prop('disabled', false); });
     });
@@ -1514,6 +1572,101 @@
         step(Number($(this).closest('.sf-detail').data('item')), -1, false);
     });
 
+    // AS-FRM-01: tandai bagian wajib Service Form yang kosong (urut sesuai halaman), scroll ke yang pertama.
+    // Aturan meniru TicketDocuments::completeness (form): item applicable dan status != na.
+    function clearFormErrors() {
+        $('#ticketServiceFormView .sf-err').remove();
+        $('#ticketServiceFormView .sf-invalid').removeClass('sf-invalid').css({ 'border-color': '', 'background-color': '' });
+    }
+
+    function flagForm($el, message, inline) {
+        $el.addClass('sf-invalid').css({ 'border-color': '#EC221F', 'background-color': '#FBEAEA' });
+        const p = '<p class="sf-err text-xs" style="color:#EC221F; margin: 6px 0 0;">' + esc(message) + '</p>';
+        if (inline) $el.append(p); else $el.after(p);
+    }
+
+    function markFormErrors() {
+        clearFormErrors();
+        const f = S.form || {};
+        const targets = [];
+
+        if (!$('#sfServiceType').val()) {
+            targets.push({ $el: $('#sfServiceType'), msg: 'Service type is required.' });
+        }
+        $('.sf-unit').each(function () {
+            if (!String($(this).val() || '').trim()) {
+                targets.push({ $el: $(this), msg: ($(this).closest('div').find('label').first().text().replace('*', '').trim() || 'This field') + ' is required.' });
+            }
+        });
+
+        const itemTargets = [];
+        (f.groups || []).forEach(function (g) {
+            (g.items || []).forEach(function (it) {
+                if (it.applicable === false || it.status === 'na') return;
+                const $row = $('.sf-row[data-item="' + it.number + '"]');
+                if (!$row.length) return;
+                if (!it.status) {
+                    itemTargets.push({ group: g.code, number: it.number, msg: 'Status is required.' });
+                    return;
+                }
+                const checklistValues = [];
+                (it.fields || []).forEach(function (fd) {
+                    if (fd.type === 'checklist') [].concat(fd.value === null || fd.value === undefined ? [] : fd.value).forEach(function (v) { checklistValues.push(v); });
+                });
+                let empty = 0;
+                (it.fields || []).forEach(function (fd) {
+                    const required = fd.type !== 'text' || (fd.required_when && checklistValues.indexOf(fd.required_when) >= 0);
+                    const blank = fd.value === null || fd.value === undefined || fd.value === '' || (Array.isArray(fd.value) && !fd.value.length);
+                    if (required && blank) {
+                        empty++;
+                        $('.sf-detail[data-item="' + it.number + '"] .sf-input[data-key="' + fd.key + '"]').filter(function () { return $(this).data('type') !== 'checklist'; })
+                            .addClass('sf-invalid').css({ 'border-color': '#EC221F', 'background-color': '#FBEAEA' });
+                    }
+                });
+                if (empty) itemTargets.push({ group: g.code, number: it.number, msg: empty + ' field(s) are empty.' });
+            });
+        });
+        itemTargets.forEach(function (t) {
+            const $row = $('.sf-row[data-item="' + t.number + '"]');
+            $row.addClass('sf-invalid').css('background-color', '#FBEAEA');
+            $row.find('.sf-result').append('<p class="sf-err text-xs" style="color:#EC221F; margin-top:4px;">' + esc(t.msg) + '</p>');
+        });
+
+        const missing = ((f.completeness || {}).missing || []);
+        const diagMissing = missing.filter(function (m) {
+            return !/^Machine info incomplete|inspection item\(s\) have no status|field\(s\) are empty|number field\(s\) have no photo|signature is missing/i.test(m);
+        });
+        const lower = missing.join(' | ').toLowerCase();
+        const sigTargets = [];
+        $('#sfSignatures .sig-card').each(function () {
+            if (lower.indexOf($(this).data('role') + ' signature is missing') >= 0) sigTargets.push($(this));
+        });
+
+        targets.forEach(function (t) { flagForm(t.$el, t.msg); });
+        if (diagMissing.length) flagForm($('#sfDiagnosis'), diagMissing.join('; '), true);
+        sigTargets.forEach(function ($c) { flagForm($c, 'Signature is required.'); });
+
+        let first = targets.length ? targets[0].$el[0] : null;
+        if (!first && itemTargets.length) {
+            const t = itemTargets[0];
+            $('.sf-tab[data-tab="' + t.group + '"]').trigger('click');
+            if (S.openItem !== t.number) toggleItem(Number(t.number));
+            first = $('.sf-row[data-item="' + t.number + '"]')[0];
+        }
+        if (!first && diagMissing.length) first = $('#sfDiagnosis')[0];
+        if (!first && sigTargets.length) first = sigTargets[0][0];
+        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return !!first;
+    }
+
+    $(document).on('input change', '#ticketServiceFormView .sf-unit, #sfServiceType', function () {
+        $(this).removeClass('sf-invalid').css({ 'border-color': '', 'background-color': '' }).next('.sf-err').remove();
+    });
+    $(document).on('click', '.sf-status-btn', function () {
+        const $d = $(this).closest('.sf-detail');
+        $d.prev('.sf-row').removeClass('sf-invalid').css('background-color', '').find('.sf-err').remove();
+    });
+
     $(document).on('click', '#sfSaveDraft', function () {
         const $b = $(this).prop('disabled', true);
         putForm({
@@ -1522,7 +1675,7 @@
             inspections: collectAll(),
             diagnosis: window.ServiceDiagnosisEditor.collect(),
         })
-            .done(function () { toast('Draft saved'); })
+            .done(function () { toast('Draft saved'); markFormErrors(); })
             .fail(function (xhr) { fail(xhr, 'Failed to save draft.'); })
             .always(function () { $b.prop('disabled', false); });
     });

@@ -489,7 +489,68 @@
         }
     }
 
-    async function openTickets(filters, page = 1) {
+    function closeDrillSheet() {
+        const sheet = document.getElementById("spv-drill-sheet");
+        if (!sheet) return;
+        sheet.remove();
+        document.body.style.overflow = sheet._prevOverflow || "";
+        document.removeEventListener("keydown", sheet._onKey);
+        sheet._opener?.focus?.();
+    }
+
+    // AS-DSH-06/07: di bawah 768px daftar ticket tampil sebagai sheet layar penuh berisi card satu kolom
+    function openDrillSheet(result, label, filters, page) {
+        closeDrillSheet();
+        const sheet = document.createElement("div");
+        sheet.id = "spv-drill-sheet";
+        sheet.className = "spv-drill-sheet";
+        sheet.setAttribute("role", "dialog");
+        sheet.setAttribute("aria-modal", "true");
+        sheet.setAttribute("aria-label", label);
+        sheet._opener = document.activeElement;
+        sheet._prevOverflow = document.body.style.overflow;
+        const cards = result.data.length
+            ? result.data
+                  .map(
+                      (t) => `<a class="spv-drill-card" href="/aftersales/tickets/${encodeURIComponent(t.id)}">
+                        <div class="spv-drill-code">${escapeHtml(t.ticket_code)}</div>
+                        <dl>
+                            <dt>Customer</dt><dd>${escapeHtml(t.customer_name || "-")}</dd>
+                            <dt>Machine</dt><dd>${escapeHtml(t.model || "-")}</dd>
+                            <dt>Technician</dt><dd>${escapeHtml(t.technician || "-")}</dd>
+                        </dl></a>`,
+                  )
+                  .join("")
+            : '<p class="spv-drill-empty">No tickets found.</p>';
+        sheet.innerHTML = `
+            <div class="spv-drill-head">
+                <button type="button" class="spv-drill-close" data-drill-close><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
+                <div class="spv-drill-title">${escapeHtml(label)}</div>
+                <div class="spv-drill-sub">${escapeHtml(result.total)} tickets</div>
+            </div>
+            <div class="spv-drill-body">${cards}</div>
+            <div class="spv-drill-foot">
+                <button type="button" data-drill-prev ${page > 1 ? "" : "disabled"}>Previous</button>
+                <span>Page ${escapeHtml(result.current_page)} / ${escapeHtml(result.last_page)}</span>
+                <button type="button" data-drill-next ${page < result.last_page ? "" : "disabled"}>Next</button>
+            </div>`;
+        sheet._onKey = (event) => {
+            if (event.key === "Escape") closeDrillSheet();
+        };
+        document.addEventListener("keydown", sheet._onKey);
+        sheet.addEventListener("click", (event) => {
+            if (event.target.closest("[data-drill-close]")) closeDrillSheet();
+            else if (event.target.closest("[data-drill-next]"))
+                openTickets(filters, page + 1, label);
+            else if (event.target.closest("[data-drill-prev]"))
+                openTickets(filters, page - 1, label);
+        });
+        document.body.style.overflow = "hidden";
+        document.body.appendChild(sheet);
+        sheet.querySelector("[data-drill-close]").focus();
+    }
+
+    async function openTickets(filters, page = 1, label = "") {
         if (
             !spvData ||
             !window.Swal ||
@@ -514,17 +575,23 @@
             if (!response.ok) throw new Error("Unable to load tickets.");
             const result = await response.json();
             if (controller.signal.aborted) return;
+            const title = label || "Dashboard tickets";
+            if (window.matchMedia("(max-width: 767px)").matches) {
+                openDrillSheet(result, title, filters, page);
+                return;
+            }
+            closeDrillSheet();
             const rows = result.data
                 .map(
                     (ticket) =>
-                        `<tr>${[ticket.ticket_code, ticket.customer_name, ticket.model, ticket.region, fmtRp(ticket.total)].map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`,
+                        `<tr>${[ticket.ticket_code, ticket.customer_name, ticket.model, ticket.technician, ticket.region, fmtRp(ticket.total)].map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`,
                 )
                 .join("");
             const choice = await Swal.fire({
-                title: "Dashboard tickets",
+                title: `${title} (${result.total} tickets)`,
                 width: 900,
                 showCloseButton: true,
-                html: `<div class="table-responsive"><table class="table table-sm text-left"><thead><tr><th>Ticket</th><th>Customer</th><th>Machine</th><th>Region</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table></div><p>${result.total} tickets · Page ${result.current_page} / ${result.last_page}</p>`,
+                html: `<div class="table-responsive"><table class="table table-sm text-left"><thead><tr><th>Ticket</th><th>Customer</th><th>Machine</th><th>Technician</th><th>Region</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table></div><p>Page ${result.current_page} / ${result.last_page}</p>`,
                 showConfirmButton: page < result.last_page,
                 confirmButtonText: "Next",
                 showDenyButton: page > 1,
@@ -533,8 +600,8 @@
                 cancelButtonText: "Close",
             });
             if (controller.signal.aborted) return;
-            if (choice.isConfirmed) openTickets(filters, page + 1);
-            if (choice.isDenied) openTickets(filters, page - 1);
+            if (choice.isConfirmed) openTickets(filters, page + 1, label);
+            if (choice.isDenied) openTickets(filters, page - 1, label);
         } catch (error) {
             if (error.name !== "AbortError")
                 Swal.fire({
@@ -570,12 +637,16 @@
             const mode = selectedMode("problem") || "machine";
             const problem = spvData.problem[mode];
             const [i, j] = cell.dataset.cell.split(",").map(Number);
-            openTickets({
-                metric: "problem",
-                mode,
-                problem: problem.keys[i],
-                column: problem.cols[j],
-            });
+            openTickets(
+                {
+                    metric: "problem",
+                    mode,
+                    problem: problem.keys[i],
+                    column: problem.cols[j],
+                },
+                1,
+                [problem.rows[i], problem.cols[j]].join(" · "),
+            );
         } else if (warranty) {
             const mode = selectedMode("warranty") || "model";
             openTickets({

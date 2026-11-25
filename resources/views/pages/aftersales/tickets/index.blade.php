@@ -329,7 +329,7 @@
                 <td class="px-2 py-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}${row.workflow_version === 'legacy' ? '<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#F0F0F0] text-[#757575]">Legacy</span>' : ''}</div><div class="mt-1 text-[10px] font-normal text-[#757575]">${escapeHtml([customer.province?.name, customer.region?.name].filter(Boolean).join(' · '))}</div></td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Customer">${escapeHtml(customer.name)}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Machine">${escapeHtml(machineLabel(machine))}</td>
-                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
+                <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Technician">${escapeHtml(technician.name || '-')}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Visit Date" data-secondary>${visitDateCell(row)}</td>

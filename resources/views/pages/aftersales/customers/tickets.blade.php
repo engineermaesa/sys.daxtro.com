@@ -194,7 +194,7 @@
                 <td class="p-3" data-label="Machine">${escapeHtml(machine.product?.name || machine.machine_name)}${machine.is_daxtro === false
                     ? `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${[machine.brand, machine.trader_name].filter(Boolean).length ? ' · ' + escapeHtml([machine.brand, machine.trader_name].filter(Boolean).join(' / ')) : ''}</div>`
                     : ''}</td>
-                <td class="p-3" data-label="Technician" data-secondary>${escapeHtml(technician.name)}</td>
+                <td class="p-3" data-label="Technician">${escapeHtml(technician.name || '-')}</td>
                 <td class="p-3 sm:max-w-[160px]" data-label="Desc.">
                     <div class="min-w-0 flex-1 sm:flex-none">
                         <span class="line-clamp-2 break-words">${escapeHtml(row.description)}</span>

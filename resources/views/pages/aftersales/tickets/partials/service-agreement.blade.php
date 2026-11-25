@@ -25,8 +25,8 @@
 
         <div id="saBody" class="hidden">
             {{-- CUSTOMER NAME --}}
-            <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 20px;">
-                <label for="saCustomerName" class="block font-medium" style="margin-bottom: 8px;">Customer representative name</label>
+            <div id="saNameCard" class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; padding: 20px;">
+                <label for="saCustomerName" class="block font-medium" style="margin-bottom: 8px;">Customer representative name <span class="text-[#EC221F]" data-no-i18n>*</span></label>
                 <input type="text" id="saCustomerName" placeholder="Name of the customer who signs this agreement"
                     class="w-full border border-[#D9D9D9] rounded-md focus:outline-none focus:border-[#115640]" style="padding: 10px 12px;">
             </div>

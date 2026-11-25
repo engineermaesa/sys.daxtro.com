@@ -117,7 +117,7 @@
             {{-- 3. INSPECTION SHEET --}}
             <div class="bg-white rounded-lg border border-[#D9D9D9]" style="margin-top: 20px; overflow: hidden;">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 px-4 sm:px-6 py-4 sm:py-[18px]">
-                    <h2 class="font-bold tracking-wide">3. INSPECTION SHEET &amp; DETAILED TECHNICAL CHECK</h2>
+                    <h2 class="font-bold tracking-wide">3. INSPECTION SHEET &amp; DETAILED TECHNICAL CHECK <span class="text-[#EC221F]">*</span></h2>
                     <span id="sfItemCount" class="text-[#9CA3AF] text-xs sm:whitespace-nowrap"></span>
                 </div>
                 <div id="sfTabs" class="flex flex-wrap border-t border-[#EDEDED]" style="padding: 12px; gap: 8px;"></div>
