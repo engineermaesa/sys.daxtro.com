@@ -38,8 +38,7 @@
     }
 
     /* Header & Footer */
-    .header-slice,
-    .footer-slice {
+    .header-slice {
       position: absolute;
       left: 0;
       width: 100%;
@@ -51,17 +50,12 @@
       /* height: 50mm;  */
     }
 
-    .footer-slice {
-      bottom: 0;
-      height: auto;
-      z-index: 0;
-    }
 
     /* Content Container */
     .content {
       position: absolute;
       top: 18mm;
-      bottom: 22mm;
+      bottom: 24mm;
       left: 12mm;
       right: 12mm;
       border: 1px solid #000;
@@ -429,6 +423,9 @@
 </head>
 
 <body>
+  @php
+    $publisherName = filled($user->company_name ?? null) ? $user->company_name : 'PT Pandu Naradipta Danendra';
+  @endphp
   <div class="page-container">
     <img src="{{ public_path('assets/images/quotation/header-8-slice-KILLYOURSELF.png') }}" class="header-slice" />
 
@@ -443,7 +440,7 @@
             <div class="section-title">Customer ID: {{ $quotation->lead->id }}</div>
           </td>
           <td class="quotation-cell">
-            <div class="section-title">Quotation No: {{ $quotation->quotation_no }}</div>
+            <div class="section-title">Quotation No: {{ $quotation->revision_code ?? $quotation->quotation_no }}</div>
           </td>
           <td class="sales-cell">
             <div class="section-title text-uppercase">
@@ -469,7 +466,7 @@
             <div class="section-title section-header">Quotation Published By:</div>
             <div class="content-wrapper">
               <div class="company-name">
-                {{ optional($user)->company_name ?? 'PT Pandu Mahardika Perdana' }}
+                {{ $publisherName }}
               </div>
               @if($user && $user->company_name && $user->company_address)
               <div class="address-info">{{ $user->company_address }}</div>
@@ -529,7 +526,7 @@
               @foreach($pdfItems as $i => $item)
               <tr>
                 <td class="text-center">{{ $i + 1 }}</td>
-                <td>{{ $item['product']->name ?? $item['description'] }}</td>
+                <td>{{ filled($item['description']) ? $item['description'] : ($item['product']->name ?? '-') }}</td>
                 <td>{{ $item['product']->sku ?? '—' }}</td>
                 <td class="text-right">Rp {{ number_format($item['unit_price'], 0, ',', '.') }}</td>
                 <td class="text-center">{{ $item['qty'] }}</td>
@@ -724,9 +721,6 @@
                 <!-- Left Signature -->
                 <td class="signature-left">
                   <div class="signature-greeting">Created By</div>
-                  {{-- <div class="signature-company">
-                    {{ optional($user)->company_name ?? 'PT Pandu Mahardika Perdana' }}
-                  </div> --}}
                   <div class="signature-company signature-transparent">{{ $quotation->lead->company }}</div>
                   <div class="signature-line"></div>
                   <div class="signature-name">
@@ -756,7 +750,7 @@
 
     </div>
 
-    <img src="{{ public_path('assets/images/quotation/footer-slice.png') }}" class="footer-slice" />
+    @include('pdfs.partials.quotation-footer')
   </div>
 </body>
 

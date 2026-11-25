@@ -801,7 +801,8 @@
                     <table class="w-full">
                         <thead class="text-[#1E1E1E]">
                             <tr class="border-b border-b-[#D9D9D9]">
-                                <th class="lg:p-3 p-1">Date</th>
+                                <th class="lg:p-3 p-1">Date (WIB)</th>
+                                <th class="lg:p-3 p-1">Revision</th>
                                 <th class="lg:p-3 p-1">Action</th>
                                 <th class="lg:p-3 p-1">User</th>
                             </tr>
@@ -1599,25 +1600,7 @@
         });
     });
 
-    // Quotation Logs
-    $(document).on('click', '.btn-quotation-log', function(e) {
-        e.preventDefault();
-        const url = $(this).data('url');
-        const tbody = $('#quotationLogModal tbody');
-        tbody.html('<tr><td colspan="3" class="text-center">Loading...</td></tr>');
-        $('#quotationLogModal').modal('show');
-        $.get(url, function(data) {
-            let rows = '';
-            data.forEach(function(item) {
-                rows += '<tr class="border-t border-t-[#D9D9D9]">' +
-                    '<td class="lg:p-3 p-1">' + item.logged_at + '</td>' +
-                    '<td class="lg:p-3 p-1">' + item.action + '</td>' +
-                    '<td class="lg:p-3 p-1">' + item.user + '</td>' +
-                    '</tr>';
-            });
-            tbody.html(rows || '<tr><td colspan="3" class="text-center">No logs</td></tr>');
-        });
-    });
+    @include('partials.quotation-log-script')
 
     // Trash Lead
     $(document).on('click', '.trash-lead', function(e) {

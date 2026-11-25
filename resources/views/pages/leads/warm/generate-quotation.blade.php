@@ -1,6 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
+    @php
+        $isDraftMode = $isDraftMode ?? false;
+        $draft = $draft ?? null;
+        $targetRevision = $isDraftMode ? ($draft?->revision_no ?? 0) : (($quotation?->revision_no ?? 0) + 1);
+        $formTitle = $isDraftMode
+            ? ($quotation ? 'Revise to R'.$targetRevision : 'Create Quotation (R0)')
+            : ($isEditable ? 'Edit Quotation (R'.$targetRevision.')' : 'View Quotation (R'.$quotation->revision_no.')');
+    @endphp
     <section class="min-h-screen text-xs lg:text-sm">
         {{-- MAIN ROW --}}
         <div class="pt-4">
@@ -18,15 +26,22 @@
                 @endif
                 <i class="fas fa-chevron-right text-[#757575]" style="font-size: 12px;"></i>
                 <a href="{{ route('leads.my.warm.quotation.create', $claim->id) }}" class="text-[#083224] underline">
-                    {{ 'Generate Quotation' }}
+                    {{ $formTitle }}
                 </a>
             </div>
             <form method="POST" action="{{ route('leads.my.warm.quotation.store', $claim->id) }}" id="form"
             require-confirmation="true">
                 @csrf
+                @if (($isDraftMode ?? false) && $draft)
+                    <input type="hidden" name="draft_id" value="{{ $draft->id }}">
+                    <input type="hidden" name="draft_version" value="{{ $draft->lock_version ?? 0 }}">
+                @endif
+                @if (!($isDraftMode ?? false) && $quotation)
+                    <input type="hidden" name="revision_no" value="{{ $quotation->revision_no }}">
+                @endif
                 {{-- QUOTATIONS ITEMS --}}
                 <div class="bg-white rounded-lg mt-4">
-                    <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Quotations Items</h1>
+                    <h1 class="text-black uppercase border-b border-b-[#D9D9D9] p-3 font-semibold">Quotation Items</h1>
                     @php
                         $disabled = $isEditable ? '' : 'disabled';
                         $defaultSegment = strtolower($defaultSegment ?? '');
@@ -40,13 +55,17 @@
 
                     @if ($isDraftMode)
                         <div class="alert alert-info">
-                            This is a <strong>draft</strong>. It has not been submitted for BM approval yet — you can
-                            keep saving changes freely. Click <strong>Final Submit</strong> when you're ready.
+                            {{ $quotation ? 'You are preparing revision R'.$draft->revision_no.'.' : 'You are preparing quotation R0.' }}
+                            You can save your changes and continue later. Click <strong>Submit for Review</strong> to request BM approval.
+                        </div>
+                    @elseif ($isEditable)
+                        <div class="alert alert-info">
+                            Saving these changes creates revision R{{ $targetRevision }} and submits it for BM approval.
                         </div>
                     @endif
                     @if (!$isEditable && $quotation)
                         <div class="alert alert-warning">
-                            This quotation is already <strong>{{ ucfirst($quotation->status) }}</strong> and cannot be
+                            This quotation has status <strong>{{ $quotation->status_label }}</strong> and cannot be
                             edited.
                         </div>
                     @endif
@@ -56,7 +75,7 @@
                             {{ $rejection->decided_at ? \Carbon\Carbon::parse($rejection->decided_at)->format('d M Y') : '' }}
                             <strong>Notes:</strong> {{ $rejection->notes }}
                             @if ($isDraftMode)
-                                <br><strong>You're now revising a new draft based on this quotation.</strong>
+                                <br><strong>You are preparing a new revision based on the current quotation.</strong>
                             @endif
                         </div>
                     @elseif($quotation && isset($approval))
@@ -537,27 +556,41 @@
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-5 pb-5">
+                    @if ($isEditable && $isDraftMode && $draft && auth()->user()->role?->code === 'sales')
+                        <button type="submit" form="cancel-quotation-draft" class="cursor-pointer px-5 py-2 bg-white border border-[#900B09] rounded-lg text-[#900B09] font-semibold flex items-center gap-2">
+                            <x-icon.trash/>
+                            {{ $quotation ? 'Cancel Revision' : 'Discard Draft' }}
+                        </button>
+                    @endif
                     @if (!$quotation && !$draft)
                     <a href="{{ route('leads.my') }}" class="cursor-pointer px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Cancel</a>
                     @endif
                     @if ($quotation)
                         <a href="{{ route('quotations.download', $quotation->id) }}" class="cursor-pointer px-5 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold flex items-center gap-1">
                             <x-icon.download/>
-                            Download Quotation
+                            Download Current Quotation
                         </a>
                     @endif
                     @if ($isEditable)
                         @if ($isDraftMode)
-                            <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Draft</button>
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-white border border-[#115640] rounded-lg text-[#083224] font-semibold">Save Changes</button>
                         @else
-                            <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save</button>
+                            <button type="submit" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Save and Submit for Review</button>
                         @endif
                         @if ($isDraftMode)
-                            <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Final Submit</button>
+                            <button type="button" id="final-submit-btn" data-url="{{ route('leads.my.warm.quotation.final-submit', $claim->id) }}" class="cursor-pointer px-10 py-2 bg-[#115640] border border-[#115640] rounded-lg text-white font-semibold">Submit for Review</button>
                         @endif
                     @endif
                 </div>
             </form>
+            @if ($isEditable && $isDraftMode && $draft && auth()->user()->role?->code === 'sales')
+                <form id="cancel-quotation-draft" method="POST" action="{{ route('quotations.drafts.cancel', $draft->id) }}"
+                    require-confirmation="true" data-confirm-title="{{ $quotation ? 'Cancel Revision?' : 'Discard Draft?' }}"
+                    data-confirm-text="{{ $quotation ? 'Discard saved changes for this revision and keep the current submitted quotation?' : 'Discard this quotation draft and its saved changes?' }}">
+                    @csrf
+                    <input type="hidden" name="draft_version" value="{{ $draft->lock_version ?? 0 }}">
+                </form>
+            @endif
         </div>
     </section>
 @endsection
@@ -996,8 +1029,8 @@
                     const finalSubmitUrl = $btn.data('url');
 
                     Swal.fire({
-                        title: 'Final Submit this quotation?',
-                        text: "Once submitted, this quotation cannot be edited anymore and will be sent for BM approval. This action cannot be undone.",
+                        title: 'Submit this revision for review?',
+                        text: 'This revision will be saved as a snapshot and sent for BM approval.',
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonText: 'Yes, final submit',
@@ -1023,11 +1056,15 @@
                             processData: false,
                             contentType: false,
                             dataType: 'json',
-                        }).done(function () {
+                        }).then(function (saved) {
+                            const version = saved.data.draft_version;
+                            $form.find('input[name=draft_version]').val(version);
+                            $('#cancel-quotation-draft input[name=draft_version]').val(version);
                             return $.ajax({
                                 url: finalSubmitUrl,
                                 method: 'POST',
                                 dataType: 'json',
+                                data: { draft_id: $form.find('input[name=draft_id]').val(), draft_version: version },
                                 headers: { 'X-CSRF-TOKEN': $form.find('input[name=_token]').val() },
                             });
                         }).done(function (response) {
@@ -1044,7 +1081,7 @@
                                 errorMessage = xhr.responseJSON.message;
                             }
                             notif(errorMessage, 'error');
-                            $btn.prop('disabled', false).text('Final Submit');
+                            $btn.prop('disabled', false).text('Submit for Review');
                             loadingComplete();
                         });
                     });

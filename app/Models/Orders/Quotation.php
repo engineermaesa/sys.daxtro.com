@@ -19,6 +19,8 @@ use HasFactory, SoftDeletes;
 protected $fillable = [
     'lead_id',
     'quotation_no',
+    'revision_no',
+    'revision_code',
     'status',
     'subtotal',
     'tax_pct',
@@ -32,8 +34,24 @@ protected $fillable = [
 
 protected $dates = ['expiry_date'];
 
+public function getStatusLabelAttribute(): string
+{
+    return match ($this->status) {
+        'draft' => 'Not Submitted',
+        'review' => 'Pending BM Approval',
+        'approved_by_bm' => 'Approved by BM',
+        'pending_finance' => 'Pending Finance Approval',
+        'published' => 'Quotation Published',
+        'rejected' => 'Rejected',
+        'expired' => 'Quotation Expired',
+        'cancelled' => 'Revision Cancelled',
+        default => ucfirst(str_replace('_', ' ', $this->status ?? '')),
+    };
+}
+
 protected $casts = [
     'expiry_date' => 'date',
+    'revision_no' => 'integer',
 ];
 
 
@@ -60,6 +78,26 @@ public function createdBy()
 public function reviews()
 {
     return $this->hasMany(QuotationReview::class, 'quotation_id');
+}
+
+public function currentReviews()
+{
+    return $this->reviews()->whereExists(function ($query) {
+        $query->selectRaw('1')->from('quotations')
+            ->whereColumn('quotations.id', 'quotation_reviews.quotation_id')
+            ->whereColumn('quotations.revision_no', 'quotation_reviews.revision_no');
+    });
+}
+
+public function reviewHistory()
+{
+    return $this->reviews()->withTrashed()->orderByDesc('revision_no')
+        ->orderByDesc('decided_at')->orderByDesc('id');
+}
+
+public function revisions()
+{
+    return $this->hasMany(TempQuotation::class, 'quotation_id')->orderByDesc('revision_no');
 }
 
     public function items()

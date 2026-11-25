@@ -25,10 +25,22 @@ class QuotationReviewedNotification extends Notification implements ShouldBroadc
 
     public function toDatabase($notifiable): array
     {
+        $readyForCustomer = $this->decision === 'approve' && $this->reviewerRole === 'BM'
+            && $this->quotation->status === 'approved_by_bm';
+        $code = $this->quotation->revision_code ?? $this->quotation->quotation_no;
+
         return [
             'type'          => 'quotation_reviewed',
             'quotation_id'  => $this->quotation->id,
             'quotation_no'  => $this->quotation->quotation_no,
+            'revision_no'   => $this->quotation->revision_no,
+            'revision_code' => $this->quotation->revision_code,
+            'quotation_status' => $this->quotation->status,
+            'ready_for_customer' => $readyForCustomer,
+            'title' => $readyForCustomer ? 'Quotation Approved by BM' : 'Quotation Update',
+            'message' => $readyForCustomer
+                ? 'Quotation '.$code.' has been approved by BM and is ready to share with the customer.'
+                : 'Quotation '.$code.' was '.($this->decision === 'approve' ? 'approved' : 'rejected').' by '.$this->reviewerRole.'.',
             'lead_name'     => $this->quotation->lead?->name,
             'company'       => $this->quotation->lead?->company,
             'decision'      => $this->decision,

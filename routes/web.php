@@ -262,8 +262,15 @@ Route::get('/debug/expense-realizations', function () {
         'namespace' => 'App\\Http\\Controllers\\Orders',
     ], function () {
         Route::get('/', 'QuotationController@index')->name('index');
+        Route::post('/drafts/{draftId}/cancel', 'QuotationController@cancelDraft')
+            ->whereNumber('draftId')->name('drafts.cancel');
 
         Route::get('/{id}/download', 'QuotationController@download')->name('download');
+        Route::get('/{id}/revisions', 'QuotationController@revisionHistory')->whereNumber('id')->name('revisions.index');
+        Route::get('/{id}/revisions/{revisionNo}', 'QuotationController@showRevision')
+            ->whereNumber(['id', 'revisionNo'])->name('revisions.show');
+        Route::get('/{id}/revisions/{revisionNo}/pdf', 'QuotationController@download')
+            ->whereNumber(['id', 'revisionNo'])->name('revisions.download');
         Route::get('/{id}/logs', 'QuotationController@logs')->name('logs');
         Route::get('/{id}/signed-documents', 'QuotationController@signedDocuments')->name('signed-documents');
 
@@ -271,12 +278,15 @@ Route::get('/debug/expense-realizations', function () {
 
         Route::post('/{id}/approve', 'QuotationController@approve')->name('approve');
         Route::post('/{id}/reject', 'QuotationController@reject')->name('reject');
+        Route::post('/{id}/submit-to-finance', 'QuotationController@submitToFinance')->name('submit-to-finance');
         Route::post('/{id}/signed-documents', 'QuotationController@uploadSignedDocument')->name('signed-documents.upload');
     });
 
     // Quick preview routes for quotations (render PDF and stream inline)
     Route::get('quotations/{id}/preview', function ($id) {
         $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
         $user = $quotation->createdBy ?? auth()->user();
 
@@ -296,6 +306,8 @@ Route::get('/debug/expense-realizations', function () {
 
     Route::get('quotations/{id}/view', function ($id) {
         $quotation = \App\Models\Orders\Quotation::with(['lead','items','paymentTerms'])->findOrFail($id);
+
+        app(\App\Services\Orders\QuotationRevisions::class)->ensureInitialSnapshot($quotation);
 
         $user = $quotation->createdBy ?? auth()->user();
 
