@@ -245,12 +245,19 @@ test('TC-007 adjustment: assigned SPV can review a published document without si
     assert.equal(pads, 0);
 });
 
-test('SPV can open shared document entry and sign a complete draft without waiting for submit', () => {
-    const { elements, pad } = setup({ locked: false, allowed: true, reviewAllowed: true, fill: true });
-    assert.equal(elements['#ssFillDocument'].classes.hidden, false);
+test('SPV can view and sign a complete draft without permission to fill it', () => {
+    const { elements, pad } = setup({ locked: false, allowed: true, reviewAllowed: true });
+    assert.match(elements['#tdDocsDynamic'].content, />View<\/button>/);
+    assert.match(elements['#tdDocsDynamic'].content, /doc-sign-supervisor/);
+    assert.equal(elements['#ssFillDocument'].classes.hidden, true);
     assert.equal(elements['#ssSignArea'].classes.hidden, false);
     assert.match(elements['#ssCompleteness'].value, /without waiting for Technician submission/);
     pad.ink = true;
     pad.onChange();
     assert.equal(elements['#ssSign'].props.disabled, false);
+});
+
+test('Service Form Fill follows the current document permission when ticket capability is stale', () => {
+    const { elements } = setup({ locked: false, fill: true, capability: false });
+    assert.match(elements['#tdDocsDynamic'].content, />Fill<\/button>/);
 });
