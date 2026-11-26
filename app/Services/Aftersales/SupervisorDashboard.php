@@ -2,10 +2,13 @@
 
 namespace App\Services\Aftersales;
 
+use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCost;
 use App\Models\Aftersales\TicketSatisfaction;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class SupervisorDashboard
@@ -82,7 +85,7 @@ class SupervisorDashboard
         return array_map('floatval', (array) $row);
     }
 
-    public function summary(array $filters): array
+    public function summary(array $filters, ?User $user = null): array
     {
         [$start, $end] = $window = self::window($filters);
         $days = (int) $start->diffInDays($end->startOfDay()) + 1;
@@ -146,8 +149,8 @@ class SupervisorDashboard
             'warranty' => $warranty,
             'health' => ['sla' => self::percent($closedHealth->on_time, $closedHealth->total), 'firstVisit' => self::percent($completion->c, $completion->c + $completion->r), 'rating' => $rating, 'ratingMax' => self::RATING_SCALE_MAX, 'recoming' => self::percent($closedHealth->recomings, $closedHealth->total), 'survey' => self::percent($links->used, $links->total)],
             'recoming' => $recoming,
-            'problem' => $this->problems($filters, $window),
-            'options' => ['regions' => DB::table('ref_regions')->orderBy('name')->get(['id', 'name']), 'categories' => DB::table('ref_product_types')->orderBy('name')->get(['id', 'name'])],
+            'problem' => $this->problems($this->heatmapTickets($filters, $window, $user), $window),
+            'options' => $this->filterOptions(),
         ];
     }
 
@@ -218,7 +221,41 @@ class SupervisorDashboard
         ];
     }
 
-    private function problems(array $filters, array $window): array
+    private function filterOptions(): array
+    {
+        return [
+            'regions' => DB::table('ref_regions')->orderBy('name')->get(['id', 'name']),
+            'categories' => DB::table('ref_product_types')->orderBy('name')->get(['id', 'name']),
+        ];
+    }
+
+    public function heatmap(array $filters, User $user): array
+    {
+        [$start, $end] = $window = self::window($filters);
+
+        return [
+            'period' => ['start' => $start->toDateString(), 'end' => $end->toDateString()],
+            'problem' => $this->problems($this->heatmapTickets($filters, $window, $user), $window),
+            'options' => $this->filterOptions(),
+        ];
+    }
+
+    private function heatmapTickets(array $filters, array $window, ?User $user): Builder
+    {
+        $query = $this->between($this->base($filters), 'created_at', $window);
+        if ($user === null || TicketDocuments::canViewAll($user)) {
+            return $query;
+        }
+        if (! TicketDocuments::canListTickets($user)) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $visible = TicketDocuments::scopeVisibleTickets(Ticket::query(), $user)->select('tickets.id');
+
+        return $query->whereIn('id', $visible);
+    }
+
+    private function problems(Builder $tickets, array $window): array
     {
         $result = [];
         $machineOrder = ['Tube', 'Cube', 'Block', 'Flake', 'Slurry', 'Cold Room', 'RO'];
@@ -246,7 +283,7 @@ class SupervisorDashboard
             return ($aIndex === false ? 99 : $aIndex) <=> ($bIndex === false ? 99 : $bIndex);
         });
         foreach (['machine' => 'machine_category', 'region' => 'region', 'month' => $this->monthSql('created_at')] as $mode => $column) {
-            $rows = $this->between($this->base($filters), 'created_at', $window)->selectRaw("COALESCE(problem, 'not_set') as problem_key, $column as col, COUNT(*) as total")->groupBy('problem_key', 'col')->get();
+            $rows = (clone $tickets)->selectRaw("COALESCE(problem, 'not_set') as problem_key, $column as col, COUNT(*) as total")->groupBy('problem_key', 'col')->get();
             $cols = $rows->pluck('col')->unique()->sort()->values()->all();
             if ($mode === 'machine') {
                 $cols = array_values(array_unique(array_merge($machineNames, $cols)));
@@ -273,9 +310,9 @@ class SupervisorDashboard
         return $result;
     }
 
-    public function drilldown(array $filters): Builder
+    public function drilldown(array $filters, ?User $user = null): Builder
     {
-        $q = ($filters['metric'] ?? '') === 'problem' ? $this->between($this->base($filters), 'created_at', self::window($filters)) : $this->closed($filters);
+        $q = ($filters['metric'] ?? '') === 'problem' ? $this->heatmapTickets($filters, self::window($filters), $user) : $this->closed($filters);
         if (($filters['metric'] ?? '') === 'problem') {
             ($filters['problem'] ?? '') === 'not_set' ? $q->whereNull('problem') : $q->where('problem', $filters['problem']);
             if (! empty($filters['column'])) {
@@ -292,5 +329,34 @@ class SupervisorDashboard
         }
 
         return $q->orderByDesc('id');
+    }
+
+    public function drilldownPage(array $filters, User $user): LengthAwarePaginator
+    {
+        $page = $this->drilldown($filters, $user)->paginate(15);
+        if ($filters['metric'] !== 'problem') {
+            return $page;
+        }
+        $page->withQueryString();
+        if ($page->isEmpty()) {
+            return $page;
+        }
+
+        // Load the current Step inputs and roster for this page only.
+        $tickets = Ticket::query()->whereKey($page->getCollection()->pluck('id')->all())->with([
+            'technician:id,name',
+            'technicians:id,name',
+            'logs' => fn ($query) => $query->select('id', 'ticket_id', 'step')->latest('id')->limit(1),
+            'visits' => fn ($query) => $query->select('id', 'ticket_id', 'scheduled_at')->latest('scheduled_at')->latest('id')->limit(1),
+            'recomings' => fn ($query) => $query->select('id', 'ticket_id', 'recoming_type')->latest('id')->limit(1),
+        ])->get(['id', 'assigned_technician_id', 'workflow_version'])->keyBy('id');
+
+        return $page->through(function ($row) use ($tickets) {
+            $ticket = $tickets->get($row->id);
+            $row->progress = $ticket?->progress;
+            $row->technicians = $ticket?->technicianList() ?? [];
+
+            return $row;
+        });
     }
 }

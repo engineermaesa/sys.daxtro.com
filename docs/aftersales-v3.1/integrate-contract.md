@@ -276,3 +276,54 @@ Daftar berisi akun Technician dan SPV Technician yang tersedia untuk assignment,
 
 - Suite PHPUnit Aftersales lulus dengan 375 tes dan 3.669 assertion.
 - Runner integrasi MySQL 8.4.3 lulus dengan 18 skenario dan 733 assertion. Skenario General Rating memverifikasi dua respons valid dari siklus berbeda dihitung penuh untuk setiap teknisi yang ditugaskan, serta akses ketiga role.
+
+## BE-06 · Payload dan akses drill-down heatmap
+
+PRD `AS-DSH-04/06/07`. Gunakan database dengan migration BE-01. BE-06 tidak menambah migration atau seeder.
+
+### Baca heatmap dan buka detail sel
+
+| Endpoint | Respons |
+|---|---|
+| `GET /api/dashboard/aftersales/supervisor/heatmap` | `data.period` dengan `start` dan `end`, `data.problem` berisi matriks Problem Hotspots, dan `data.options` berisi pilihan Region dan Category. Dashboard Admin bisa memakai endpoint ini untuk merender heatmap. |
+| `GET /api/dashboard/aftersales/supervisor/tickets?metric=problem` | Paginator dengan `data[]`, `total`, `current_page`, `last_page`, dan URL halaman berikutnya. Satu halaman berisi maksimal 15 tiket. |
+
+Untuk Head dan SPV, `data.problem` pada summary Supervisor tetap tersedia dan memakai cakupan tiket yang sama seperti endpoint heatmap. Gunakan `period`, `start_date`, `end_date`, `region`, dan `category` dari request dashboard yang sama pada matriks dan drill-down. Periode heatmap memakai tanggal pembuatan tiket dalam WIB.
+
+Saat sel diklik, kirim `mode`, `problem` dari `problem[mode].keys[row]`, dan `column` dari `problem[mode].cols[col]`. Gunakan `rows` dan `column_labels` sebagai label judul popup. Mode yang dipakai matriks adalah `machine`, `region`, dan `month`.
+
+```text
+GET /api/dashboard/aftersales/supervisor/tickets?metric=problem&mode=machine&problem=electrical&column=Tube&period=this_month&region=1&page=1
+```
+
+### Field tambahan pada tiket
+
+```json
+{
+  "id": 81,
+  "ticket_code": "DAX-AF-20261126-031",
+  "customer_name": "Customer A",
+  "model": "Tube 150",
+  "technician": "Technician A",
+  "technicians": [
+    {"id": 14, "name": "Technician A"},
+    {"id": 22, "name": "Technician B"}
+  ],
+  "progress": "repair"
+}
+```
+
+- `progress` memakai key Steps yang sama seperti Ticket Detail dan All Ticket BE-04, termasuk aturan On Site berdasarkan jadwal serta Recoming.
+- `technicians` berisi roster sesuai urutan assignment. Tiket legacy memakai teknisi utama bila roster belum ada. Tiket tanpa teknisi mengembalikan array kosong. Field `technician` tetap berupa string teknisi utama untuk renderer lama.
+- Gunakan `id` untuk membuka `/aftersales/tickets/{id}`. Gunakan `total` untuk jumlah tiket pada judul popup.
+
+### Akses dan verifikasi FE
+
+- Admin Aftersales, Head Aftersales, dan SPV Technician dapat membaca heatmap dan drill-down masalah. Matriks, jumlah, dan daftar menggunakan izin baca Tiket. Dengan role standar, Admin dan Head melihat semua tiket yang lolos filter. SPV melihat tiket yang ia supervisi atau yang ditugaskan kepadanya, termasuk melalui pivot multi-technician.
+- Request tanpa sesi mendapat `401`, role di luar daftar mendapat `403`, dan filter tidak valid mendapat `422`. Summary finansial Supervisor dan drill-down Warranty serta Unclassified tetap memakai role Supervisor atau Head.
+- Uji dari klik sel hingga membuka detail pada layar di bawah 768 px. Tampilkan Ticket ID, Customer, Machine, roster Technician, dan Steps, lalu bandingkan total sel dengan jumlah hasil pada semua halaman.
+
+### Verifikasi BE
+
+- Suite PHPUnit Aftersales lulus dengan 377 tes dan 3.712 assertion.
+- Runner integrasi MySQL 8.4.3 lulus dengan 19 skenario dan 751 assertion, termasuk kecocokan jumlah sel dengan drill-down, Step dan roster pada payload, serta cakupan tiap role.

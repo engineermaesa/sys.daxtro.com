@@ -583,6 +583,28 @@ try {
         $api(2, 'GET', $uri, [], 403);
     });
 
+    $suite->scenario('Heatmap cells and drill-down share ticket scope and return Step and technician roster', function () use ($suite, $api, &$ticketId) {
+        $ticket = Ticket::findOrFail($ticketId);
+        $root = '/api/dashboard/aftersales/supervisor';
+        $filters = ['period' => 'custom', 'start_date' => $ticket->created_at->toDateString(), 'end_date' => now()->toDateString()];
+        $cell = $root.'/tickets?'.http_build_query($filters + ['metric' => 'problem', 'mode' => 'machine', 'problem' => 'mechanical', 'column' => 'Not set']);
+        foreach ([1, 3, 4] as $userId) {
+            $heatmap = $api($userId, 'GET', $root.'/heatmap?'.http_build_query($filters))['data']['problem']['machine'];
+            $column = array_search('Not set', $heatmap['cols'], true);
+            $row = array_search('mechanical', $heatmap['keys'], true);
+            $page = $api($userId, 'GET', $cell);
+            $suite->check($column !== false && $row !== false && $page['total'] === $heatmap['matrix'][$row][$column], 'Heatmap count differs from the visible drill-down');
+            $details = array_column($page['data'], null, 'id')[$ticketId];
+            $suite->check($details['progress'] === 'closed' && array_column($details['technicians'], 'id') === [2, 5], 'Heatmap did not return the Closed Step and ordered roster');
+        }
+        $other = $api(6, 'GET', $cell);
+        $suite->check(! in_array($ticketId, array_column($other['data'], 'id'), true), 'Unrelated SPV received a ticket outside their detail scope');
+        $api(6, 'GET', '/api/aftersales/tickets/'.$ticketId, [], 403);
+        $api(2, 'GET', $root.'/heatmap', [], 403);
+        $api(2, 'GET', $cell, [], 403);
+        $api(1, 'GET', $root.'/tickets?metric=warranty', [], 403);
+    });
+
     echo json_encode(['status' => 'passed', 'mysql' => $version, 'scenarios' => count($suite->results), 'assertions' => $suite->assertions, 'results' => $suite->results], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $error) {
     $exitCode = 1;

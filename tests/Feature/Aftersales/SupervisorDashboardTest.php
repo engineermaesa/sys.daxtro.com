@@ -60,6 +60,7 @@ class SupervisorDashboardTest extends TestCase
             $t->integer('customer_id');
             $t->integer('customer_product_id');
             $t->integer('assigned_technician_id')->nullable();
+            $t->integer('supervisor_id')->nullable();
             $t->string('category')->nullable();
             $t->string('service_type')->nullable();
             $t->string('workflow_version')->nullable();
@@ -74,6 +75,12 @@ class SupervisorDashboardTest extends TestCase
             $t->string('step');
             $t->timestamp('created_at');
             $this->deleted($t);
+        });
+        Schema::create('ticket_visits', function (Blueprint $t) {
+            $t->id();
+            $t->integer('ticket_id');
+            $t->timestamp('scheduled_at')->nullable();
+            $t->softDeletes();
         });
         Schema::create('ticket_costs', function (Blueprint $t) {
             $t->id();
@@ -101,6 +108,7 @@ class SupervisorDashboardTest extends TestCase
             $t->id();
             $t->integer('ticket_id');
             $t->string('reason');
+            $t->string('recoming_type')->nullable();
             $t->timestamp('created_at');
             $this->deleted($t);
         });
@@ -158,7 +166,13 @@ class SupervisorDashboardTest extends TestCase
         $roleModel = new class extends Model {};
         $roleModel->setRawAttributes(['code' => $role]);
         $user->setRelation('role', $roleModel);
-        $user->shouldReceive('hasPermission')->andReturn(false);
+        $permissions = match ($role) {
+            'after_sales' => ['aftersales.tickets.manage'],
+            'head_after_sales' => ['aftersales.tickets.view-all', 'aftersales.tickets.close'],
+            'supervisor_after_sales' => ['aftersales.documents.sign', 'aftersales.tickets.view-own'],
+            default => [],
+        };
+        $user->shouldReceive('hasPermission')->andReturnUsing(fn ($permission) => in_array($permission, $permissions, true));
         $this->actingAs($user);
     }
 
@@ -335,6 +349,85 @@ class SupervisorDashboardTest extends TestCase
         $q = app(SupervisorDashboard::class)->drilldown(['metric' => 'problem', 'problem' => 'refrigeration_system', 'mode' => 'machine', 'column' => 'Tube']);
         $this->assertEquals(1, $q->count());
         $this->assertEquals('Tube', $q->first()->machine_category);
+    }
+
+    public function test_heatmap_drilldown_matches_visible_cells_and_returns_step_and_ordered_roster(): void
+    {
+        DB::table('users')->insert([
+            ['id' => 2, 'name' => 'Second Technician', 'role_id' => 1],
+            ['id' => 7, 'name' => 'Assigned SPV', 'role_id' => 2],
+        ]);
+        $attributes = ['created_at' => '2026-11-02', 'category' => 'electrical'];
+        $supervised = $this->ticket(ticket: $attributes + ['supervisor_id' => 7], closed: null);
+        $assigned = $this->ticket(ticket: $attributes + ['workflow_version' => 'v3', 'supervisor_id' => 45], closed: null);
+        $other = $this->ticket(ticket: $attributes, closed: null);
+        DB::table('ticket_technicians')->insert([
+            ['ticket_id' => $supervised, 'user_id' => 2, 'position' => 1],
+            ['ticket_id' => $supervised, 'user_id' => 1, 'position' => 0],
+            ['ticket_id' => $assigned, 'user_id' => 1, 'position' => 0],
+            ['ticket_id' => $assigned, 'user_id' => 7, 'position' => 1],
+        ]);
+        DB::table('ticket_logs')->insert([
+            ['ticket_id' => $supervised, 'step' => 'repair', 'created_at' => '2026-11-03', 'deleted_at' => null],
+            ['ticket_id' => $assigned, 'step' => 'assigned', 'created_at' => '2026-11-03', 'deleted_at' => null],
+            ['ticket_id' => $other, 'step' => 'closed', 'created_at' => '2026-11-04', 'deleted_at' => '2026-11-04'],
+        ]);
+        DB::table('ticket_visits')->insert([
+            ['ticket_id' => $assigned, 'scheduled_at' => '2026-11-03', 'deleted_at' => null],
+            ['ticket_id' => $other, 'scheduled_at' => '2026-11-03', 'deleted_at' => null],
+            ['ticket_id' => $other, 'scheduled_at' => '2099-11-30', 'deleted_at' => '2026-11-04'],
+        ]);
+        DB::table('ticket_recomings')->insert(['ticket_id' => $assigned, 'recoming_type' => 'phone_call', 'reason' => 'further_work_needed', 'created_at' => '2026-11-04']);
+        for ($i = 0; $i < 13; $i++) {
+            $this->ticket(ticket: $attributes + ['assigned_technician_id' => null], closed: null);
+        }
+        $this->ticket(['ref_product_type_id' => 2], $attributes, closed: null);
+        $this->ticket(ticket: ['created_at' => '2026-10-28', 'category' => 'electrical'], closed: null);
+        $cell = 'metric=problem&mode=machine&problem=electrical&column=Tube';
+        $filters = 'region=1&category=1&period=this_month';
+
+        $this->login();
+        $summary = $this->getJson(self::URL.'?'.$filters)->assertOk()->json('data.problem.machine');
+        $this->getJson(self::URL.'/heatmap?'.$filters)->assertOk()->assertJsonPath('data.problem.machine', $summary);
+        $row = array_search('electrical', $summary['keys'], true);
+        $column = array_search('Tube', $summary['cols'], true);
+        $this->assertSame(2, $summary['matrix'][$row][$column]);
+        $list = $this->getJson(self::URL.'/tickets?'.$cell.'&'.$filters)->assertOk()->assertJsonPath('total', 2)
+            ->assertJsonPath('data.0.id', $assigned)->assertJsonPath('data.0.progress', 'assigned')
+            ->assertJsonPath('data.0.technicians.1.id', 7)
+            ->assertJsonPath('data.1.id', $supervised)->assertJsonPath('data.1.progress', 'repair')
+            ->assertJsonPath('data.1.customer_name', 'Customer')->assertJsonPath('data.1.model', 'TD150')
+            ->assertJsonPath('data.1.technician', 'Technician');
+        $this->assertSame([['id' => 1, 'name' => 'Technician'], ['id' => 2, 'name' => 'Second Technician']], $list->json('data.1.technicians'));
+
+        $this->login('after_sales');
+        $this->getJson(self::URL.'/heatmap?'.$filters)->assertOk()
+            ->assertJsonPath("data.problem.machine.matrix.$row.$column", 16)->assertJsonMissingPath('data.kpi');
+        $page = $this->getJson(self::URL.'/tickets?'.$cell.'&'.$filters)->assertOk()->assertJsonPath('total', 16)
+            ->assertJsonPath('last_page', 2)->assertJsonCount(15, 'data')
+            ->assertJsonPath('data.0.technicians', [])->assertJsonPath('data.13.id', $other)
+            ->assertJsonPath('data.13.progress', 'on_site')->assertJsonPath('data.13.technicians.0.id', 1);
+        $this->assertStringContainsString('problem=electrical', $page->json('next_page_url'));
+        $this->getJson(self::URL.'/tickets?'.$cell.'&'.$filters.'&page=2')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $supervised);
+        $this->login('head_after_sales');
+        $this->getJson(self::URL.'/tickets?'.$cell.'&'.$filters)->assertOk()->assertJsonPath('total', 16);
+    }
+
+    public function test_heatmap_access_does_not_extend_to_technicians_or_admin_financial_drilldowns(): void
+    {
+        $cell = '/tickets?metric=problem&mode=machine&problem=electrical';
+        $this->getJson(self::URL.'/heatmap')->assertUnauthorized();
+        $this->getJson(self::URL.$cell)->assertUnauthorized();
+        foreach (['technician', 'sales', 'super_admin'] as $role) {
+            $this->login($role);
+            $this->getJson(self::URL.'/heatmap')->assertForbidden();
+            $this->getJson(self::URL.$cell)->assertForbidden();
+        }
+        $this->login('after_sales');
+        $this->getJson(self::URL.'/heatmap?period=custom')->assertUnprocessable();
+        $this->getJson(self::URL.'/tickets?metric=warranty')->assertForbidden();
+        $this->getJson(self::URL.'/tickets?metric=unclassified')->assertForbidden();
     }
 
     public function test_real_master_filters_apply_to_all_financial_series(): void

@@ -14,6 +14,11 @@ class SupervisorDashboardController extends Controller
         abort_unless(in_array($request->user()?->role?->code, ['supervisor_after_sales', 'head_after_sales'], true), 403);
     }
 
+    private function authorizeRatingAndHeatmap(Request $request): void
+    {
+        abort_unless(in_array($request->user()?->role?->code, ['after_sales', 'head_after_sales', 'supervisor_after_sales'], true), 403);
+    }
+
     private function filters(Request $request): array
     {
         return $request->validate([
@@ -29,19 +34,30 @@ class SupervisorDashboardController extends Controller
     {
         self::authorize($request);
 
-        return response()->json(['data' => $dashboard->summary($this->filters($request))]);
+        return response()->json(['data' => $dashboard->summary($this->filters($request), $request->user())]);
     }
 
     public function generalRating(Request $request, SupervisorDashboard $dashboard)
     {
-        abort_unless(in_array($request->user()?->role?->code, ['after_sales', 'head_after_sales', 'supervisor_after_sales'], true), 403);
+        $this->authorizeRatingAndHeatmap($request);
 
         return response()->json(['data' => $dashboard->generalRating($this->filters($request))]);
     }
 
+    public function heatmap(Request $request, SupervisorDashboard $dashboard)
+    {
+        $this->authorizeRatingAndHeatmap($request);
+
+        return response()->json(['data' => $dashboard->heatmap($this->filters($request), $request->user())]);
+    }
+
     public function tickets(Request $request, SupervisorDashboard $dashboard)
     {
-        self::authorize($request);
+        if ($request->input('metric') === 'problem') {
+            $this->authorizeRatingAndHeatmap($request);
+        } else {
+            self::authorize($request);
+        }
         $filters = $this->filters($request);
         $filters += $request->validate([
             'metric' => 'required|in:warranty,unclassified,problem',
@@ -58,6 +74,6 @@ class SupervisorDashboardController extends Controller
             abort(422);
         }
 
-        return response()->json($dashboard->drilldown($filters)->paginate(15));
+        return response()->json($dashboard->drilldownPage($filters, $request->user()));
     }
 }

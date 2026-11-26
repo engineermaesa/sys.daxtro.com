@@ -75,6 +75,7 @@ Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/supervis
     Route::get('/', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'summary'])->name('summary');
     Route::get('/tickets', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'tickets'])->name('tickets');
     Route::get('/general-rating', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'generalRating'])->name('general-rating');
+    Route::get('/heatmap', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'heatmap'])->name('heatmap');
 });
 
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {
