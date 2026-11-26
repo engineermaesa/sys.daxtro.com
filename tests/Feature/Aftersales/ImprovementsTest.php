@@ -1163,6 +1163,7 @@ class ImprovementsTest extends TestCase
             $t->timestamps();
         });
         Schema::table('ticket_service_forms', fn (Blueprint $t) => $t->string('status')->default('draft'));
+        (require database_path('migrations/2026_11_26_100200_add_recoming_signature_policy.php'))->up();
         Schema::create('user_activity_logs', function (Blueprint $t) {
             $t->id();
             foreach (['user_id', 'action', 'model_type', 'model_id', 'description', 'data', 'ip_address', 'user_agent'] as $field) {

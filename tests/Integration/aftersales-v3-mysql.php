@@ -63,6 +63,7 @@ $migrationNames = [
     '2026_11_01_000000_add_service_form_sync_version',
     '2026_11_26_100000_create_ticket_technicians_table',
     '2026_11_26_100100_grant_aftersales_assignment_permissions',
+    '2026_11_26_100200_add_recoming_signature_policy',
 ];
 $migrations = array_map(fn ($name) => require database_path('migrations/'.$name.'.php'), $migrationNames);
 $request = fn (int $user, string $method, string $uri, array $data = []) => compact('user', 'method', 'uri', 'data');
@@ -370,6 +371,7 @@ try {
         $cycle = Ticket::findOrFail($ticketId)->currentCycle;
         $cycle2 = $cycle->id;
         $suite->check($cycle->cycle_no === 2 && $cycle->sla_due_at->eq($schedule->copy()->addDays(2)), 'Recoming SLA/cycle incorrect');
+        $suite->check($snapshot()['can']['sign_technician'] === false, 'Phone Recoming offered a new technician signature');
         $beforeReschedule = $snapshot()['revision'];
         $schedule->addDay();
         $api(1, 'POST', $base.'/recoming/reschedule', ['planned_call_at' => $schedule->format('Y-m-d H:i:s')]);
@@ -390,6 +392,7 @@ try {
         $suite->check($statuses === [200, 409], 'Recoming submit race incorrect');
         $suite->check(DB::table('ticket_document_publications')->where('cycle_id', $cycle2)->count() === 1, 'Recoming publication duplicated');
         $suite->check(DB::table('satisfaction_links')->where('cycle_id', $cycle2)->count() === 0, 'Phone cycle issued site link');
+        $suite->check($signatureIds === Ticket::findOrFail($ticketId)->serviceForm->signatures()->pluck('id')->all(), 'Phone publication replaced signatures');
         $suite->check(DB::table('ticket_logs')->where('cycle_id', $cycle2)->where('step', 'repair')->count() === 1, 'Repair marker duplicated');
     });
 
@@ -471,6 +474,52 @@ try {
         $suite->check(DB::table('ticket_cycles')->where('ticket_id', $ticketId)->count() === 2, 'Protected rollback changed cycles');
         $suite->check(DB::table('ticket_document_publications')->where('ticket_id', $ticketId)->count() === 2, 'Protected rollback changed publications');
         $suite->check(TicketServiceForm::where('ticket_id', $ticketId)->value('sync_version') > 1, 'Protected rollback reset revision');
+    });
+
+    $suite->scenario('Site Recoming renews form signatures and concurrent Head retries issue one link', function () use ($suite, $api, $findings, $sign, $post) {
+        $ticketId = $api(1, 'POST', '/api/aftersales/tickets', [
+            'customer_id' => 1, 'customer_product_id' => 1, 'category' => 'mechanical', 'priority' => 'medium',
+            'description' => 'Site Recoming', 'sla_value' => 2, 'sla_unit' => 'day', 'technician_ids' => [2, 3],
+        ], 201)['data']['data']['id'];
+        $uri = '/api/aftersales/tickets/'.$ticketId;
+        $snapshot = fn () => $api(2, 'GET', $uri.'/service-form')['data'];
+        $submit = fn () => $api(2, 'POST', $uri.'/service-form/submit', ['revision' => $snapshot()['revision']])['data']['documentation_status'];
+        $api(2, 'PUT', $uri.'/service-form', [
+            'revision' => $snapshot()['revision'], 'service_type' => 'repair',
+            'inspections' => [['item_number' => 1, 'status' => 'na']],
+        ] + $findings('Initial visit'));
+        foreach (['problem', 'root_cause', 'action'] as $field) {
+            $suite->expect($suite->api(2, 'POST', $uri.'/service-form/diagnosis/photos', ['field' => $field], ['photo' => UploadedFile::fake()->image($field.'.jpg')]), 201);
+        }
+        $api(2, 'PUT', $uri.'/agreement', ['accepted_clauses' => ['A1'], 'customer_name' => 'Integration Customer']);
+        foreach (['service_form', 'agreement'] as $type) {
+            foreach (['technician', 'customer'] as $role) {
+                $api(2, 'POST', $uri.'/documents/'.$type.'/signatures', $sign($type, $role), 201);
+            }
+        }
+        $submit();
+        $api(4, 'POST', $uri.'/documents/service_form/signatures', $sign('service_form', 'supervisor'), 201);
+        $api(4, 'POST', $uri.'/documents/agreement/signatures', $sign('agreement', 'supervisor'), 201);
+        $api(1, 'POST', $uri.'/documents/service_form/unlock');
+        $cycle = $api(1, 'POST', $uri.'/recoming', [
+            'recoming_type' => 'visit_site', 'planned_visit_at' => now()->addDay()->toDateString(), 'reason' => 'unfinished_previous_work',
+            'sla_mode' => 'duration', 'sla_value' => 2, 'sla_unit' => 'day',
+        ], 201)['data']['data']['cycle'];
+        $suite->check($cycle['service_form_resign_required'] === true && array_filter($snapshot()['signatures']) === [], 'Site retained old Form signatures');
+        $api(2, 'PUT', $uri.'/service-form', ['revision' => $snapshot()['revision']] + $findings('Second visit'));
+        foreach (['technician', 'customer'] as $role) {
+            $api(2, 'POST', $uri.'/documents/service_form/signatures', $sign('service_form', $role), 201);
+        }
+        $signPath = $uri.'/documents/service_form/signatures';
+        $payload = $sign('service_form', 'supervisor');
+        $api(4, 'POST', $signPath, $payload, 409, 'service_form_not_submitted');
+        $suite->check($submit() === 'awaiting_spv_signature', 'Site skipped Supervisor review');
+        $suite->check(! DB::table('satisfaction_links')->where('cycle_id', $cycle['id'])->exists(), 'Site survey issued before Head signed');
+        foreach ($suite->race($ticketId, [$post(4, $signPath, $payload), $post(4, $signPath, $payload)]) as $result) {
+            $suite->expect($result, 201);
+        }
+        $suite->check(DB::table('satisfaction_links')->where('cycle_id', $cycle['id'])->count() === 1, 'Head retry duplicated the survey link');
+        $suite->check(DB::table('ticket_document_publications')->where('cycle_id', $cycle['id'])->count() === 1, 'Head retry duplicated publication');
     });
 
     echo json_encode(['status' => 'passed', 'mysql' => $version, 'scenarios' => count($suite->results), 'assertions' => $suite->assertions, 'results' => $suite->results], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";

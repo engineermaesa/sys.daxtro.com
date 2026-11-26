@@ -45,7 +45,7 @@ class DocumentController extends Controller
         $doc = TicketDocuments::document($ticket, $type);
         TicketDocuments::sign($ticket, $doc, $request->user(), $validated['role'], $validated['signature'], $validated['signer_name'] ?? null, $request);
 
-        return response()->json(['status' => 'success', 'message' => 'Signature saved', 'data' => $this->summary($request, $ticket, $type, $doc->refresh())], 201);
+        return response()->json(['status' => 'success', 'message' => 'Signature saved', 'data' => $this->summary($request, $ticket->refresh(), $type, $doc->refresh())], 201);
     }
 
     public function signatureImage(Request $request, Ticket $ticket, string $type, string $role)
@@ -91,7 +91,7 @@ class DocumentController extends Controller
     {
         $doc = TicketDocuments::unlock($ticket, $type, $request->user());
 
-        return response()->json(['status' => 'success', 'message' => 'Document unlocked', 'data' => $this->summary($request, $ticket, $type, $doc)]);
+        return response()->json(['status' => 'success', 'message' => 'Document unlocked', 'data' => $this->summary($request, $ticket->refresh(), $type, $doc)]);
     }
 
     public function pdf(Request $request, Ticket $ticket, string $type)
@@ -135,6 +135,8 @@ class DocumentController extends Controller
         return [
             'type' => $type,
             'status' => TicketDocumentWorkflow::status($ticket) ?? $doc->status,
+            'service_form_resign_required' => $type === TicketDocuments::TYPE_FORM && TicketDocumentWorkflow::enabled($ticket)
+                && (bool) $ticket->currentCycle?->service_form_resign_required,
             'locked' => $doc->isLocked(),
             'saved_at' => $doc->saved_at,
             'template_version' => $doc->template_version,

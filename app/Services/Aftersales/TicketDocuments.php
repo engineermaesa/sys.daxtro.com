@@ -161,13 +161,15 @@ class TicketDocuments
             $open = $ticket->progress !== TicketLog::STEP_CLOSED;
             $published = TicketDocumentWorkflow::status($ticket) === 'documentation_published';
             $type = $doc instanceof TicketServiceForm ? self::TYPE_FORM : self::TYPE_AGREEMENT;
+            $phoneForm = $type === self::TYPE_FORM && TicketRecomings::isPhoneCall($ticket);
+            $waitingForSubmit = $type === self::TYPE_FORM && $cycle?->service_form_resign_required && ! $cycle->service_form_submitted_at;
 
             return [
                 'review_supervisor' => $sup,
                 'fill' => $draft && $tech && ! $published,
-                'sign_technician' => $draft && $tech && ! $published,
-                'sign_customer' => $draft && $tech && ! $published,
-                'sign_supervisor' => $open && $sup && ! $published
+                'sign_technician' => $draft && $tech && ! $published && ! $phoneForm,
+                'sign_customer' => $draft && $tech && ! $published && ! $phoneForm,
+                'sign_supervisor' => $open && $sup && ! $published && ! $phoneForm && ! $waitingForSubmit
                     && $doc->status !== 'saved' && self::completeness($ticket, $type, false)['complete'],
                 'save' => false,
                 'submit' => $doc instanceof TicketServiceForm && TicketDocumentWorkflow::canSubmit($ticket, $doc, $user),
@@ -260,9 +262,8 @@ class TicketDocuments
         $missing = [];
         $counts = [];
 
+        $phoneForm = $type === self::TYPE_FORM && TicketDocumentWorkflow::enabled($ticket) && TicketRecomings::isPhoneCall($ticket);
         if ($type === self::TYPE_FORM) {
-            $phoneCall = TicketDocumentWorkflow::enabled($ticket)
-                && TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
             $product = $ticket->customerProduct;
             $unitMissing = collect(self::UNIT_FIELDS)->filter(fn ($f) => blank($product?->{$f}))->values()->all();
             if (blank($ticket->service_type)) {
@@ -292,7 +293,7 @@ class TicketDocuments
                             || ($field['required_when'] && in_array($field['required_when'], $checklistValues, true));
                         if ($required && blank($field['value'])) {
                             $emptyFields++;
-                        } elseif (! $phoneCall && $field['type'] === RefInspectionField::TYPE_NUMBER && filled($field['value']) && ! $field['photo']) {
+                        } elseif (! $phoneForm && $field['type'] === RefInspectionField::TYPE_NUMBER && filled($field['value']) && ! $field['photo']) {
                             $noPhoto++;
                         }
                     }
@@ -302,7 +303,7 @@ class TicketDocuments
             $unfilled && $missing[] = "{$unfilled} inspection item(s) have no status";
             $emptyFields && $missing[] = "{$emptyFields} field(s) are empty";
             $noPhoto && $missing[] = "{$noPhoto} number field(s) have no photo";
-            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc, ! $phoneCall, $ticket));
+            $missing = array_merge($missing, app(ServiceDiagnosis::class)->missing($doc, ! $phoneForm, $ticket));
         } else {
             $keys = $doc->template->clauseKeys();
             $unchecked = count(array_diff($keys, $doc->accepted_clauses ?? []));
@@ -313,7 +314,7 @@ class TicketDocuments
 
         $signed = $doc->signatures()->pluck('role')->all();
         $roles = $requireSupervisor ? TicketSignature::ROLES : ['technician', 'customer'];
-        $unsigned = array_values(array_diff($roles, $signed));
+        $unsigned = $phoneForm ? [] : array_values(array_diff($roles, $signed));
         $counts['signatures_missing'] = $unsigned;
         foreach ($unsigned as $role) {
             $missing[] = ucfirst($role).' signature is missing';
@@ -689,40 +690,45 @@ class TicketDocuments
     {
         abort_unless(self::isManager($user), 403);
         $doc = self::document($ticket, $type);
-        abort_if(! $doc->isLocked(), 422, 'This document is not saved.');
 
-        DB::transaction(function () use ($doc, $user, $type, $ticket) {
+        return DB::transaction(function () use ($doc, $user, $type, $ticket) {
             $preserveSignatures = false;
+            $policy = [];
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
+            abort_if(! $doc->isLocked(), 422, 'This document is not saved.');
             if (TicketDocumentWorkflow::enabled($ticket)) {
-                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
                 abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
-                $doc = $doc->newQuery()->whereKey($doc->id)->lockForUpdate()->firstOrFail();
-                if ($type === self::TYPE_AGREEMENT && ($ticket->currentCycle->cycle_no > 1 || TicketDocumentWorkflow::status($ticket) === 'documentation_published')) {
+                $cycle = $ticket->currentCycle()->lockForUpdate()->firstOrFail();
+                $published = $cycle->documentation_status === 'documentation_published';
+                if ($type === self::TYPE_AGREEMENT && ($cycle->cycle_no > 1 || $published)) {
                     TicketDocumentWorkflow::error(409, 'agreement_already_published', 'The published Agreement remains valid for Recoming.');
                 }
-                $preserveSignatures = $type === self::TYPE_FORM
-                    && ($ticket->currentCycle->cycle_no > 1 || TicketDocumentWorkflow::status($ticket) === 'documentation_published');
-                if (TicketDocumentWorkflow::status($ticket) !== 'documentation_published') {
-                    $ticket->currentCycle()->update(['documentation_status' => 'incomplete', 'service_form_submitted_at' => null, 'service_form_submitted_by' => null]);
+                if ($type === self::TYPE_FORM) {
+                    $policy = ['unlocked_with_recoming_signature_policy' => true];
+                    $preserveSignatures = $published || ($cycle->cycle_no > 1 && ! $cycle->service_form_resign_required);
+                }
+                if (! $published) {
+                    $cycle->update(['documentation_status' => 'incomplete', 'service_form_submitted_at' => null, 'service_form_submitted_by' => null]);
                 }
             }
-            $doc->signatures()->get()->each(function (TicketSignature $s) use ($ticket, $preserveSignatures) {
-                if ($preserveSignatures) {
-                    return;
-                }
-                if (TicketDocumentWorkflow::enabled($ticket)) {
-                    DB::afterCommit(fn () => Storage::disk('local')->delete($s->file_path));
-                } else {
-                    Storage::disk('local')->delete($s->file_path);
-                }
-                $s->delete();
-            });
-            $doc->update(['status' => 'draft', 'saved_at' => null, 'saved_by_user_id' => null, 'unlocked_at' => Carbon::now('Asia/Jakarta'), 'unlocked_by_user_id' => $user->id]);
+            if (! $preserveSignatures) {
+                self::clearSignatures($doc);
+            }
+            $doc->update(['status' => 'draft', 'saved_at' => null, 'saved_by_user_id' => null, 'unlocked_at' => Carbon::now('Asia/Jakarta'), 'unlocked_by_user_id' => $user->id] + $policy);
 
             ActivityLogger::writeLog('aftersales.document.unlock', "Unlocked {$type} of ticket {$ticket->ticket_code}", $doc, [], $user);
-        });
 
-        return $doc->refresh();
+            return $doc->refresh();
+        });
+    }
+
+    public static function clearSignatures(TicketServiceForm|TicketAgreement $doc): void
+    {
+        foreach ($doc->signatures()->get() as $signature) {
+            $signature->delete();
+            DB::afterCommit(fn () => Storage::disk('local')->delete($signature->file_path));
+        }
     }
 
     public static function queuePublication(Ticket $ticket, int $publicationId): void

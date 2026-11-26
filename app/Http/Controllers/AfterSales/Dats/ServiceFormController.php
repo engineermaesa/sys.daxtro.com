@@ -51,6 +51,7 @@ class ServiceFormController extends Controller
             'ticket_id' => $ticket->id,
             'revision' => ServiceFormRevisions::token($ticket, $form),
             'cycle_id' => TicketDocumentWorkflow::enabled($ticket) ? $ticket->currentCycle?->id : null,
+            'service_form_resign_required' => TicketDocumentWorkflow::enabled($ticket) && (bool) $ticket->currentCycle?->service_form_resign_required,
             'number' => $ticket->ticket_code,
             'status' => TicketDocumentWorkflow::status($ticket) ?? $form->status,
             'locked' => $form->isLocked(),
@@ -112,7 +113,13 @@ class ServiceFormController extends Controller
         ]);
         $cycle = TicketDocumentWorkflow::submit($ticket, $request->user(), $data + $signatures, $request);
 
-        return response()->json(['status' => 'success', 'message' => 'Service Form sent to SPV Technician.', 'data' => [
+        $message = match ($cycle->documentation_status) {
+            'documentation_published' => 'Documentation published.',
+            'awaiting_spv_signature' => 'Service Form sent to the ticket supervisor.',
+            default => 'Service Form saved.',
+        };
+
+        return response()->json(['status' => 'success', 'message' => $message, 'data' => [
             'ticket_id' => $ticket->id, 'cycle_id' => $cycle->id,
             'documentation_status' => $cycle->documentation_status,
             'submitted_at' => $cycle->service_form_submitted_at,

@@ -91,6 +91,10 @@ class RecomingV3Test extends TestCase
             $t->string('status')->default('draft');
             $t->softDeletes();
         });
+        Schema::create('ticket_signatures', function (Blueprint $t) {
+            $t->id();
+            $t->morphs('signable');
+        });
         Schema::create('user_activity_logs', function (Blueprint $t) {
             $t->id();
             foreach (['user_id', 'action', 'model_type', 'model_id', 'description', 'data', 'ip_address', 'user_agent'] as $field) {
@@ -101,6 +105,7 @@ class RecomingV3Test extends TestCase
         (require database_path('migrations/2026_10_30_000000_create_ticket_cycles.php'))->up();
         (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
         (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
+        (require database_path('migrations/2026_11_26_100200_add_recoming_signature_policy.php'))->up();
         $ticket = Ticket::create(['ticket_code' => 'REC-1', 'assigned_technician_id' => 2, 'supervisor_id' => 3,
             'sla_value' => 1, 'sla_unit' => 'day', 'sla_due_at' => '2026-10-31 10:00:00']);
         DB::table('ticket_service_forms')->insert(['ticket_id' => $ticket->id]);

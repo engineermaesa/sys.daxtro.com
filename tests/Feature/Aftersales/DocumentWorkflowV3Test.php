@@ -251,6 +251,7 @@ class DocumentWorkflowV3Test extends TestCase
         (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
         (require database_path('migrations/2026_11_01_000000_add_service_form_sync_version.php'))->up();
         (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
+        (require database_path('migrations/2026_11_26_100200_add_recoming_signature_policy.php'))->up();
         $this->login(1);
     }
 
@@ -733,40 +734,96 @@ class DocumentWorkflowV3Test extends TestCase
         \App\Services\Aftersales\TicketDocuments::attachPhoto($value, \Illuminate\Http\UploadedFile::fake()->image('photo.jpg'), Ticket::first(), 1);
     }
 
-    public function test_unlock_and_recoming_resubmit_preserve_signatures_form_and_agreement(): void
+    public function test_site_recoming_requires_new_form_signatures_and_publishes_one_link_after_head_signs(): void
     {
         $this->publishInOrder(['service_form', 'agreement']);
-        $signatures = DB::table('ticket_signatures')->orderBy('id')->get()->toJson();
+        $ticket = Ticket::firstOrFail();
+        $form = $ticket->serviceForm;
+        $oldFormPaths = $form->signatures()->pluck('file_path')->all();
+        $agreementSignatures = $ticket->agreement->signatures()->pluck('id')->sort()->values()->all();
         $agreement = DB::table('ticket_agreements')->first();
-        $files = Storage::disk('local')->allFiles('ticket-signatures');
+        $ticket->update(['supervisor_id' => 4]);
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk()->assertJsonPath('data.locked', false);
-        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
-        $this->assertSame($files, Storage::disk('local')->allFiles('ticket-signatures'));
-        $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())->assertCreated();
+        $this->assertSame($oldFormPaths, $form->signatures()->pluck('file_path')->all());
+        $cycleId = $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work', 'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())
+            ->assertCreated()->assertJsonPath('data.data.cycle.service_form_resign_required', true)->json('data.data.cycle_id');
+        $this->assertSame(0, $form->signatures()->count());
+        Storage::disk('local')->assertMissing($oldFormPaths);
         $this->postJson($this->url.'/documents/agreement/unlock')->assertConflict()->assertJsonPath('code', 'agreement_already_published');
+        $this->getJson($this->url.'/survey-link')->assertOk()->assertJsonPath('data.url', null);
+
         $this->login(1);
-        $this->submitForm($this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
-        $this->submitForm()->assertOk();
-        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
+        $this->getJson($this->url.'/service-form')->assertOk()
+            ->assertJsonPath('data.status', 'incomplete')->assertJsonPath('data.service_form_resign_required', true)
+            ->assertJsonPath('data.signatures.technician', null)->assertJsonPath('data.signatures.customer', null)
+            ->assertJsonPath('data.signatures.supervisor', null);
+        $this->putForm($this->findings())->assertOk()->assertJsonPath('data.can.submit', false);
+        $this->submitForm()->assertUnprocessable()->assertJsonPath('code', 'service_form_incomplete');
+        $this->signature('service_form', 'technician')->assertCreated();
+        $this->signature('service_form', 'customer')->assertCreated();
+        $this->login(4);
+        $this->getJson($this->url.'/service-form')->assertOk()->assertJsonPath('data.can.sign_supervisor', false);
+        $this->signature('service_form', 'supervisor')->assertConflict()->assertJsonPath('code', 'service_form_not_submitted');
+
+        $this->login(1);
+        $this->submitForm()->assertOk()->assertJsonPath('data.documentation_status', 'awaiting_spv_signature');
+        $this->assertDatabaseMissing('satisfaction_links', ['cycle_id' => $cycleId]);
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk()
+            ->assertJsonPath('data.status', 'incomplete')->assertJsonPath('data.signatures.technician', null);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertUnprocessable();
+
+        $this->login(1);
+        $this->signature('service_form', 'technician')->assertCreated();
+        $this->signature('service_form', 'customer')->assertCreated();
+        $this->submitForm()->assertOk()->assertJsonPath('data.documentation_status', 'awaiting_spv_signature');
+        $this->login(2);
+        $this->signature('service_form', 'supervisor')->assertForbidden();
+        $this->login(4);
+        $this->getJson($this->url.'/service-form')->assertOk()->assertJsonPath('data.can.sign_supervisor', true);
+        $this->signature('service_form', 'supervisor')->assertCreated()->assertJsonPath('data.status', 'documentation_published');
+        $this->signature('service_form', 'supervisor')->assertCreated();
+        $this->assertEquals($agreementSignatures, $ticket->agreement->signatures()->pluck('id')->sort()->values()->all());
         $this->assertEquals($agreement, DB::table('ticket_agreements')->first());
         $this->assertDatabaseCount('ticket_service_forms', 1);
         $this->assertDatabaseCount('ticket_agreements', 1);
         $this->assertDatabaseCount('ticket_document_publications', 2);
         $this->assertDatabaseCount('satisfaction_links', 2);
-        $this->assertDatabaseHas('tickets', ['assigned_technician_id' => 1]);
+        $this->assertDatabaseHas('satisfaction_links', ['cycle_id' => $cycleId, 'status' => 'active']);
         Queue::assertPushed(SendTicketDocumentEmail::class, 12);
+    }
+
+    public function test_site_recoming_grandfathers_a_form_unlocked_before_release(): void
+    {
+        $this->publishInOrder(['service_form', 'agreement']);
+        $signatures = DB::table('ticket_signatures')->orderBy('id')->get()->toJson();
+        $this->login(3);
+        $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
+        DB::table('ticket_service_forms')->update(['unlocked_with_recoming_signature_policy' => false]);
+        $this->postJson($this->url.'/recoming', ['recoming_type' => 'visit_site', 'reason' => 'unfinished_previous_work',
+            'planned_visit_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())
+            ->assertCreated()->assertJsonPath('data.data.cycle.service_form_resign_required', false);
+
+        $this->login(1);
+        $this->submitForm($this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
     }
 
     public function test_phone_call_publication_does_not_issue_a_site_survey_link(): void
     {
         $this->publishInOrder(['service_form', 'agreement']);
+        $signatures = DB::table('ticket_signatures')->orderBy('id')->get()->toJson();
         $this->login(3);
         $this->postJson($this->url.'/documents/service_form/unlock')->assertOk();
         $this->postJson($this->url.'/recoming', ['recoming_type' => 'phone_call', 'reason' => 'unfinished_previous_work', 'planned_call_at' => now()->addDays(2)->format('Y-m-d H:i:s')] + $this->sla())->assertCreated();
         DB::table('ticket_photos')->delete(); // OQ-06: phone-call completion must not require site photos.
         $this->login(1);
+        $this->getJson($this->url.'/service-form')->assertOk()
+            ->assertJsonPath('data.can.sign_technician', false)->assertJsonPath('data.can.sign_customer', false);
+        $this->signature('service_form', 'technician')->assertConflict()->assertJsonPath('code', 'phone_call_keeps_signatures');
         $this->submitForm($this->findings())->assertOk()->assertJsonPath('data.documentation_status', 'documentation_published');
+        $this->assertSame($signatures, DB::table('ticket_signatures')->orderBy('id')->get()->toJson());
         $this->assertDatabaseCount('satisfaction_links', 1);
         $this->assertDatabaseHas('ticket_document_publications', ['cycle_id' => 2, 'satisfaction_link_id' => null]);
         $this->assertDatabaseHas('ticket_cycles', ['id' => 2, 'survey_template_id' => 2]);

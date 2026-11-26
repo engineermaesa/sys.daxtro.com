@@ -94,3 +94,48 @@ Laravel mengembalikan `422` dengan `errors.technician_ids`, `errors["technician_
 
 - Suite PHPUnit Aftersales lulus dengan 370 tes dan 3.517 assertion, termasuk pemilihan Supervisor, akses setelah assignment berubah, konflik revisi, tanda tangan Head, dan skor untuk kedua teknisi.
 - Runner integrasi MySQL 8.4.3 lulus dengan 15 skenario dan 646 assertion pada database sementara, termasuk backfill assignment lama, Add/Edit multi-technician, dan akses memakai role dan permission hasil seeding.
+
+## BE-02 · Tanda tangan Recoming
+
+PRD `AS-REC-08–10`. Jalankan migrasi setelah BE-01. Paket ini tidak memerlukan seeder.
+
+```powershell
+php artisan migrate --path=database/migrations/2026_11_26_100200_add_recoming_signature_policy.php
+```
+
+Semua path di bawah relatif ke `/api/aftersales`.
+
+### Jadwalkan Recoming dan muat ulang dokumen
+
+1. Admin memanggil `POST /tickets/{id}/documents/service_form/unlock` jika Service Form terkunci. Unlock membuka form yang sama. Karena tipe Recoming baru diketahui pada langkah berikutnya, tanda tangan dari siklus yang sudah dipublikasikan tetap tersedia pada respons Unlock.
+2. Admin memanggil `POST /tickets/{id}/recoming` dengan `recoming_type`, jadwal, alasan, dan SLA seperti v3.0. Pada `visit_site` yang mengikuti aturan baru, server mengosongkan ketiga tanda tangan **Service Form** saat jadwal tersimpan. Untuk `phone_call`, tanda tangan yang ada tetap tersimpan. Agreement yang sudah dipublikasikan tetap digunakan untuk kedua tipe.
+3. Setelah Recoming dibuat, muat ulang `GET /tickets/{id}/service-form` dan `GET /tickets/{id}/documents`. Server memberikan revisi baru. `service_form_resign_required` bernilai `true` untuk siklus site yang harus tanda tangan ulang. Field ini tersedia di `data` pada Service Form, di ringkasan `data.documents.service_form` pada Documents, dan di `data.data.cycle` pada respons buat Recoming.
+
+### Visit site
+
+| Tahap | Respons dan tindakan FE |
+|---|---|
+| Setelah jadwal tersimpan | `status: "incomplete"` dan `signatures.technician`, `signatures.customer`, serta `signatures.supervisor` bernilai `null`. Tampilkan input tanda tangan berdasarkan `can.sign_technician` dan `can.sign_customer`. |
+| Teknisi melengkapi dan mengirim form | Simpan temuan dan tanda tangan Technician serta Customer. Panggil `POST /tickets/{id}/service-form/submit` dengan `revision` terkini. Respons `data.documentation_status` menjadi `awaiting_spv_signature`. Belum ada link survey aktif untuk siklus tersebut. |
+| Supervisor menandatangani | Gunakan `can.sign_supervisor` dan kirim `POST /tickets/{id}/documents/service_form/signatures` dengan `role: "supervisor"` dan `signature`. Supervisor adalah akun yang ditetapkan pada tiket, termasuk Head sesuai BE-01. Respons `data.status` menjadi `documentation_published` dan server menerbitkan satu link survey untuk siklus tersebut. |
+
+Jika Supervisor mencoba tanda tangan sebelum form dikirim, API mengembalikan `409 service_form_not_submitted`. Jika form belum lengkap, Submit mengembalikan `422 service_form_incomplete`. Setelah publikasi, muat ulang `GET /tickets/{id}/survey-link` untuk mengambil URL aktif. Request tanda tangan Supervisor yang diulang memakai tanda tangan yang sudah tersimpan dan publikasi yang sama.
+
+Jika Admin membuka kembali Service Form site saat menunggu Supervisor, server mengosongkan tanda tangan pada form itu lagi dan mengembalikan status ke `incomplete`. Muat ulang form sebelum melanjutkan karena revision berubah.
+
+### Phone call
+
+- Ikuti `can.sign_technician`, `can.sign_customer`, dan `can.sign_supervisor` pada Service Form. Ketiganya `false`. Tanda tangan dari siklus sebelumnya tetap dapat dibaca di `signatures`. Request membuat tanda tangan baru untuk Service Form mengembalikan `409 phone_call_keeps_signatures`.
+- Kirim form lengkap ke endpoint Submit dengan `revision` seperti biasa. Jika Agreement sudah selesai, hasilnya langsung `documentation_published`. Jika tiket belum memiliki Agreement yang selesai, publikasi tetap menunggu Agreement. Signature Service Form tidak menjadi syarat pada jalur phone call.
+- `GET /tickets/{id}/survey-link` mengembalikan `variant: "phone_call"`, `status: "not_applicable"`, dan `url: null`. Admin memakai `GET /tickets/{id}/survey-response` dan `POST /tickets/{id}/survey-response` untuk survey langsung setelah publikasi.
+
+### Kompatibilitas dan checklist FE
+
+- Form yang sudah di-unlock sebelum migrasi dan siklus site yang sudah berjalan tetap memakai aturan tanda tangan sebelumnya. Status dan tanda tangan historis tidak diubah oleh migrasi.
+- Uji ulang site dari Unlock, penjadwalan, tanda tangan Technician dan Customer, Submit, tanda tangan Head atau SPV yang berwenang, hingga link aktif. Pastikan Agreement tetap sama dan link hanya diterbitkan sekali.
+- Uji phone call dari Unlock dan penjadwalan hingga Submit. Pastikan tanda tangan lama tampil sebagai riwayat, tombol tanda tangan ulang tersembunyi, serta survey langsung tersedia bagi Admin setelah publikasi.
+
+### Verifikasi BE
+
+- Suite PHPUnit Aftersales lulus dengan 371 tes dan 3.586 assertion, termasuk kompatibilitas untuk form yang dibuka sebelum rilis.
+- Runner integrasi MySQL 8.4.3 lulus dengan 16 skenario dan 692 assertion pada database sementara. Dua request tanda tangan Head yang berjalan bersamaan menghasilkan satu publikasi dan satu link survey site.

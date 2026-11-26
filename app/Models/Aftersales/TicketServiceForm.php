@@ -14,7 +14,7 @@ class TicketServiceForm extends Model
 
     public const STATUS_SAVED = 'saved';
 
-    protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id', 'ref_inspection_template_id', 'template_version'];
+    protected $fillable = ['ticket_id', 'status', 'first_draft_at', 'saved_at', 'saved_by_user_id', 'unlocked_at', 'unlocked_by_user_id', 'ref_inspection_template_id', 'template_version', 'unlocked_with_recoming_signature_policy'];
 
     public function template()
     {
@@ -31,9 +31,9 @@ class TicketServiceForm extends Model
         return $this->hasMany(TicketPhoto::class, 'ticket_service_form_id')->where('category', 'diagnosis')->orderBy('sequence');
     }
 
-    protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime', 'sync_version' => 'integer'];
+    protected $casts = ['first_draft_at' => 'datetime', 'saved_at' => 'datetime', 'unlocked_at' => 'datetime', 'sync_version' => 'integer', 'unlocked_with_recoming_signature_policy' => 'boolean'];
 
-    protected $hidden = ['sync_version'];
+    protected $hidden = ['sync_version', 'unlocked_with_recoming_signature_policy'];
 
     protected static function booted(): void
     {

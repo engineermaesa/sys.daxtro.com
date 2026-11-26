@@ -27,6 +27,11 @@ class TicketRecomings
         return $ticket->relationLoaded('recomings') ? $ticket->recomings->sortByDesc('id')->first() : $ticket->recomings()->latest('id')->first();
     }
 
+    public static function isPhoneCall(Ticket $ticket): bool
+    {
+        return self::current($ticket)?->recoming_type === TicketRecoming::TYPE_PHONE_CALL;
+    }
+
     public static function canReschedule(Ticket $ticket): bool
     {
         $recoming = self::current($ticket);
@@ -84,13 +89,21 @@ class TicketRecomings
             $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
             abort_if($ticket->progress === TicketLog::STEP_CLOSED, 422, 'This ticket is already closed.');
             abort_if($ticket->progress === TicketLog::STEP_RECOMING, 422, 'Reschedule the current Recoming before starting another one.');
-            abort_if($ticket->serviceForm()->whereIn('status', ['saved', 'awaiting_spv_signature'])->exists(), 422, 'Unlock the Service Form first.');
+            $form = $ticket->serviceForm()->lockForUpdate()->first();
+            abort_if($form?->isLocked(), 422, 'Unlock the Service Form first.');
             $fromStep = $ticket->progress;
             $cycle = TicketCycles::startRecoming($ticket);
             TicketSla::apply($ticket, $cycle, $sla);
             $visit = null;
             $visitNo = null;
             if ($data['recoming_type'] === TicketRecoming::TYPE_VISIT_SITE) {
+                // The type becomes known here. Drafts unlocked before v3.1 keep their original policy.
+                if (! $form?->unlocked_at || $form->unlocked_with_recoming_signature_policy) {
+                    $cycle->update(['service_form_resign_required' => true]);
+                    if ($form) {
+                        TicketDocuments::clearSignatures($form);
+                    }
+                }
                 $visitNo = $ticket->visits()->count() + 1;
                 $visit = $ticket->visits()->create([
                     'cycle_id' => $cycle->id, 'scheduled_at' => Carbon::parse($data['planned_visit_at'], 'Asia/Jakarta')->timezone('Asia/Jakarta'),

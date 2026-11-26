@@ -75,6 +75,7 @@ class TicketDocumentWorkflow
                 }
                 $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
                 $form = TicketServiceForm::whereKey($form->id)->lockForUpdate()->firstOrFail();
+                $phoneCall = TicketRecomings::isPhoneCall($ticket);
                 $fields = array_diff_key($data, ['signatures' => true]);
                 if ($fields) {
                     TicketDocuments::saveFormDraft($ticket, $form, $fields, $user);
@@ -89,14 +90,15 @@ class TicketDocumentWorkflow
                 if (! $check['complete']) {
                     self::error(422, 'service_form_incomplete', $check['summary'], ['errors' => ['service_form' => $check['missing']]]);
                 }
-                $signedRecoming = $cycle->cycle_no > 1 && $form->signatures()->where('role', 'supervisor')->exists();
-                $form->update(['status' => $signedRecoming ? 'saved' : 'awaiting_spv_signature',
-                    'saved_at' => $signedRecoming ? now('Asia/Jakarta') : null, 'saved_by_user_id' => $signedRecoming ? $user->id : null]);
+                $saveImmediately = $phoneCall || ($cycle->cycle_no > 1 && ! $cycle->service_form_resign_required
+                    && $form->signatures()->where('role', 'supervisor')->exists());
+                $form->update(['status' => $saveImmediately ? 'saved' : 'awaiting_spv_signature',
+                    'saved_at' => $saveImmediately ? now('Asia/Jakarta') : null, 'saved_by_user_id' => $saveImmediately ? $user->id : null]);
                 $cycle->update([
-                    'documentation_status' => 'awaiting_spv_signature',
+                    'documentation_status' => $phoneCall ? 'incomplete' : 'awaiting_spv_signature',
                     'service_form_submitted_at' => now('Asia/Jakarta'), 'service_form_submitted_by' => $user->id,
                 ]);
-                if ($signedRecoming) {
+                if ($saveImmediately) {
                     app(ServiceDiagnosis::class)->lock($form, $ticket);
                     self::publish($ticket->fresh(), $cycle, $user);
                 }
@@ -125,6 +127,14 @@ class TicketDocumentWorkflow
                 abort_unless(in_array($role, TicketSignature::ROLES, true), 422, 'Invalid signature role.');
                 $supervisor = $role === 'supervisor';
                 abort_unless($supervisor ? TicketDocuments::isSupervisor($user, $ticket) : TicketDocuments::isTechnician($user, $ticket), 403);
+                if ($doc instanceof TicketServiceForm) {
+                    if (TicketRecomings::isPhoneCall($ticket)) {
+                        self::error(409, 'phone_call_keeps_signatures', 'Phone-call Recoming keeps existing Service Form signatures.');
+                    }
+                    if ($supervisor && $cycle->service_form_resign_required && ! $cycle->service_form_submitted_at) {
+                        self::error(409, 'service_form_not_submitted', 'The technician must submit the Service Form before the supervisor signs.');
+                    }
+                }
                 $existing = $doc->signatures()->where('role', $role)->first();
                 if ($supervisor && $doc->status === 'saved' && $existing) {
                     return $existing;
@@ -204,9 +214,9 @@ class TicketDocumentWorkflow
         ]);
         $log = $ticket->logs()->create([
             'cycle_id' => $cycle->id, 'step' => TicketLog::STEP_DOCUMENTATION_PUBLISHED,
-            'actor_user_id' => $user->id, 'note' => 'Auto: Service Form and Agreement signed by SPV Technician',
+            'actor_user_id' => $user->id, 'note' => 'Auto: Service Form and Agreement completed',
         ]);
-        $phone = TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
+        $phone = TicketRecomings::isPhoneCall($ticket);
         $template = TicketSurveys::pin($ticket, $cycle);
         $link = $phone ? null : SatisfactionLink::issue($ticket, $user->id, $template);
         $publication->update(['ticket_log_id' => $log->id, 'satisfaction_link_id' => $link?->id]);
