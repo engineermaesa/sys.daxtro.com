@@ -7,7 +7,7 @@
     #spv-dashboard .spv-filter-dropdown .select2-results__options { max-height: 240px; overflow-y: auto; }
     #spv-dashboard .spv-filter-dropdown .select2-results__option { white-space: normal; overflow-wrap: anywhere; }
 </style>
-<div id="spv-dashboard" data-api="{{ route('dashboard.aftersales.supervisor.summary') }}" data-tickets-api="{{ route('dashboard.aftersales.supervisor.tickets') }}">
+<div id="spv-dashboard" data-api="{{ route('dashboard.aftersales.supervisor.summary') }}" data-tickets-api="{{ route('dashboard.aftersales.supervisor.tickets') }}" data-rating-api="{{ route('dashboard.aftersales.supervisor.general-rating') }}">
 @include('pages.templates.main-headers', [
     'title' => 'Supervisor Dashboard',
     'subtitle' => 'Financial performance, service quality, and operational trends.',

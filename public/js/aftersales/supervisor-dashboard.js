@@ -495,8 +495,117 @@
         return names.join(", ") || ticket.technician || "-";
     }
 
-    function closeDrillSheet() {
-        const sheet = document.getElementById("spv-drill-sheet");
+    // AS-DSH-01..05: popup General Rating per technician (periode mengikuti dashboard, OQ-23)
+    let ratingAborter;
+    function ratingListHtml(data) {
+        const max = data.rating_scale_max;
+        if (!data.technicians.length)
+            return '<p class="spv-drill-empty">No technicians found.</p>';
+        return data.technicians
+            .map((t) => {
+                const score =
+                    t.rating === null
+                        ? "-"
+                        : `${Number(t.rating).toFixed(1)} / ${max}`;
+                const count = `${t.response_count} ${t.response_count === 1 ? "response" : "responses"}`;
+                return `<div class="spv-drill-card spv-rating-row">
+                    <div class="spv-rating-name">${escapeHtml(t.name)}<span>${escapeHtml(count)}</span></div>
+                    <div class="spv-rating-score">${escapeHtml(score)}</div>
+                </div>`;
+            })
+            .join("");
+    }
+
+    async function loadRating(sheet) {
+        ratingAborter?.abort();
+        const controller = (ratingAborter = new AbortController());
+        const body = sheet.querySelector(".spv-drill-body");
+        body.innerHTML = '<p class="spv-drill-empty">Loading…</p>';
+        try {
+            const response = await fetch(
+                root.dataset.ratingApi + "?" + params(),
+                {
+                    headers: { Accept: "application/json" },
+                    signal: controller.signal,
+                },
+            );
+            if (response.status === 403) {
+                body.innerHTML =
+                    '<p class="spv-drill-empty">You don\'t have access to this data.</p>';
+                return;
+            }
+            if (!response.ok) throw new Error("Unable to load ratings.");
+            const { data } = await response.json();
+            if (controller.signal.aborted) return;
+            sheet.querySelector(".spv-drill-sub").textContent =
+                `Period: ${data.period.start} – ${data.period.end}`;
+            body.innerHTML = ratingListHtml(data);
+        } catch (error) {
+            if (error.name === "AbortError") return;
+            body.innerHTML =
+                '<p class="spv-drill-empty">Unable to load ratings.<br><button type="button" class="spv-drill-close" data-rating-retry>Retry</button></p>';
+        }
+    }
+
+    function openRating() {
+        if (!spvData || root.getAttribute("aria-busy") === "true") return;
+        closeDrillSheet("spv-rating-sheet");
+        const sheet = document.createElement("div");
+        sheet.id = "spv-rating-sheet";
+        sheet.className = "spv-rating-overlay";
+        sheet.innerHTML = `
+            <div class="spv-rating-dialog" role="dialog" aria-modal="true" aria-label="General Rating">
+                <div class="spv-drill-head">
+                    <button type="button" class="spv-drill-close" data-drill-close><i class="bi bi-x-lg" aria-hidden="true"></i> Close</button>
+                    <div class="spv-drill-title">General Rating</div>
+                    <div class="spv-drill-sub"></div>
+                </div>
+                <div class="spv-drill-body"></div>
+            </div>`;
+        sheet._opener = document.activeElement;
+        sheet._prevOverflow = document.body.style.overflow;
+        sheet._onKey = (event) => {
+            if (event.key === "Escape") closeDrillSheet("spv-rating-sheet");
+        };
+        document.addEventListener("keydown", sheet._onKey);
+        sheet.addEventListener("click", (event) => {
+            // klik latar gelap (desktop) atau tombol Close
+            if (event.target === sheet || event.target.closest("[data-drill-close]")) {
+                ratingAborter?.abort();
+                closeDrillSheet("spv-rating-sheet");
+            } else if (event.target.closest("[data-rating-retry]")) {
+                loadRating(sheet);
+            }
+        });
+        document.body.style.overflow = "hidden";
+        document.body.appendChild(sheet);
+        sheet.querySelector("[data-drill-close]").focus();
+        loadRating(sheet);
+    }
+
+    function initRatingCard() {
+        const card = root.querySelector('[data-ring="rating"]');
+        if (!card) return;
+        card.classList.add("spv-rating-card");
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-haspopup", "dialog");
+        card.setAttribute("aria-label", "Show rating per technician");
+        card.insertAdjacentHTML(
+            "beforeend",
+            '<span class="spv-rating-hint">View detail <i class="bi bi-chevron-right" aria-hidden="true"></i></span>',
+        );
+        card.addEventListener("click", openRating);
+        card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openRating();
+            }
+        });
+    }
+
+    function closeDrillSheet(id = "spv-drill-sheet") {
+        const sheet = document.getElementById(id);
         if (!sheet) return;
         sheet.remove();
         document.body.style.overflow = sheet._prevOverflow || "";
@@ -662,6 +771,7 @@
             });
         }
     }
+    initRatingCard();
     root.addEventListener("click", drillClick);
     root.addEventListener("keydown", (event) => {
         if (

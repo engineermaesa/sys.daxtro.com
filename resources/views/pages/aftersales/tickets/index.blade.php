@@ -11,6 +11,11 @@
 <style>
     .ticket-filter-chip { padding: 6px 14px; border: 1px solid #D9D9D9; border-radius: 9999px; background: #fff; color: #1E1E1E; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .ticket-filter-chip.is-active { border-color: #115640; background: #E7F3EE; color: #115640; }
+    /* lebar mengikuti label terpanjang; di desktop tidak dibatasi lebar tombol */
+    #ticket-steps-menu { width: max-content; min-width: 100%; max-width: calc(100vw - 32px); max-height: min(420px, 60vh); overflow-x: hidden; overflow-y: auto; }
+    #ticket-steps-options label { white-space: nowrap; font-size: 12px; }
+    #ticket-steps-clear { transition: background-color .15s, color .15s; }
+    #ticket-steps-clear:hover, #ticket-steps-clear:focus-visible { background: #115640; color: #fff; }
 </style>
 <section class="min-h-screen sm:text-xs lg:text-sm">
     <div id="ticketListView">
@@ -46,6 +51,16 @@
                     <button type="button" class="ticket-filter-chip" data-priority="low">Low</button>
                     <button type="button" class="ticket-filter-chip" data-priority="medium">Medium</button>
                     <button type="button" class="ticket-filter-chip" data-priority="high">High</button>
+                </div>
+                {{-- AS-TKT-04: filter Steps multi-select; opsi dirender dari STEP_LABEL --}}
+                <div id="ticket-steps-filter" class="relative flex items-center">
+                    <button type="button" id="ticket-steps-toggle" class="ticket-filter-chip w-full lg:w-auto" aria-haspopup="true" aria-expanded="false">
+                        <span id="ticket-steps-label">Steps</span> <i class="bi bi-chevron-down text-[10px]"></i>
+                    </button>
+                    <div id="ticket-steps-menu" class="hidden absolute left-0 top-full mt-1 bg-white border border-[#D9D9D9] rounded-lg shadow-lg z-20 py-1">
+                        <div id="ticket-steps-options"></div>
+                        <button type="button" id="ticket-steps-clear" class="w-full text-left px-3 py-2 border-t border-[#EDEDED] text-xs font-semibold text-[#115640] cursor-pointer">Clear</button>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <label for="ticket-visit-date" class="text-[#757575] whitespace-nowrap">Visit date</label>
@@ -138,6 +153,7 @@
         search: '',
         priority: [],      // multi-select: low | medium | high
         visitDate: '',     // YYYY-MM-DD, one specific Visit Date (IM-92)
+        steps: [],         // multi-select: key TicketLog::STEPS (AS-TKT-04)
     };
 
     // filter disimpan di URL query (FR-E24): ?search=..&priority=high,medium
@@ -147,6 +163,7 @@
         if (ticketState.search) params.set('search', ticketState.search);
         if (ticketState.priority.length) params.set('priority', ticketState.priority.join(','));
         if (ticketState.visitDate) params.set('visit_date', ticketState.visitDate);
+        if (ticketState.steps.length) params.set('steps', ticketState.steps.join(','));
         const query = params.toString();
         history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
     }
@@ -157,6 +174,25 @@
         $('#ticket-priority-chips .ticket-filter-chip').each(function () {
             $(this).toggleClass('is-active', ticketState.priority.includes($(this).data('priority')));
         });
+        $('#ticket-steps-options input').each(function () {
+            this.checked = ticketState.steps.includes(this.value);
+        });
+        const count = ticketState.steps.length;
+        $('#ticket-steps-label').text(count ? `Steps (${count})` : 'Steps');
+        $('#ticket-steps-toggle').toggleClass('is-active', count > 0);
+    }
+
+    function renderStepOptions() {
+        // published/assigned tampil sebagai "Incoming" di badge tabel
+        $('#ticket-steps-options').html(Object.entries(STEP_LABEL).map(([key, label]) => {
+            const text = key === 'published' || key === 'assigned' ? `${label} (Incoming)` : label;
+            return `<label class="flex items-center gap-2 px-3 py-2 mb-0 cursor-pointer hover:bg-[#F5F5F5]"><input type="checkbox" value="${key}"> <span>${escapeHtml(text)}</span></label>`;
+        }).join(''));
+    }
+
+    function toggleStepsMenu(open) {
+        $('#ticket-steps-menu').toggleClass('hidden', !open);
+        $('#ticket-steps-toggle').attr('aria-expanded', open ? 'true' : 'false');
     }
 
     function readTicketUrl() {
@@ -166,6 +202,9 @@
         ticketState.priority = (params.get('priority') || '').split(',').filter(v => allowed.includes(v));
         const visitDate = params.get('visit_date') || '';
         ticketState.visitDate = /^\d{4}-\d{2}-\d{2}$/.test(visitDate) ? visitDate : '';
+        // hanya key yang dikenal dan unik, selain itu API menjawab 422
+        ticketState.steps = [...new Set((params.get('steps') || '').split(','))]
+            .filter(v => Object.prototype.hasOwnProperty.call(STEP_LABEL, v));
         paintTicketFilters();
     }
 
@@ -410,14 +449,17 @@
         $('#ticket-pagination').html(buttons);
     }
 
+    let ticketRequest = null;
     function loadTickets() {
+        ticketRequest?.abort(); // klik filter beruntun: abaikan respons lama
         syncTicketUrl();
         $('#ticket-table-body').html(`<tr><td colspan="${TABLE_COLS}" class="text-center p-4 text-[#757575]">Loading...</td></tr>`);
 
-        $.ajax({
+        ticketRequest = $.ajax({
             url: '/api/aftersales/tickets',
             method: 'GET',
             data: {
+                steps: ticketState.steps.length ? ticketState.steps : undefined, // jadi steps[]=..
                 page: ticketState.page,
                 per_page: ticketState.perPage,
                 search: ticketState.search,
@@ -428,7 +470,8 @@
                 renderTicketRows(response.data);
                 renderTicketPagination(response);
             },
-            error: function (xhr) {
+            error: function (xhr, status) {
+                if (status === 'abort') return;
                 const message = xhr.responseJSON?.message || 'Failed to load tickets';
                 $('#ticket-table-body').html(`<tr><td colspan="${TABLE_COLS}" class="text-center p-4 text-[#900B09]">${escapeHtml(message)}</td></tr>`);
             }
@@ -461,6 +504,7 @@
     }
 
     $(function () {
+        renderStepOptions();
         readTicketUrl();
         loadTickets();
         loadOverallRating();
@@ -498,8 +542,30 @@
             loadTickets();
         });
 
-        // Reset: kosongkan search, priority, dan visit date (dan URL-nya)
+        $('#ticket-steps-toggle').on('click', function () {
+            toggleStepsMenu($('#ticket-steps-menu').hasClass('hidden'));
+        });
+        $('#ticket-steps-options').on('change', 'input', function () {
+            ticketState.steps = $('#ticket-steps-options input:checked').map(function () { return this.value; }).get();
+            paintTicketFilters();
+            ticketState.page = 1;
+            loadTickets();
+        });
+        $('#ticket-steps-clear').on('click', function () {
+            ticketState.steps = [];
+            paintTicketFilters();
+            ticketState.page = 1;
+            loadTickets();
+        });
+        $(document).on('click', function (e) {
+            if (!$(e.target).closest('#ticket-steps-filter').length) toggleStepsMenu(false);
+        }).on('keydown', function (e) {
+            if (e.key === 'Escape') toggleStepsMenu(false);
+        });
+
+        // Reset: kosongkan search, priority, steps, dan visit date (dan URL-nya)
         $('#btn-reset-ticket').on('click', function () {
+            ticketState.steps = [];
             ticketState.search = '';
             ticketState.priority = [];
             ticketState.visitDate = '';

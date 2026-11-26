@@ -30,7 +30,18 @@
     .spv-drill-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; background: #fff; border-top: 1px solid #D9D9D9; font-size: 12px; color: #757575; }
     .spv-drill-foot button { padding: 6px 14px; border: 1px solid #D9D9D9; border-radius: 8px; background: #fff; color: #115640; font-weight: 600; cursor: pointer; }
     .spv-drill-foot button:disabled { opacity: .45; cursor: not-allowed; }
+    #spv-dashboard .spv-rating-card { cursor: pointer; transition: border-color .15s, background-color .15s; }
+    #spv-dashboard .spv-rating-card:hover { border-color: #14573F; background: #F0F5F2; }
+    #spv-dashboard .spv-rating-card:focus-visible { outline: 2px solid #14573F; outline-offset: 2px; }
+    .spv-rating-hint { font-size: 10px; color: #14573F; font-weight: 600; }
+    .spv-rating-overlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); }
+    .spv-rating-dialog { display: flex; flex-direction: column; width: min(520px, calc(100vw - 32px)); max-height: 80vh; background: #F7F8F7; border-radius: 12px; overflow: hidden; }
+    .spv-rating-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .spv-rating-name { min-width: 0; font-weight: 600; color: #1E1E1E; overflow-wrap: anywhere; }
+    .spv-rating-name span { display: block; font-size: 12px; font-weight: 400; color: #757575; }
+    .spv-rating-score { flex-shrink: 0; font-size: 16px; font-weight: 700; color: #115640; }
     @media (max-width: 767px) {
+        .spv-rating-dialog { width: 100%; height: 100%; max-height: none; border-radius: 0; }
         #spv-dashboard .spv-heatmap-layout { gap: 24px; }
         #spv-dashboard .spv-problem-label { width: 112px; }
     }
