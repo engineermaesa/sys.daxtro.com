@@ -104,6 +104,9 @@
                                             Unit Price (Rp)
                                         </td>
                                         <td class="p-2 lg:p-3">
+                                            Disc (Rp)
+                                        </td>
+                                        <td class="p-2 lg:p-3">
                                             Disc (%)
                                         </td>
                                         <td class="w-[200px] p-2 lg:p-3">
@@ -147,7 +150,7 @@
                                                     required>
                                                 </td>
                                                 <td class="p-2 lg:p-3 max-w-20!">
-                                                    <input type="number" name="qty[]" class="form-control item-qty"
+                                                    <input type="number" name="qty[]" min="1" step="any" class="form-control item-qty"
                                                         value="{{ $item->qty }}" {{ $disabled }}>
                                                 </td>
                                                 <td>
@@ -155,7 +158,7 @@
                                                         <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg rounded-bl-lg">Rp</span>
                                                         <input type="text" name="unit_price[]"
                                                             class="p-2 border border-[#D9D9D9] w-full rounded-tr-lg rounded-br-lg item-price number-input"
-                                                            value="{{ number_format($item->unit_price, 0, ',', '.') }}"
+                                                            value="{{ rtrim(rtrim(number_format($item->unit_price, 2, ',', '.'), '0'), ',') }}"
                                                             {{ $disabled }} required>
                                                     </div>
                                                     <div class="px-3">
@@ -195,15 +198,7 @@
                                                     </div>
                                                     @endif
                                                 </td>
-                                                <td class="p-2 lg:p-3 w-[100px]">
-                                                    <input type="number" 
-                                                    name="discount_pct[]"
-                                                        class="form-control item-disc"
-                                                        step='0.01'
-                                                        min="0"
-                                                        max="100"
-                                                        value="{{ $item->discount_pct }}" {{ $disabled }}>
-                                                </td>
+                                                @include('pages.leads.warm.partials.quotation-discount', ['discountItem' => $item])
                                                 <td class="p-2 lg:p-3">
                                                     <div class="w-[200px] flex items-center">
                                                         <span class="bg-[#F5F5F5] text-[#B3B3B3] p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg rounded-bl-lg">Rp</span>
@@ -274,7 +269,7 @@
                                                 class="form-control item-desc text-start max-lg:h-7!" readonly {{ $disabled }}>
                                         </td>
                                         <td class="p-2 lg:p-3">
-                                            <input type="number" name="qty[]" class="form-control max-w-20 item-qty max-lg:h-7!"
+                                            <input type="number" name="qty[]" min="1" step="any" class="form-control max-w-20 item-qty max-lg:h-7!"
                                                 value="1" {{ $disabled }} required>
                                         </td>
                                         <td>
@@ -293,14 +288,7 @@
                                             </div>
                                             <div class="form-text segment-price-info px-1 lg:px-3 text-[#1E1E1E]"></div>
                                         </td>
-                                        <td class="p-2 lg:p-3 w-[100px]">
-                                            <input type="number" 
-                                                name="discount_pct[]"
-                                                class="form-control item-disc max-lg:h-7!"
-                                                step='0.01'
-                                                min="0"
-                                                max="100" {{ $disabled }}>
-                                        </td>
+                                        @include('pages.leads.warm.partials.quotation-discount', ['discountItem' => null])
                                         <td class="p-2 lg:p-3">
                                             <div class="w-[200px] flex items-center">
                                                 <span class="bg-[#F5F5F5] text-[#B3B3B3] p-1 lg:p-2 font-semibold border border-[#D9D9D9] border-r-0 rounded-tl-lg rounded-bl-lg">Rp</span>
@@ -662,9 +650,26 @@
             function calcRow(row) {
                 let price = parseNumber(row.find('.item-price').val());
                 let qty   = parseFloat(row.find('.item-qty').val()) || 0;
-                let disc  = parseFloat(row.find('.item-disc').val()) || 0;
-                let line  = (price - (price * disc / 100)) * qty;
-                let discountAmount = (price * disc / 100) * qty;
+                const gross = price * qty;
+                const input = row.find('.item-discount-amount');
+                const rawAmount = input.val().trim();
+                const amount = parseNumber(rawAmount);
+                let error = '';
+                if (rawAmount && !/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(rawAmount)) {
+                    error = 'Enter a valid discount amount.';
+                } else if (amount < 0) {
+                    error = 'Discount cannot be negative.';
+                } else if (amount > 0 && Math.round((gross - amount) * 1e8) < 0) {
+                    error = 'Discount cannot exceed the item total before discount.';
+                }
+
+                input[0].setCustomValidity(error);
+                row.find('.item-discount-error').text(error);
+                const discountAmount = error ? 0 : amount;
+                const percentage = gross > 0 ? discountAmount / gross * 100 : 0;
+                const line = discountAmount > 0 ? Math.max(0, gross - discountAmount) : gross;
+                row.find('.item-discount-value').val(error ? '' : amount);
+                row.find('.item-disc').val(error ? '' : percentage.toFixed(2));
                 row.find('.item-total').val(formatNumber(line));
                 return {lineTotal: line, discountAmount: discountAmount};
             }
@@ -762,7 +767,6 @@
                     if (sel.val() && sel.val() !== 'add_on') {
                         let opt = sel.find('option:selected');
                         row.find('.item-segment').removeClass('d-none').val(defaultSegment);
-                        updatePriceForRow(row);
                         row.find('.segment-price-info').html(
                             renderPriceTiers(
                                 opt.data('gov')  || 0,
@@ -840,7 +844,12 @@
 
 
                 // — Recalc when qty, price, discount, or tax pct change
-                $(document).on('input', '.item-qty, .item-price, .item-disc, #tax_pct', calcTotal);
+                $(document).on('input', '.item-qty, .item-price, .item-discount-amount, #tax_pct', calcTotal);
+                $(document).on('blur', '.item-discount-amount', function() {
+                    if (this.validity.valid && this.value.trim()) {
+                        this.value = formatNumber(parseNumber(this.value));
+                    }
+                });
 
                 // — Format number inputs on keyup
                 $(document).on('keyup', '.number-input', function() {
@@ -874,6 +883,7 @@
                     $('#items-table tbody').append(newRow);
                     $('.select2').select2({ width: '100%' });
                     updateMergeDropdowns();
+                    calcTotal();
                 });
 
                 // — Remove item row
@@ -1027,6 +1037,12 @@
                 $(document).on('click', '#final-submit-btn', function() {
                     const $btn = $(this);
                     const finalSubmitUrl = $btn.data('url');
+                    calcTotal();
+                    const invalidDiscount = $('.item-discount-amount:invalid')[0];
+                    if (invalidDiscount) {
+                        invalidDiscount.reportValidity();
+                        return;
+                    }
 
                     Swal.fire({
                         title: 'Submit this revision for review?',

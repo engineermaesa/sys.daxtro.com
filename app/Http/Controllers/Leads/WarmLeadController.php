@@ -380,7 +380,10 @@ class WarmLeadController extends Controller
                 'description.*'     => 'required|string',
                 'qty.*'             => 'required|numeric|min:1',
                 'unit_price.*'      => 'required|numeric',
-                'discount_pct.*'    => 'nullable|numeric|min:0|max:100',
+                'discount_amount'   => 'sometimes|array',
+                'discount_amount.*' => 'nullable|numeric|min:0|decimal:0,2',
+                'discount_pct'      => 'exclude_with:discount_amount|sometimes|array',
+                'discount_pct.*'    => 'exclude_with:discount_amount|nullable|numeric|min:0|max:100',
                 'tax_pct'           => 'required|numeric',
                 'total_discount'    => 'nullable|numeric|min:0',
                 'term_percentage.*' => 'required|numeric|min:0|max:100',
@@ -397,6 +400,8 @@ class WarmLeadController extends Controller
                 'qty.*.required'           => 'Please specify quantity for every item.',
                 'qty.*.min'                => 'Quantity must be at least 1.',
                 'unit_price.*.required'    => 'Unit price is required for each item.',
+                'discount_amount.*.min'    => 'Discount cannot be negative.',
+                'discount_amount.*.decimal' => 'Discount must have at most two decimal places.',
                 'discount_pct.*.min'       => 'Discount cannot be less than 0%.',
                 'discount_pct.*.max'       => 'Discount cannot exceed 100%.',
                 'tax_pct.required'         => 'Tax percentage is required.',
@@ -429,37 +434,7 @@ class WarmLeadController extends Controller
                 return $this->setJsonResponse('Total Term of Payment must be exactly 100%', [], 422);
             }
 
-            $items = [];
-            $subtotal = 0;
-            $totalDiscount = 0;
-
-            foreach ($request->qty as $idx => $qty) {
-                $pidRaw = $request->product_id[$idx] ?? null;
-                $pid = ($pidRaw === 'add_on' || $pidRaw === '' || $pidRaw === null) ? null : $pidRaw;
-                $price = $request->unit_price[$idx] ?? 0;
-                $discount = $request->discount_pct[$idx] ?? 0;
-                $description = $request->description[$idx] ?? '';
-                $line = ($price - ($price * $discount / 100)) * $qty;
-                $subtotal += $line;
-                $totalDiscount += ($price * $discount / 100) * $qty;
-
-                $isVisible = isset($request->is_visible_pdf[$idx]) ?
-                    (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
-
-                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ?
-                    (int)$request->merge_into_item_id[$idx] : null;
-
-                $items[] = [
-                    'product_id' => $pid,
-                    'qty' => $qty,
-                    'description' => $description,
-                    'unit_price' => $price,
-                    'discount_pct' => $discount,
-                    'line_total' => $line,
-                    'is_visible_pdf' => $isVisible,
-                    'merge_into_index' => $mergeIntoIndex,
-                ];
-            }
+            [$items, $subtotal, $totalDiscount] = $this->calculateQuotationItems($request);
 
             $taxTotal = $subtotal * ($request->tax_pct / 100);
             $grandTotal = $subtotal + $taxTotal;
@@ -604,7 +579,10 @@ class WarmLeadController extends Controller
                 'description.*'     => 'required|string',
                 'qty.*'             => 'required|numeric|min:1',
                 'unit_price.*'      => 'required|numeric',
-                'discount_pct.*'    => 'nullable|numeric|min:0|max:100',
+                'discount_amount'   => 'sometimes|array',
+                'discount_amount.*' => 'nullable|numeric|min:0|decimal:0,2',
+                'discount_pct'      => 'exclude_with:discount_amount|sometimes|array',
+                'discount_pct.*'    => 'exclude_with:discount_amount|nullable|numeric|min:0|max:100',
                 'tax_pct'           => 'required|numeric',
                 'total_discount'    => 'nullable|numeric|min:0',
                 'term_percentage.*' => 'required|numeric|min:0|max:100',
@@ -620,6 +598,8 @@ class WarmLeadController extends Controller
                 'qty.*.required'           => 'Please specify quantity for every item.',
                 'qty.*.min'                => 'Quantity must be at least 1.',
                 'unit_price.*.required'    => 'Unit price is required for each item.',
+                'discount_amount.*.min'    => 'Discount cannot be negative.',
+                'discount_amount.*.decimal' => 'Discount must have at most two decimal places.',
                 'discount_pct.*.min'       => 'Discount cannot be less than 0%.',
                 'discount_pct.*.max'       => 'Discount cannot exceed 100%.',
                 'tax_pct.required'         => 'Tax percentage is required.',
@@ -655,37 +635,7 @@ class WarmLeadController extends Controller
             DB::beginTransaction();
             QuotationConcurrency::lockLead($claim->lead_id);
 
-            $items = [];
-            $subtotal = 0;
-            $totalDiscount = 0;
-
-            foreach ($request->qty as $idx => $qty) {
-                $pidRaw = $request->product_id[$idx] ?? null;
-                $pid = ($pidRaw === 'add_on' || $pidRaw === '' || $pidRaw === null) ? null : $pidRaw;
-                $price = $request->unit_price[$idx] ?? 0;
-                $discount = $request->discount_pct[$idx] ?? 0;
-                $description = $request->description[$idx] ?? '';
-                $line = ($price - ($price * $discount / 100)) * $qty;
-                $subtotal += $line;
-                $totalDiscount += ($price * $discount / 100) * $qty;
-
-                $isVisible = isset($request->is_visible_pdf[$idx]) ?
-                    (($request->is_visible_pdf[$idx] === '1') || ($request->is_visible_pdf[$idx] === 1) || ($request->is_visible_pdf[$idx] === true)) : true;
-
-                $mergeIntoIndex = isset($request->merge_into_item_id[$idx]) && $request->merge_into_item_id[$idx] !== '' ?
-                    (int)$request->merge_into_item_id[$idx] : null;
-
-                $items[] = [
-                    'product_id' => $pid,
-                    'qty' => $qty,
-                    'description' => $description,
-                    'unit_price' => $price,
-                    'discount_pct' => $discount,
-                    'line_total' => $line,
-                    'is_visible_pdf' => $isVisible,
-                    'merge_into_index' => $mergeIntoIndex,
-                ];
-            }
+            [$items, $subtotal, $totalDiscount] = $this->calculateQuotationItems($request);
 
             $taxTotal = $subtotal * ($request->tax_pct / 100);
             $grandTotal = $subtotal + $taxTotal;
@@ -771,6 +721,49 @@ class WarmLeadController extends Controller
             }
             return $this->setJsonResponse('Failed to save quotation', [], 500, $e);
         }
+    }
+
+    private function calculateQuotationItems(Request $request): array
+    {
+        $items = [];
+        $subtotal = 0;
+        $totalDiscount = 0;
+        $usesAmount = $request->has('discount_amount');
+
+        foreach ($request->qty as $idx => $qty) {
+            $productId = $request->product_id[$idx] ?? null;
+            $price = $request->unit_price[$idx] ?? 0;
+            $gross = $price * $qty;
+
+            if ($usesAmount) {
+                $discountAmount = (float) ($request->discount_amount[$idx] ?? 0);
+                abort_if($discountAmount > 0 && round($gross - $discountAmount, 8) < 0, 422,
+                    'Discount cannot exceed the item total before discount.');
+                $discountPct = $gross > 0 ? round($discountAmount / $gross * 100, 2) : 0;
+                $line = $discountAmount > 0 ? max(0, $gross - $discountAmount) : $gross;
+            } else {
+                $discountPct = $request->discount_pct[$idx] ?? 0;
+                $discountAmount = ($price * $discountPct / 100) * $qty;
+                $line = ($price - ($price * $discountPct / 100)) * $qty;
+            }
+
+            $subtotal += $line;
+            $totalDiscount += $discountAmount;
+            $mergeIntoIndex = $request->merge_into_item_id[$idx] ?? '';
+
+            $items[] = [
+                'product_id' => in_array($productId, ['add_on', '', null], true) ? null : $productId,
+                'qty' => $qty,
+                'description' => $request->description[$idx] ?? '',
+                'unit_price' => $price,
+                'discount_pct' => $discountPct,
+                'line_total' => $line,
+                'is_visible_pdf' => in_array($request->is_visible_pdf[$idx] ?? true, ['1', 1, true], true),
+                'merge_into_index' => $mergeIntoIndex === '' ? null : (int) $mergeIntoIndex,
+            ];
+        }
+
+        return [$items, $subtotal, $totalDiscount];
     }
 
     public function finalSubmitQuotation(Request $request, $claimId)

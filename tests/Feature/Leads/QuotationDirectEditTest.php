@@ -139,6 +139,20 @@ class QuotationDirectEditTest extends TestCase
             fn ($notification) => $notification->quotation->revision_code === 'QT_DEAL_001_R4');
     }
 
+    public function test_direct_edit_calculates_and_snapshots_nominal_discounts(): void
+    {
+        $payload = array_replace($this->payload(), ['discount_amount' => [12345, null]]);
+        $this->actingAs($this->sales)
+            ->postJson(route('leads.my.warm.quotation.store', $this->claim->id), $payload)->assertOk();
+
+        $this->quotation->refresh();
+        $this->assertEquals(12345, $this->quotation->total_discount);
+        $this->assertEquals(987655, $this->quotation->items()->orderBy('id')->firstOrFail()->line_total);
+        $snapshot = $this->quotation->revisions()->where('revision_no', $this->quotation->revision_no)->sole();
+        $this->assertEquals(12345, $snapshot->total_discount);
+        $this->assertEquals(1.23, $snapshot->items()->orderBy('id')->firstOrFail()->discount_pct);
+    }
+
     public function test_bm_can_edit_published_without_payment_and_proforma_is_preserved(): void
     {
         $this->quotation->update(['status' => 'published']);

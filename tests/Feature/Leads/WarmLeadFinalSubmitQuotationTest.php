@@ -372,6 +372,53 @@ class WarmLeadFinalSubmitQuotationTest extends TestCase
         ];
     }
 
+    public function test_nominal_discount_survives_draft_reload_and_submission(): void
+    {
+        $claim = $this->makeLeadWithClaim();
+        $draft = $this->makeDraftFor($claim);
+        $payload = array_replace($this->revisionPayload(), [
+            'draft_id' => $draft->id,
+            'unit_price' => [600000, 100000],
+            'discount_amount' => ['100003.25', '100000'],
+            'discount_pct' => [25, 25],
+        ]);
+
+        $this->actingAs($this->sales);
+        $storeUrl = route('leads.my.warm.quotation.store', $claim->id);
+        foreach ([-1, 1200000.01] as $invalidAmount) {
+            $this->postJson($storeUrl, array_replace($payload, ['discount_amount' => [$invalidAmount, null]]))
+                ->assertStatus(422);
+        }
+        $this->assertSame('Item A', $draft->items()->sole()->description);
+
+        $saved = $this->postJson($storeUrl, $payload)->assertOk();
+        $draft->refresh();
+        $this->assertEquals(200003.25, $draft->total_discount);
+        $this->assertEquals(1099996.75, $draft->subtotal);
+        $items = $draft->items()->orderBy('id')->get();
+        $this->assertEquals(8.33, $items[0]->discount_pct);
+        $this->assertEquals(100, $items[1]->discount_pct);
+        $this->assertEquals(0, $items[1]->line_total);
+
+        $reopened = $this->getJson(route('leads.my.warm.quotation.create', $claim->id))->assertOk();
+        $reopenedItem = TempQuotationItem::findOrFail($reopened->json('draft.items.0.id'));
+        $discountFields = view('pages.leads.warm.partials.quotation-discount', [
+            'discountItem' => $reopenedItem,
+            'disabled' => '',
+        ])->render();
+        $this->assertStringContainsString('value="100.003,25"', $discountFields);
+        $this->assertStringContainsString('value="8.33" readonly', $discountFields);
+        $this->postJson(route('leads.my.warm.quotation.final-submit', $claim->id), [
+            'draft_id' => $draft->id,
+            'draft_version' => $saved->json('data.draft_version'),
+        ])->assertOk();
+
+        $quotation = Quotation::sole();
+        $this->assertEquals(200003.25, $quotation->total_discount);
+        $this->assertEquals(1099996.75, $quotation->items()->orderBy('id')->firstOrFail()->line_total);
+        $this->assertEqualsWithDelta(1220996.3925, $quotation->grand_total, 0.0001);
+    }
+
     public function test_rejected_and_bm_approved_forms_prefill_current_contents_and_resume_saved_edits(): void
     {
         foreach (['rejected', 'approved_by_bm'] as $status) {
