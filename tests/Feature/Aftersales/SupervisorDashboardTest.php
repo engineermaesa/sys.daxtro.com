@@ -22,12 +22,23 @@ class SupervisorDashboardTest extends TestCase
         parent::setUp();
         config(['app.locked' => false]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-05 12:00:00', 'Asia/Jakarta'));
-        foreach (['ref_regions', 'ref_product_types', 'ref_products', 'users'] as $name) {
+        foreach (['ref_regions', 'ref_product_types', 'ref_products'] as $name) {
             Schema::create($name, function (Blueprint $t) {
                 $t->id();
                 $t->string('name');
             });
         }
+        Schema::create('user_roles', function (Blueprint $t) {
+            $t->id();
+            $t->string('code');
+            $t->softDeletes();
+        });
+        Schema::create('users', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->unsignedBigInteger('role_id');
+            $t->softDeletes();
+        });
         Schema::create('service_customers', function (Blueprint $t) {
             $t->id();
             $t->string('name');
@@ -51,10 +62,12 @@ class SupervisorDashboardTest extends TestCase
             $t->integer('assigned_technician_id')->nullable();
             $t->string('category')->nullable();
             $t->string('service_type')->nullable();
-            $t->timestamp('created_at');
+            $t->string('workflow_version')->nullable();
+            $t->timestamps();
             $t->timestamp('sla_due_at')->nullable();
             $this->deleted($t);
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         Schema::create('ticket_logs', function (Blueprint $t) {
             $t->id();
             $t->integer('ticket_id');
@@ -120,7 +133,8 @@ class SupervisorDashboardTest extends TestCase
         });
         DB::table('ref_regions')->insert([['id' => 1, 'name' => 'Jakarta'], ['id' => 2, 'name' => 'Bandung']]);
         DB::table('ref_product_types')->insert([['id' => 1, 'name' => 'Tube'], ['id' => 2, 'name' => 'Cold Room']]);
-        DB::table('users')->insert(['id' => 1, 'name' => 'Technician']);
+        DB::table('user_roles')->insert([['id' => 1, 'code' => 'technician'], ['id' => 2, 'code' => 'supervisor_after_sales'], ['id' => 3, 'code' => 'sales']]);
+        DB::table('users')->insert(['id' => 1, 'name' => 'Technician', 'role_id' => 1]);
         DB::table('service_customers')->insert(['id' => 1, 'name' => 'Customer', 'ref_region_id' => 1]);
         DB::table('ref_spareparts')->insert(['id' => 1]);
     }
@@ -231,6 +245,83 @@ class SupervisorDashboardTest extends TestCase
             DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => $id, 'type' => 'rating', 'value_number' => $score]);
         }
         $this->assertEquals(2, $this->data()['health']['rating']);
+    }
+
+    public function test_general_rating_shares_the_card_rules_and_credits_each_assigned_technician(): void
+    {
+        DB::table('users')->insert([
+            ['id' => 2, 'name' => 'Alpha SPV', 'role_id' => 2, 'deleted_at' => null],
+            ['id' => 3, 'name' => 'Unrated Technician', 'role_id' => 1, 'deleted_at' => null],
+            ['id' => 4, 'name' => 'Deleted Technician', 'role_id' => 1, 'deleted_at' => '2026-11-03'],
+            ['id' => 5, 'name' => 'Sales', 'role_id' => 3, 'deleted_at' => null],
+        ]);
+        $multi = $this->ticket(ticket: ['workflow_version' => 'v3']);
+        DB::table('ticket_technicians')->insert([
+            ['ticket_id' => $multi, 'user_id' => 1, 'position' => 0],
+            ['ticket_id' => $multi, 'user_id' => 2, 'position' => 1],
+        ]);
+        $response = function (int $ticket, ?int $score, string $date, array $attributes = []) {
+            return DB::table('ticket_satisfactions')->insertGetId($attributes + [
+                'ticket_id' => $ticket, 'source' => 'link', 'review_status' => 'normal',
+                'filled_at' => $date, 'overall_satisfaction' => $score,
+            ]);
+        };
+        $response($multi, 1, '2026-11-02', ['cycle_id' => 10]);
+        $current = $response($multi, null, '2026-11-05', [
+            'cycle_id' => 11, 'ref_survey_template_id' => 1, 'source' => 'admin', 'review_status' => 'reviewed',
+        ]);
+        foreach ([3, 3, 3] as $score) {
+            DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => $current, 'type' => 'rating', 'value_number' => $score]);
+        }
+        DB::table('ticket_satisfaction_answers')->insert(['ticket_satisfaction_id' => $current, 'type' => 'yes_no', 'value_number' => 1]);
+        $response($multi, 1, '2026-11-04', ['cycle_id' => 11]); // Higher ID, earlier submission.
+        $response($multi, 1, '2026-11-06', ['cycle_id' => 11, 'is_deleted' => true]);
+        $response($multi, 3, '2026-11-02', ['cycle_id' => 12]);
+        $response($multi, 3, '2026-11-03', ['cycle_id' => 12, 'review_status' => 'needs_review']);
+        $response($multi, 3, '2026-11-03', ['cycle_id' => 13, 'source' => 'admin']);
+        $response($multi, 3, '2026-11-03'); // An unmapped v3 response must not contribute.
+        $response($multi, null, '2026-11-04', ['cycle_id' => 14]);
+        $response($this->ticket(), 3, '2026-11-03'); // Legacy primary assignment without pivot rows.
+        $response($this->ticket(['ref_product_type_id' => 2], ['assigned_technician_id' => 2]), 1, '2026-11-03');
+        DB::table('service_customers')->insert(['id' => 2, 'name' => 'Outside region', 'ref_region_id' => 2]);
+        $response($this->ticket(ticket: ['customer_id' => 2]), 1, '2026-11-03');
+
+        $this->login();
+        $filters = '?region=1&category=1';
+        $this->getJson(self::URL.$filters)->assertOk()->assertJsonPath('data.health.rating', 2.3);
+        $result = $this->getJson(self::URL.'/general-rating'.$filters)->assertOk()
+            ->assertJsonPath('data.period.key', 'this_month')->assertJsonPath('data.period.start', '2026-11-01')
+            ->assertJsonPath('data.rating_scale_max', 3)->assertJsonCount(3, 'data.technicians');
+        $this->assertSame([
+            ['technician_id' => 2, 'name' => 'Alpha SPV', 'rating' => 2, 'response_count' => 2],
+            ['technician_id' => 1, 'name' => 'Technician', 'rating' => 2.3, 'response_count' => 3],
+            ['technician_id' => 3, 'name' => 'Unrated Technician', 'rating' => null, 'response_count' => 0],
+        ], $result->json('data.technicians'));
+
+        $custom = $filters.'&period=custom&start_date=2026-11-04&end_date=2026-11-05';
+        $this->getJson(self::URL.$custom)->assertOk()->assertJsonPath('data.health.rating', 3);
+        $this->getJson(self::URL.'/general-rating'.$custom)->assertOk()
+            ->assertJsonPath('data.period.key', 'custom')->assertJsonPath('data.period.end', '2026-11-05')
+            ->assertJsonPath('data.technicians.0.rating', 3)->assertJsonPath('data.technicians.0.response_count', 1)
+            ->assertJsonPath('data.technicians.1.rating', 3)->assertJsonPath('data.technicians.1.response_count', 1);
+    }
+
+    public function test_general_rating_is_restricted_to_the_three_prd_roles_and_validates_filters(): void
+    {
+        $url = self::URL.'/general-rating';
+        $this->getJson($url)->assertUnauthorized();
+        foreach (['after_sales', 'head_after_sales', 'supervisor_after_sales'] as $role) {
+            $this->login($role);
+            $this->getJson($url)->assertOk()->assertJsonPath('data.technicians.0.rating', null)
+                ->assertJsonPath('data.technicians.0.response_count', 0);
+        }
+        foreach (['technician', 'sales', 'super_admin'] as $role) {
+            $this->login($role);
+            $this->getJson($url)->assertForbidden();
+        }
+        $this->login('after_sales');
+        $this->getJson($url.'?period=custom')->assertUnprocessable()->assertJsonValidationErrors(['start_date', 'end_date']);
+        $this->getJson($url.'?period=unknown&region=999')->assertUnprocessable()->assertJsonValidationErrors(['period', 'region']);
     }
 
     public function test_problem_modes_keep_totals_and_drilldown_matches_the_cell(): void

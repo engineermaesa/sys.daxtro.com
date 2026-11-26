@@ -226,3 +226,53 @@ Untuk Step yang sama, server mengurutkan berdasarkan waktu terbaru dari pembuata
 
 - Suite PHPUnit Aftersales lulus dengan 373 tes dan 3.631 assertion.
 - Runner integrasi MySQL 8.4.3 lulus dengan 17 skenario dan 720 assertion, termasuk pagination setelah filter Steps, penggabungan Priority dan Visit Date, serta prioritas Step sebelum Closed.
+
+## BE-05 · Agregat General Rating
+
+PRD `AS-DSH-01–05` dan OQ-22–24. Gunakan database dengan migration BE-01. BE-05 tidak menambah migration atau seeder.
+
+### Endpoint dan filter
+
+Panggil `GET /api/dashboard/aftersales/supervisor/general-rating` dengan sesi login yang sama seperti dashboard. Endpoint dapat dipanggil oleh Admin Aftersales, Head Aftersales, dan SPV Technician. Role lain mendapat `403`. Request tanpa sesi mendapat `401`.
+
+Kirim parameter yang sama dengan kartu Average Rating. Period default adalah `this_month`. Pilihan yang tersedia adalah `this_month`, `last_7_days`, `last_month`, `this_quarter`, `this_year`, dan `custom`. Untuk `custom`, kirim `start_date` dan `end_date` dalam format `YYYY-MM-DD`. `region` dan `category` opsional dan memakai ID master dashboard. Rentang dihitung dalam WIB dan mencakup hari pertama serta hari terakhir. Filter yang tidak valid mendapat `422`.
+
+```text
+GET /api/dashboard/aftersales/supervisor/general-rating?period=custom&start_date=2026-11-01&end_date=2026-11-26&region=1&category=2
+```
+
+Popup mengikuti Period aktif dashboard sesuai OQ-23. Pada dashboard yang belum memiliki Period, FE bisa memakai default endpoint. Pilihan periode khusus popup ditunda.
+
+### Respons
+
+```json
+{
+  "data": {
+    "period": {"key": "custom", "start": "2026-11-01", "end": "2026-11-26"},
+    "rating_scale_max": 3,
+    "technicians": [
+      {"technician_id": 14, "name": "Technician A", "rating": 2.7, "response_count": 12},
+      {"technician_id": 22, "name": "Technician B", "rating": null, "response_count": 0}
+    ]
+  }
+}
+```
+
+Daftar berisi akun Technician dan SPV Technician yang tersedia untuk assignment, diurutkan berdasarkan nama lalu ID. Tampilkan `rating` dengan satu angka desimal dan skala dari `rating_scale_max`, atau `-` bila null. `response_count` adalah jumlah respons yang menyumbang skor, termasuk saat satu tiket memiliki lebih dari satu siklus valid.
+
+### Aturan hitung
+
+- Kartu Average Rating dan popup memakai kumpulan respons yang sama. Keduanya menghitung rata-rata per respons dengan bobot yang sama untuk tiap respons, mempertahankan pembulatan satu desimal dari kartu. Jawaban non-rating dan respons tanpa nilai rating dikeluarkan.
+- Untuk tiket v3, ambil respons aktif terbaru per siklus menurut `filled_at DESC, id DESC`. Respons `link` berstatus `normal` atau `reviewed` dan respons `admin` yang sudah `reviewed` memenuhi syarat. Bila respons terbaru sedang direview atau ditolak, siklus tersebut tidak menyumbang skor. Periode diterapkan pada `filled_at` setelah penentuan respons current.
+- Untuk tiket legacy, pertahankan aturan kartu sebelumnya. Ambil respons aktif dengan ID terbesar per tiket, lalu hitung jika sumbernya `link` dan statusnya `normal` atau `reviewed`.
+- Satu respons pada tiket multi-technician dihitung penuh untuk setiap teknisi pada pivot. Jika tiket belum punya baris pivot, gunakan teknisi utama lama. Di kartu, respons tetap dihitung sekali. Rata-rata kartu memakai kumpulan respons langsung, sehingga dapat berbeda dari rata-rata baris teknisi.
+
+### Checklist FE
+
+- Muat data saat popup dibuka dan saat filter dashboard berubah. Uji periode kosong dan teknisi tanpa skor.
+- Gunakan jumlah respons dari API dan tampilkan format `2.7 / 3`. Verifikasi akses dengan akun Admin, Head, SPV, dan Technician.
+
+### Verifikasi BE
+
+- Suite PHPUnit Aftersales lulus dengan 375 tes dan 3.669 assertion.
+- Runner integrasi MySQL 8.4.3 lulus dengan 18 skenario dan 733 assertion. Skenario General Rating memverifikasi dua respons valid dari siklus berbeda dihitung penuh untuk setiap teknisi yang ditugaskan, serta akses ketiga role.

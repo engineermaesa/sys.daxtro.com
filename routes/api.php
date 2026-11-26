@@ -74,6 +74,7 @@ Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/technici
 Route::middleware(['api', 'web', 'auth'])->prefix('dashboard/aftersales/supervisor')->name('dashboard.aftersales.supervisor.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'summary'])->name('summary');
     Route::get('/tickets', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'tickets'])->name('tickets');
+    Route::get('/general-rating', [\App\Http\Controllers\Dashboard\SupervisorDashboardController::class, 'generalRating'])->name('general-rating');
 });
 
 Route::middleware(['api', 'web', 'auth'])->prefix('aftersales/survey-templates')->name('aftersales.survey-templates.')->group(function () {

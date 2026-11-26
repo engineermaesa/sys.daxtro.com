@@ -12,6 +12,8 @@ class SupervisorDashboard
 {
     public const PERIODS = ['this_month', 'last_7_days', 'last_month', 'this_quarter', 'this_year', 'custom'];
 
+    private const RATING_SCALE_MAX = 3;
+
     public static function window(array $filters): array
     {
         $now = CarbonImmutable::now('Asia/Jakarta');
@@ -142,7 +144,7 @@ class SupervisorDashboard
             'kpi' => $kpi, 'months' => $months, 'revenue' => $revenue,
             'split' => ['labels' => ['Billed', 'Warranty', 'PM', 'Unclassified'], 'values' => array_map(fn ($k) => $totals[$k], ['billed', 'warranty', 'pm', 'unclassified']), 'ratio' => self::percent($totals['warranty'], $totals['warranty'] + $totals['billed'])],
             'warranty' => $warranty,
-            'health' => ['sla' => self::percent($closedHealth->on_time, $closedHealth->total), 'firstVisit' => self::percent($completion->c, $completion->c + $completion->r), 'rating' => $rating, 'ratingMax' => 3, 'recoming' => self::percent($closedHealth->recomings, $closedHealth->total), 'survey' => self::percent($links->used, $links->total)],
+            'health' => ['sla' => self::percent($closedHealth->on_time, $closedHealth->total), 'firstVisit' => self::percent($completion->c, $completion->c + $completion->r), 'rating' => $rating, 'ratingMax' => self::RATING_SCALE_MAX, 'recoming' => self::percent($closedHealth->recomings, $closedHealth->total), 'survey' => self::percent($links->used, $links->total)],
             'recoming' => $recoming,
             'problem' => $this->problems($filters, $window),
             'options' => ['regions' => DB::table('ref_regions')->orderBy('name')->get(['id', 'name']), 'categories' => DB::table('ref_product_types')->orderBy('name')->get(['id', 'name'])],
@@ -161,19 +163,59 @@ class SupervisorDashboard
 
     private function rating(array $filters, array $window): ?float
     {
-        $latest = self::live('ticket_satisfactions')->selectRaw('ticket_id, MAX(id) as id')->groupBy('ticket_id');
-        $answers = DB::table('ticket_satisfaction_answers')->where('type', 'rating')->whereNotNull('value_number')->selectRaw('ticket_satisfaction_id, AVG(value_number) as score')->groupBy('ticket_satisfaction_id');
-        $q = self::live('ticket_satisfactions')->joinSub($latest, 'current_response', 'current_response.id', '=', 'ticket_satisfactions.id')
-            ->leftJoinSub($answers, 'scores', 'scores.ticket_satisfaction_id', '=', 'ticket_satisfactions.id')
-            ->whereIn('ticket_satisfactions.ticket_id', $this->base($filters)->select('id'))->where('source', 'link')->whereIn('review_status', ['normal', 'reviewed']);
-        $this->between($q, 'filled_at', $window);
-        $columns = array_keys(TicketSatisfaction::ASPECTS);
-        $sum = implode(' + ', array_map(fn ($c) => "COALESCE($c, 0)", $columns));
-        $count = implode(' + ', array_map(fn ($c) => "CASE WHEN $c IS NULL THEN 0 ELSE 1 END", $columns));
-        $score = "CASE WHEN ref_survey_template_id IS NOT NULL THEN scores.score ELSE (1.0 * ($sum)) / NULLIF(($count), 0) END";
-        $value = $q->selectRaw("AVG(ROUND($score, 1)) as rating")->first()->rating;
+        $value = DB::query()->fromSub($this->ratingResponses($filters, $window), 'responses')->avg('rating');
 
         return $value === null ? null : round((float) $value, 1);
+    }
+
+    private function ratingResponses(array $filters, array $window): Builder
+    {
+        $answers = DB::table('ticket_satisfaction_answers')->where('type', 'rating')->whereNotNull('value_number')
+            ->selectRaw('ticket_satisfaction_id, AVG(value_number) as score')->groupBy('ticket_satisfaction_id');
+        $query = DB::table('ticket_satisfactions as s')->join('tickets as t', 't.id', '=', 's.ticket_id')
+            ->leftJoinSub($answers, 'scores', 'scores.ticket_satisfaction_id', '=', 's.id')
+            ->whereIn('s.ticket_id', $this->base($filters)->select('id'));
+        TicketSurveys::constrainCurrentValidRatingResponses($query, legacyOrderById: true);
+        $this->between($query, 's.filled_at', $window);
+
+        $columns = array_keys(TicketSatisfaction::ASPECTS);
+        $sum = implode(' + ', array_map(fn ($c) => "COALESCE(s.$c, 0)", $columns));
+        $count = implode(' + ', array_map(fn ($c) => "CASE WHEN s.$c IS NULL THEN 0 ELSE 1 END", $columns));
+        $score = "CASE WHEN s.ref_survey_template_id IS NOT NULL THEN scores.score ELSE (1.0 * ($sum)) / NULLIF(($count), 0) END";
+
+        return $query->select('s.ticket_id')->selectRaw("ROUND($score, 1) as rating");
+    }
+
+    public function generalRating(array $filters): array
+    {
+        [$start, $end] = $window = self::window($filters);
+        $legacyAssignments = self::live('tickets')->select('tickets.id as ticket_id', 'tickets.assigned_technician_id as user_id')
+            ->whereNotNull('tickets.assigned_technician_id')
+            ->whereNotExists(fn (Builder $query) => $query->selectRaw('1')->from('ticket_technicians')
+                ->whereColumn('ticket_technicians.ticket_id', 'tickets.id'));
+        $assignments = DB::table('ticket_technicians')->select('ticket_id', 'user_id')->unionAll($legacyAssignments);
+        $scores = DB::query()->fromSub($this->ratingResponses($filters, $window), 'responses')
+            ->joinSub($assignments, 'assignments', 'assignments.ticket_id', '=', 'responses.ticket_id')
+            ->select('assignments.user_id')
+            ->selectRaw('AVG(responses.rating) as rating, COUNT(responses.rating) as response_count')
+            ->groupBy('assignments.user_id')->get()->keyBy('user_id');
+
+        $technicians = TicketAssignment::technicians()->without('role')->get(['id', 'name']);
+
+        return [
+            'period' => ['key' => $filters['period'] ?? 'this_month', 'start' => $start->toDateString(), 'end' => $end->toDateString()],
+            'rating_scale_max' => self::RATING_SCALE_MAX,
+            'technicians' => $technicians->map(function ($technician) use ($scores) {
+                $score = $scores->get($technician->id);
+
+                return [
+                    'technician_id' => $technician->id,
+                    'name' => $technician->name,
+                    'rating' => $score?->rating === null ? null : round((float) $score->rating, 1),
+                    'response_count' => (int) ($score?->response_count ?? 0),
+                ];
+            })->all(),
+        ];
     }
 
     private function problems(array $filters, array $window): array

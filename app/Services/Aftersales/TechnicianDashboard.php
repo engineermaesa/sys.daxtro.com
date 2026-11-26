@@ -205,15 +205,9 @@ class TechnicianDashboard
         $sumSql = "CASE WHEN s.ref_survey_template_id IS NOT NULL THEN a.score_sum ELSE ($sum) END";
         $countSql = "CASE WHEN s.ref_survey_template_id IS NOT NULL THEN a.score_count ELSE ($count) END";
         $q = DB::table('ticket_satisfactions as s')->join('tickets as t', 't.id', '=', 's.ticket_id')->leftJoinSub($answers, 'a', 'a.ticket_satisfaction_id', '=', 's.id')
-            ->whereNull('t.deleted_at')->where('t.is_deleted', 0)->whereNull('s.deleted_at')->where('s.is_deleted', 0)
-            ->whereIn('s.review_status', ['normal', 'reviewed'])
-            ->where(function ($q) {
-                $q->where(fn ($v3) => $v3->where('t.workflow_version', 'v3')->whereNotNull('s.cycle_id')->whereNotNull('s.filled_at')
-                    ->where(fn ($source) => $source->where('s.source', 'link')->orWhere(fn ($admin) => $admin->where('s.source', 'admin')->where('s.review_status', 'reviewed'))))
-                    ->orWhere(fn ($legacy) => $legacy->where(fn ($version) => $version->whereNull('t.workflow_version')->orWhere('t.workflow_version', '<>', 'v3'))->where('s.source', 'link'));
-            })
-            ->whereRaw("s.id = (SELECT current_s.id FROM ticket_satisfactions current_s WHERE current_s.ticket_id = s.ticket_id AND current_s.deleted_at IS NULL AND current_s.is_deleted = 0 AND (t.workflow_version <> 'v3' OR t.workflow_version IS NULL OR current_s.cycle_id = s.cycle_id) ORDER BY current_s.filled_at DESC, current_s.id DESC LIMIT 1)")
+            ->whereNull('t.deleted_at')->where('t.is_deleted', 0)
             ->selectRaw("CASE WHEN t.workflow_version = 'v3' THEN $sumSql ELSE ROUND(1.0 * ($sumSql) / NULLIF($countSql, 0), 1) END as score_sum, CASE WHEN t.workflow_version = 'v3' THEN $countSql ELSE CASE WHEN ($countSql) > 0 THEN 1 ELSE 0 END END as score_count");
+        TicketSurveys::constrainCurrentValidRatingResponses($q);
         $rating = DB::query()->fromSub(Ticket::filterTechnicians($q, [$userId], 't'), 'rating')
             ->selectRaw('1.0 * SUM(score_sum) / NULLIF(SUM(score_count), 0) as value')->first()->value;
 

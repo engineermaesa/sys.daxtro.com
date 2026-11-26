@@ -565,6 +565,24 @@ try {
         $suite->check($withVisitDate['total'] === 1 && $withVisitDate['data'][0]['id'] === $activeId, 'Visit Date did not intersect with Steps and Priority');
     });
 
+    $suite->scenario('General Rating credits both valid cycles in full to each assigned technician', function () use ($suite, $api, &$ticketId, &$cycle1, &$cycle2) {
+        DB::table('ticket_technicians')->insert(['ticket_id' => $ticketId, 'user_id' => 5, 'position' => 1]);
+        $responses = TicketSatisfaction::where('ticket_id', $ticketId)->whereIn('cycle_id', [$cycle1, $cycle2])
+            ->whereIn('review_status', ['normal', 'reviewed'])->orderBy('filled_at')->get();
+        $query = http_build_query(['period' => 'custom',
+            'start_date' => $responses->first()->filled_at->toDateString(),
+            'end_date' => $responses->last()->filled_at->toDateString()]);
+        $uri = '/api/dashboard/aftersales/supervisor/general-rating?'.$query;
+        foreach ([1, 3, 4] as $userId) {
+            $report = $api($userId, 'GET', $uri)['data'];
+            $technicians = array_column($report['technicians'], null, 'technician_id');
+            $suite->check($report['rating_scale_max'] === 3 && $technicians[5]['response_count'] === 2, 'Secondary technician did not receive both current-valid responses');
+            $suite->check($technicians[5]['rating'] === 3 && $technicians[2]['response_count'] >= 2, 'General Rating did not credit both technicians in full');
+            $suite->check($technicians[6]['rating'] === null && $technicians[6]['response_count'] === 0, 'Unrated technician did not retain a null rating and zero responses');
+        }
+        $api(2, 'GET', $uri, [], 403);
+    });
+
     echo json_encode(['status' => 'passed', 'mysql' => $version, 'scenarios' => count($suite->results), 'assertions' => $suite->assertions, 'results' => $suite->results], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
 } catch (Throwable $error) {
     $exitCode = 1;

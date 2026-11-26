@@ -6,6 +6,7 @@ use App\Models\Aftersales\RefSurveyTemplate;
 use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketCycle;
 use App\Models\Aftersales\TicketSatisfaction;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 
 class TicketSurveys
@@ -55,6 +56,29 @@ class TicketSurveys
             $v3 && $response->source === 'admin' && $response->review_status !== 'reviewed' => 'Admin review required',
             default => null,
         };
+    }
+
+    /** Apply rating eligibility to a query of responses (s) and their tickets (t). */
+    public static function constrainCurrentValidRatingResponses(Builder $query, bool $legacyOrderById = false): Builder
+    {
+        $current = 'SELECT current_s.id FROM ticket_satisfactions current_s WHERE current_s.ticket_id = s.ticket_id
+            AND current_s.deleted_at IS NULL AND current_s.is_deleted = 0';
+        $legacyOrder = $legacyOrderById ? 'current_s.id DESC' : 'current_s.filled_at DESC, current_s.id DESC';
+
+        return $query->whereNull('s.deleted_at')->where('s.is_deleted', 0)
+            ->whereIn('s.review_status', [TicketSatisfaction::REVIEW_NORMAL, TicketSatisfaction::REVIEW_REVIEWED])
+            ->where(function (Builder $query) use ($current, $legacyOrder) {
+                $query->where(fn (Builder $v3) => $v3->where('t.workflow_version', Ticket::WORKFLOW_V3)
+                    ->whereNotNull('s.cycle_id')->whereNotNull('s.filled_at')
+                    ->where(fn (Builder $source) => $source->where('s.source', TicketSatisfaction::SOURCE_LINK)
+                        ->orWhere(fn (Builder $admin) => $admin->where('s.source', TicketSatisfaction::SOURCE_ADMIN)
+                            ->where('s.review_status', TicketSatisfaction::REVIEW_REVIEWED)))
+                    ->whereRaw("s.id = ($current AND current_s.cycle_id = s.cycle_id ORDER BY current_s.filled_at DESC, current_s.id DESC LIMIT 1)"))
+                    ->orWhere(fn (Builder $legacy) => $legacy->where(fn (Builder $version) => $version->whereNull('t.workflow_version')
+                        ->orWhere('t.workflow_version', '<>', Ticket::WORKFLOW_V3))
+                        ->where('s.source', TicketSatisfaction::SOURCE_LINK)
+                        ->whereRaw("s.id = ($current ORDER BY $legacyOrder LIMIT 1)"));
+            });
     }
 
     public static function values(TicketSatisfaction $response): Collection

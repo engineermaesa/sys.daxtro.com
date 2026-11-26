@@ -16,8 +16,6 @@ class SupervisorDashboardController extends Controller
 
     private function filters(Request $request): array
     {
-        self::authorize($request);
-
         return $request->validate([
             'period' => ['nullable', Rule::in(SupervisorDashboard::PERIODS)],
             'start_date' => 'required_if:period,custom|nullable|date_format:Y-m-d|after_or_equal:2000-01-01',
@@ -29,11 +27,21 @@ class SupervisorDashboardController extends Controller
 
     public function summary(Request $request, SupervisorDashboard $dashboard)
     {
+        self::authorize($request);
+
         return response()->json(['data' => $dashboard->summary($this->filters($request))]);
+    }
+
+    public function generalRating(Request $request, SupervisorDashboard $dashboard)
+    {
+        abort_unless(in_array($request->user()?->role?->code, ['after_sales', 'head_after_sales', 'supervisor_after_sales'], true), 403);
+
+        return response()->json(['data' => $dashboard->generalRating($this->filters($request))]);
     }
 
     public function tickets(Request $request, SupervisorDashboard $dashboard)
     {
+        self::authorize($request);
         $filters = $this->filters($request);
         $filters += $request->validate([
             'metric' => 'required|in:warranty,unclassified,problem',
