@@ -67,7 +67,7 @@ class TechnicianController extends Controller
         $items = collect($paginated->items())->map(function (TechnicianProfile $profile) use ($scores) {
             return array_merge($profile->toArray(), [
                 'status' => $profile->status,
-                'total_tickets' => Ticket::where('assigned_technician_id', $profile->user_id)->count(),
+                'total_tickets' => Ticket::assignedTo($profile->user_id)->count(),
             ], $scores[$profile->user_id] ?? []);
         });
 
@@ -221,7 +221,7 @@ class TechnicianController extends Controller
      */
     private function kpiFor(int $userId): array
     {
-        $tickets = Ticket::where('assigned_technician_id', $userId)->with('logs', 'satisfaction', 'satisfactions.answers')->get();
+        $tickets = Ticket::assignedTo($userId)->with('logs', 'satisfaction', 'satisfactions.answers')->get();
 
         $totalTickets = $tickets->count();
         $closedTickets = $tickets->filter(fn (Ticket $t) => $t->progress === TicketLog::STEP_CLOSED);

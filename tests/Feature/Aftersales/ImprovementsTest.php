@@ -142,6 +142,7 @@ class ImprovementsTest extends TestCase
         (require database_path('migrations/2026_10_27_000200_add_customer_deal_review_status.php'))->up();
         (require database_path('migrations/2026_10_28_000000_add_type_to_customer_imports.php'))->up();
         (require database_path('migrations/2026_10_29_000000_add_trader_name_to_service_customer_products.php'))->up();
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
     }
 
     public function test_daxtro_migration_preserves_existing_machine_data_and_backfills_both_active_and_deleted_units(): void

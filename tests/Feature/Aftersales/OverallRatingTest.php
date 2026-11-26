@@ -19,13 +19,20 @@ class OverallRatingTest extends TestCase
     {
         parent::setUp();
         config(['app.locked' => false]);
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->softDeletes();
+        });
+        DB::table('users')->insert([['id' => 1], ['id' => 2]]);
         Schema::create('tickets', function (Blueprint $table) {
             $table->id();
             $table->string('workflow_version')->nullable();
             $table->string('ticket_code');
             $table->unsignedBigInteger('assigned_technician_id');
+            $table->timestamps();
             $table->softDeletes();
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         Schema::create('ticket_satisfactions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('cycle_id')->nullable();
@@ -95,6 +102,24 @@ class OverallRatingTest extends TestCase
         }
         $this->login();
         $this->getJson(self::ENDPOINT)->assertOk()->assertExactJson(['data' => ['overall_rating' => 2.7, 'rating_scale_max' => 3]]);
+    }
+
+    public function test_each_assigned_technician_receives_the_full_score_once(): void
+    {
+        $ticket = $this->ticket(1);
+        DB::table('ticket_technicians')->insert([
+            ['ticket_id' => $ticket, 'user_id' => 1, 'position' => 0],
+            ['ticket_id' => $ticket, 'user_id' => 2, 'position' => 1],
+        ]);
+        $this->response($ticket, 3);
+
+        $summary = TechnicianScore::summaries([1, 2], null);
+        foreach ([1, 2] as $id) {
+            $this->login($id);
+            $this->getJson(self::ENDPOINT)->assertOk()->assertJsonPath('data.overall_rating', 3);
+            $this->assertSame(3.0, $summary[$id]['rating']);
+            $this->assertSame(1, $summary[$id]['rating_count']);
+        }
     }
 
     public function test_v3_self_rating_weights_site_and_phone_answers_and_excludes_pending_cycle(): void

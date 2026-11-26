@@ -139,6 +139,7 @@ class HappyCallV3Test extends TestCase
             $t->softDeletes();
         });
         (require database_path('migrations/2026_05_20_113809_create_notifications_table.php'))->up();
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         $this->migration()->up();
         foreach ([1 => 'after_sales', 2 => 'head_after_sales', 3 => 'supervisor_after_sales', 4 => 'technician'] as $id => $code) {
             DB::table('user_roles')->insert(['id' => $id, 'code' => $code]);

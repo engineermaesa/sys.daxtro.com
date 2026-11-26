@@ -40,7 +40,7 @@ class TechnicianProfile extends Model
     public function getStatusAttribute(): string
     {
         $hasActiveTicket = Ticket::query()
-            ->where('assigned_technician_id', $this->user_id)
+            ->assignedTo($this->user_id)
             ->whereDoesntHave('logs', function ($q) {
                 $q->where('step', TicketLog::STEP_CLOSED);
             })

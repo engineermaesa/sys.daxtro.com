@@ -8,9 +8,9 @@ use Illuminate\Database\Seeder;
 
 class AftersalesV3RoleSeeder extends Seeder
 {
-    private const SPV = ['dashboard', 'customers.view', 'satisfaction-survey.view', 'aftersales.tickets.view-all', 'aftersales.documents.sign'];
+    private const SPV = ['dashboard', 'customers.view', 'satisfaction-survey.view', 'aftersales.tickets.view-all', 'aftersales.tickets.view-own', 'aftersales.documents.sign', 'aftersales.documents.fill', 'aftersales.survey-link.share'];
 
-    private const HEAD = ['dashboard', 'customers.view', 'satisfaction-survey.view', 'aftersales.tickets.view-all', 'aftersales.tickets.close'];
+    private const HEAD = ['dashboard', 'customers.view', 'satisfaction-survey.view', 'aftersales.tickets.view-all', 'aftersales.tickets.close', 'aftersales.documents.sign'];
 
     public function run(): void
     {

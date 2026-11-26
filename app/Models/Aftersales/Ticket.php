@@ -4,9 +4,12 @@ namespace App\Models\Aftersales;
 
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 class Ticket extends Model
 {
@@ -80,6 +83,50 @@ class Ticket extends Model
     public function technician()
     {
         return $this->belongsTo(User::class, 'assigned_technician_id');
+    }
+
+    public function technicians(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'ticket_technicians')
+            ->withPivot('position')->withTimestamps()->orderByPivot('position');
+    }
+
+    public function hasTechnician(int $userId): bool
+    {
+        return $this->assigned_technician_id === $userId
+            || ($this->exists && $this->technicians()->newPivotQuery()->where('user_id', $userId)->exists());
+    }
+
+    public function technicianIds(): array
+    {
+        $ids = $this->technicians->modelKeys();
+
+        return $ids ?: array_values(array_filter([$this->assigned_technician_id]));
+    }
+
+    public function technicianList(): array
+    {
+        $technicians = $this->technicians;
+        if ($technicians->isEmpty() && $this->technician) {
+            $technicians = collect([$this->technician]);
+        }
+
+        return $technicians->map(fn (User $user) => $user->only(['id', 'name']))->all();
+    }
+
+    public function scopeAssignedTo(Builder $query, int|array $userIds): Builder
+    {
+        return self::filterTechnicians($query, (array) $userIds);
+    }
+
+    public static function filterTechnicians(Builder|QueryBuilder $query, array $userIds, string $table = 'tickets'): Builder|QueryBuilder
+    {
+        return $query->where(function ($query) use ($userIds, $table) {
+            $query->whereIn($table.'.assigned_technician_id', $userIds)
+                ->orWhereExists(fn ($pivot) => $pivot->selectRaw('1')->from('ticket_technicians')
+                    ->whereColumn('ticket_technicians.ticket_id', $table.'.id')
+                    ->whereIn('ticket_technicians.user_id', $userIds));
+        });
     }
 
     public function supervisor()

@@ -238,6 +238,7 @@ class SurveyTemplatesTest extends TestCase
             $t->string('sla_unit')->nullable();
             $t->timestamp('sla_due_at')->nullable();
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         Schema::table('ticket_satisfactions', fn (Blueprint $t) => $t->text('review_note')->nullable());
         Schema::create('ticket_recomings', function (Blueprint $t) {
             $t->id();

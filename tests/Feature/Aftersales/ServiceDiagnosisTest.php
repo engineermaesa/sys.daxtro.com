@@ -35,8 +35,11 @@ class ServiceDiagnosisTest extends TestCase
         Schema::create('tickets', function (Blueprint $t) {
             $t->id();
             $t->string('workflow_version')->default(Ticket::WORKFLOW_LEGACY);
+            $t->unsignedBigInteger('assigned_technician_id')->nullable();
+            $t->timestamps();
             $t->softDeletes();
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         DB::table('tickets')->insert(['id' => 1]);
         Schema::create('ref_inspection_templates', function (Blueprint $t) {
             $t->id();

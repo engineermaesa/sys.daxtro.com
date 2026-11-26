@@ -61,6 +61,8 @@ $migrationNames = [
     '2026_10_30_000510_pin_cycle_survey_template',
     '2026_10_30_000600_add_happy_call_cycle_tracking',
     '2026_11_01_000000_add_service_form_sync_version',
+    '2026_11_26_100000_create_ticket_technicians_table',
+    '2026_11_26_100100_grant_aftersales_assignment_permissions',
 ];
 $migrations = array_map(fn ($name) => require database_path('migrations/'.$name.'.php'), $migrationNames);
 $request = fn (int $user, string $method, string $uri, array $data = []) => compact('user', 'method', 'uri', 'data');
@@ -152,6 +154,7 @@ try {
         $suite->check($before === $fingerprint($columns, $ids), 'Upgrade changed legacy business fields');
         $suite->check(DB::table('ticket_cycles')->count() === 2, 'Active/soft-deleted legacy tickets were not backfilled');
         $suite->check(DB::table('tickets')->where('workflow_version', 'legacy')->count() === 2, 'Legacy workflow marker changed');
+        $suite->check(DB::table('ticket_technicians')->where('user_id', 2)->where('position', 0)->count() === 2, 'Legacy assignments were not backfilled');
         $suite->check(DB::table('ticket_diagnosis_entries')->whereNotNull('cycle_id')->count() === 3, 'Legacy diagnosis not scoped to its cycle');
         $suite->check(DB::table('ticket_service_forms')->value('sync_version') === 1, 'Existing form revision not initialized');
         $suite->check(DB::table('ticket_satisfactions')->whereNotNull('cycle_id')->count() === 1, 'Legacy survey cycle was not backfilled');
@@ -174,6 +177,21 @@ try {
         $api(2, 'POST', '/api/aftersales/tickets/1/service-form/submit', [], 409, 'legacy_document_workflow');
     });
 
+    $suite->scenario('Admin creates and edits a multi-technician ticket through the API', function () use ($suite, $api) {
+        $details = ['customer_id' => 1, 'customer_product_id' => 1, 'category' => 'mechanical', 'priority' => 'medium', 'description' => 'Multi-technician workflow', 'sla_value' => 7, 'sla_unit' => 'day'];
+        $data = $api(1, 'POST', '/api/aftersales/tickets', $details + ['technician_ids' => [2, 3, 5]], 201)['data']['data'];
+        $uri = '/api/aftersales/tickets/'.$data['id'];
+        $suite->check($data['supervisor_id'] === 4 && array_column($data['technicians'], 'id') === [2, 3, 5], 'Create did not store the ordered assignment and Head');
+        $api(3, 'GET', $uri.'/service-form');
+        $api(5, 'GET', $uri.'/agreement');
+        $data = $api(1, 'PUT', $uri, $details + ['technician_ids' => [2, 5], 'supervisor_id' => 6])['data']['data'];
+        $suite->check($data['supervisor_id'] === 6 && array_column($data['technicians'], 'id') === [2, 5], 'Edit did not replace the assignment and Supervisor');
+        $api(3, 'GET', $uri.'/service-form', [], 403);
+        $api(4, 'GET', $uri);
+        $suite->check(DB::table('ticket_service_forms')->where('ticket_id', $data['id'])->count() === 1, 'Assignment created duplicate Service Forms');
+        $suite->check(DB::table('ticket_agreements')->where('ticket_id', $data['id'])->count() === 1, 'Assignment created duplicate Agreements');
+    });
+
     $suite->scenario('Admin creates ticket, assigns Technician, and schedules physical visit through API', function () use ($suite, $api, &$ticketId, &$base, &$cycle1) {
         $body = $api(1, 'POST', '/api/aftersales/tickets', ['customer_id' => 1, 'customer_product_id' => 1, 'category' => 'mechanical', 'priority' => 'medium', 'description' => 'Integration lifecycle', 'sla_value' => 7, 'sla_unit' => 'day', 'supervisor_id' => 3], 201);
         $ticketId = $body['data']['data']['id'];
@@ -187,12 +205,12 @@ try {
     });
 
     $suite->scenario('API read and mutation authorization uses actual seeded permissions', function () use ($suite, $api, &$base, &$ticketId, $snapshot) {
-        foreach ([1, 2, 3, 4, 6, 7, 8] as $user) {
+        foreach ([1, 2, 3, 4, 7, 8] as $user) {
             foreach (['', '/service-form', '/agreement', '/documents'] as $suffix) {
                 $api($user, 'GET', $base.$suffix);
             }
         }
-        foreach ([5 => 403, 9 => 403, 0 => 401] as $user => $status) {
+        foreach ([5 => 403, 6 => 403, 9 => 403, 0 => 401] as $user => $status) {
             foreach (['', '/service-form', '/agreement', '/documents'] as $suffix) {
                 $api($user ?: null, 'GET', $base.$suffix, [], $status);
             }
@@ -205,7 +223,7 @@ try {
         foreach ([2, 3, 4, 5, 6, 8, 9] as $user) {
             $api($user, 'POST', $base.'/happy-call', [], 403);
             $api($user, 'POST', $base.'/recoming', [], 403);
-            $api($user, 'POST', $base.'/recoming/reschedule', [], 403);
+            $api($user, 'POST', $base.'/recoming/reschedule', [], $user === 2 ? 422 : 403);
         }
         foreach ([1, 2, 3, 5, 6, 7, 9] as $user) {
             $api($user, 'POST', $base.'/close', [], 403);
@@ -325,11 +343,12 @@ try {
         }
         $suite->check($results[0]['body']['data']['id'] === $results[1]['body']['data']['id'], 'Happy Call retry returned different logs');
         $suite->check(DB::table('ticket_logs')->where('cycle_id', $cycle1)->where('step', 'happy_call_completed')->count() === 1, 'Happy Call duplicated');
-        foreach ([1, 3, 4, 6, 8] as $user) {
+        foreach ([1, 3, 4, 8] as $user) {
             $page = $api($user, 'GET', '/api/aftersales/tickets/ready-to-close?per_page=1');
             $suite->check($page['total'] === 1 && $page['data'][0]['id'] === $ticketId, 'Ready-to-close page incorrect');
             $suite->check($page['data'][0]['can_close'] === in_array($user, [4, 8], true), 'Ready-to-close capability is incorrect');
         }
+        $suite->check($api(6, 'GET', '/api/aftersales/tickets/ready-to-close')['total'] === 0, 'Ready to Close exposed another supervisor\'s ticket');
         foreach ([2, 5, 9] as $user) {
             $api($user, 'GET', '/api/aftersales/tickets/ready-to-close', [], 403);
         }

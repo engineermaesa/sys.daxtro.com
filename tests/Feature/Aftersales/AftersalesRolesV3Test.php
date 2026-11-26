@@ -63,8 +63,8 @@ class AftersalesRolesV3Test extends TestCase
 
         $this->assertSame(['aftersales.tickets.manage'], $this->codes('after_sales'));
         $this->assertSame(['aftersales.documents.fill'], $this->codes('technician'));
-        $this->assertSame(['aftersales.documents.sign', 'aftersales.tickets.view-all', 'customers.view', 'dashboard', 'satisfaction-survey.view'], $this->codes('supervisor_after_sales'));
-        $this->assertSame(['aftersales.tickets.close', 'aftersales.tickets.view-all', 'customers.view', 'dashboard', 'satisfaction-survey.view'], $this->codes('head_after_sales'));
+        $this->assertSame(['aftersales.documents.fill', 'aftersales.documents.sign', 'aftersales.survey-link.share', 'aftersales.tickets.view-all', 'aftersales.tickets.view-own', 'customers.view', 'dashboard', 'satisfaction-survey.view'], $this->codes('supervisor_after_sales'));
+        $this->assertSame(['aftersales.documents.sign', 'aftersales.tickets.close', 'aftersales.tickets.view-all', 'customers.view', 'dashboard', 'satisfaction-survey.view'], $this->codes('head_after_sales'));
         $this->assertSame('SPV Technician', UserRole::where('code', 'supervisor_after_sales')->value('name'));
         $this->assertSame(1, UserRole::where('code', 'head_after_sales')->count());
         $this->assertSame(1, DB::table('user_permissions')->where('code', 'aftersales.tickets.view-all')->count());

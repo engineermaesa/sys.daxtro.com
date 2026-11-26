@@ -9,6 +9,7 @@ use App\Models\Aftersales\TicketDocumentDispatch;
 use App\Models\Aftersales\TicketDocumentPublication;
 use App\Models\Aftersales\TicketServiceForm;
 use App\Models\User;
+use App\Models\UserRole;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -30,8 +31,18 @@ class DocumentWorkflowV3Test extends TestCase
         config(['app.locked' => false, 'app.debug' => false, 'app.key' => 'base64:'.base64_encode(str_repeat('a', 32))]);
         Storage::fake('local');
         Queue::fake();
+        Schema::create('user_roles', function (Blueprint $t) {
+            $t->id();
+            $t->string('code');
+            $t->softDeletes();
+        });
+        DB::table('user_roles')->insert([
+            ['id' => 1, 'code' => 'technician'], ['id' => 2, 'code' => 'supervisor_after_sales'],
+            ['id' => 3, 'code' => 'after_sales'], ['id' => 4, 'code' => 'head_after_sales'],
+        ]);
         Schema::create('users', function (Blueprint $t) {
             $t->id();
+            $t->unsignedBigInteger('role_id');
             $t->string('name');
             $t->string('email')->nullable();
             $t->softDeletes();
@@ -67,6 +78,7 @@ class DocumentWorkflowV3Test extends TestCase
                 if ($name === 'ticket_logs') {
                     $t->string('step');
                     $t->unsignedBigInteger('actor_user_id')->nullable();
+                    $t->unsignedBigInteger('created_by')->nullable();
                     $t->text('note')->nullable();
                 }
                 if ($name === 'ticket_visits') {
@@ -212,7 +224,12 @@ class DocumentWorkflowV3Test extends TestCase
             $t->timestamps();
         });
         foreach ([1 => 'Technician', 2 => 'SPV', 3 => 'Admin', 4 => 'Head', 5 => 'Other SPV', 6 => 'Other technician'] as $id => $name) {
-            DB::table('users')->insert(['id' => $id, 'name' => $name, 'email' => 'user'.$id.'@example.com']);
+            $role = match ($id) {
+                5 => 2,
+                6 => 1,
+                default => $id,
+            };
+            DB::table('users')->insert(['id' => $id, 'role_id' => $role, 'name' => $name, 'email' => 'user'.$id.'@example.com']);
         }
         DB::table('service_customers')->insert(['id' => 1, 'email' => 'customer@example.com']);
         DB::table('service_customer_products')->insert(['id' => 1]);
@@ -233,6 +250,7 @@ class DocumentWorkflowV3Test extends TestCase
         (require database_path('migrations/2026_10_30_000300_scope_diagnosis_to_ticket_cycles.php'))->up();
         (require database_path('migrations/2026_10_30_000400_add_cycle_sla_setup.php'))->up();
         (require database_path('migrations/2026_11_01_000000_add_service_form_sync_version.php'))->up();
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         $this->login(1);
     }
 
@@ -240,12 +258,13 @@ class DocumentWorkflowV3Test extends TestCase
     {
         $permissions = match ($id) {
             1, 6 => ['aftersales.documents.fill', 'aftersales.tickets.view-own'],
-            2, 5 => ['aftersales.documents.sign', 'aftersales.tickets.view-all'],
-            3 => ['aftersales.tickets.manage', 'aftersales.documentation.submit'],
-            default => ['aftersales.tickets.view-all', 'aftersales.tickets.close'],
+            2, 5 => ['aftersales.documents.sign', 'aftersales.documents.fill', 'aftersales.tickets.view-all', 'aftersales.tickets.view-own'],
+            3 => ['aftersales.tickets.manage', 'aftersales.tickets.assign', 'aftersales.documentation.submit'],
+            default => ['aftersales.documents.sign', 'aftersales.tickets.view-all', 'aftersales.tickets.close'],
         };
         $user = Mockery::mock(User::class)->makePartial();
         $user->setRawAttributes(['id' => $id, 'name' => 'User '.$id]);
+        $user->setRelation('role', UserRole::findOrFail(DB::table('users')->where('id', $id)->value('role_id')));
         $user->shouldReceive('hasPermission')->andReturnUsing(fn ($p) => in_array($p, $permissions, true));
         $this->actingAs($user);
     }
@@ -253,6 +272,75 @@ class DocumentWorkflowV3Test extends TestCase
     private function signature(string $type, string $role)
     {
         return $this->postJson($this->url.'/documents/'.$type.'/signatures', ['role' => $role, 'signature' => self::PNG, 'signer_name' => 'Customer']);
+    }
+
+    public function test_assignment_lookup_and_mixed_team_enforce_the_supervisor_and_shared_access(): void
+    {
+        $ticket = Ticket::firstOrFail();
+        $this->assertDatabaseHas('ticket_technicians', ['ticket_id' => $ticket->id, 'user_id' => 1, 'position' => 0]);
+
+        $this->login(3);
+        $base = '/api/aftersales/tickets';
+        $this->getJson($base.'/assignment-technicians')->assertOk()
+            ->assertJsonFragment(['id' => 2, 'name' => 'SPV', 'role_code' => 'supervisor_after_sales'])
+            ->assertJsonMissing(['name' => 'Head']);
+        $this->getJson($base.'/supervisors?technician_ids[]=1')
+            ->assertOk()->assertJsonPath('head_required', false)->assertJsonCount(2, 'data');
+        $this->getJson($base.'/supervisors?technician_ids[]=1&technician_ids[]=2')
+            ->assertOk()->assertJsonPath('selected_supervisor_id', 4)->assertJsonCount(1, 'data');
+        $this->postJson($this->url.'/assign', ['technician_ids' => [1, 2], 'supervisor_id' => 5])
+            ->assertUnprocessable()->assertJsonValidationErrors('supervisor_id');
+        $this->postJson($this->url.'/assign', ['technician_ids' => [3]])
+            ->assertUnprocessable()->assertJsonValidationErrors('technician_ids');
+        $this->postJson($this->url.'/assign', ['technician_ids' => []])->assertUnprocessable();
+        $this->postJson($this->url.'/assign', ['technician_ids' => [1, 2, 6]])
+            ->assertOk()->assertJsonPath('data.data.supervisor_id', 4)
+            ->assertJsonPath('data.data.assigned_technician_id', 1)
+            ->assertJsonPath('data.data.technicians.1.id', 2)->assertJsonPath('data.data.technicians.2.id', 6);
+        $this->postJson($this->url.'/assign', ['assigned_technician_id' => 1])
+            ->assertOk()->assertJsonCount(3, 'data.data.technicians');
+
+        $this->login(4);
+        $this->getJson($this->url.'/agreement')->assertOk()->assertJsonPath('data.can.review_supervisor', true);
+        $this->putJson($this->url.'/agreement', ['customer_name' => 'Head'])->assertForbidden();
+        $this->postJson($this->url.'/assign', ['technician_ids' => [1]])->assertForbidden();
+
+        $this->login(2);
+        $this->getJson($this->url.'/agreement')->assertOk()->assertJsonPath('data.can.fill', true);
+        $this->putJson($this->url.'/agreement', ['customer_name' => 'Shared'])->assertOk();
+        $this->signature('agreement', 'supervisor')->assertForbidden();
+        // Even a stale imported self-supervisor record must fail at the signing endpoint.
+        $ticket->fresh()->update(['supervisor_id' => 2]);
+        $this->signature('agreement', 'supervisor')->assertForbidden();
+        $this->login(4);
+        $this->signature('agreement', 'supervisor')->assertForbidden();
+        $ticket->fresh()->update(['supervisor_id' => 4]);
+
+        $this->login(6);
+        $this->getJson($this->url.'/agreement')->assertOk()->assertJsonPath('data.customer_name', 'Shared');
+        $stale = $this->revision();
+        $this->login(1);
+        $this->putForm(['diagnosis' => [['field' => 'problem', 'body' => 'First technician saved']]])->assertOk();
+        $this->login(6);
+        $this->putForm(['revision' => $stale, 'diagnosis' => [['field' => 'problem', 'body' => 'Stale draft']]])
+            ->assertConflict()->assertJsonPath('code', 'service_form_conflict');
+
+        $this->login(3);
+        $beforeRemoval = $this->revision();
+        $this->postJson($this->url.'/assign', ['technician_ids' => [1, 2]])->assertOk();
+        $this->assertNotSame($beforeRemoval, $this->revision());
+        $this->assertSame('repair', $ticket->fresh()->progress);
+        $this->assertFalse(Ticket::assignedTo(6)->whereKey($ticket->id)->exists());
+        $this->assertDatabaseCount('ticket_agreements', 1);
+        $this->assertDatabaseCount('ticket_service_forms', 1);
+        $this->login(6);
+        $this->getJson($this->url.'/agreement')->assertForbidden();
+        $this->getJson($this->url.'/service-form')->assertForbidden();
+
+        $this->prepare();
+        $this->login(4);
+        $this->signature('agreement', 'supervisor')->assertCreated();
+        $this->signature('service_form', 'supervisor')->assertCreated();
     }
 
     private function revision(): ?string

@@ -46,6 +46,8 @@ class InspectionPhotoController extends Controller
     {
         $link = TicketPhotoToken::with('ticket')->where('token_hash', hash('sha256', $token))->firstOrFail();
         abort_if($link->expires_at->lt(Carbon::now('Asia/Jakarta')), 410, 'This camera link has expired. Create a new QR code.');
+        abort_unless($link->created_by_user_id && $link->ticket?->hasTechnician((int) $link->created_by_user_id), 403,
+            'This camera link must belong to an assigned technician.');
 
         return $link;
     }

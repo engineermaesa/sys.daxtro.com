@@ -143,7 +143,7 @@ class SurveyLinkController extends Controller
 
         abort_unless(
             $user?->hasPermission('aftersales.tickets.manage')
-            || ($user?->hasPermission('aftersales.survey-link.share') && $ticket->assigned_technician_id === $user->id),
+            || ($user?->hasPermission('aftersales.survey-link.share') && $ticket->hasTechnician($user->id)),
             403
         );
     }

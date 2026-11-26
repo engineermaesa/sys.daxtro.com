@@ -44,8 +44,10 @@ class AgreementSaveResponseTest extends TestCase
             }
             $t->boolean('happy_call_required')->default(false);
             $t->string('service_type')->nullable();
+            $t->timestamps();
             $t->softDeletes();
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         Schema::create('ref_agreement_templates', function (Blueprint $t) {
             $t->id();
             $t->json('sections');

@@ -18,8 +18,8 @@ class TicketRecomings
     {
         return $user->hasPermission('aftersales.tickets.manage')
             || ($user->hasPermission('aftersales.tickets.view-own')
-                && $user->role?->code === 'technician'
-                && $ticket->assigned_technician_id === $user->id);
+                && in_array($user->role?->code, ['technician', 'supervisor_after_sales'], true)
+                && $ticket->hasTechnician($user->id));
     }
 
     public static function current(Ticket $ticket): ?TicketRecoming
@@ -65,6 +65,7 @@ class TicketRecomings
                 'after_or_equal:'.Carbon::now('Asia/Jakarta')->format('Y-m-d H:i:s'),
             ],
             'assigned_technician_id' => 'prohibited',
+            'technician_ids' => 'prohibited',
             'supervisor_id' => 'prohibited',
         ]);
     }

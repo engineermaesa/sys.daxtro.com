@@ -21,6 +21,7 @@ class TechnicianDashboardTest extends TestCase
         parent::setUp();
         config(['app.locked' => false]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-05 12:00:00', 'Asia/Jakarta'));
+        Schema::create('users', fn (Blueprint $t) => $t->id());
         Schema::create('tickets', function (Blueprint $t) {
             $t->id();
             $t->string('ticket_code');
@@ -33,6 +34,7 @@ class TechnicianDashboardTest extends TestCase
             $t->timestamps();
             $this->deleted($t);
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         foreach (['service_customers', 'service_customer_products', 'ref_products', 'ref_product_types'] as $table) {
             Schema::create($table, function (Blueprint $t) {
                 $t->id();

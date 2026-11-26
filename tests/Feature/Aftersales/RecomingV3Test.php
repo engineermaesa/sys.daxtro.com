@@ -40,6 +40,7 @@ class RecomingV3Test extends TestCase
             $t->timestamps();
             $t->softDeletes();
         });
+        (require database_path('migrations/2026_11_26_100000_create_ticket_technicians_table.php'))->up();
         Schema::create('ticket_recomings', function (Blueprint $t) {
             $t->id();
             $t->unsignedBigInteger('ticket_id');

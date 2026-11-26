@@ -2,6 +2,7 @@
 
 namespace App\Services\Aftersales;
 
+use App\Models\Aftersales\Ticket;
 use App\Models\Aftersales\TicketSatisfaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
@@ -29,7 +30,6 @@ class TechnicianDashboard
             ->leftJoin('ticket_cycles as cycle', 'cycle.id', '=', DB::raw('(SELECT c.id FROM ticket_cycles c WHERE c.ticket_id = tickets.id ORDER BY c.cycle_no DESC LIMIT 1)'))
             ->leftJoin('ticket_visits as visit', 'visit.id', '=', DB::raw('(SELECT v.id FROM ticket_visits v WHERE v.ticket_id = tickets.id AND v.deleted_at IS NULL AND v.is_deleted = 0 ORDER BY v.scheduled_at DESC, v.id DESC LIMIT 1)'))
             ->leftJoin('ticket_recomings as recoming', 'recoming.id', '=', DB::raw('(SELECT MAX(r.id) FROM ticket_recomings r WHERE r.ticket_id = tickets.id AND r.deleted_at IS NULL AND r.is_deleted = 0)'))
-            ->where('tickets.assigned_technician_id', $userId)
             ->select('tickets.id', 'tickets.ticket_code', 'tickets.priority', 'tickets.workflow_version', 'tickets.created_at', 'tickets.sla_due_at', 'tickets.customer_id', 'tickets.customer_product_id')
             ->selectRaw('CASE WHEN customer.deleted_at IS NULL AND COALESCE(customer.is_deleted, 0) = 0 THEN customer.name ELSE NULL END as customer_name')
             ->selectRaw("CASE WHEN machine.deleted_at IS NULL AND COALESCE(machine.is_deleted, 0) = 0 THEN COALESCE(NULLIF(machine.machine_name, ''), product.name) ELSE NULL END as machine_name")
@@ -40,7 +40,7 @@ class TechnicianDashboard
             ->selectRaw('recoming.id as recoming_id, recoming.recoming_type, recoming.cycle_id as recoming_cycle_id, CASE WHEN recoming.recoming_type = \'phone_call\' THEN recoming.planned_call_at ELSE recoming.planned_visit_at END as recoming_at')
             ->selectRaw("CASE WHEN tickets.workflow_version = 'v3' THEN CASE WHEN cycle.sla_stopped_at IS NOT NULL AND cycle.sla_due_at IS NOT NULL AND (cycle.sla_started_at IS NOT NULL OR (cycle.cycle_no = 1 AND cycle.started_at IS NOT NULL)) THEN CASE WHEN cycle.sla_stopped_at <= cycle.sla_due_at THEN 'on_time' ELSE 'overtime' END ELSE NULL END WHEN log.step = 'closed' AND tickets.sla_due_at IS NOT NULL THEN CASE WHEN log.created_at <= tickets.sla_due_at THEN 'on_time' ELSE 'overtime' END ELSE NULL END as sla_result");
 
-        return DB::query()->fromSub($q, 'dashboard_ticket');
+        return DB::query()->fromSub(Ticket::filterTechnicians($q, [$userId]), 'dashboard_ticket');
     }
 
     private function closed(int $userId, array $filters): Builder
@@ -205,7 +205,7 @@ class TechnicianDashboard
         $sumSql = "CASE WHEN s.ref_survey_template_id IS NOT NULL THEN a.score_sum ELSE ($sum) END";
         $countSql = "CASE WHEN s.ref_survey_template_id IS NOT NULL THEN a.score_count ELSE ($count) END";
         $q = DB::table('ticket_satisfactions as s')->join('tickets as t', 't.id', '=', 's.ticket_id')->leftJoinSub($answers, 'a', 'a.ticket_satisfaction_id', '=', 's.id')
-            ->where('t.assigned_technician_id', $userId)->whereNull('t.deleted_at')->where('t.is_deleted', 0)->whereNull('s.deleted_at')->where('s.is_deleted', 0)
+            ->whereNull('t.deleted_at')->where('t.is_deleted', 0)->whereNull('s.deleted_at')->where('s.is_deleted', 0)
             ->whereIn('s.review_status', ['normal', 'reviewed'])
             ->where(function ($q) {
                 $q->where(fn ($v3) => $v3->where('t.workflow_version', 'v3')->whereNotNull('s.cycle_id')->whereNotNull('s.filled_at')
@@ -214,7 +214,8 @@ class TechnicianDashboard
             })
             ->whereRaw("s.id = (SELECT current_s.id FROM ticket_satisfactions current_s WHERE current_s.ticket_id = s.ticket_id AND current_s.deleted_at IS NULL AND current_s.is_deleted = 0 AND (t.workflow_version <> 'v3' OR t.workflow_version IS NULL OR current_s.cycle_id = s.cycle_id) ORDER BY current_s.filled_at DESC, current_s.id DESC LIMIT 1)")
             ->selectRaw("CASE WHEN t.workflow_version = 'v3' THEN $sumSql ELSE ROUND(1.0 * ($sumSql) / NULLIF($countSql, 0), 1) END as score_sum, CASE WHEN t.workflow_version = 'v3' THEN $countSql ELSE CASE WHEN ($countSql) > 0 THEN 1 ELSE 0 END END as score_count");
-        $rating = DB::query()->fromSub($q, 'rating')->selectRaw('1.0 * SUM(score_sum) / NULLIF(SUM(score_count), 0) as value')->first()->value;
+        $rating = DB::query()->fromSub(Ticket::filterTechnicians($q, [$userId], 't'), 'rating')
+            ->selectRaw('1.0 * SUM(score_sum) / NULLIF(SUM(score_count), 0) as value')->first()->value;
 
         return $rating === null ? null : round((float) $rating, 1);
     }

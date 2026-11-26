@@ -54,8 +54,7 @@ class TicketDocuments
 
         if (! TicketAgreement::where('ticket_id', $ticket->id)->exists()) {
             $template = RefAgreementTemplate::active();
-            TicketAgreement::create([
-                'ticket_id' => $ticket->id,
+            TicketAgreement::firstOrCreate(['ticket_id' => $ticket->id], [
                 'ref_agreement_template_id' => $template->id,
                 'template_version' => $template->version,
                 'accepted_clauses' => [],
@@ -90,12 +89,13 @@ class TicketDocuments
 
     public static function isTechnician(User $user, Ticket $ticket): bool
     {
-        return $ticket->assigned_technician_id === $user->id && $user->hasPermission('aftersales.documents.fill');
+        return $ticket->hasTechnician($user->id) && $user->hasPermission('aftersales.documents.fill');
     }
 
     public static function isSupervisor(User $user, Ticket $ticket): bool
     {
-        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.documents.sign');
+        return $ticket->supervisor_id === $user->id && $user->hasPermission('aftersales.documents.sign')
+            && ! $ticket->hasTechnician($user->id);
     }
 
     public static function isManager(User $user): bool
@@ -130,20 +130,24 @@ class TicketDocuments
         abort_unless(self::canListTickets($user), 403);
 
         if (self::isSupervisorScoped($user)) {
-            return $query->where('supervisor_id', $user->id);
+            return $query->where(fn (Builder $query) => $query->where('supervisor_id', $user->id)
+                ->orWhere(fn (Builder $query) => $query->assignedTo($user->id)));
         }
 
-        return self::canViewAll($user) ? $query : $query->where('assigned_technician_id', $user->id);
+        return self::canViewAll($user) ? $query : $query->assignedTo($user->id);
     }
 
     public static function authorizeView(User $user, Ticket $ticket): void
     {
         if (self::isSupervisorScoped($user)) {
-            abort_unless(self::canListTickets($user) && $ticket->supervisor_id === $user->id, 403);
+            abort_unless(self::canListTickets($user)
+                && ($ticket->supervisor_id === $user->id || $ticket->hasTechnician($user->id)), 403);
 
             return;
         }
-        abort_unless(self::canViewAll($user) || self::isTechnician($user, $ticket) || ($ticket->assigned_technician_id === $user->id && $user->hasPermission('aftersales.tickets.view-own')), 403);
+        abort_unless(self::canViewAll($user)
+            || (($user->hasPermission('aftersales.tickets.view-own') || $user->hasPermission('aftersales.documents.fill'))
+                && $ticket->hasTechnician($user->id)), 403);
     }
 
     public static function can(User $user, Ticket $ticket, TicketServiceForm|TicketAgreement $doc): array
@@ -509,24 +513,22 @@ class TicketDocuments
 
     public static function attachPhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket, ?int $userId): TicketPhoto
     {
-        if (TicketDocumentWorkflow::enabled($ticket)) {
-            return DB::transaction(function () use ($value, $file, $ticket, $userId) {
-                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
-                $form = TicketServiceForm::whereKey($value->inspection->ticket_service_form_id)->lockForUpdate()->firstOrFail();
-                abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
-                if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
-                    TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
-                }
+        return DB::transaction(function () use ($value, $file, $ticket, $userId) {
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            abort_unless($userId !== null && $ticket->hasTechnician($userId), 403, 'This camera link must belong to an assigned technician.');
+            $form = TicketServiceForm::whereKey($value->inspection->ticket_service_form_id)->lockForUpdate()->firstOrFail();
+            abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
+            if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+                TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
+            }
 
-                abort_unless($userId !== null && $ticket->assigned_technician_id === $userId, 403, 'This camera link must belong to the assigned technician.');
-                $photo = self::storePhoto($value, $file, $ticket);
+            $photo = self::storePhoto($value, $file, $ticket);
+            if (TicketDocumentWorkflow::enabled($ticket)) {
                 TicketCycleEdits::record($ticket, $userId);
+            }
 
-                return $photo;
-            });
-        }
-
-        return self::storePhoto($value, $file, $ticket);
+            return $photo;
+        });
     }
 
     private static function storePhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket): TicketPhoto

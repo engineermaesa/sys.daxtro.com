@@ -26,14 +26,14 @@ class TechnicianScore
 
     public static function summaries(array $userIds, ?Carbon $since): array
     {
-        $tickets = self::tickets($userIds)->groupBy('assigned_technician_id');
+        $tickets = self::tickets($userIds)->groupBy(fn (Ticket $ticket) => $ticket->technicianIds());
 
         return collect($userIds)->mapWithKeys(fn ($id) => [$id => self::summary($tickets->get($id, collect()), $since)])->all();
     }
 
     public static function overallRating(int $userId): array
     {
-        $tickets = Ticket::where('assigned_technician_id', $userId)->with('satisfactions.answers')->get();
+        $tickets = Ticket::assignedTo($userId)->with('satisfactions.answers')->get();
         $rating = self::rating($tickets, null);
 
         return ['overall_rating' => $rating['rating'], 'rating_scale_max' => $rating['rating_scale_max']];
@@ -133,8 +133,8 @@ class TechnicianScore
 
     private static function tickets(array $userIds): Collection
     {
-        return Ticket::whereIn('assigned_technician_id', $userIds)
-            ->with(['logs', 'visits', 'recomings', 'satisfactions.template', 'satisfactions.answers'])
+        return Ticket::assignedTo($userIds)
+            ->with(['technicians:id', 'logs', 'visits', 'recomings', 'satisfactions.template', 'satisfactions.answers'])
             ->get();
     }
 
