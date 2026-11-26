@@ -176,29 +176,21 @@
     function formConflict(xhr) {
         if (conflictOpen) return;
         conflictOpen = true;
+        // AS-TEC-07: server menang. Isian tetap di layar sampai dimuat ulang; simpan dengan revision lama tetap 409.
         Swal.fire({
-            title: 'The Service Form was changed',
-            text: 'The form or ticket workflow changed on the server since you opened it. Your unsaved entries are still on this screen.',
+            title: 'The Service Form was updated',
+            text: 'Another save reached the server first, so your changes were not saved. Copy anything you need, then reload the latest form.',
             icon: 'warning',
             showCancelButton: true,
-            showDenyButton: true,
-            confirmButtonText: 'Load latest (discard my draft)',
-            denyButtonText: 'Keep my draft',
+            confirmButtonText: 'Reload latest form',
             cancelButtonText: 'Close',
-            confirmButtonColor: '#115640',
-            denyButtonColor: '#757575'
+            confirmButtonColor: '#115640'
         }).then(function (r) {
             conflictOpen = false;
             if (r.isConfirmed) {
                 loadForm();
                 loadDocs();
                 if (typeof loadTicketDetail === 'function') loadTicketDetail();
-            } else if (r.isDenied) {
-                // hanya mengambil revision terbaru; isian di layar tidak dirender ulang. Menyimpan lagi = keputusan pengguna menimpa versi server.
-                call('GET', '/tickets/' + currentId() + '/service-form').done(function (res) {
-                    if (S.form && res.data && res.data.revision) S.form.revision = res.data.revision;
-                    toast('Your draft is kept. Saving again will overwrite the latest server version.');
-                }).fail(function (x) { fail(x, 'Failed to load the latest Service Form.'); });
             }
         });
     }
@@ -1415,7 +1407,7 @@
         $('.sf-field').each(function () { refreshHelper($(this)); });
 
         window.ServiceDiagnosisEditor.mount({ticketId: currentId(), number: f.number, data: f.diagnosis, readOnly: ro,
-            readOnlyReason: f.locked ? 'This Service Form is saved and locked. Diagnosis and attachments are read-only.' : 'Only the assigned Technician or SPV can enter diagnosis and attach photos. This account has view-only access.',
+            readOnlyReason: f.locked ? 'This Service Form is saved and locked. Diagnosis and attachments are read-only.' : 'Only the assigned Technicians or SPV can enter diagnosis and attach photos. This account has view-only access.',
             persist: function () { return putForm({service_type: $('#sfServiceType').val() || null, unit: collectUnit(), inspections: collectAll(), diagnosis: window.ServiceDiagnosisEditor.collect()}); },
             reload: function () { return loadForm(); }
         });
@@ -1908,7 +1900,7 @@
         $('#ssTicket').text(t.ticket_code || '-');
         $('#ssCustomer').text((t.customer || {}).name || '-');
         $('#ssMachine').text((t.customer_product || {}).machine_name || ((t.customer_product || {}).product || {}).name || '-');
-        $('#ssTechnician').text((t.technician || {}).name || '-');
+        $('#ssTechnician').text(AsTechnician.listText(t) || '-');
         $('#ssName').val((S.docs && S.docs.supervisor && S.docs.supervisor.name) || '');
         $('#ssError').addClass('hidden');
         $('#ssCompleteness').text('Loading...');

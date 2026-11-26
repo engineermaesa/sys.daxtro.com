@@ -82,7 +82,10 @@
     const EDIT_TICKET_ID = ticketBoot.dataset.ticketId ? Number(ticketBoot.dataset.ticketId) : null;
     const EDIT_TICKET = JSON.parse(ticketBoot.dataset.ticket || 'null');
     const TICKETS_INDEX_URL = ticketBoot.dataset.indexUrl;
-    let originalTechnicianId = EDIT_TICKET?.assigned_technician_id ? String(EDIT_TICKET.assigned_technician_id) : null;
+    // roster awal (urut assignment); diperbarui dari GET /tickets/{id} data.technicians
+    let originalTechnicianIds = EDIT_TICKET?.assigned_technician_id ? [String(EDIT_TICKET.assigned_technician_id)] : [];
+    function selectedTechnicianIds() { return $('#field-technician').val() || []; }
+    function rosterChanged() { return selectedTechnicianIds().join(',') !== originalTechnicianIds.join(','); }
     let originalVisitDate = null;
     // integrate-contract §3.8: GET /tickets/{id} data.capabilities (diisi saat Edit). Null = belum termuat -> perilaku lama.
     let EDIT_CAPS = null;
@@ -238,7 +241,7 @@
             sla_due_at: slaDueAt || null,
             cost_display_currency: $('#cost-total-currency').val() || 'idr',
             supervisor_id: $('#field-supervisor').val() || null,
-            assigned_technician_id: $('#field-technician').val() || null,
+            technician_ids: selectedTechnicianIds().map(Number),
             scheduled_at: $('#field-visit-date').val() || null,
             parts: parts,
             costs: costs,
@@ -306,6 +309,19 @@
             return;
         }
 
+        // AS-TEC-01: ticket yang sudah punya technician tidak boleh dikosongkan
+        if (isEdit && editCan('can_assign') && originalTechnicianIds.length && !payload.technician_ids.length) {
+            Swal.fire({
+                title: 'Technician required',
+                text: 'Select at least one technician.',
+                icon: 'warning',
+                confirmButtonColor: '#115640'
+            });
+            currentStep = 3;
+            updateStepper();
+            return;
+        }
+
         Swal.fire({
             title: isEdit ? 'Update this ticket?' : 'Save this ticket?',
             text: 'Make sure all the data entered is correct.',
@@ -335,8 +351,9 @@
                 costs: payload.costs,
             };
 
-            if (isEdit && editCan('can_assign')) {
-                ajaxData.assigned_technician_id = payload.assigned_technician_id;
+            // technician_ids mengganti roster; dihilangkan = roster dipertahankan
+            if (payload.technician_ids.length && (!isEdit || (editCan('can_assign') && rosterChanged()))) {
+                ajaxData.technician_ids = payload.technician_ids;
             }
 
             $.ajax({
@@ -349,16 +366,6 @@
                     const ticketId = isEdit ? EDIT_TICKET_ID : response.data?.data?.id;
                     const ticketCode = response.data?.data?.ticket_code ?? EDIT_TICKET?.ticket_code;
                     const followUpTasks = [];
-
-                    if (payload.assigned_technician_id && (!isEdit || payload.assigned_technician_id !== originalTechnicianId) && (!isEdit || editCan('can_assign'))) {
-                        followUpTasks.push((next, fail) => {
-                            $.ajax({
-                                url: `/api/aftersales/tickets/${ticketId}/assign`,
-                                method: 'POST',
-                                data: { assigned_technician_id: payload.assigned_technician_id },
-                            }).done(next).fail(fail);
-                        });
-                    }
 
                     if (payload.scheduled_at && (!isEdit || (!originalVisitDate && payload.scheduled_at)) && (!isEdit || editCan('can_schedule'))) {
                         followUpTasks.push((next, fail) => {
@@ -426,9 +433,20 @@
             return;
         }
 
-        $('#field-customer, #field-machine, #field-technician').select2({
+        $('#field-customer, #field-machine').select2({
             width: '100%',
             dropdownCssClass: 'select2-dropdown-modern',
+        });
+        $('#field-technician').select2({
+            width: '100%',
+            dropdownCssClass: 'select2-dropdown-modern',
+            placeholder: 'Select Technician',
+            closeOnSelect: false,
+        }).on('select2:select', function (e) {
+            // pindahkan ke akhir supaya urutan nilai = urutan dipilih (pertama = teknisi utama)
+            $(this).append($(e.params.data.element)).trigger('change');
+        }).on('change', function () {
+            loadSupervisorOptions();
         });
     }
 
@@ -438,16 +456,41 @@
         }
     }
 
+    // AS-ROLE-06: opsi Supervisor mengikuti roster; bila roster memuat SPV, Head dipilih otomatis dan dikunci
+    let supervisorRequest = 0;
     function loadSupervisorOptions() {
+        const requestNo = ++supervisorRequest;
+        const ids = selectedTechnicianIds();
         return $.ajax({
             url: '/api/aftersales/tickets/supervisors',
             method: 'GET',
+            data: ids.length ? { technician_ids: ids } : {},
             headers: { Accept: 'application/json' },
             success: function (response) {
+                if (requestNo !== supervisorRequest) return;
+                const $select = $('#field-supervisor');
+                const current = $select.val() || (EDIT_TICKET?.supervisor_id ? String(EDIT_TICKET.supervisor_id) : '');
                 const options = (response.data || []).map(function (u) {
                     return '<option value="' + u.id + '">' + escapeHtml(u.name) + '</option>';
                 }).join('');
-                $('#field-supervisor').html('<option value="">Select Supervisor</option>' + options);
+                $select.html('<option value="">Select Supervisor</option>' + options);
+
+                let note = '';
+                if (response.head_required) {
+                    $select.val(response.selected_supervisor_id ? String(response.selected_supervisor_id) : '');
+                    note = response.selected_supervisor_id
+                        ? 'An SPV Technician is assigned, so the Head Aftersales is the Supervisor.'
+                        : 'An SPV Technician is assigned, but no Head Aftersales account is available. The ticket cannot be saved with this selection.';
+                } else if (current) {
+                    // Ticket lama boleh punya supervisor di luar daftar; tetap ditampilkan selama roster tidak diubah
+                    const isOriginal = String(EDIT_TICKET?.supervisor_id ?? '') === current;
+                    if (isOriginal && !rosterChanged() && !$select.find('option[value="' + current + '"]').length) {
+                        $select.append('<option value="' + current + '">' + escapeHtml(EDIT_TICKET.supervisor?.name || ('User #' + current)) + '</option>');
+                    }
+                    if ($select.find('option[value="' + current + '"]').length) $select.val(current);
+                }
+                $select.prop('disabled', !!response.head_required);
+                $('#field-supervisor-note').text(note).toggleClass('hidden', !note);
             },
             error: function (xhr) {
                 console.error('Failed to load supervisors', xhr.responseJSON?.message || xhr.statusText);
@@ -463,7 +506,9 @@
         const customerPromise = loadCustomerOptions();
         const technicianPromise = loadTechnicianOptions();
         const sparepartPromise = loadSparepartOptions();
-        const supervisorPromise = loadSupervisorOptions();
+        // pada Edit, opsi Supervisor dimuat setelah roster terisi
+        const supervisorPromise = EDIT_TICKET_ID ? $.Deferred().resolve() : loadSupervisorOptions();
+        let editRoster = null;
 
         if (EDIT_TICKET_ID) {
             $('#field-ticket-code').val(EDIT_TICKET.ticket_code || '-');
@@ -471,6 +516,7 @@
             // can_assign / can_schedule decide whether the technician and visit-date fields are editable
             const capsPromise = $.ajax({ url: '/api/aftersales/tickets/' + EDIT_TICKET_ID, method: 'GET' }).done(function (res) {
                 EDIT_CAPS = res.data?.capabilities || null;
+                editRoster = res.data?.technicians || null;
             });
 
             $.when(capsPromise.then(null, function () { return $.Deferred().resolve(); }), customerPromise, technicianPromise, sparepartPromise, supervisorPromise).done(function () {
@@ -486,18 +532,22 @@
                 $('#field-priority').val(EDIT_TICKET.priority || 'medium');
                 $('#field-description').val(EDIT_TICKET.description || '');
 
-                if (EDIT_TICKET.assigned_technician_id) {
-                    $('#field-technician').val(String(EDIT_TICKET.assigned_technician_id)).trigger('change.select2');
-                }
-                if (EDIT_TICKET.supervisor_id) {
-                    // Older tickets may have a supervisor who is not in the new dropdown (role supervisor_after_sales):
-                    // keep showing the existing one instead of clearing it. Keeping the same ID is allowed by the API.
-                    if (!$('#field-supervisor option[value="' + EDIT_TICKET.supervisor_id + '"]').length) {
-                        $('#field-supervisor').append('<option value="' + EDIT_TICKET.supervisor_id + '">' +
-                            escapeHtml(EDIT_TICKET.supervisor?.name || ('User #' + EDIT_TICKET.supervisor_id)) + '</option>');
-                    }
-                    $('#field-supervisor').val(String(EDIT_TICKET.supervisor_id));
-                }
+                capsPromise.always(function () {
+                    if (editRoster && editRoster.length) originalTechnicianIds = editRoster.map(t => String(t.id));
+                    const $tech = $('#field-technician');
+                    // susun opsi terpilih sesuai urutan roster
+                    originalTechnicianIds.forEach(function (id) {
+                        const $option = $tech.find('option[value="' + id + '"]');
+                        if ($option.length) {
+                            $tech.append($option);
+                        } else {
+                            const name = (editRoster || []).find(t => String(t.id) === id)?.name || ('User #' + id);
+                            $tech.append('<option value="' + id + '">' + escapeHtml(name) + '</option>');
+                        }
+                    });
+                    $tech.val(originalTechnicianIds).trigger('change.select2');
+                    loadSupervisorOptions();
+                });
                 if (EDIT_TICKET.sla_due_at) {
                     $('#field-sla-due-date').val(String(EDIT_TICKET.sla_due_at).slice(0, 16).replace(' ', 'T'));
                     slaTouched = true;

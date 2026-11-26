@@ -4,10 +4,10 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div>
-            <label class="block text-sm font-medium mb-1">Assigned Technician</label>
-            <select id="field-technician" class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!" required>
-                <option value="">Select Technician</option>
+            <label class="block text-sm font-medium mb-1">Assigned Technician(s)</label>
+            <select id="field-technician" multiple class="select2 w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
             </select>
+            <p class="text-xs text-[#757575] mt-1">One or more. The first selected is the primary technician.</p>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Visit Schedule</label>
@@ -24,6 +24,7 @@
             <select id="field-supervisor" class="w-full border border-[#D9D9D9] rounded-lg px-3 py-2 focus:outline-none!">
                 <option value="">Select Supervisor</option>
             </select>
+            <p id="field-supervisor-note" class="hidden text-xs text-[#757575] mt-1"></p>
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Ticket Status</label>
@@ -37,15 +38,14 @@
 <script>
     function loadTechnicianOptions() {
         return $.ajax({
-            url: '/api/aftersales/technicians',
+            url: '/api/aftersales/tickets/assignment-technicians',
             method: 'GET',
-            data: { per_page: 100 },
+            headers: { Accept: 'application/json' },
             success: function (response) {
-                const technicians = response.data || [];
-                const options = technicians.map(t =>
-                    `<option value="${t.user?.id}">${escapeHtml(t.user?.name)}</option>`
+                const options = (response.data || []).map(u =>
+                    `<option value="${u.id}">${escapeHtml(u.name)}${u.role_code === 'supervisor_after_sales' ? ' (SPV Technician)' : ''}</option>`
                 ).join('');
-                $('#field-technician').html('<option value="">Select Technician</option>' + options).trigger('change.select2');
+                $('#field-technician').html(options).trigger('change.select2');
             },
             error: function (xhr) {
                 console.error('Failed to load technicians', xhr.responseJSON?.message || xhr.statusText);

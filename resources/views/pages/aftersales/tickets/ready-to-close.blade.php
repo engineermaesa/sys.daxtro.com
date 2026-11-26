@@ -82,6 +82,7 @@
 @endsection
 
 @section('scripts')
+<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ filemtime(public_path('assets/js/aftersales/technician-cell.js')) }}"></script>
 <script>
     const rtc = { page: 1, perPage: 10, search: '', lastPage: 1 };
     const API_TICKETS = '/api/aftersales/tickets';
@@ -112,11 +113,11 @@
             const $row = fill(clone('tpl-rtc-row'), {
                 code: row.ticket_code,
                 customer: (row.customer || {}).name || '-',
-                technician: (row.technician || {}).name || '-',
                 score: row.average_score === null || row.average_score === undefined ? '-' : Number(row.average_score).toFixed(1) + ' / 3',
                 hcStatus: done ? 'Done' : ({ waiting_survey: 'Waiting survey', needs_review: 'Needs review', overdue: 'Overdue' }[hc.status] || 'Not done'),
                 hcDue: done ? fmtDate(hc.done_at) : (hc.due_at ? 'Due ' + fmtDate(hc.due_at) + ' (H+3)' : ''),
             });
+            $row.find('[data-ref="technician"]').html(AsTechnician.cellHtml(row));
             $row.find('[data-ref="hcStatus"]').css('color', done ? '#115640' : (hc.overdue ? '#900B09' : '#3B4FA6'));
             $row.find('[data-ref="open"]').attr('href', TICKET_PAGE + row.id + '?from=ready-to-close');
             // AC-CLS-01: Close nonaktif sampai Happy Call selesai

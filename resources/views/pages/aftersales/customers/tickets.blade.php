@@ -94,6 +94,7 @@
 @endsection
 
 @section('scripts')
+<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ filemtime(public_path('assets/js/aftersales/technician-cell.js')) }}"></script>
 <script>
     const customerId = Number('{{ $customer->id }}');
 
@@ -186,7 +187,6 @@
 
         const html = rows.map(row => {
             const machine = row.customer_product || {};
-            const technician = row.technician || {};
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
@@ -194,7 +194,7 @@
                 <td class="p-3" data-label="Machine">${escapeHtml(machine.product?.name || machine.machine_name)}${machine.is_daxtro === false
                     ? `<div class="text-xs font-normal text-[#757575]">Non-Daxtro${[machine.brand, machine.trader_name].filter(Boolean).length ? ' · ' + escapeHtml([machine.brand, machine.trader_name].filter(Boolean).join(' / ')) : ''}</div>`
                     : ''}</td>
-                <td class="p-3" data-label="Technician">${escapeHtml(technician.name || '-')}</td>
+                <td class="p-3" data-label="Technician">${AsTechnician.cellHtml(row)}</td>
                 <td class="p-3 sm:max-w-[160px]" data-label="Desc.">
                     <div class="min-w-0 flex-1 sm:flex-none">
                         <span class="line-clamp-2 break-words">${escapeHtml(row.description)}</span>

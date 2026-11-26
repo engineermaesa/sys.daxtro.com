@@ -146,8 +146,8 @@
                     <p class="font-bold" style="margin-bottom:8px;">AFTER SAVING</p>
                     <ul style="padding-left:18px;list-style:disc;line-height:1.8;">
                         <li>Ticket progress changes to Recoming (<span id="ticketLogsRecomingAfterType">second visit scheduled</span>).</li>
-                        <li>Unlock Service Form: the same form is reopened. The existing SPV Technician signature stays valid and the Agreement is not filled again.</li>
-                        <li>The Technician stays the same as on the original ticket (no new assignment).</li>
+                        <li>Unlock Service Form: the same form is reopened. For a site visit, the Service Form must be signed again; for a phone call, existing signatures are kept. The Agreement is not filled again.</li>
+                        <li>All assigned Technicians stay the same as on the original ticket (no new assignment).</li>
                         <li id="ticketLogsRecomingAfterSurvey">A new satisfaction survey link is issued when the Service Form is saved completely.</li>
                     </ul>
                 </div>

@@ -489,6 +489,12 @@
         }
     }
 
+    // BE-06: technicians[] (roster); fallback string technician
+    function technicianNames(ticket) {
+        const names = (ticket.technicians || []).map((t) => t.name).filter(Boolean);
+        return names.join(", ") || ticket.technician || "-";
+    }
+
     function closeDrillSheet() {
         const sheet = document.getElementById("spv-drill-sheet");
         if (!sheet) return;
@@ -517,7 +523,7 @@
                         <dl>
                             <dt>Customer</dt><dd>${escapeHtml(t.customer_name || "-")}</dd>
                             <dt>Machine</dt><dd>${escapeHtml(t.model || "-")}</dd>
-                            <dt>Technician</dt><dd>${escapeHtml(t.technician || "-")}</dd>
+                            <dt>Technician</dt><dd>${escapeHtml(technicianNames(t))}</dd>
                         </dl></a>`,
                   )
                   .join("")
@@ -584,7 +590,7 @@
             const rows = result.data
                 .map(
                     (ticket) =>
-                        `<tr>${[ticket.ticket_code, ticket.customer_name, ticket.model, ticket.technician, ticket.region, fmtRp(ticket.total)].map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`,
+                        `<tr>${[ticket.ticket_code, ticket.customer_name, ticket.model, technicianNames(ticket), ticket.region, fmtRp(ticket.total)].map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`,
                 )
                 .join("");
             const choice = await Swal.fire({
