@@ -111,6 +111,7 @@ class ImprovementsTest extends TestCase
             $t->id();
             $t->unsignedBigInteger('ticket_id');
             $t->timestamp('scheduled_at')->nullable();
+            $t->timestamps();
             $t->softDeletes();
         });
         Schema::create('ticket_satisfactions', function (Blueprint $t) {
@@ -987,7 +988,7 @@ class ImprovementsTest extends TestCase
 
     private function ticketContactTables(): void
     {
-        $this->ticketAuxiliaryTables(true);
+        $this->ticketAuxiliaryTables(true, true);
         Schema::table('tickets', function (Blueprint $table) {
             foreach (['category', 'priority', 'description', 'sla_value', 'sla_unit', 'cost_display_currency'] as $field) {
                 $table->string($field)->nullable();
@@ -1148,15 +1149,14 @@ class ImprovementsTest extends TestCase
     {
         $this->ticketContactTables();
         Schema::table('ticket_recomings', function (Blueprint $t) {
+            $t->dropColumn('recoming_type');
             $t->unsignedInteger('visit_no')->nullable();
             $t->string('reason')->nullable();
             $t->text('notes')->nullable();
             $t->timestamp('planned_visit_at')->nullable();
             $t->string('from_step')->nullable();
             $t->unsignedBigInteger('created_by_user_id')->nullable();
-            $t->timestamps();
         });
-        Schema::table('ticket_visits', fn (Blueprint $t) => $t->timestamps());
         (require database_path('migrations/2026_10_30_000200_add_recoming_v3_scheduling.php'))->up();
         Schema::table('satisfaction_links', function (Blueprint $t) {
             $t->string('status')->default('inactive');
@@ -1259,6 +1259,78 @@ class ImprovementsTest extends TestCase
         }
 
         return $ticket;
+    }
+
+    public function test_ticket_list_orders_steps_and_latest_activity_across_pages(): void
+    {
+        $this->ticketAuxiliaryTables();
+        $now = now('Asia/Jakarta');
+        $create = function (string $code, ?string $step, ?\Carbon\CarbonInterface $activity = null, array $visits = [], array $attributes = []) use ($now) {
+            $ticket = $this->visitDateTicket($code, $visits, $attributes);
+            DB::table('tickets')->where('id', $ticket->id)->update(['created_at' => $now->copy()->subDays(5), 'updated_at' => null]);
+            if ($step !== null) {
+                DB::table('ticket_logs')->insert(['ticket_id' => $ticket->id, 'step' => $step, 'created_at' => $activity ?? $now->copy()->subDays(4)]);
+            }
+
+            return $ticket;
+        };
+        $ready = $create('STEPS-READY', 'happy_call_completed');
+        $recent = $create('STEPS-RECENT-REPAIR', 'repair', $now->copy()->subDay());
+        $older = $create('STEPS-OLDER-REPAIR', 'repair', $now->copy()->subDays(2));
+        $rescheduled = $create('STEPS-RESCHEDULED-REPAIR', 'repair', $now->copy()->subDays(4), [$now->copy()->addDay()]);
+        DB::table('ticket_visits')->where('ticket_id', $rescheduled->id)->update(['updated_at' => $now]);
+        $recoming = $create('STEPS-RECOMING', 'recoming');
+        $onSite = $create('STEPS-ON-SITE', 'assigned', null, [$now->copy()->startOfDay()], ['assigned_technician_id' => 1]);
+        $assigned = $create('STEPS-ASSIGNED', 'assigned');
+        $published = $create('STEPS-PUBLISHED', null);
+        $closed = $create('STEPS-CLOSED', 'closed', $now);
+        DB::table('ticket_logs')->insert(['ticket_id' => $older->id, 'step' => 'closed', 'deleted_at' => $now, 'created_at' => $now]);
+        $this->actingAs($this->user());
+
+        $expected = [
+            $ready->id, $recoming->id, $rescheduled->id, $recent->id, $older->id,
+            $onSite->id, $assigned->id, $published->id, $closed->id,
+        ];
+        foreach (array_chunk($expected, 3) as $index => $ids) {
+            $response = $this->getJson('/api/aftersales/tickets?search=STEPS-&per_page=3&page='.($index + 1))->assertOk()
+                ->assertJsonPath('total', count($expected))->assertJsonPath('last_page', 3);
+            $this->assertSame($ids, array_column($response->json('data'), 'id'));
+        }
+    }
+
+    public function test_multi_step_filter_combines_with_existing_filters_before_pagination(): void
+    {
+        $this->ticketAuxiliaryTables();
+        Schema::table('tickets', fn (Blueprint $table) => $table->string('priority')->nullable());
+        $today = now('Asia/Jakarta')->startOfDay();
+        $create = function (string $code, string $step, string $priority, \Carbon\CarbonInterface $date) {
+            $ticket = $this->visitDateTicket($code, [$date], ['assigned_technician_id' => 1, 'priority' => $priority]);
+            $ticket->logs()->create(['step' => $step]);
+
+            return $ticket;
+        };
+        $site = $create('FILTER-SITE', 'assigned', 'high', $today);
+        $repair = $create('FILTER-REPAIR', 'repair', 'high', $today);
+        $closed = $create('FILTER-CLOSED', 'closed', 'high', $today);
+        $create('FILTER-WRONG-DATE', 'repair', 'high', $today->copy()->addDay());
+        $create('FILTER-WRONG-PRIORITY', 'repair', 'low', $today);
+        $this->actingAs($this->user());
+
+        $url = '/api/aftersales/tickets?'.http_build_query([
+            'steps' => ['on_site', 'repair', 'closed'], 'priority' => ['high'], 'visit_date' => $today->toDateString(),
+            'per_page' => 1,
+        ]);
+        foreach ([[$repair, 'repair'], [$site, 'on_site'], [$closed, 'closed']] as $index => [$ticket, $step]) {
+            $this->getJson($url.'&page='.($index + 1))->assertOk()->assertJsonPath('total', 3)
+                ->assertJsonPath('last_page', 3)->assertJsonPath('data.0.id', $ticket->id)->assertJsonPath('data.0.progress', $step);
+        }
+        $this->getJson($url.'&progress=repair')->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $repair->id);
+        $this->getJson($url.'&progress=published')->assertOk()->assertJsonPath('total', 0)->assertJsonCount(0, 'data');
+        $this->getJson('/api/aftersales/tickets?progress=closed&per_page=1')->assertOk()->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.id', $closed->id);
+        foreach (['steps=repair' => 'steps', 'steps[]=unknown' => 'steps.0', 'steps[]=repair&steps[]=repair' => 'steps.1'] as $query => $error) {
+            $this->getJson('/api/aftersales/tickets?'.$query)->assertUnprocessable()->assertJsonValidationErrors($error);
+        }
     }
 
     public function test_visit_date_filter_uses_latest_active_visit_including_recoming_and_rescheduled_dates(): void
@@ -1967,17 +2039,24 @@ class ImprovementsTest extends TestCase
         $this->assertEmpty(array_intersect($a, $keys('Completely unrelated', '089999999999')));
     }
 
-    private function ticketAuxiliaryTables(bool $detail = false): void
+    private function ticketAuxiliaryTables(bool $detail = false, bool $usesTicketCycleMigration = false): void
     {
+        if (! $usesTicketCycleMigration) {
+            Schema::table('tickets', fn (Blueprint $t) => $t->string('workflow_version')->nullable());
+        }
         $tables = ['ticket_recomings', 'ticket_service_forms', 'satisfaction_links'];
         if ($detail) {
             $tables = array_merge($tables, ['ticket_work_orders', 'ticket_parts', 'ticket_costs', 'ticket_photos', 'ticket_agreements']);
         }
         foreach ($tables as $table) {
-            Schema::create($table, function (Blueprint $t) {
+            Schema::create($table, function (Blueprint $t) use ($table) {
                 $t->id();
                 $t->unsignedBigInteger('ticket_id');
                 $t->timestamp('saved_at')->nullable();
+                if ($table === 'ticket_recomings') {
+                    $t->string('recoming_type')->nullable();
+                    $t->timestamps();
+                }
                 $t->softDeletes();
             });
         }
@@ -2089,14 +2168,7 @@ class ImprovementsTest extends TestCase
 
     public function test_ticket_reminders_do_not_expose_survey_answers_to_technician(): void
     {
-        foreach (['ticket_recomings', 'ticket_service_forms', 'satisfaction_links'] as $table) {
-            Schema::create($table, function (Blueprint $t) {
-                $t->id();
-                $t->unsignedBigInteger('ticket_id');
-                $t->timestamp('saved_at')->nullable();
-                $t->softDeletes();
-            });
-        }
+        $this->ticketAuxiliaryTables();
         $user = Mockery::mock(User::class)->makePartial();
         $user->setRawAttributes(['id' => 1]);
         $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $code === 'aftersales.tickets.view-own');

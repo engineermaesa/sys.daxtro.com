@@ -24,6 +24,7 @@ use App\Services\Aftersales\TicketCycles;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketDocumentWorkflow;
 use App\Services\Aftersales\TicketHappyCalls;
+use App\Services\Aftersales\TicketListSteps;
 use App\Services\Aftersales\TicketRecomings;
 use App\Services\Aftersales\TicketSla;
 use App\Services\Aftersales\TicketStock;
@@ -32,6 +33,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
@@ -153,7 +155,12 @@ class TicketController extends Controller
         $user = $request->user();
         abort_unless($user && TicketDocuments::canListTickets($user), 403);
 
-        $filters = $request->validate(['visit_date' => 'nullable|date_format:Y-m-d']);
+        $filters = $request->validate([
+            'visit_date' => 'nullable|date_format:Y-m-d',
+            'steps' => 'sometimes|array|list|max:'.count(TicketLog::STEPS),
+            'steps.*' => ['required', 'string', 'distinct', Rule::in(TicketLog::STEPS)],
+            'progress' => 'nullable|string',
+        ]);
 
         $query = Ticket::with(['customer.province', 'customer.region', 'customerProduct.product', 'customerProduct.productType', 'technician', 'technicians:id,name', 'logs.actor', 'visits', 'recomings', 'serviceForm', 'surveyLink', 'satisfaction', 'satisfactions.answers']);
 
@@ -182,14 +189,6 @@ class TicketController extends Controller
             $query->where('customer_id', $request->input('customer_id'));
         }
 
-        if (! empty($filters['visit_date'])) {
-            $day = Carbon::createFromFormat('!Y-m-d', $filters['visit_date'], 'Asia/Jakarta');
-            $latestVisit = TicketVisit::query()->selectRaw('MAX(ticket_visits.scheduled_at)')
-                ->whereColumn('ticket_visits.ticket_id', 'tickets.id');
-            $query->where($latestVisit, '>=', $day->toDateTimeString())
-                ->where($latestVisit, '<', $day->copy()->addDay()->toDateTimeString());
-        }
-
         if ($request->filled('search')) {
             $search = trim((string) $request->input('search'));
             $query->where(function ($q) use ($search) {
@@ -201,7 +200,13 @@ class TicketController extends Controller
         }
 
         $perPage = max(1, min(100, (int) $request->input('per_page', 15)));
-        $paginated = $query->orderByDesc('id')->paginate($perPage);
+        $steps = ($filters['steps'] ?? []) ?: null;
+        if (isset($filters['progress'])) {
+            $progress = [$filters['progress']];
+            $steps = $steps === null ? $progress : array_intersect($steps, $progress);
+        }
+        TicketListSteps::apply($query, $steps, $filters['visit_date'] ?? null);
+        $paginated = $query->paginate($perPage);
         $paginated->getCollection()->filter(fn (Ticket $ticket) => TicketDocumentWorkflow::enabled($ticket))->load('currentCycle');
 
         $items = collect($paginated->items())->map(function (Ticket $t) use ($user) {
@@ -228,10 +233,6 @@ class TicketController extends Controller
                 'reminders' => \App\Services\Aftersales\TicketReminders::for($t),
             ]);
         });
-
-        if ($request->filled('progress')) {
-            $items = $items->where('progress', $request->input('progress'))->values();
-        }
 
         return response()->json([
             'status' => 'success',

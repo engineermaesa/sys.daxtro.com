@@ -383,6 +383,8 @@ try {
         }
         $alias = $api(4, 'GET', '/api/aftersales/tickets?ready_to_close=1&per_page=1');
         $suite->check($alias['total'] === 1 && $alias['data'][0]['id'] === $ticketId, 'Ready-to-close alias differs from dedicated endpoint');
+        $all = $api(4, 'GET', '/api/aftersales/tickets?per_page=1');
+        $suite->check($all['data'][0]['id'] === $ticketId && $all['data'][0]['progress'] === 'happy_call_completed', 'All Ticket did not prioritize the Step before Close');
     });
 
     $suite->scenario('Recoming invalidates old Happy Call, preserves SPV signatures, and publishes phone cycle once', function () use ($suite, $api, &$base, &$ticketId, &$cycle1, &$cycle2, &$currentResponseId, $snapshot, $findings, $post) {
@@ -548,6 +550,19 @@ try {
         }
         $suite->check(DB::table('satisfaction_links')->where('cycle_id', $cycle['id'])->count() === 1, 'Head retry duplicated the survey link');
         $suite->check(DB::table('ticket_document_publications')->where('cycle_id', $cycle['id'])->count() === 1, 'Head retry duplicated publication');
+    });
+
+    $suite->scenario('All Ticket filters Steps before pagination and puts Closed last', function () use ($suite, $api, &$ticketId) {
+        $params = http_build_query(['steps' => ['closed', 'documentation_published'], 'priority' => ['medium'], 'per_page' => 1]);
+        $uri = '/api/aftersales/tickets?'.$params;
+        $first = $api(4, 'GET', $uri.'&page=1');
+        $second = $api(4, 'GET', $uri.'&page=2');
+        $suite->check($first['total'] === 2 && $first['last_page'] === 2 && $first['data'][0]['progress'] === 'documentation_published', 'All Ticket did not paginate the filtered open ticket first');
+        $suite->check($second['total'] === 2 && $second['data'][0]['id'] === $ticketId && $second['data'][0]['progress'] === 'closed', 'All Ticket did not put Closed last');
+        $activeId = $first['data'][0]['id'];
+        $visitDate = substr((string) DB::table('ticket_visits')->where('ticket_id', $activeId)->max('scheduled_at'), 0, 10);
+        $withVisitDate = $api(4, 'GET', $uri.'&visit_date='.$visitDate);
+        $suite->check($withVisitDate['total'] === 1 && $withVisitDate['data'][0]['id'] === $activeId, 'Visit Date did not intersect with Steps and Priority');
     });
 
     echo json_encode(['status' => 'passed', 'mysql' => $version, 'scenarios' => count($suite->results), 'assertions' => $suite->assertions, 'results' => $suite->results], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";

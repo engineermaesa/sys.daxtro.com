@@ -192,3 +192,37 @@ Muat ulang `GET /api/aftersales/tickets/{id}/service-form` setelah upload atau h
 
 - Suite PHPUnit Aftersales lulus dengan 371 tes dan 3.586 assertion.
 - Runner integrasi MySQL 8.4.3 lulus dengan 16 skenario dan 712 assertion. Pengujian mencakup galeri tanpa timestamp, kamera QR dengan timestamp, kompresi, caption, batas lima foto, penolakan pengguna yang tidak ditugaskan, dan penghapusan foto.
+
+## BE-04 · Query sort dan filter Steps
+
+PRD `AS-TKT-03–04`. Paket ini menggunakan skema database yang sudah ada. Tidak ada migrasi atau seeder tambahan.
+
+### All Ticket
+
+Gunakan `GET /api/aftersales/tickets`. Kirim Steps sebagai query array. Gabungkan dengan `priority`, `visit_date`, pencarian, dan filter daftar lain seperti biasa.
+
+```text
+GET /api/aftersales/tickets?steps[]=repair&steps[]=on_site&priority[]=high&visit_date=2026-11-26&per_page=15&page=1
+```
+
+- Satu atau beberapa `steps[]` diperlakukan sebagai **OR** antarpilihan. Filter lain berlaku sebagai **AND**. Hilangkan parameter `steps` untuk menampilkan semua Step yang dapat diakses pengguna.
+- Nilai Step yang valid adalah `published`, `assigned`, `on_site`, `repair`, `waiting_sparepart`, `documentation_published`, `satisfaction_submitted`, `happy_call_completed`, `recoming`, dan `closed`. Nilai tunggal dengan format `steps=repair`, key yang tidak dikenal, dan pilihan duplikat menghasilkan `422` dengan validasi pada `steps` atau item seperti `steps.0`.
+- Parameter lama `progress=repair` masih bisa dipakai dan sekarang ikut diterapkan sebelum pagination. Jika `progress` dan `steps[]` dikirim bersama, server memakai irisan keduanya.
+- Respons tetap memakai `data`, `total`, `current_page`, dan `last_page`. `data[*].progress` adalah Step yang ditampilkan. Penentuan Step memakai log aktif terakhir dan aturan otomatis yang sama seperti Ticket Detail, termasuk `on_site` berdasarkan jadwal kunjungan dan pengecualian Recoming `phone_call`.
+
+### Urutan default
+
+Urutan dari atas ke bawah adalah **Happy Call Completed**, Recoming, Satisfaction Submitted, Documentation Published, Waiting Sparepart, Repair, On Site, Assigned, Published, lalu **Closed**. Happy Call Completed diprioritaskan sebagai Step sebelum Close. Urutan Recoming dan Step terbuka lainnya mengikuti `TicketLog::STEPS`. Izin Close tetap ditentukan oleh workflow tiket.
+
+Untuk Step yang sama, server mengurutkan berdasarkan waktu terbaru dari pembuatan atau perubahan tiket, pembuatan log Step aktif terakhir, perubahan kunjungan aktif terakhir menurut jadwal, dan perubahan Recoming aktif terakhir. Jika waktunya sama, ID tiket terbesar tampil lebih dulu. Filter `visit_date` memakai tanggal kunjungan aktif terakhir dalam WIB.
+
+### Checklist FE
+
+- Tambahkan filter Steps multi-select dan kembali ke halaman 1 saat nilai filter berubah. Render urutan dari server.
+- Uji kombinasi Steps, Priority, dan Visit Date dengan lebih dari satu halaman. Pastikan total cocok dengan hasil filter, termasuk saat memilih Closed secara eksplisit.
+- Uji tampilan Ready to Close melalui endpoint yang sudah ada. Aturan dan urutan khusus halaman itu tetap mengikuti kontraknya sendiri.
+
+### Verifikasi BE
+
+- Suite PHPUnit Aftersales lulus dengan 373 tes dan 3.631 assertion.
+- Runner integrasi MySQL 8.4.3 lulus dengan 17 skenario dan 720 assertion, termasuk pagination setelah filter Steps, penggabungan Priority dan Visit Date, serta prioritas Step sebelum Closed.
