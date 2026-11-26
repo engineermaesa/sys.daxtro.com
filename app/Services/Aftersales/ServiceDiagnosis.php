@@ -66,7 +66,10 @@ class ServiceDiagnosis
                 'key' => $field, 'canonical_key' => self::canonicalField($field), 'label' => $form->template->diagnosis_fields[$field]['label'], 'hint' => $form->template->diagnosis_fields[$field]['hint'],
                 'visit_date' => $date->toDateString(), 'visit_time' => $date->format('H:i'),
                 'entries' => $entries->where('field', $field)->values()->map($entryData)->all(),
-                'photos' => $photos->where('diagnosis_field', $field)->values()->map(fn ($p) => ['id' => $p->id, 'caption' => $p->caption, 'locked' => (bool) $p->locked_at, 'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $p->id], false)])->all(),
+                'photos' => $photos->where('diagnosis_field', $field)->values()->map(fn ($p) => [
+                    'id' => $p->id, 'caption' => $p->caption, 'captured_at' => $p->captured_at, 'locked' => (bool) $p->locked_at,
+                    'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $p->id], false),
+                ])->all(),
             ])->all()];
     }
 
@@ -181,15 +184,15 @@ class ServiceDiagnosis
         $form->diagnosisPhotos()->whereNull('locked_at')->update(['locked_at' => now()]);
     }
 
-    public function upload(Ticket $ticket, TicketServiceForm $form, string $field, UploadedFile $file, ?string $caption, User $user): TicketPhoto
+    public function upload(Ticket $ticket, TicketServiceForm $form, string $field, UploadedFile $file, ?string $caption, User $user, ?\Carbon\Carbon $capturedAt = null): TicketPhoto
     {
         $field = self::storageField($field);
         abort_unless(in_array($field, self::FIELDS, true), 422, 'Invalid diagnosis field.');
-        $bytes = $this->jpeg($file);
+        $bytes = ServiceFormImage::jpeg($file);
         $path = 'diagnosis/'.$ticket->id.'/'.Str::uuid().'.jpg';
         abort_unless(Storage::disk('local')->put($path, $bytes), 500, 'Could not store the photo. Retry the upload.');
         try {
-            return DB::transaction(function () use ($ticket, $form, $field, $caption, $user, $path, $file) {
+            return DB::transaction(function () use ($ticket, $form, $field, $caption, $user, $path, $file, $capturedAt) {
                 if (TicketDocumentWorkflow::enabled($ticket)) {
                     $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
                 }
@@ -197,7 +200,7 @@ class ServiceDiagnosis
                 $this->authorizeEdit($ticket, $form, $user);
                 abort_if($form->diagnosisPhotos()->where('diagnosis_field', $field)->count() >= 5, 422, 'This field already has five photos.');
 
-                $photo = TicketPhoto::create(['ticket_id' => $ticket->id, 'ticket_service_form_id' => $form->id, 'diagnosis_field' => $field, 'category' => 'diagnosis', 'sequence' => (int) $form->diagnosisPhotos()->max('sequence') + 1, 'caption' => $caption, 'file_path' => $path, 'file_name' => $file->getClientOriginalName(), 'captured_at' => now()]);
+                $photo = TicketPhoto::create(['ticket_id' => $ticket->id, 'ticket_service_form_id' => $form->id, 'diagnosis_field' => $field, 'category' => 'diagnosis', 'sequence' => (int) $form->diagnosisPhotos()->max('sequence') + 1, 'caption' => $caption, 'file_path' => $path, 'file_name' => $file->getClientOriginalName(), 'captured_at' => $capturedAt]);
                 TicketCycleEdits::record($ticket, $user->id);
 
                 return $photo;
@@ -231,50 +234,4 @@ class ServiceDiagnosis
         }, 3);
     }
 
-    private function jpeg(UploadedFile $file): string
-    {
-        $mime = $file->getMimeType();
-        if (in_array($mime, ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'], true)) {
-            abort_unless(extension_loaded('imagick'), 422, 'HEIC conversion is unavailable on this server. Export this photo as JPG or PNG and retry.');
-            $im = new \Imagick($file->getRealPath());
-            $im->setIteratorIndex(0);
-            if (method_exists($im, 'autoOrientImage')) {
-                $im->autoOrientImage();
-            } $im->thumbnailImage(1600, 1600, true);
-            $im->setImageFormat('jpeg');
-            $im->setImageCompressionQuality(82);
-
-            return $im->getImageBlob();
-        }
-        $size = @getimagesize($file->getRealPath());
-        abort_unless($size && $size[0] * $size[1] <= 50000000, 422, 'Photo dimensions are too large or invalid.');
-        $source = @imagecreatefromstring(file_get_contents($file->getRealPath()));
-        abort_unless($source, 422, 'This photo could not be decoded.');
-        if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
-            $orientation = (@exif_read_data($file->getRealPath())['Orientation']) ?? 1;
-            if (in_array($orientation, [2, 5, 7], true)) {
-                imageflip($source, IMG_FLIP_HORIZONTAL);
-            }
-            if ($orientation === 4) {
-                imageflip($source, IMG_FLIP_VERTICAL);
-            }
-            $rotation = match ($orientation) {
-                3 => 180, 5, 8 => 90, 6, 7 => -90, default => 0
-            };
-            if ($rotation) {
-                $source = imagerotate($source, $rotation, 0);
-            }
-        }
-        $ratio = min(1, 1600 / max(imagesx($source), imagesy($source)));
-        $image = imagecreatetruecolor(max(1, (int) (imagesx($source) * $ratio)), max(1, (int) (imagesy($source) * $ratio)));
-        imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
-        imagecopyresampled($image, $source, 0, 0, 0, 0, imagesx($image), imagesy($image), imagesx($source), imagesy($source));
-        ob_start();
-        imagejpeg($image, null, 82);
-        $bytes = ob_get_clean();
-        imagedestroy($source);
-        imagedestroy($image);
-
-        return $bytes;
-    }
 }

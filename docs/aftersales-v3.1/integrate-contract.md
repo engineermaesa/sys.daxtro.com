@@ -139,3 +139,56 @@ Jika Admin membuka kembali Service Form site saat menunggu Supervisor, server me
 
 - Suite PHPUnit Aftersales lulus dengan 371 tes dan 3.586 assertion, termasuk kompatibilitas untuk form yang dibuka sebelum rilis.
 - Runner integrasi MySQL 8.4.3 lulus dengan 16 skenario dan 692 assertion pada database sementara. Dua request tanda tangan Head yang berjalan bersamaan menghasilkan satu publikasi dan satu link survey site.
+
+## BE-03 · Upload foto galeri
+
+PRD `AS-PHO-01–03`. Paket ini memakai skema foto yang sudah tersedia. Tidak ada migrasi atau seeder tambahan.
+
+### Upload langsung ke field angka
+
+Panggil `POST /api/aftersales/tickets/{id}/service-form/inspection/photos` dengan `multipart/form-data`, sesi login, dan CSRF seperti endpoint Aftersales lain. Gunakan akun teknisi yang ditugaskan, dan simpan nilai angka terlebih dahulu.
+
+| Field | Isi |
+|---|---|
+| `item_number` | Nomor item inspection, misalnya `1`. |
+| `field_key` | Key field angka yang nilainya sudah tersimpan, misalnya `pressure`. |
+| `photo` | Satu file foto per request, maksimal 10 MB. Kamera dan galeri memakai field yang sama. |
+| `caption` | Opsional, maksimal 500 karakter. |
+| `captured_at` | Opsional. Kirim timestamp ISO 8601 jika waktu pengambilan diketahui. Jika tidak dikirim, foto langsung disimpan dengan `null`. |
+
+Contoh respons `201`.
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 72,
+    "caption": "Pressure gauge",
+    "captured_at": null,
+    "url": "/api/aftersales/tickets/81/service-form/photos/72",
+    "thumbnail_url": "/api/aftersales/tickets/81/service-form/photos/72?thumb=1"
+  }
+}
+```
+
+Satu field angka dapat menampung maksimal lima foto dari semua sumber. Upload menambah foto. Gunakan `DELETE /api/aftersales/tickets/{id}/service-form/inspection/photos/{photo}` untuk menghapus satu foto pada form yang masih dapat diedit. Respons sukses adalah `204`. Perubahan nilai atau satuan angka menghapus bukti yang terkait dengan nilai lama. Kelengkapan field yang mewajibkan bukti tetap membutuhkan minimal satu foto sebelum Submit.
+
+Muat ulang `GET /api/aftersales/tickets/{id}/service-form` setelah upload atau hapus untuk mengambil `revision` terbaru. Setiap field memiliki `photos[]` dalam urutan upload. Field `photo` tetap menyediakan foto terakhir atau `null` untuk klien lama. PDF Service Form memuat seluruh foto field beserta caption.
+
+### Kamera QR dan diagnosis
+
+- Endpoint `POST /api/aftersales/tickets/{id}/service-form/photo-links`, halaman `/capture/{token}`, dan `POST /api/inspection-photo/{token}` tetap berlaku. Kirim `source=gallery` pada endpoint token bila file dipilih dari galeri. Tanpa `captured_at`, jalur galeri menyimpan `null` dan jalur kamera QR memakai waktu server seperti sebelumnya. Respons upload token tetap memuat `data.photo_id`.
+- `GET /api/inspection-photo/{token}` tetap mengembalikan `has_photo` dan menambahkan `photo_count` serta `latest_photo_id`. Saat menunggu foto tambahan melalui QR, bandingkan `latest_photo_id` dengan nilai saat polling dimulai.
+- `POST /api/aftersales/tickets/{id}/service-form/diagnosis/photos` menerima foto dan `caption` seperti sebelumnya, dengan `captured_at` opsional. Field diagnosis menerima paling banyak lima foto seperti sebelumnya.
+- Server menyimpan foto sebagai JPEG dengan sisi terpanjang maksimal 1.600 piksel dan membuat thumbnail 400 piksel untuk field angka. JPEG, PNG, WebP, GIF, dan BMP didukung lewat PHP GD. HEIC/HEIF memerlukan Imagick dengan dukungan format tersebut. Bila tidak tersedia, kirim JPEG atau PNG.
+
+### Error dan checklist FE
+
+- `403` untuk pengguna yang tidak ditugaskan, `410` untuk token QR kedaluwarsa, dan `422` untuk file tidak valid, field belum tersimpan, batas lima foto, atau form terkunci. Siklus yang sudah dipublikasikan mengembalikan `409 cycle_already_published` jika form sudah dibuka tetapi belum masuk siklus baru.
+- Uji upload galeri tanpa `captured_at` dan dengan caption, lalu tambahkan bukti kamera ke field yang sama. Pastikan foto keenam memberi error dan satu foto dapat dihapus.
+- Uji upload QR pada field yang sudah memiliki foto. Muat ulang form saat `latest_photo_id` berubah. Saat offline atau upload gagal, pertahankan pilihan file dan perbarui daftar setelah server mengembalikan sukses.
+
+### Verifikasi BE
+
+- Suite PHPUnit Aftersales lulus dengan 371 tes dan 3.586 assertion.
+- Runner integrasi MySQL 8.4.3 lulus dengan 16 skenario dan 712 assertion. Pengujian mencakup galeri tanpa timestamp, kamera QR dengan timestamp, kompresi, caption, batas lima foto, penolakan pengguna yang tidak ditugaskan, dan penghapusan foto.

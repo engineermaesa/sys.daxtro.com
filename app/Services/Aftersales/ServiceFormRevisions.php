@@ -40,12 +40,17 @@ class ServiceFormRevisions
             return null;
         }
         $photoFields = ['id', 'file_path', 'thumbnail_path', 'caption', 'captured_at', 'locked_at'];
-        $inspections = $form->inspections()->with('values.photo')->orderBy('id')->get()->map(fn ($inspection) => [
+        $inspections = $form->inspections()->with('values.photos')->orderBy('id')->get()->map(fn ($inspection) => [
             'id' => $inspection->id, 'item_id' => $inspection->ref_inspection_item_id, 'status' => $inspection->status,
-            'values' => $inspection->values->sortBy('id')->values()->map(fn ($value) => [
-                'id' => $value->id, 'field_id' => $value->ref_inspection_field_id, 'value' => $value->value,
-                'unit' => $value->unit, 'photo' => $value->photo?->only($photoFields),
-            ])->all(),
+            'values' => $inspection->values->sortBy('id')->values()->map(function ($value) use ($photoFields) {
+                $photos = $value->photos->map(fn ($photo) => $photo->only($photoFields));
+
+                return [
+                    'id' => $value->id, 'field_id' => $value->ref_inspection_field_id, 'value' => $value->value,
+                    'unit' => $value->unit, 'photo' => $photos->last(),
+                    ...($photos->count() > 1 ? ['photos' => $photos->all()] : []),
+                ];
+            })->all(),
         ])->all();
         $state = [
             'format' => 'service-form-v1',

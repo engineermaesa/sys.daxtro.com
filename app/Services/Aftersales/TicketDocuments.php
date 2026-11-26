@@ -203,7 +203,7 @@ class TicketDocuments
         $phoneCall = TicketDocumentWorkflow::enabled($ticket)
             && TicketRecomings::current($ticket)?->recoming_type === \App\Models\Aftersales\TicketRecoming::TYPE_PHONE_CALL;
         $typeId = $ticket->customerProduct?->ref_product_type_id;
-        $inspections = $form->inspections()->with('values.photo')->get()->keyBy('ref_inspection_item_id');
+        $inspections = $form->inspections()->with('values.photos')->get()->keyBy('ref_inspection_item_id');
 
         $groups = [];
         foreach ($form->template->items()->with(['fields', 'group'])->get() as $item) {
@@ -214,7 +214,7 @@ class TicketDocuments
 
             $fields = $item->fields->map(function (RefInspectionField $field) use ($values, $ticket, $phoneCall) {
                 $value = $values->get($field->id);
-                $photo = $value?->photo;
+                $photos = $value?->photos->map(fn (TicketPhoto $photo) => self::photoResource($ticket, $photo)) ?? collect();
 
                 return [
                     'id' => $field->id,
@@ -230,12 +230,8 @@ class TicketDocuments
                     'required_when' => $field->required_when,
                     'value' => $field->is_multiple && $value?->value ? json_decode($value->value, true) : $value?->value,
                     'photo_required' => ! $phoneCall && $field->type === RefInspectionField::TYPE_NUMBER,
-                    'photo' => $photo ? [
-                        'id' => $photo->id,
-                        'captured_at' => $photo->captured_at,
-                        'url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false),
-                        'thumbnail_url' => route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false).'?thumb=1',
-                    ] : null,
+                    'photo' => $photos->last(),
+                    'photos' => $photos->all(),
                 ];
             })->values()->all();
 
@@ -504,76 +500,90 @@ class TicketDocuments
         $agreement->save();
     }
 
-    public static function deletePhotos(TicketInspectionValue $value): void
+    private static function deletePhoto(TicketPhoto $photo): void
     {
-        TicketPhoto::where('ticket_inspection_value_id', $value->id)->get()->each(function (TicketPhoto $p) {
-            Storage::disk('local')->delete(array_filter([$p->file_path, $p->thumbnail_path]));
-            $p->delete();
-        });
+        $photo->delete();
+        DB::afterCommit(fn () => Storage::disk('local')->delete(array_filter([$photo->file_path, $photo->thumbnail_path])));
     }
 
-    public static function attachPhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket, ?int $userId): TicketPhoto
+    private static function deletePhotos(TicketInspectionValue $value): void
     {
-        return DB::transaction(function () use ($value, $file, $ticket, $userId) {
-            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
-            abort_unless($userId !== null && $ticket->hasTechnician($userId), 403, 'This camera link must belong to an assigned technician.');
-            $form = TicketServiceForm::whereKey($value->inspection->ticket_service_form_id)->lockForUpdate()->firstOrFail();
-            abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
-            if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
-                TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
-            }
+        $value->photos()->get()->each(self::deletePhoto(...));
+    }
 
-            $photo = self::storePhoto($value, $file, $ticket);
-            if (TicketDocumentWorkflow::enabled($ticket)) {
+    public static function photoResource(Ticket $ticket, TicketPhoto $photo): array
+    {
+        $url = route('aftersales.tickets.service-form.photos.show', [$ticket->id, $photo->id], false);
+
+        return [
+            'id' => $photo->id, 'caption' => $photo->caption, 'captured_at' => $photo->captured_at,
+            'url' => $url, 'thumbnail_url' => $url.'?thumb=1',
+        ];
+    }
+
+    public static function attachPhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket, ?int $userId, ?Carbon $capturedAt = null, ?string $caption = null): TicketPhoto
+    {
+        $paths = [];
+        try {
+            return DB::transaction(function () use ($value, $file, $ticket, $userId, $capturedAt, $caption, &$paths) {
+                $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+                $form = self::editablePhotoForm($ticket, $userId);
+                $value = TicketInspectionValue::with(['field', 'inspection.item'])
+                    ->whereHas('inspection', fn ($query) => $query->where('ticket_service_form_id', $form->id))
+                    ->findOrFail($value->id);
+                $typeId = $ticket->customerProduct?->ref_product_type_id;
+                abort_unless($value->field->type === RefInspectionField::TYPE_NUMBER
+                    && $value->inspection->status !== 'na'
+                    && $value->inspection->item->appliesToType($typeId === null ? null : (int) $typeId), 422, 'Photos require an applicable number field.');
+                abort_if(blank($value->value), 422, 'Enter the value before attaching a photo.');
+                abort_if($value->photos()->count() >= 5, 422, 'This field already has five photos.');
+
+                $jpeg = ServiceFormImage::jpeg($file);
+                $base = 'ticket-inspection-photos/'.$ticket->id.'/'.Str::uuid();
+                $paths = [$base.'.jpg', $base.'-thumb.jpg'];
+                $disk = Storage::disk('local');
+                abort_unless($disk->put($paths[0], $jpeg) && $disk->put($paths[1], ServiceFormImage::thumbnail($jpeg)), 500, 'Could not store the photo. Retry the upload.');
+                $photo = $value->photos()->create([
+                    'ticket_id' => $ticket->id,
+                    'category' => TicketPhoto::CATEGORY_INSPECTION,
+                    'sequence' => (TicketPhoto::withTrashed()->where('ticket_id', $ticket->id)->where('category', TicketPhoto::CATEGORY_INSPECTION)->max('sequence') ?? 0) + 1,
+                    'file_path' => $paths[0],
+                    'file_name' => $file->getClientOriginalName(),
+                    'captured_at' => $capturedAt,
+                    'caption' => $caption,
+                    'thumbnail_path' => $paths[1],
+                ]);
                 TicketCycleEdits::record($ticket, $userId);
-            }
 
-            return $photo;
+                return $photo;
+            });
+        } catch (\Throwable $error) {
+            Storage::disk('local')->delete($paths);
+            throw $error;
+        }
+    }
+
+    public static function removeInspectionPhoto(Ticket $ticket, TicketPhoto $photo, int $userId): void
+    {
+        DB::transaction(function () use ($ticket, $photo, $userId) {
+            $ticket = Ticket::whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+            self::editablePhotoForm($ticket, $userId);
+            $photo = $ticket->photos()->where('category', TicketPhoto::CATEGORY_INSPECTION)->findOrFail($photo->id);
+            self::deletePhoto($photo);
+            TicketCycleEdits::record($ticket, $userId);
         });
     }
 
-    private static function storePhoto(TicketInspectionValue $value, UploadedFile $file, Ticket $ticket): TicketPhoto
+    private static function editablePhotoForm(Ticket $ticket, ?int $userId): TicketServiceForm
     {
-        abort_if(blank($value->value), 422, 'Enter the value before attaching a photo.');
-
-        $dir = 'ticket-inspection-photos/'.$ticket->id;
-        $path = $file->store($dir, 'local');
-        $thumb = self::makeThumbnail($file, $dir);
-
-        self::deletePhotos($value);
-
-        return TicketPhoto::create([
-            'ticket_id' => $ticket->id,
-            'ticket_inspection_value_id' => $value->id,
-            'category' => TicketPhoto::CATEGORY_INSPECTION,
-            'sequence' => (TicketPhoto::withTrashed()->where('ticket_id', $ticket->id)->where('category', TicketPhoto::CATEGORY_INSPECTION)->max('sequence') ?? 0) + 1,
-            'file_path' => $path,
-            'file_name' => $file->getClientOriginalName(),
-            'captured_at' => Carbon::now('Asia/Jakarta'),
-            'thumbnail_path' => $thumb,
-        ]);
-    }
-
-    private static function makeThumbnail(UploadedFile $file, string $dir): ?string
-    {
-        $src = @imagecreatefromstring((string) file_get_contents($file->getRealPath()));
-        if (! $src) {
-            return null;
+        abort_unless($userId !== null && $ticket->hasTechnician($userId), 403, 'Only an assigned technician can edit inspection photos.');
+        $form = $ticket->serviceForm()->lockForUpdate()->firstOrFail();
+        abort_if($form->isLocked() || $ticket->progress === TicketLog::STEP_CLOSED, 422, 'The Service Form is locked.');
+        if (TicketDocumentWorkflow::status($ticket) === 'documentation_published') {
+            TicketDocumentWorkflow::error(409, 'cycle_already_published', 'Schedule a new Recoming cycle before editing this form.');
         }
 
-        $w = imagesx($src);
-        $h = imagesy($src);
-        $nw = min(400, $w);
-        $nh = (int) round($h * $nw / max(1, $w));
-        $dst = imagecreatetruecolor($nw, $nh);
-        imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-
-        ob_start();
-        imagejpeg($dst, null, 80);
-        $path = $dir.'/thumb-'.Str::uuid().'.jpg';
-        Storage::disk('local')->put($path, (string) ob_get_clean());
-
-        return $path;
+        return $form;
     }
 
     public static function sign(Ticket $ticket, TicketServiceForm|TicketAgreement $doc, User $user, string $role, string $dataUri, ?string $signerName, Request $request): TicketSignature

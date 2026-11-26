@@ -43,11 +43,12 @@ class DocumentPdf
         foreach ($groups as $group) {
             foreach ($group['items'] as $item) {
                 foreach ($item['fields'] as $field) {
-                    if ($field['photo']) {
-                        $photo = \App\Models\Aftersales\TicketPhoto::find($field['photo']['id']);
+                    foreach ($field['photos'] as $entry) {
+                        $photo = \App\Models\Aftersales\TicketPhoto::find($entry['id']);
+                        $caption = "#{$item['number']} {$item['name']} · {$field['label']} · {$field['value']} {$field['unit']}";
                         $photos[] = [
-                            'caption' => "#{$item['number']} {$item['name']} · {$field['label']} · {$field['value']} {$field['unit']}",
-                            'image' => self::dataUri($photo->thumbnail_path ?: $photo->file_path, 'image/jpeg'),
+                            'caption' => filled($entry['caption']) ? $caption.' · '.$entry['caption'] : $caption,
+                            'image' => self::dataUri($photo?->thumbnail_path ?: $photo?->file_path, 'image/jpeg'),
                         ];
                     }
                 }

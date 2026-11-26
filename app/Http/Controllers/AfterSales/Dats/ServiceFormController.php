@@ -10,6 +10,7 @@ use App\Models\Aftersales\TicketInspectionValue;
 use App\Models\Aftersales\TicketPhoto;
 use App\Models\Aftersales\TicketPhotoToken;
 use App\Models\Aftersales\TicketServiceForm;
+use App\Services\Aftersales\ServiceFormImage;
 use App\Services\Aftersales\ServiceFormRevisions;
 use App\Services\Aftersales\TicketDocuments;
 use App\Services\Aftersales\TicketDocumentWorkflow;
@@ -21,6 +22,11 @@ use Illuminate\Support\Str;
 
 class ServiceFormController extends Controller
 {
+    private const INSPECTION_PHOTO_TARGET = [
+        'item_number' => 'required|integer|min:1',
+        'field_key' => 'required|string|max:40',
+    ];
+
     public function show(Request $request, Ticket $ticket)
     {
         TicketDocuments::authorizeView($request->user(), $ticket);
@@ -167,23 +173,8 @@ class ServiceFormController extends Controller
         $user = $request->user();
         abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
 
-        $validated = $request->validate([
-            'item_number' => 'required|integer|min:1',
-            'field_key' => 'required|string|max:40',
-        ]);
-
-        $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
-        abort_if($form->isLocked(), 422, 'The Service Form is saved and locked. Unlock it first.');
-
-        $item = $form->template->items()->where('number', $validated['item_number'])->firstOrFail();
-        $typeId = $ticket->customerProduct?->ref_product_type_id;
-        abort_unless($item->appliesToType($typeId === null ? null : (int) $typeId), 422, 'This item is not applicable to this machine type.');
-        $field = RefInspectionField::where('item_id', $item->id)->where('key', $validated['field_key'])->first();
-        abort_if(! $field || $field->type !== RefInspectionField::TYPE_NUMBER, 422, 'Photos can only be attached to number fields.');
-
-        $inspection = TicketInspection::where('ticket_service_form_id', $form->id)->where('ref_inspection_item_id', $item->id)->first();
-        $value = $inspection ? TicketInspectionValue::where('ticket_inspection_id', $inspection->id)->where('ref_inspection_field_id', $field->id)->first() : null;
-        abort_if(! $value || blank($value->value), 422, 'Enter and save the value before taking a photo.');
+        $validated = $request->validate(self::INSPECTION_PHOTO_TARGET);
+        $value = $this->inspectionPhotoValue($ticket, $validated);
 
         $token = Str::random(48);
         $link = TicketPhotoToken::create([
@@ -199,6 +190,45 @@ class ServiceFormController extends Controller
             'token' => $token,
             'expires_at' => $link->expires_at,
         ]], 201);
+    }
+
+    public function uploadInspectionPhoto(Request $request, Ticket $ticket)
+    {
+        $user = $request->user();
+        abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
+        $data = $request->validate(self::INSPECTION_PHOTO_TARGET + ServiceFormImage::rules());
+        $value = $this->inspectionPhotoValue($ticket, $data);
+        $capturedAt = isset($data['captured_at']) ? Carbon::parse($data['captured_at'], 'Asia/Jakarta')->timezone('Asia/Jakarta') : null;
+        $photo = TicketDocuments::attachPhoto($value, $data['photo'], $ticket, $user->id, $capturedAt, $data['caption'] ?? null);
+
+        return response()->json(['status' => 'success', 'data' => TicketDocuments::photoResource($ticket, $photo)], 201);
+    }
+
+    public function deleteInspectionPhoto(Request $request, Ticket $ticket, TicketPhoto $photo)
+    {
+        $user = $request->user();
+        abort_unless(TicketDocuments::isTechnician($user, $ticket), 403);
+        TicketDocuments::removeInspectionPhoto($ticket, $photo, $user->id);
+
+        return response()->noContent();
+    }
+
+    private function inspectionPhotoValue(Ticket $ticket, array $data): TicketInspectionValue
+    {
+        $form = TicketDocuments::document($ticket, TicketDocuments::TYPE_FORM);
+        abort_if($form->isLocked(), 422, 'The Service Form is saved and locked. Unlock it first.');
+
+        $item = $form->template->items()->where('number', $data['item_number'])->firstOrFail();
+        $typeId = $ticket->customerProduct?->ref_product_type_id;
+        abort_unless($item->appliesToType($typeId === null ? null : (int) $typeId), 422, 'This item is not applicable to this machine type.');
+        $field = RefInspectionField::where('item_id', $item->id)->where('key', $data['field_key'])->first();
+        abort_if(! $field || $field->type !== RefInspectionField::TYPE_NUMBER, 422, 'Photos can only be attached to number fields.');
+
+        $inspection = TicketInspection::where('ticket_service_form_id', $form->id)->where('ref_inspection_item_id', $item->id)->first();
+        $value = $inspection?->values()->where('ref_inspection_field_id', $field->id)->first();
+        abort_if(! $value || blank($value->value) || $inspection->status === 'na', 422, 'Enter and save an applicable value before attaching a photo.');
+
+        return $value;
     }
 
     public function photo(Request $request, Ticket $ticket, TicketPhoto $photo)

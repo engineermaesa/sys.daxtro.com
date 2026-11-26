@@ -22,4 +22,9 @@ class TicketInspectionValue extends Model
     {
         return $this->hasOne(TicketPhoto::class, 'ticket_inspection_value_id')->latestOfMany();
     }
+
+    public function photos()
+    {
+        return $this->hasMany(TicketPhoto::class, 'ticket_inspection_value_id')->orderBy('id');
+    }
 }

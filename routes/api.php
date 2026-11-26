@@ -629,6 +629,8 @@ Route::group([
         Route::delete('/{ticket}/service-form/diagnosis/photos/{photo}', [\App\Http\Controllers\AfterSales\Dats\ServiceDiagnosisController::class, 'destroy'])->name('diagnosis.photos.destroy');
         Route::put('/{ticket}/service-form', [DatsServiceFormController::class, 'saveDraft'])->name('service-form.update');
         Route::post('/{ticket}/service-form/photo-links', [DatsServiceFormController::class, 'photoLink'])->name('service-form.photo-links');
+        Route::post('/{ticket}/service-form/inspection/photos', [DatsServiceFormController::class, 'uploadInspectionPhoto'])->name('service-form.inspection.photos.store');
+        Route::delete('/{ticket}/service-form/inspection/photos/{photo}', [DatsServiceFormController::class, 'deleteInspectionPhoto'])->name('service-form.inspection.photos.destroy');
         Route::get('/{ticket}/service-form/photos/{photo}', [DatsServiceFormController::class, 'photo'])->name('service-form.photos.show');
         Route::get('/{ticket}/agreement', [DatsAgreementController::class, 'show'])->name('agreement.show');
         Route::put('/{ticket}/agreement', [DatsAgreementController::class, 'saveDraft'])->name('agreement.update');

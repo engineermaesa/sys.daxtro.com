@@ -253,7 +253,35 @@ try {
         $api(2, 'POST', $base.'/service-form/submit', ['revision' => $old, 'service_type' => 'preventive'], 409, 'service_form_conflict');
         $link = $api(2, 'POST', $base.'/service-form/photo-links', ['item_number' => 1, 'field_key' => 'pressure'], 201);
         $uploadPath = '/api/inspection-photo/'.$link['data']['token'];
-        $suite->expect($suite->api(null, 'POST', $uploadPath, [], ['photo' => UploadedFile::fake()->image('inspection.jpg')]), 201);
+        $camera = $suite->expect($suite->api(null, 'POST', $uploadPath, [], ['photo' => UploadedFile::fake()->image('inspection.jpg')]), 201)['data'];
+        $suite->check($camera['captured_at'] !== null, 'A legacy QR camera upload lost its timestamp');
+        $photoUrl = $base.'/service-form/inspection/photos';
+        $target = ['item_number' => 1, 'field_key' => 'pressure'];
+        $gallery = $suite->expect($suite->api(2, 'POST', $photoUrl, $target + ['caption' => 'Gallery evidence'], [
+            'photo' => UploadedFile::fake()->image('gallery.png', 1800, 600),
+        ]), 201)['data'];
+        $suite->check($gallery['captured_at'] === null && $gallery['caption'] === 'Gallery evidence', 'Gallery capture metadata or caption is wrong');
+        $stored = \App\Models\Aftersales\TicketPhoto::findOrFail($gallery['id']);
+        $dimensions = getimagesizefromstring(\Illuminate\Support\Facades\Storage::disk('local')->get($stored->file_path));
+        $suite->check($dimensions[0] === 1600 && $dimensions['mime'] === 'image/jpeg', 'Gallery image was not resized to JPEG');
+        $suite->expect($suite->api(5, 'POST', $photoUrl, $target, ['photo' => UploadedFile::fake()->image('unassigned.jpg')]), 403);
+        $suite->expect($suite->api(2, 'POST', $photoUrl, $target, ['photo' => UploadedFile::fake()->create('invalid.txt', 1, 'text/plain')]), 422);
+        for ($i = 0; $i < 3; $i++) {
+            $suite->expect($suite->api(2, 'POST', $photoUrl, $target, ['photo' => UploadedFile::fake()->image('gallery-'.$i.'.jpg')]), 201);
+        }
+        $suite->expect($suite->api(2, 'POST', $photoUrl, $target, ['photo' => UploadedFile::fake()->image('sixth.jpg')]), 422);
+        $field = $snapshot()['groups'][0]['items'][0]['fields'][0];
+        $suite->check(count($field['photos']) === 5 && $field['photos'][0]['id'] === $camera['photo_id']
+            && $field['photo']['id'] === $field['photos'][4]['id'], 'Inspection photos or the legacy alias changed unexpectedly');
+        $qrStatus = $api(null, 'GET', $uploadPath)['data'];
+        $suite->check($qrStatus['photo_count'] === 5 && $qrStatus['latest_photo_id'] === $field['photo']['id'], 'QR polling reported stale photo state');
+        $beforeDelete = $snapshot()['revision'];
+        $api(2, 'DELETE', $photoUrl.'/'.$gallery['id'], [], 204);
+        $suite->check($snapshot()['revision'] !== $beforeDelete && ! \Illuminate\Support\Facades\Storage::disk('local')->exists($stored->file_path), 'Deleting gallery evidence did not update the revision or clear the file');
+        $qrGallery = $suite->expect($suite->api(null, 'POST', $uploadPath, ['source' => 'gallery'], [
+            'photo' => UploadedFile::fake()->image('from-qr-gallery.png'),
+        ]), 201)['data'];
+        $suite->check($qrGallery['captured_at'] === null, 'QR gallery upload invented a capture timestamp');
         foreach (['problem', 'root_cause', 'action'] as $field) {
             $suite->expect($suite->api(2, 'POST', $base.'/service-form/diagnosis/photos', ['field' => $field], ['photo' => UploadedFile::fake()->image($field.'.jpg')]), 201);
         }
