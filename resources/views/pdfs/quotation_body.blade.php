@@ -531,7 +531,7 @@
                 <td class="text-right">Rp {{ number_format($item['unit_price'], 0, ',', '.') }}</td>
                 <td class="text-center">{{ $item['qty'] }}</td>
                 <td class="text-right">Rp {{ number_format($item['price'], 0, ',', '.') }}</td>
-                <td class="text-center">{{ $item['discount_pct'] }}%</td>
+                <td class="text-center">{{ number_format($item['discount_pct'] ?? 0, 2, '.', '') }}%</td>
                 <td class="text-right">Rp {{ number_format($item['amount'], 0, ',', '.') }}</td>
               </tr>
               @endforeach
@@ -542,31 +542,40 @@
 
       <!-- Totals Table -->
       @php
-      $subtotal = $quotation->subtotal;
-      $discountPct = $quotation->items->pluck('discount_pct')->max();
-      $discountAmt = $subtotal - $quotation->grand_total;
+      $discountAmount = $quotation->total_discount ?? $quotation->items->sum(function ($item) {
+          $gross = $item->unit_price * $item->qty;
+
+          return $gross - ($item->line_total ?? $gross * (1 - ($item->discount_pct ?? 0) / 100));
+      });
+      // Keep the printed whole-rupiah amounts consistent with the printed grand total.
+      $discountAmount = round($discountAmount);
+      $netPrice = round($quotation->subtotal);
+      $grandTotal = round($quotation->grand_total);
+      $totalPrice = $netPrice + $discountAmount;
+      $taxAmount = $grandTotal - $netPrice;
+      $taxRate = rtrim(rtrim(number_format($quotation->tax_pct ?? 11, 2, '.', ''), '0'), '.');
       @endphp
 
       <table class="totals-table">
         <tr>
           <td class="totals-label">Total Price</td>
           <td class="totals-colon">:</td>
-          <td class="totals-value">Rp {{ number_format($subtotal, 0, ',', '.') }}</td>
+          <td class="totals-value">Rp {{ number_format($totalPrice, 0, ',', '.') }}</td>
         </tr>
         <tr>
-          <td class="totals-label">Discount (%)</td>
+          <td class="totals-label">Discount</td>
           <td class="totals-colon">:</td>
-          <td class="totals-value">{{ $discountPct ?: '0' }}%</td>
+          <td class="totals-value">Rp {{ number_format($discountAmount, 0, ',', '.') }}</td>
         </tr>
         <tr>
-          <td class="totals-label">PPN (11%)</td>
+          <td class="totals-label">PPN ({{ $taxRate }}%)</td>
           <td class="totals-colon">:</td>
-          <td class="totals-value">Rp {{ number_format($discountAmt, 0, ',', '.') }}</td>
+          <td class="totals-value">Rp {{ number_format($taxAmount, 0, ',', '.') }}</td>
         </tr>
         <tr>
           <td class="totals-label">Grand Total</td>
           <td class="totals-colon">:</td>
-          <td class="totals-value">Rp {{ number_format($quotation->grand_total, 0, ',', '.') }}</td>
+          <td class="totals-value">Rp {{ number_format($grandTotal, 0, ',', '.') }}</td>
         </tr>
       </table>
 

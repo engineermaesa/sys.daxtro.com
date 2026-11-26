@@ -26,15 +26,22 @@ class QuotationPdfRenderTest extends TestCase
         $claim->setRelation('sales', $sales);
         $document = new Quotation([
             'quotation_no' => 'QT_DEAL_901', 'revision_no' => 1, 'revision_code' => 'QT_DEAL_901_R1',
-            'subtotal' => 1000000, 'tax_pct' => 11, 'tax_total' => 110000, 'grand_total' => 1110000,
+            'subtotal' => 1056544, 'tax_pct' => 8.5, 'tax_total' => 89806.24,
+            'total_discount' => 143456, 'grand_total' => 1146350.24,
         ]);
         $item = new TempQuotationItem([
             'description' => 'PDF Snapshot Machine', 'qty' => 1, 'unit_price' => 1000000,
-            'discount_pct' => 0, 'line_total' => 1000000, 'is_visible_pdf' => true,
+            'discount_pct' => 12.35, 'line_total' => 876544, 'is_visible_pdf' => true,
         ]);
         $item->id = 1;
         $item->setRelation('product', null);
-        $document->setRelation('lead', $lead)->setRelation('items', new Collection([$item]))
+        $secondItem = new TempQuotationItem([
+            'description' => 'Second machine', 'qty' => 2, 'unit_price' => 100000,
+            'discount_pct' => 10, 'line_total' => 180000, 'is_visible_pdf' => true,
+        ]);
+        $secondItem->id = 2;
+        $secondItem->setRelation('product', null);
+        $document->setRelation('lead', $lead)->setRelation('items', new Collection([$item, $secondItem]))
             ->setRelation('paymentTerms', new Collection([
                 new TempQuotationPaymentTerm(['term_no' => 1, 'percentage' => 100, 'description' => 'Full payment']),
             ]));
@@ -43,6 +50,12 @@ class QuotationPdfRenderTest extends TestCase
         $this->assertStringContainsString('PDF Snapshot Machine', $html);
         $this->assertStringContainsString('PT Pandu Naradipta Danendra', $html);
         $this->assertStringContainsString('Your Reliable Business Partner', $html);
+        $this->assertStringContainsString('>12.35%</td>', $html);
+        $this->assertStringContainsString('>10.00%</td>', $html);
+        $this->assertMatchesRegularExpression('/>Total Price<\/td>\s+<td[^>]*>:<\/td>\s+<td[^>]*>Rp 1\.200\.000</', $html);
+        $this->assertMatchesRegularExpression('/>Discount<\/td>\s+<td[^>]*>:<\/td>\s+<td[^>]*>Rp 143\.456</', $html);
+        $this->assertMatchesRegularExpression('/>PPN \(8\.5%\)<\/td>\s+<td[^>]*>:<\/td>\s+<td[^>]*>Rp 89\.806</', $html);
+        $this->assertMatchesRegularExpression('/>Grand Total<\/td>\s+<td[^>]*>:<\/td>\s+<td[^>]*>Rp 1\.146\.350</', $html);
 
         $fontDirectory = sys_get_temp_dir().'/quotation-pdf-test-'.Str::uuid();
         $filesystem = new Filesystem;
