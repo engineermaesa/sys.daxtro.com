@@ -134,7 +134,7 @@
 @endsection
 
 @section('scripts')
-<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ filemtime(public_path('assets/js/aftersales/technician-cell.js')) }}"></script>
+<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ $assets_version }}"></script>
 @php($canManageTickets = hasPermission(auth()->user(), 'aftersales.tickets.manage') ? 1 : 0)
 <script>
     let currentTicket = null;
@@ -351,6 +351,14 @@
         return formatDate(row.visit_date) + tag;
     }
 
+    function ticketTechnicianNames(ticket) {
+        if (window.AsTechnician) return window.AsTechnician.listText(ticket);
+
+        const roster = ticket.technicians?.length ? ticket.technicians : [ticket.technician];
+        return roster.map(technician => typeof technician === 'string' ? technician : technician?.name)
+            .filter(Boolean).join(', ');
+    }
+
     function renderTicketRows(rows) {
         const $body = $('#ticket-table-body');
 
@@ -362,13 +370,14 @@
         const html = rows.map(row => {
             const customer = row.customer || {};
             const machine = row.customer_product || {};
+            const technician = window.AsTechnician?.cellHtml(row) ?? escapeHtml(ticketTechnicianNames(row) || '-');
 
             return `
             <tr class="border-t border-t-[#D9D9D9] align-middle">
                 <td class="px-2 py-3 font-semibold text-[#115640]" data-primary data-label="Ticket ID"><div class="flex flex-wrap items-center gap-2"><span>${escapeHtml(row.ticket_code)}</span>${priorityBadge(row.priority)}${row.workflow_version === 'legacy' ? '<span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#F0F0F0] text-[#757575]">Legacy</span>' : ''}</div><div class="mt-1 text-[10px] font-normal text-[#757575]">${escapeHtml([customer.province?.name, customer.region?.name].filter(Boolean).join(' · '))}</div></td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Customer">${escapeHtml(customer.name)}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Machine">${escapeHtml(machineLabel(machine))}</td>
-                <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Technician">${AsTechnician.cellHtml(row)}</td>
+                <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Technician">${technician}</td>
                 <td class="px-2 py-3 text-center whitespace-normal min-w-[110px]" data-label="Problem" data-secondary>${escapeHtml(CATEGORY_LABEL[row.category] || row.category)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Open Date" data-secondary>${formatDate(row.created_at)}</td>
                 <td class="px-2 py-3 text-center whitespace-nowrap" data-label="Visit Date" data-secondary>${visitDateCell(row)}</td>
@@ -458,6 +467,7 @@
         ticketRequest = $.ajax({
             url: '/api/aftersales/tickets',
             method: 'GET',
+            dataType: 'json',
             data: {
                 steps: ticketState.steps.length ? ticketState.steps : undefined, // jadi steps[]=..
                 page: ticketState.page,
@@ -633,7 +643,7 @@
             text('#tdProvinceRegion', [t.customer?.province?.name, t.customer?.region?.name].filter(Boolean).join(' · '));
             const warrantyActive = t.customer_product?.warranty_active;
             text('#tdWarranty', warrantyActive === null || warrantyActive === undefined ? '' : (warrantyActive ? 'Active' : 'Expired'));
-            text('#tdTechnician', AsTechnician.listText(t));
+            text('#tdTechnician', ticketTechnicianNames(t));
             text('#tdSupervisor', t.supervisor?.name); // TODO: supervisor belum di-load oleh API index
             text('#tdCategory', CATEGORY_LABEL[t.category] || t.category);
             text('#tdVisit', t.visit_date ? formatDate(t.visit_date) : '');
@@ -671,7 +681,7 @@
             text('#woCustomer', t.customer?.name);
             text('#woMachine', t.customer_product?.product?.name);
             text('#woProblem', CATEGORY_LABEL[t.category] || t.category);
-            text('#woTechnician', AsTechnician.listText(t));
+            text('#woTechnician', ticketTechnicianNames(t));
             text('#woVisit', t.visit_date ? formatDate(t.visit_date) : '');
             text('#woSla', slaLabel(t, slaUnit));
             $('#woExportPdf').attr('href', '/aftersales/tickets/' + t.id + '/work-order-pdf');

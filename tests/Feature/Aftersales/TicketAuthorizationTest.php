@@ -5,12 +5,29 @@ namespace Tests\Feature\Aftersales;
 use App\Models\Aftersales\Ticket;
 use App\Models\User;
 use App\Services\Aftersales\TicketDocuments;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Mockery;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class TicketAuthorizationTest extends TestCase
 {
+    public function test_ticket_page_renders_when_public_assets_are_missing(): void
+    {
+        $user = $this->userWithPermissions(56, ['aftersales.tickets.view-all']);
+        $user->setRelation('role', null);
+        $permissions = Mockery::mock(BelongsToMany::class);
+        $permissions->shouldReceive('where')->with('code', Mockery::type('string'))->andReturnSelf();
+        $permissions->shouldReceive('exists')->andReturnFalse();
+        $user->shouldReceive('permissions')->andReturn($permissions);
+
+        $this->withoutVite();
+        $this->app->usePublicPath(base_path('tests'));
+        $this->actingAs($user)->get('/aftersales/tickets')
+            ->assertOk()
+            ->assertSee('All Ticket');
+    }
+
     public function test_ticket_deep_link_uses_existing_ticket_page_and_passes_initial_ticket_id(): void
     {
         $ticket = (new Ticket)->setRawAttributes(['id' => '3', 'assigned_technician_id' => '56']);

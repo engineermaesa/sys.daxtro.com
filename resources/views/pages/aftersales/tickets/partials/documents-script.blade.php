@@ -5,8 +5,8 @@
     .sf-combo input[list]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; top: 0; width: 40px; height: 100%; cursor: pointer; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="{{ asset('assets/css/service-diagnosis.css') }}?v={{ filemtime(public_path('assets/css/service-diagnosis.css')) }}">
-<script src="{{ asset('assets/js/service-diagnosis.js') }}?v={{ filemtime(public_path('assets/js/service-diagnosis.js')) }}"></script>
+<link rel="stylesheet" href="{{ asset('assets/css/service-diagnosis.css') }}?v={{ $assets_version }}">
+<script src="{{ asset('assets/js/service-diagnosis.js') }}?v={{ $assets_version }}"></script>
 <script>
 (function () {
     const API = '/api/aftersales';
@@ -1900,7 +1900,7 @@
         $('#ssTicket').text(t.ticket_code || '-');
         $('#ssCustomer').text((t.customer || {}).name || '-');
         $('#ssMachine').text((t.customer_product || {}).machine_name || ((t.customer_product || {}).product || {}).name || '-');
-        $('#ssTechnician').text(AsTechnician.listText(t) || '-');
+        $('#ssTechnician').text(ticketTechnicianNames(t) || '-');
         $('#ssName').val((S.docs && S.docs.supervisor && S.docs.supervisor.name) || '');
         $('#ssError').addClass('hidden');
         $('#ssCompleteness').text('Loading...');
