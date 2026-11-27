@@ -28,3 +28,30 @@ test('ticket rows render when the technician script is unavailable', () => {
     assert.match(html, /&lt;Alex&gt;, Budi/);
     assert.match(html, /data-label="Technician">Dewi<\/td>/);
 });
+
+test('Ready to Close fills technician names when the technician script is unavailable', () => {
+    const readyToClose = fs.readFileSync('resources/views/pages/aftersales/tickets/ready-to-close.blade.php', 'utf8');
+    const renderRows = readyToClose.slice(readyToClose.indexOf('    function renderRows('), readyToClose.indexOf('    // Alert Happy Call overdue'));
+    const names = [];
+    const field = {
+        attr() { return this; },
+        css() { return this; },
+        prop() { return this; },
+        text(value) { names.push(value); },
+    };
+    const context = vm.createContext({
+        window: {},
+        TICKET_PAGE: '/aftersales/tickets/',
+        $: () => ({ empty: () => ({ append() {} }) }),
+        clone() {},
+        fill: () => ({ find: () => field }),
+    });
+
+    vm.runInContext(renderRows + `\nrenderRows([
+        { id: 1, technicians: [{ name: '<Alex>' }, { name: 'Budi' }] },
+        { id: 2, technicians: [], technician: { name: 'Dewi' } },
+        { id: 3 },
+    ]);`, context);
+
+    assert.deepEqual(names, ['<Alex>, Budi', 'Dewi', '-']);
+});

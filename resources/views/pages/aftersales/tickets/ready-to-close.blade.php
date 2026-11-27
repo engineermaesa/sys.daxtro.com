@@ -82,7 +82,7 @@
 @endsection
 
 @section('scripts')
-<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ filemtime(public_path('assets/js/aftersales/technician-cell.js')) }}"></script>
+<script src="{{ asset('assets/js/aftersales/technician-cell.js') }}?v={{ env('ASSETS_VERSION', '1.0.0') }}"></script>
 <script>
     const rtc = { page: 1, perPage: 10, search: '', lastPage: 1 };
     const API_TICKETS = '/api/aftersales/tickets';
@@ -117,7 +117,15 @@
                 hcStatus: done ? 'Done' : ({ waiting_survey: 'Waiting survey', needs_review: 'Needs review', overdue: 'Overdue' }[hc.status] || 'Not done'),
                 hcDue: done ? fmtDate(hc.done_at) : (hc.due_at ? 'Due ' + fmtDate(hc.due_at) + ' (H+3)' : ''),
             });
-            $row.find('[data-ref="technician"]').html(AsTechnician.cellHtml(row));
+            const $technician = $row.find('[data-ref="technician"]');
+            if (window.AsTechnician) {
+                $technician.html(window.AsTechnician.cellHtml(row));
+            } else {
+                const roster = row.technicians?.length ? row.technicians : [row.technician];
+                const names = roster.map(technician => typeof technician === 'string' ? technician : technician?.name)
+                    .filter(Boolean).join(', ');
+                $technician.text(names || '-');
+            }
             $row.find('[data-ref="hcStatus"]').css('color', done ? '#115640' : (hc.overdue ? '#900B09' : '#3B4FA6'));
             $row.find('[data-ref="open"]').attr('href', TICKET_PAGE + row.id + '?from=ready-to-close');
             // AC-CLS-01: Close nonaktif sampai Happy Call selesai

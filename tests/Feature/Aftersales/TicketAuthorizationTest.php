@@ -7,25 +7,38 @@ use App\Models\User;
 use App\Services\Aftersales\TicketDocuments;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Mockery;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class TicketAuthorizationTest extends TestCase
 {
-    public function test_ticket_page_renders_when_public_assets_are_missing(): void
+    public static function ticketPages(): array
     {
-        $user = $this->userWithPermissions(56, ['aftersales.tickets.view-all']);
+        return [
+            'All Tickets' => ['/aftersales/tickets', 'aftersales.tickets.view-all', 'All Ticket'],
+            'Ready to Close' => ['/aftersales/ready-to-close', 'aftersales.tickets.close', 'Ready to Close'],
+        ];
+    }
+
+    #[DataProvider('ticketPages')]
+    public function test_ticket_page_renders_when_public_assets_are_missing(string $path, string $permission, string $heading): void
+    {
+        $user = $this->userWithPermissions(56, [$permission]);
         $user->setRelation('role', null);
         $permissions = Mockery::mock(BelongsToMany::class);
+        $allowedPermission = Mockery::mock(BelongsToMany::class);
+        $allowedPermission->shouldReceive('exists')->andReturnTrue();
+        $permissions->shouldReceive('where')->with('code', $permission)->andReturn($allowedPermission);
         $permissions->shouldReceive('where')->with('code', Mockery::type('string'))->andReturnSelf();
         $permissions->shouldReceive('exists')->andReturnFalse();
         $user->shouldReceive('permissions')->andReturn($permissions);
 
         $this->withoutVite();
         $this->app->usePublicPath(base_path('tests'));
-        $this->actingAs($user)->get('/aftersales/tickets')
+        $this->actingAs($user)->get($path)
             ->assertOk()
-            ->assertSee('All Ticket');
+            ->assertSee($heading);
     }
 
     public function test_ticket_deep_link_uses_existing_ticket_page_and_passes_initial_ticket_id(): void
